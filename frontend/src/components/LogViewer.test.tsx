@@ -3,6 +3,16 @@ import {describe, expect, it, vi} from 'vitest';
 import {LogViewer} from './LogViewer';
 
 describe('server log search', () => {
+  it('offers the complete archive instead of copying a visible excerpt in CCE mode', () => {
+    const {rerender} = render(<LogViewer stream="stdout" onStreamChange={() => {}} error={null} log={null}
+      archive={{available:true,url:'/api/runs/SYN/logs/archive?key=abc'}} />);
+    expect(screen.queryByRole('button',{name:'Copy visible log excerpt'})).toBeNull();
+    expect(screen.getByRole('link',{name:'Download logs'}).getAttribute('href')).toBe('/api/runs/SYN/logs/archive?key=abc');
+    rerender(<LogViewer stream="stdout" onStreamChange={() => {}} error={null} log={null}
+      archive={{available:false,reason:'日志包尚未就绪'}} />);
+    expect(screen.getByRole('button',{name:'Download logs'}).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByText('日志包尚未就绪')).toBeTruthy();
+  });
   it('requests content search and labels tail-only versus incomplete results', async () => {
     const search = vi.fn();
     const {rerender} = render(<LogViewer stream="stdout" onStreamChange={() => {}} error={null}

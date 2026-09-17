@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import case
@@ -19,6 +20,7 @@ from app.wgs_onprem_launch_service import NativeLaunchClaim, claim_native_launch
 from app.wgs_onprem_monitor_service import NativeObservationRequest, observe_native_execution
 from app.wgs_onprem_monitor_attach import attach_native_monitor
 from app.wgs_onprem_views import native_view
+from app.log_archive_service import log_archive_index, open_log_archive
 from app.dashboard_service import get_dashboard_overview, get_dashboard_runs
 from app.db import check_database, get_sessionmaker
 from app.diagnostics_service import (
@@ -3354,6 +3356,8 @@ def run_log_index(analysis_id: str) -> dict[str, object]:
             )
             handler = adapter.list_logs if adapter is not None and adapter.list_logs is not None else list_run_logs
             payload = handler(session=session, analysis_id=analysis_id, settings=get_settings())
+            if payload is not None and run is not None and adapter is not None and adapter.log_archive_root:
+                payload['archive'] = log_archive_index(run, get_settings(), adapter.log_archive_root)
     except InvalidRunPathError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -3367,6 +3371,28 @@ def run_log_index(analysis_id: str) -> dict[str, object]:
             detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
         )
     return payload
+
+
+@app.get("/api/runs/{analysis_id}/logs/archive")
+def download_run_log_archive(analysis_id: str, key: str = Query(pattern='^[a-f0-9]{32}$')):
+    try:
+        with get_sessionmaker()() as session:
+            run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+            if run is None:
+                raise ValueError('Run unavailable')
+            adapter = require_pipeline(get_settings(), run.pipeline_name).adapter
+            stream = open_log_archive(run, get_settings(), adapter.log_archive_root, key)
+            filename = f'{run.analysis_id}-a{run.attempt}-logs.tar.gz'
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
+    except ValueError as exc:
+        raise HTTPException(404, detail={'code':'LOG_ARCHIVE_UNAVAILABLE', 'message':'日志包不可用，请刷新后重试。'}) from exc
+    def chunks():
+        with stream:
+            yield from iter(lambda: stream.read(1024*1024), b'')
+    return StreamingResponse(chunks(), media_type='application/gzip', headers={
+        'Content-Disposition': f'attachment; filename="{filename}"',
+        'Cache-Control':'private, no-store', 'X-Content-Type-Options':'nosniff'})
 
 
 @app.get("/api/runs/{analysis_id}/artifacts")

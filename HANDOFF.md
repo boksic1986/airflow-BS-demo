@@ -1,5 +1,42 @@
 # HANDOFF.md
 
+## 2026-09-17 CCE download / native labels candidate
+
+Approved scope: existing Step5 archive download replacing Copy for CCE WGS/GATK;
+native labels node96/node97/SGE and WGS_Clinical. No pipeline/core/DAG/DB change,
+no export submission, no restart of stopped node97 execution, no main/BS96 release.
+Files: log_archive_service, adapter registration, logs API, native projection;
+shared LogViewer/RunTracker, native detail, API client, target-label helper,
+targeted tests and API/frontend/state docs. Native Copy remains unchanged.
+BS10610 cached pytest test_log_archive/test_wgs_onprem_views:19 passed;
+Vitest LogViewer/RunTracker/NativeExecutionPanel:14 passed; TypeScript/Vite passed
+(index-D6sRdr3N.js). Corrupt/truncated archives and FIFO checksum sidecars reject
+without blocking; authenticated attachment bytes checked with synthetic package.
+Deployment receipt follows after verification. No real export jobs used as tests.
+Preflight accidentally requested nonexistent airflow-demo-backend-1 (exit1);
+docker ps confirmed actual airflow-wgs-backend-1 and expected IDs; no mutation.
+Rollback is prior backend/frontend composition only; no data deletion.
+
+## 2026-09-17 User-authorized stop of node97 Local test
+
+User explicitly requested killing the node97 WGS test without waiting for completion.
+Exact target: WGS_20260917_054806_DA475D, execution wse_eb0488ed431dac706daa553d,
+project /sg2/33.chenjiucheng/wgs_test/WGS_Clinical/WGS_20260910A_T7Hg38V4.2.1.
+Read-only preflight confirmed server97, chenjc UID6708, controller2581480
+startticks4346012883; native Snakemake2581488 and three descendant mapping groups.
+Authorize signals only to that verified execution tree; retain controller long
+enough to publish its direct-child exit receipt. Interactive shell2558418 excluded.
+No file deletion, pending edits, new analysis, GATK/CCE or production operation.
+Result: Snakemake stopped briefly to prevent new dispatch; SIGTERM sent to verified
+descendants, controller excluded. After8seconds, remaining Snakemake2581488 needed
+SIGKILL. No active target descendant or session member remained; shell2558418
+preserved. Controller-exit.json recorded confirmed direct-child rc=-15 at
+2026-09-17T08:46:53.004891Z. No data deleted or state fabricated in database.
+First SSH attempt failed during jump-host handshake (exit255), before script
+execution; same verified command then connected successfully. No workflow retry.
+Killed processes cannot be restored; no automatic rerun authorized. Normal
+monitor may report signal termination as failed/canceled; UI state not force-edited.
+
 ## 2026-09-17 Native common view and Snakemake log
 
 Publication: d76edd3, releases/20260917-native-ui-d76edd3-r2;

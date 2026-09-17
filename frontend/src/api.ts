@@ -703,6 +703,8 @@ export type RunLogIndexItem = {
   status?: string | null;
 };
 
+export type RunLogArchive = {available: boolean; key?: string; filename?: string; size_bytes?: number; reason?: string; url?: string};
+
 export type QcHighlight = {
   key: string;
   value: number | string | null;
@@ -954,7 +956,7 @@ export type DashboardAttentionItem = {
 };
 
 export type DashboardRunTrackerRow = {
-  native_monitor_only?: boolean; execution_mode?: string;
+  native_monitor_only?: boolean; execution_mode?: string; execution_target?: string;
   sample_scope_status?: "legacy" | "preparing" | "ready";
   analysis_id: string;
   project_name: string;
@@ -1743,8 +1745,12 @@ export function getRunLog(analysisId: string, stream: LogStream, key?: string, q
   return requestJson<RunLog>(`/runs/${encodeURIComponent(analysisId)}/logs?${params.toString()}`);
 }
 
-export function getRunLogIndex(analysisId: string): Promise<{items: RunLogIndexItem[]}> {
-  return requestJson<{items: RunLogIndexItem[]}>(`/runs/${encodeURIComponent(analysisId)}/logs/index`);
+export async function getRunLogIndex(analysisId: string): Promise<{items: RunLogIndexItem[]; archive?: RunLogArchive}> {
+  const result = await requestJson<{items: RunLogIndexItem[]; archive?: RunLogArchive}>(`/runs/${encodeURIComponent(analysisId)}/logs/index`);
+  if (result.archive?.available && result.archive.key) {
+    result.archive.url = `${getApiBaseUrl()}/runs/${encodeURIComponent(analysisId)}/logs/archive?key=${encodeURIComponent(result.archive.key)}`;
+  }
+  return result;
 }
 
 export function syncAirflow(analysisId: string): Promise<RunDetail> {

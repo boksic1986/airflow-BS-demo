@@ -216,7 +216,9 @@ def test_native_dashboard_and_sample_resource_project_scope_without_sample_rows(
         assert row['batch_no'] == '20260910A'
         assert row['sample_count'] == 1
         assert row['execution_mode'] == 'local'
-        assert row['current_stage_label'] == 'Local analysis'
+        assert row['current_stage_label'] == 'node96 analysis'
+        assert row['execution_target'] == 'node-96'
+        assert row['project_name'] == 'WGS_Clinical'
         assert row['stage_progress']['percent'] == 12.5
         assert row['not_in_airflow'] is False
         result = list_samples_resource(session=session, pipeline='wgs', status=None,
@@ -245,4 +247,4 @@ def test_native_tracker_resume_does_not_inherit_previous_execution(context, tmp_
         assert row['status'] == 'created'
         assert row['started_at'] is None and row['ended_at'] is None
         assert row['elapsed_seconds'] is None
-        assert row['current_stage_label'] == 'Awaiting Local start'
+        assert row['current_stage_label'] == 'Awaiting node96 start'

@@ -6,6 +6,7 @@ import {useSilentRefresh} from '../../lib/useSilentRefresh';
 import {formatDate} from '../../lib/format';
 import {RunProgressBar} from '../../components/RunProgressBar';
 import {RunWorkflowTab} from './RunWorkflowTab';
+import {executionTargetLabel} from '../../lib/executionTarget';
 
 const tabs = ['Samples', 'Rules', 'Logs', 'QC'] as const;
 const metrics = {clean_q30_percent: 'Clean Q30 (%)', mapped_reads_percent: 'Mapped (%)', average_depth: 'Average depth', coverage_20x_percent: '≥20X (%)', contamination: 'Contamination'};
@@ -31,7 +32,7 @@ export function NativeExecutionPanel({detail}: {detail: RunDetail}) {
   const selected = view?.selected;
   const total = tab === 'Samples' ? view?.sample_total || 0 : view?.rule_total || 0;
   const batch = String(detail.params?.batch_no || detail.analysis_id);
-  const mode = view?.configuration?.execution_mode === 'sge' ? 'SGE' : 'Local';
+  const mode = executionTargetLabel(view?.configuration?.execution_mode, view?.configuration?.execution_target || detail.params?.execution_target);
   return <div className="page-stack run-detail-page native-run-page">
     <section className="run-summary-header"><div><p className="eyebrow">WGS · {mode}</p><h1>{batch}</h1><p className="muted">{detail.analysis_id}</p></div>
       <StatusBadge status={selected?.status || detail.status} size="lg" /></section>

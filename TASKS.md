@@ -1,5 +1,17 @@
 # TASKS.md
 
+## LOG-DOWNLOAD-NATIVE-LABELS-20260917
+
+- [x] Replace CCE Copy with existing Step5 package download; no export jobs.
+- [x] Shared authenticated streaming API with current-attempt binding and validation.
+- [x] Show WGS_Clinical and registered node96/node97/SGE labels.
+- [ ] Finish focused regression and publish only BS10610; preserve running compute.
+
+## NODE97-NATIVE-STOP-20260917
+
+- [x] On explicit user request, verify and terminate only20260910A native tree.
+- [x] Verify no active descendants, preserve terminal/data, confirm controller rc=-15.
+
 ## NATIVE-COMMON-VIEW-20260917
 
 - [x] Remove technical-history UI; retain stored execution history.

@@ -25,7 +25,8 @@ def native_progress(run, stage):
     if monitor.get('execution_id') != (run.params_json or {}).get('current_native_execution_id'):
         monitor = {}
     progress = monitor.get('progress') or {}
-    mode = 'SGE' if run.execution_mode == 'sge' else 'Local'
+    target = (run.params_json or {}).get('execution_target')
+    mode = 'SGE' if run.execution_mode == 'sge' else {'node-96':'node96', 'node-97':'node97'}.get(target, 'Local')
     status = stage.status if stage and stage.status in {'running', 'success', 'failed', 'canceled'} else 'created'
     return dict(stage_label=f'{mode} analysis' if stage and stage.started_at else f'Awaiting {mode} start',
         stage_code='native_analysis', stage_status=status, not_in_airflow=False,
@@ -45,7 +46,8 @@ def native_tracker_row(session, run):
     ended = stage.ended_at if stage else None
     utc = lambda value: value.replace(tzinfo=timezone.utc) if value and value.tzinfo is None else value
     elapsed = max(0, int(((utc(ended) or datetime.now(timezone.utc)) - utc(started)).total_seconds())) if started else None
-    return dict(analysis_id=run.analysis_id, project_name='WGS', batch_no=native_batch(run.params_json),
+    return dict(analysis_id=run.analysis_id, project_name='WGS_Clinical', batch_no=native_batch(run.params_json),
+        execution_target=(run.params_json or {}).get('execution_target'),
         pipeline='wgs', status=p['stage_status'], display_status=p['stage_status'], execution_mode=run.execution_mode,
         native_monitor_only=True, sample_count=len(current_scope(session, run)), sample_scope_status='ready',
         submitted_by=run.submitted_by, run_source='manual', started_at=started, submitted_at=run.submitted_at,

@@ -20,6 +20,12 @@ const row: DashboardRunTrackerRow = {
   not_in_airflow: false,
 };
 
+it.each([['local','node-96','node96'],['local','node-97','node97'],['sge','sge-default','SGE']])('shows %s execution target %s', (mode,target,label) => {
+  render(<MemoryRouter><RunTracker rows={[{...row,native_monitor_only:true,execution_mode:mode,execution_target:target}]} total={1} limit={10} offset={0} filter="all" keyword="" onFilterChange={()=>undefined} onKeywordChange={()=>undefined} onPageChange={()=>undefined} onSubmit={()=>undefined}/></MemoryRouter>);
+  expect(screen.getByText(label)).toBeInTheDocument();
+  expect(screen.queryByText('Local')).toBeNull();
+});
+
 it("offers cancelled history and does not show pending progress for a cancelled run", () => {
   render(<MemoryRouter><RunTracker rows={[{...row,status:'cancelled',sample_scope_status:'preparing'}]} total={1} limit={10} offset={0} filter="all" keyword="" onFilterChange={()=>undefined} onKeywordChange={()=>undefined} onPageChange={()=>undefined} onSubmit={()=>undefined}/></MemoryRouter>);
   expect(screen.getByRole('button',{name:'已取消记录'})).toBeInTheDocument();

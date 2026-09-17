@@ -1,6 +1,7 @@
 import {Play, RefreshCw, RotateCcw, Square} from "lucide-react";
 import {useCallback, useEffect, useRef, useState, type ReactNode} from "react";
 import {useParams} from "react-router-dom";
+import type {RunLogArchive} from "../api";
 
 import type {Artifact, DeployedPipeline, LogStream, RuleEvent, RunDetail, RunLog, RunLogIndexItem, RunProgressResponse, Sample, WgsExecutionChoiceRequest, WgsManifestSummary, WgsPod, WgsSampleManifestRow, WgsTransfer, WgsValidationIssue} from "../api";
 
@@ -74,6 +75,7 @@ export function RunDetailPage() {
   const [log, setLog] = useState<RunLog | null>(null);
   const [logStream, setLogStream] = useState<LogStream>("metadata");
   const [logSources, setLogSources] = useState<RunLogIndexItem[]>([]);
+  const [logArchive, setLogArchive] = useState<{identity: string; value: RunLogArchive} | null>(null);
   const [logKey, setLogKey] = useState<string | null>(null);
   const [logQuery, setLogQuery] = useState("");
   const [logMatchIndex, setLogMatchIndex] = useState(0);
@@ -220,6 +222,7 @@ export function RunDetailPage() {
           const result = await getRunLogIndex(analysisId);
           if (isCurrent()) {
             setLogSources(result.items);
+            setLogArchive(result.archive ? {identity: `${analysisId}:${currentAttempt}`, value:result.archive} : null);
             const preferred = preferredLogSource(result.items, freshDetail.status, bundle.progress?.current_step) || result.items[0];
             if (preferred && !logKey) {
               setLogKey(preferred.key);
@@ -360,7 +363,7 @@ export function RunDetailPage() {
           {activeTab === "Master" ? <WgsMasterTab pods={bundle.pods} /> : null}
           {activeTab === "Transfers" ? <WgsTransfersTab detail={detail} transfers={bundle.transfers} refreshKey={bundle.snapshotAt} /> : null}
           {activeTab === "QC" ? <WgsQcTab samples={bundle.samples} /> : null}
-          {activeTab === "Logs" ? <>{logIndexError ? <div className="inline-error" role="alert">Log index unavailable: {logIndexError}</div> : null}<LogViewer key={`${analysisId}:${logKey}:${detail?.attempt}`} stream={logStream} onStreamChange={setLogStream} log={log} error={logError || tabError} sources={logSources} activeKey={logKey} onKeyChange={handleLogKeyChange} onSearch={logKey ? searchLog : undefined} /></> : null}
+          {activeTab === "Logs" ? <>{logIndexError ? <div className="inline-error" role="alert">Log index unavailable: {logIndexError}</div> : null}<LogViewer key={`${analysisId}:${logKey}:${detail?.attempt}`} stream={logStream} onStreamChange={setLogStream} log={log} error={logError || tabError} sources={logSources} activeKey={logKey} onKeyChange={handleLogKeyChange} onSearch={logKey ? searchLog : undefined} archive={logArchive?.identity === `${analysisId}:${detail?.attempt}` ? logArchive.value : {available:false,reason:'日志包状态尚未加载。'}} /></> : null}
           {activeTab === "Files" ? <RunFilesTab artifacts={bundle.artifacts} /> : null}
         </section>
       </> : null}

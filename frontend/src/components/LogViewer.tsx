@@ -1,7 +1,7 @@
-import {Copy, Search} from "lucide-react";
+import {Copy, Download, Search} from "lucide-react";
 import {type ReactNode, useEffect, useMemo, useRef, useState} from "react";
 
-import type {LogStream, RunLog, RunLogIndexItem} from "../api";
+import type {LogStream, RunLog, RunLogIndexItem, RunLogArchive} from "../api";
 
 const streams: LogStream[] = ["metadata", "stdout", "stderr"];
 
@@ -14,6 +14,7 @@ export function LogViewer({
   activeKey,
   onKeyChange,
   onSearch,
+  archive,
 }: {
   stream: LogStream;
   onStreamChange: (stream: LogStream) => void;
@@ -23,6 +24,7 @@ export function LogViewer({
   activeKey?: string | null;
   onKeyChange?: (key: string) => void;
   onSearch?: (query: string, matchIndex: number) => void;
+  archive?: RunLogArchive;
 }) {
   const [query, setQuery] = useState("");
   const [matchIndex, setMatchIndex] = useState(0);
@@ -62,11 +64,13 @@ export function LogViewer({
     <section className="panel">
       <div className="section-heading split">
         <h2>Logs</h2>
-        <button className="button ghost" type="button" onClick={() => void copyVisible()} aria-label="Copy visible log excerpt">
+        {archive ? (archive.available && archive.url ? <a className="button ghost" href={archive.url} download><Download size={15} /> Download logs</a>
+          : <button className="button ghost" type="button" disabled><Download size={15} /> Download logs</button>) : <button className="button ghost" type="button" onClick={() => void copyVisible()} aria-label="Copy visible log excerpt">
           <Copy size={15} />
           Copy
-        </button>
+        </button>}
       </div>
+      {archive && !archive.available ? <p className="muted">{archive.reason || '日志包尚未就绪。'}</p> : null}
       {sources.length && onKeyChange ? (
         <label className="field log-source-select">
           <span>Log source</span>

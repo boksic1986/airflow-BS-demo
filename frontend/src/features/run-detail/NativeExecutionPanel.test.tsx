@@ -6,7 +6,7 @@ import {getNativeRunView} from '../../api';
 
 vi.mock('../../api', () => ({getNativeRunView: vi.fn()}));
 afterEach(() => {cleanup(); vi.clearAllMocks();});
-const detail = {analysis_id: 'SYN_RUN', pipeline: 'wgs', status: 'running', submitted_by: 'operator', params: {native_monitor_only: true}};
+const detail = {analysis_id: 'SYN_RUN', pipeline: 'wgs', status: 'running', submitted_by: 'operator', params: {native_monitor_only: true, execution_target: 'node-97'}};
 const executions = [
   {execution_id: 'E2', generation: 2, attempt: 1, status: 'running', registered_by: 'operator', sample_count: 1},
   {execution_id: 'E1', generation: 1, attempt: 1, status: 'success', registered_by: 'operator', sample_count: 1},
@@ -38,6 +38,7 @@ it('reuses phase summaries without CCE orchestration modules', async () => {
   ]} as never);
   render(<NativeExecutionPanel detail={detail} />);
   await screen.findByText('RENAMED');
+  expect(screen.getByText('WGS · node97')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('tab', {name:'Rules'}));
   expect(await screen.findByText('Pipeline phases')).toBeInTheDocument();
   expect(screen.getByRole('table', {name:'Pipeline phase summary'})).toBeInTheDocument();

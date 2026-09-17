@@ -41,6 +41,7 @@ from app.diagnostics_service import (
 )
 from app.gatk_submission_service import confirm_gatk_submission
 from app.gatk_airflow_sync import sync_gatk_airflow_status
+from app.log_archive_service import wgs_log_archive_root, gatk_log_archive_root
 from app.gatk_step7_service import project_gatk_lifecycle, project_gatk_lifecycles
 from app.gatk_stage_contract import gatk_stage_definition, project_gatk_orchestration
 from app.workflow_phases import gatk_phase_for_rule
@@ -504,6 +505,7 @@ ADAPTERS = {
         airflow_sync_states=("submitted", "queued", "running"),
         get_log=get_wgs_run_log,
         list_logs=list_wgs_run_logs,
+        log_archive_root=wgs_log_archive_root,
         list_artifacts=list_wgs_run_artifacts,
         intake_status=_wgs_intake_status,
         scanner_state=_wgs_scanner_state,
@@ -525,6 +527,7 @@ ADAPTERS = {
         project_sample_summary=_project_gatk_sample_summary,
         get_log=get_gatk_run_log,
         list_logs=list_gatk_run_logs,
+        log_archive_root=gatk_log_archive_root,
         list_artifacts=list_gatk_run_artifacts,
     ),
 }

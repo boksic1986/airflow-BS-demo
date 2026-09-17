@@ -1,5 +1,18 @@
 # Frontend specification
 
+## CCE log download and native labels (2026-09-17 test branch)
+
+WGS/GATK CCE Logs replace Copy with Download logs using the existing shared
+button style. Download the complete existing Step5 log package, not the visible
+excerpt. Until a verified package exists, disable the button and explain that
+Master must finish and Step5 must download the logs. Normal browser session
+authentication applies; the button never starts an export job. Native Copy is
+unchanged. Archive readiness is scoped to current analysis ID and attempt.
+
+Native Run Tracker project name is WGS_Clinical. Badge/header/stage labels use
+the registered node96/node97 target or SGE, without changing execution modes.
+Historical records without a known target retain the Local fallback.
+
 ## Native run presentation parity (2026-09-17 test branch)
 
 Native run details show summary, measured-progress cards and data tabs. Execution
@@ -11,7 +24,7 @@ running,25/page with exact phase/sample/family filters. Phase totals cover all
 observed execution rules, independent of filters/paging, not unseen future rules.
 Logs uses the confirmed execution's Snakemake log, not mixed Step1 stdout/stderr.
 Native local timestamps remain labelled node-local, never silently converted to UTC.
-Dashboard shows short batch plus Local/SGE badge, configured count and actual start;
+Dashboard shows short batch plus node96/node97/SGE badge, configured count and actual start;
 it never offers CCE Submit for a registered native project. Samples shows native
 current configured scope with its mode, separate from pending ledger records.
 

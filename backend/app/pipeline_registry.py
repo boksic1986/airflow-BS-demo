@@ -74,6 +74,7 @@ class PipelineAdapter:
     airflow_sync_states: tuple[str, ...] = ()
     get_log: Callable[..., dict[str, Any] | None] | None = None
     list_logs: Callable[..., dict[str, list[dict[str, Any]]] | None] | None = None
+    log_archive_root: Callable[..., tuple] | None = None
     list_artifacts: Callable[..., dict[str, list[dict[str, Any]]] | None] | None = None
     intake_status: Callable[..., dict[str, Any]] | None = None
     scanner_state: Callable[..., dict[str, Any]] | None = None

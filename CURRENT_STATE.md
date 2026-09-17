@@ -1,5 +1,23 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 CCE log download and native target labels (candidate)
+
+Implemented read-only existing Step5 archive download for WGS/GATK CCE, with
+session auth, attempt/run binding, checksum/manifest/path checks and disabled
+unavailable state. Native project display is WGS_Clinical; registered targets
+render node96/node97/SGE. No workflow, database, logger or DAG changes.
+BS10610 cached regression: 19 backend / 14 frontend tests and build passed,
+including authenticated download, wrong-attempt key and corrupt package rejection.
+Deployment and final verification pending; no main or production promotion.
+
+## 2026-09-17 Node97 Local test stopped on user request
+
+Stopped only native test WGS_20260917_054806_DA475D (20260910A).
+Verified no non-zombie target descendants/session processes remain; interactive
+shell preserved. Controller wrote confirmed exit receipt at08:46:53Z, rc=-15.
+SIGTERM followed by SIGKILL for remaining Snakemake2581488. No files deleted,
+no pending/DB edits, no GATK/CCE or production changes; no rerun authorized.
+
 ## 2026-09-17 Native common phases and Snakemake log
 
 Published d76edd3 on BS10610: backend2f3fcfff2c9f/frontend038f41a1e291,

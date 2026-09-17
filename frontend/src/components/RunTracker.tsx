@@ -1,4 +1,5 @@
 import {useEffect, useState} from "react";
+import {executionTargetLabel} from "../lib/executionTarget";
 
 import type {DashboardRunTrackerRow} from "../api";
 
@@ -167,7 +168,7 @@ function RunTrackerRow({
       <td className="tracker-project-cell">
         <OperationProjectCell analysisId={row.analysis_id} fallbackId={row.analysis_id} projectName={row.project_name} sampleCount={row.sample_count ?? 0} sampleScopeStatus={cancelled ? "cancelled" : row.sample_scope_status} source={row.run_source || "manual"} sourceBatchId={row.source_batch_id} submittedBy={row.operator_display_name || row.submitted_by} showOperatorPrefix={false} centerSource={false} />
       </td>
-      <td className="tracker-centered-cell tracker-batch-cell"><strong>{row.batch_no || row.source_batch_id || "-"}</strong>{row.native_monitor_only ? <span className="handoff-pill">{row.execution_mode === 'sge' ? 'SGE' : 'Local'}</span> : null}</td>
+      <td className="tracker-centered-cell tracker-batch-cell"><strong>{row.batch_no || row.source_batch_id || "-"}</strong>{row.native_monitor_only ? <span className="handoff-pill">{executionTargetLabel(row.execution_mode, row.execution_target)}</span> : null}</td>
       <td className="tracker-centered-cell">{compactPipelineName(row.pipeline)}</td>
       <td className="tracker-centered-cell">
         <div className="tracker-badges stacked">

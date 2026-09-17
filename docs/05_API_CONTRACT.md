@@ -1,5 +1,26 @@
 # API contract
 
+## Existing Step5 log package download (2026-09-17 test branch)
+
+`GET /api/runs/{analysis_id}/logs/index` adds `archive` for WGS/GATK adapters:
+`{available, key?, filename?, size_bytes?, reason?}`. No host path is exposed.
+The optional adapter resolver locates only the current attempt's bound CCE run.
+`GET /api/runs/{analysis_id}/logs/archive?key=<32-hex>` uses normal platform
+authentication and streams the existing package as an attachment (`application/gzip`,
+private/no-store). Unknown, changed or unavailable packages return 404
+`LOG_ARCHIVE_UNAVAILABLE`; unauthenticated requests return 401.
+
+Only Step5 `cce/logs/<bound-run-id>/cce-log-*.tar.gz` packages with matching
+checksum and manifest identity are served. Partial/unreadable/unsafe packages
+remain unavailable. The key fences run, attempt and package version; clients
+cannot specify filesystem paths. Validation is cached by file version.
+This read-only endpoint does not execute Step5, create reader Jobs, collect new
+logs or change run state. Native log reading is unchanged.
+
+Native tracker rows now carry `execution_target`; their display project is
+`WGS_Clinical`. Registered node-96/node-97 targets render node96/node97; SGE
+remains SGE. Stored execution modes and project bindings do not change.
+
 ## Native monitoring display parity (BS10610 test, 2026-09-17)
 
 native-view additionally returns progress (available, percent, completed_units,
