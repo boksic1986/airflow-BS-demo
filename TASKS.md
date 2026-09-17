@@ -10,7 +10,8 @@
 - [x] Authorized one-row registration rebind; retained all prior row IDs.
 - [x]0915B one operation/six selected history links imported; pending0, no duplicates.
 - [ ] Historical scanner still flags old-root receipts and incomplete0912C generations;
-  reader-code correction approved;19targeted tests passed, BS96 rollout pending.
+  reader fix cb1c3fe has19passing tests; rollout deferred by user. Accept pending0
+  as next handoff baseline; no additional historical backfill/repair now.
 
 ## BS96-SEQUENTIAL-PENDING-20260917
 

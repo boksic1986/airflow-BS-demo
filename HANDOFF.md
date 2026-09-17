@@ -1,5 +1,26 @@
 # HANDOFF.md
 
+## 2026-09-17 Stop rollout per user's scope reduction
+
+User: current pending is0; do not over-focus on history, subsequent handoff can
+continue. Stop deployment and historical repair now. Source fix committed as
+cb1c3fe on jiucheng/ops/wgs-auto-intake-20260917;19targeted BS10610 tests pass.
+No main/production merge/push, no current-service code change.
+
+BS96 staged only wgs_file_reference.py and deploy-ledger-reader-cb1c3fe.py under
+/data/airflow-WGS/candidates/ledger-reader-cb1c3fe. SCP aborted pre-auth(exit1);
+used existing ctapa PTY to transfer exact local bytes instead. Staging helper
+then failed PermissionError reading auto-intake-20260917-control/compose.json.
+It failed BEFORE creating the release/control directory, copying live source,
+writing Compose or restarting any service. Do not escalate access/retry now.
+No DB/pending/workflow modifications, no cleanup or rollback needed. The two
+inactive source/helper files are retained; no clinical data or secrets in them.
+
+Production warning therefore remains unresolved; this does not block the
+WGS-owned pending handoff. Do not claim that source health is repaired or hide
+the warning. Future source integration/rollout needs a new user instruction
+and fresh permissions/service preflight. Preserve all historical records.
+
 ## 2026-09-17 Ledger history-reader repair authorized and tested
 
 User explicitly approved the remaining reader correction and BS96 repair.

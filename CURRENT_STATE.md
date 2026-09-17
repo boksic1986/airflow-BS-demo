@@ -1,5 +1,15 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 User stopped further historical-ledger rollout
+
+User accepts current pending0 as the next handoff baseline and asked not to
+over-focus on old history. Reader fix cb1c3fe remains tested on the work branch,
+NOT deployed or merged/pushed. BS96 staging helper stopped before creating the
+release/control composition: ctapa cannot read auto-intake control/compose.json.
+No service restart, configuration/data change or historical backfill this turn.
+Existing historical sync warning remains; file handoff/analysis are independent.
+Two source/helper files remain in candidates/ledger-reader-cb1c3fe, not active.
+
 ## 2026-09-17 Ledger reader fix awaiting production activation
 
 User approved remaining history-reader correction. Self-consistent foreign-root
