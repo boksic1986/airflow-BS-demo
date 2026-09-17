@@ -1,5 +1,16 @@
 # API contract
 
+## WGS ebf1f4b Phase mapping (2026-09-18, source only)
+
+The exact release wgs-4.2.1-ebf1f4b now uses the audited fine-phase inventory:
+pre_process_cleanFastq is FASTQ QC, pre_process_mapping is Mapping, and
+pre_process_Dedup is Duplicate marking. Rules, phase filters, phase summaries
+and phase definitions share the existing projector. No frontend or event/status
+change is needed. This is rule-to-phase equivalence, not biological or QC
+equivalence: two changed source blobs are recorded in the policy metadata.
+Unknown releases/rules still return Unknown; no version-prefix fallback.
+See releases/2026-09-18-wgs-phase-ebf1f4b.md for the source audit and tests.
+
 ## File-ledger history discovery (2026-09-17)
 
 The shared runtime may retain receipts for multiple project roots. The file

@@ -5,7 +5,7 @@ from app.workflow_phases import phase_for_rule, pinned_phase_definitions
 from test_wgs_only_platform import make_client, login
 
 
-@pytest.mark.parametrize("release", ["wgs-4.2.1-cc9bde3", "wgs-4.2.1-34bfcbf"])
+@pytest.mark.parametrize("release", ["wgs-4.2.1-cc9bde3", "wgs-4.2.1-34bfcbf", "wgs-4.2.1-ebf1f4b"])
 def test_audited_release_rules_and_filters_share_exact_phases(tmp_path, monkeypatch, release):
     client, sessions, _ = make_client(tmp_path, monkeypatch)
     with sessions() as session:
@@ -21,13 +21,15 @@ def test_audited_release_rules_and_filters_share_exact_phases(tmp_path, monkeypa
     assert {r["rule"]: r["phase"] for r in page["items"]} == {
         "pre_process_cleanFastq": "FASTQ QC", "pre_process_mapping": "Mapping",
         "pre_process_Dedup": "Duplicate marking", "pre_process_not_a_real_rule": "Unknown"}
+    assert {row["phase"]: row["total"] for row in page["phase_summaries"]} == {
+        "FASTQ QC": 1, "Mapping": 1, "Duplicate marking": 1, "Unknown": 1}
     filtered = client.get("/api/runs/PHASE-RELEASE/rules?phase=Mapping", headers=headers).json()
     assert filtered["total"] == 1
     assert filtered["items"][0]["rule"] == "pre_process_mapping"
     assert "Mapping" in {p["label"] for p in pinned_phase_definitions("wgs", release)}
 
 
-@pytest.mark.parametrize("release", ["wgs-4.2.0-31de5fb", "wgs-4.2.1-not-audited", "unavailable"])
+@pytest.mark.parametrize("release", ["wgs-4.2.0-31de5fb", "wgs-4.2.1-not-audited", "wgs-4.2.1-ebf1f4b-unreviewed", "unavailable"])
 def test_unregistered_release_has_no_latest_mapping_fallback(release):
     assert phase_for_rule("pre_process_mapping", pipeline_name="wgs", release_id=release) == "Unknown"
     assert [p["label"] for p in pinned_phase_definitions("wgs", release)] == ["Unknown"]

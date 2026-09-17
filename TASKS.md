@@ -1,5 +1,13 @@
 # TASKS.md
 
+## WGS-PHASE-EBF1F4B
+
+- [x] Audit actual release rule inventory; no prefix guessing or WGS edits.
+- [x] Reproduce exact-release Unknown via API; fix shared phase policy.
+- [x] BS10610 affected tests30passed; historical/unknown mappings retained.
+- [ ] Promote verified source to main and production, push both refs.
+- BS96 deployment excluded from this task; no running analysis interruption.
+
 ## LEDGER-READER-PROMOTION-20260917
 
 - [x] User authorized main/production synchronization and delayed BS96 release.

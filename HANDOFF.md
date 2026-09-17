@@ -1,5 +1,35 @@
 # HANDOFF.md
 
+## 2026-09-18 WGS Phase Unknown repair and source promotion
+
+User screenshot of0915B shows pre_process_cleanFastq with Unknown Phase;
+requested fix and main/production commits. Source-only, explicitly no live
+BS96 restart during current analysis. Working branch jiucheng/fix/wgs-phase-ebf1f4b
+forks clean main dfd0b7d in the existing isolated worktree (no user work removed).
+
+Root cause: exact ebf1f4b release absent from packaged Phase policy. Read-only
+Git audit on server10610 verifies12/14identical source blobs; reviewed ROH MIE
+config-key and SNV vep annotation-field deltas preserve7/36rule-name inventories.
+Record the2changed blob IDs and exact source commit; reuse existing phase map.
+Changes: phase JSON, explanatory workflow_phases comment, existing API regression
+test, API contract and release/state docs. No biological/QC/DB/frontend/DAG edits.
+
+BS10610 preflight backendc497d821b719 mounts native-ui-76915d8-r2, unchanged.
+Isolated candidate/cached8491604ee01d networknone/nonroot/read-only tests:
+RED test_wgs_phase_release_34bfcbf.py1failed/6passed (expectedUnknown);
+GREEN plus test_monitor_phases.py,test_monitor_rules.py30passed in5.97s,
+only existing Starlette/anyio deprecation warning. No real workflow/full suite.
+SCP through18 failed pre-auth reset; direct BS10610 transfer succeeded. Two
+exploratory rg/Get-Content filenames did not exist; actual projector identified
+through workflow_phases.py and consumer API tests, no guessed-file edits.
+
+Both remote branches fetched atdfd0b7d; source ready for fast-forward/atomic
+push. No production runtime validation claimed. Deferred0915B ledger heartbeat
+still authorizes only the prior ledger patch; do not silently expand its rollout.
+Future Phase publication must update consuming backend/observer with the tested
+catalog while preserving their other pins; no state backfill required because
+read APIs project Phase from exact release. Rollback code/policy only.
+
 ## 2026-09-17 Promote verified repair; defer BS96 until0915B completion
 
 Promotion result: atomic push advanced both remote main and
