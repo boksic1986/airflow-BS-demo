@@ -17,7 +17,7 @@ it("shows all available QC columns directly without thresholds and with failure 
   expect(within(table).getByRole("columnheader", {name: "Clean Q30"})).toBeInTheDocument();
   expect(within(table).getByRole("columnheader", {name: /Raw GC/})).toBeInTheDocument();
   expect(within(table).getByRole("columnheader", {name: "Sex consistency"})).toBeInTheDocument();
-  expect(within(table).queryByRole("columnheader", {name: /Average depth/})).toBeNull();
+  expect(within(table).getByRole("columnheader", {name: "Average depth"})).toBeInTheDocument();
   expect(within(table).getAllByRole("columnheader").at(-1)).toHaveTextContent("Reason");
   expect(container.querySelectorAll("details")).toHaveLength(0);
   expect(container.querySelectorAll("table")).toHaveLength(1);
@@ -46,6 +46,25 @@ it("does not apply one sample's threshold to another and keeps zero and warnings
 
 it("retains failed source QC when metric evidence cannot explain it", () => {
   render(<WgsQcTab samples={[{sample_id:"S0",qc_status:"fail",qc_judgments:{contamination:{value:null,status:"unknown"}}}]} />);
-  expect(screen.queryByRole("columnheader",{name:/Contamination/})).toBeNull();
+  expect(screen.getByRole("columnheader",{name:"Contamination"})).toBeInTheDocument();
   expect(screen.getByText(/来源汇总 QC 未通过.*缺少可展示的原因证据/)).toBeInTheDocument();
+});
+
+it("keeps measured columns and values when release judgments are unknown or absent", () => {
+  render(<WgsQcTab samples={[{
+    sample_id: "UNREVIEWED", qc_status: "warn",
+    qc_metrics: {average_depth: 31.5, snv_count: 0, raw_diagnostic_note: "not a QC column"},
+    qc_judgments: {
+      clean_q30_percent: {value: 98.4, unit: "%", status: "unknown", reason: "Release policy provenance unavailable"},
+      average_depth: {value: null, unit: "×", status: "unknown"},
+    },
+  }]} />);
+  expect(screen.getByRole("columnheader", {name: "Clean Q30"})).toBeInTheDocument();
+  expect(screen.getByRole("columnheader", {name: "Average depth"})).toBeInTheDocument();
+  expect(screen.getByRole("columnheader", {name: "SNV count"})).toBeInTheDocument();
+  expect(screen.getByText("98.4 %")).toHaveClass("qc-value-unknown");
+  expect(screen.getByText("31.5 ×")).toHaveClass("qc-value-unknown");
+  expect(screen.getByText("0")).toHaveClass("qc-value-unknown");
+  expect(screen.queryByText("not a QC column")).toBeNull();
+  expect(screen.queryByText("暂无可展示的质控判定指标")).toBeNull();
 });

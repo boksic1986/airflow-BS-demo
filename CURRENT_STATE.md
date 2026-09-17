@@ -1,5 +1,14 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 QC metric columns restored in candidate
+
+WgsQcTab no longer requires pass/fail/warn judgment to render a metric column
+or value. Unknown-release values remain visible with unknown status; missing
+cells are dashes and threshold text stays removed. BS10610 cached isolated
+Vitest4/4 and tsc/Vite build passed. Not deployed to either running panel;
+BS96 frontend publication requires current-task approval. GATK smoke remains
+paused by user instruction; no retry or workflow action was taken.
+
 ## 2026-09-17 GATK group logger published and activated
 
 GATK codeaeff617 on GitLab main; new independent SFS root7.6.0-logger924-20260917.

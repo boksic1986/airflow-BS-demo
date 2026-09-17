@@ -1,5 +1,15 @@
 # Frontend specification
 
+## QC metric visibility correction (2026-09-17; supersedes omission rules below)
+
+Removing threshold text must not remove QC columns or measured values. WgsQcTab
+uses all API judgment keys plus known metric keys from qc_metrics, independent
+of pass/fail/warn/unknown status. Empty cells remain dashes; zero is retained.
+Unreviewed-release values show unknown judgment, never inferred pass. Existing
+metric names, source QC status, final failure Reason and horizontal scrolling
+remain. No threshold text is reintroduced, raw diagnostic fields stay hidden,
+and no backend policy, API, database or analysis behavior changes.
+
 ## WGS existing sampleinfo input (2026-09-16 candidate)
 
 Submit Run -> WGS offers an existing-sampleinfo path mode. Enter a server-readable

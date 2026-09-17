@@ -1,5 +1,38 @@
 # HANDOFF.md
 
+## 2026-09-17 QC columns candidate; no deployment
+
+User clarified only threshold text should be removed, not metric columns.
+Root cause: WgsQcTab orderedMetricKeys and per-cell guard accepted only
+pass/fail/warn judgments. Backend evaluate_metrics retains values with unknown
+for unaudited releases; frontend therefore discarded them. No live production
+query was authorized/performed, so screenshot release-policy availability is
+not claimed as independently verified. Source reproduction matches symptom.
+
+Isolated branch jiucheng/fix/qc-columns-20260917 from origin/mainf2f1e76;
+worktree D:/pipeline/airflow-demo-worktrees/qc-columns-20260917. Only
+WgsQcTab.tsx/test and UI/progress docs changed. Union API judgment keys with
+known qc_metrics keys, render finite/nonblank values regardless of judgment,
+keep missing cells as dashes, avoid raw diagnostic disclosure, guard absent
+judgments in Reason. No policy-equivalence bypass or fabricated PASS.
+
+BS10610/server10610 control /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS;
+current stale20260912-opt. Frontend346c262603d8 actual frontend-dist mount is
+releases/20260916-onprem-review/frontend-dist; backend9943939015f6 unchanged.
+Candidate candidates/qc-columns-20260917 tested in cached
+airflow-demo/frontend-builder:node22-lock-35420d5e3ec0, --pull never --network none.
+Baseline with corrected assertions:3fail/1pass, including missing unknown-value
+column. Fixed targeted test4pass, npm run build (tsc -b && vite build) exit0;
+JS index-Dl8g1B15.js, CSS index-BFPGoplr.css. Build validation only; disposable
+container outputs were not installed. No full suite or real batch test needed.
+git diff --check passed. No services/config/DB/data changed. No main push.
+
+Next obtain explicit BS96 frontend publication approval, inspect its latest
+frontend source before selectively applying this fix, and check screenshot-run
+QC view. Do not overwrite newer unrelated UI or restart backend. Rollback is
+frontend source/bundle only. GATK smoke remains paused; permissions correction
+was already done in prior task but no retry is authorized while CCE is blocked.
+
 ## 2026-09-17 GATK group logger release complete
 
 Approved chain completed: GATK mainaeff617, independent SFS root, BS10610 then

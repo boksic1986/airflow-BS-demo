@@ -1,5 +1,14 @@
 # TASKS.md
 
+## QC-COLUMNS-20260917
+
+- [x] Locate frontend pass/fail/warn-only filtering that drops unknown-release values.
+- [x] Restore API-provided metric columns and values without threshold text.
+- [x] BS10610 targeted RED3fail/1pass, GREEN4pass; TypeScript/Vite build passed.
+- [ ] Approved frontend-only publication and screenshot-run visual check on BS96.
+
+No backend, QC rules, source data or GATK smoke execution changes.
+
 ## GATK-GROUP-LOGGER-20260917
 
 - [x] Pin tested Master and all GATK group aliases to Snakemake9.24/logger images.
