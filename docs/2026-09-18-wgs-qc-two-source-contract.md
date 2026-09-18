@@ -86,8 +86,8 @@ Special item policy remains separately release-pinned.
 
 ### Rare-disease supplemental fields from `multi.QCstat.tsv`
 
-For an applicable `F57J`/`UPC` sample, add a clearly labelled **Rare-disease
-supplemental QC (WgsMetrics)** section with these source-specific fields:
+For an applicable `F57J`/`UPC` sample, the **Rare-disease** tab uses these
+source-specific fields from the batch `multi.QCstat.tsv`:
 
 | Display field | Source metric | Native V4.2.1 supplemental check |
 | --- | --- | --- |
@@ -98,27 +98,30 @@ supplemental QC (WgsMetrics)** section with these source-specific fields:
 | Coverage `>=10X` | g2 `>=10X` | `<98%` is abnormal |
 | Duplicated reads | `Duplicated_reads%` | `>10%` is abnormal |
 
-The labels must include `WgsMetrics` or `rare-disease supplemental`; do not
-label them merely `MultiQC`, and do not overwrite the ordinary QCstat field
-with the same display name.
+The `Rare-disease` tab is the visible source boundary. Do not label it merely
+`MultiQC`, and do not overwrite an ordinary QCstat value with the same-named
+WgsMetrics value.
 
 ## API and UI presentation requirements
 
 - Keep the existing batch-level aggregate/native QC status visible and do not
   recompute it from browser values.
-- Return source-qualified metric objects: value, unit, source kind
-  (`qcstat` or `wgsmetrics_supplemental`), applicability, judgment and safe
-  reason.  Keep raw paths, provenance blobs and clinical free text private.
-- The normal QC table contains ordinary fields only.  Do not append six empty
-  supplemental columns to every row.
-- A rare-disease row exposes its supplemental metrics in an expandable/detail
-  section, or a batch-level supplemental panel filtered to applicable samples.
-  Mixed batches therefore remain readable without an excessively wide table.
-- An ordinary row has no supplemental section.  This means **not applicable**,
-  not `unknown` and not `pass`.
-- A rare row with unavailable supplemental evidence displays a compact source
-  reason and an unknown supplemental judgment; it does not claim that the
-  ordinary QC value satisfies the g2 criterion.
+- Return two separately scoped metric collections: ordinary `qcstat` and
+  `rare_disease_wgsmetrics`. Values retain unit, applicability, judgment and a
+  safe reason; raw paths, provenance blobs and clinical free text remain
+  private.
+- The QC page has two tags: **常规临检** (default) and **罕见病**. The first
+  renders all selected samples from `QCstat.tsv`; the second renders only
+  applicable `F57J`/`UPC` samples from `multi.QCstat.tsv`.
+- Do not append six empty WgsMetrics columns to the ordinary table and do not
+  mix the two sources in one row. The active tag supplies the data-source
+  context, so identical metric labels remain unambiguous.
+- Hide the **罕见病** tag when the selected batch has no applicable sample. An
+  ordinary-only batch therefore has one normal QC table, without `unknown`,
+  `not provided`, or `pass` placeholders for g2 fields.
+- If a rare-disease batch lacks valid supplemental evidence, retain the tab and
+  render its compact source-unavailable reason. It must not claim that an
+  ordinary QCstat value satisfies the g2 criterion.
 - Preserve existing release/version policy behavior.  Historical or unaudited
   releases remain unknown where their policy is unavailable; never apply the
   current V4.2.1 criteria retrospectively.
@@ -126,18 +129,21 @@ with the same display name.
 ## Implementation sequence and acceptance
 
 1. Extend the WGS QC projector to register and parse the exact optional batch
-   `multi.QCstat.tsv`, with source-qualified output and no database migration.
+   `multi.QCstat.tsv`, as a collection separate from the existing QCstat
+   projection, with no database migration.
 2. Add release-pinned rare-disease applicability and native g2 judgments while
    retaining the current QCstat projection unchanged for ordinary samples.
 3. Update the QC response contract and the Run Detail QC component to render
-   supplemental fields only for rare-disease samples.
+   **常规临检** and conditional **罕见病** tags, each consuming only its own
+   batch-level source.
 4. Use synthetic fixtures only: ordinary-only batch, rare-disease batch with
    both artifacts, and rare-disease batch missing the supplemental artifact.
 
 Acceptance is limited to: correct source selection; no same-name metric
-substitution; no supplemental columns for an ordinary-only batch; source-aware
-supplemental values and reasons for an applicable sample; and no change to the
-native aggregate QC source, pending files, or analysis execution.
+substitution; no rare-disease tag for an ordinary-only batch; a separate
+rare-disease tag with supplemental values/reasons for an applicable sample; and
+no change to the native aggregate QC source, pending files, or analysis
+execution.
 
 ## Evidence basis
 

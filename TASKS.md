@@ -55,10 +55,12 @@ This work is independent of CCE run control and may be developed separately.
 
 - [x] Document required batch `QCstat.tsv` authority and conditional
   `multi.QCstat.tsv` WgsMetrics evidence for selected `F57J`/`UPC` samples.
-- [ ] `QC2-01` — implement exact optional-artifact discovery, source-qualified
-  projection, release-pinned applicability/judgment and synthetic fixtures.
-- [ ] `QC2-02` — update the API contract and Run Detail QC presentation so the
-  supplemental fields appear only for applicable rare-disease samples.
+- [ ] `QC2-01` — implement exact optional-artifact discovery and a separate
+  rare-disease WgsMetrics projection, plus release-pinned applicability/judgment
+  and synthetic fixtures.
+- [ ] `QC2-02` — update the API contract and Run Detail QC presentation with
+  default `常规临检` and conditional `罕见病` tags; each tag reads only its own
+  batch-level source.
 - [ ] `QC2-03` — verify ordinary-only, complete rare-disease and missing-
   supplemental-evidence cases without changing native QC, pending or DAG logic.
 

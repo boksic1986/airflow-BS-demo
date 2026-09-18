@@ -1,5 +1,15 @@
 # Handoff
 
+## 2026-09-18 QC two-source presentation simplification
+
+The approved presentation direction supersedes the prior expandable
+supplemental-row idea: Run Detail QC uses default **常规临检** for batch
+`QCstat.tsv` and conditional **罕见病** for batch `multi.QCstat.tsv`. The latter
+is hidden when no `F57J`/`UPC` sample applies and contains only applicable
+samples. This keeps identically named metrics apart without a wide table or
+ordinary-row placeholders. Documentation/task cards only; no code, test,
+runtime, data or deployment change.
+
 ## 2026-09-18 consolidate new development documents into the primary test branch
 
 ### Goal and source selection
