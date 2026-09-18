@@ -1,5 +1,15 @@
 # Handoff
 
+## 2026-09-18 WGS CNV plot viewer design
+
+Documented a narrow WGS-only `CNV plot` Run Detail tab. It resolves only
+selected-sample native PNGs from the frozen bound `03_CNV` directory, lists
+sample IDs at left and lazily streams one image at right. The observed V4.2.1
+plots are 4800x1200 PNGs at about 0.4 MiB each, so PNG is retained; HTML/SVG
+redraw and eager batch preload are excluded. No code, synthetic fixture,
+runtime/data operation, workflow change or deployment occurred. Future work is
+`CNV-01` through `CNV-03` in the new design document.
+
 ## 2026-09-18 QC two-source presentation simplification
 
 The approved presentation direction supersedes the prior expandable

@@ -69,6 +69,23 @@ the two sources must never overwrite, substitute for or silently validate one
 another. No database migration, native workflow change or production publication
 is part of the documented scope.
 
+## WGS-CNVPLOT-20260918 — design complete, implementation not started
+
+Owner sequence: Backend restricted file projection, then Frontend, then QA.
+
+- [x] Confirm native per-sample `03_CNV/<sample_id>.CNV_genome.png` naming,
+  image dimensions and bounded one-image-at-a-time display strategy.
+- [ ] `CNV-01` — add WGS-only selected-sample list and controlled PNG streaming
+  from the frozen bound result root; no generic file browser.
+- [ ] `CNV-02` — add the WGS Run Detail `CNV plot` tab with left sample selector
+  and one lazy-loaded right image pane.
+- [ ] `CNV-03` — run synthetic authorization/availability and component tests;
+  do not run or download a biological workflow.
+
+Spec: `docs/2026-09-18-wgs-cnv-plot-viewer-design.md`. PNG remains the native
+artifact; HTML/SVG redraw, eager batch preload, CNV interpretation and any
+workflow/QC change are out of scope.
+
 ## CCE-RECOVERY-01 — approved design, implementation incomplete
 
 Owner: Workflow for adapter/runtime behavior; Airflow/Backend for state
