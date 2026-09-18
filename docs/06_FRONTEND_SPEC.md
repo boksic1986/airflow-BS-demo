@@ -1,5 +1,16 @@
 # Frontend specification
 
+## 2026-09-18 imported sampleinfo configuration review
+
+After creating or restoring a run, Step2 restores `params.use_reference` from
+that run even when the release exposes no audited option defaults. This includes
+the server-persisted legacy value; the browser never invents a fallback. Polls
+with the same stored value do not overwrite an operator's unconfirmed selection.
+Missing/invalid values still prevent approval. Configuration and final execution
+remain separate explicit confirmations. No caller/runtime/pending changes.
+Imported analysis batches may match the source batch when the destination
+project is absent; existing-project no-overwrite checks remain server-side.
+
 ## 2026-09-18 approved batch/sample presentation (source only)
 
 - Ledger heading, inner tabs and filters have14px separation. Hide sync

@@ -1,5 +1,75 @@
 # HANDOFF.md
 
+## 2026-09-18 same-batch sampleinfo and Step2 reference fixes — source verified
+
+Scope: allow an imported sampleinfo's analysis batch to match the requested
+batch, but retain exact destination-project no-overwrite and three confirmations.
+User also requested repairing Step2's unavailable-reference approval failure.
+Worktree D:/pipeline/airflow-demo-worktrees/sampleinfo-same-batch-20260918,
+branch jiucheng/fix/sampleinfo-same-batch-20260918, base1255a06. Main and all
+other worktrees untouched. Changed two application files, their two focused test
+files, API/UI contracts and CURRENT_STATE/TASKS/HANDOFF only. No DAG/native WGS,
+database schema, pending rules, authentication or approval endpoint changes.
+
+Root cause: validate_table rejects batch membership in its one source-batch set
+before create_uploaded_run checks the target project directory. The runtime's
+_prepare_uploaded_sampleinfo independently rejects an existing batch directory.
+Retain source-batch consistency, idempotency, source preservation and both path
+checks. Removed only the blanket batch inequality and corrected its error text.
+
+Step2 root cause: refresh restored use_reference only for a newly encountered
+run identity, but POST creation had already set that identity; the reference
+stayed empty. The Step1 release-default effect could also clear the saved value
+during navigation when audited defaults were unavailable. Initialize from
+params.use_reference on identity/stored-value changes; exclude already-created
+runs from Step1 initialization. Same-value background polls retain edits. No
+browser hardcoded default: all/ref/no must come from saved run/contract state;
+missing values still cannot approve. Third-stage execution confirmation remains.
+
+Target was BS10610 test, not production. `ssh -tt BS10610` failed exit1 with
+banner/kex Connection aborted at BS172.17.61.18; `ssh -G` confirmed expected
+BS10610=172.17.106.10 via ProxyJump BS, user chenjc. TCP22 to BS was reachable.
+Further connections failed intermittently, but the subsequent diagnostic command
+authenticated and returned server10610/exit0. No SSH configuration was changed.
+After another scp handshake reset, reused one persistent authenticated session
+to transfer the locally patched files; no uncontrolled connection retry loop.
+
+Verified chenjc6708:bioinfo520 on server10610. Control root:
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS; current points at historical
+releases/20260912-opt-4d3d24e6 (SOURCE_COMMIT4d3d24e6c0308b682a92e2b09824026b7a888818).
+Actual backend c497d821b719 and frontend a764527b365c bind the native-ui-76915d8-r2
+release, not current. Other services retain their recorded independent mounts.
+Test backend: environment BS10610-Test, pipelines wgs/gatk, execution/runtime
+enabled, intake scan/auto dispatch false. Candidates parent chenjc:bioinfo0755.
+No live compose/service/gate changes, no live DB connection or analysis submission.
+
+Candidate: control-root/candidates/sampleinfo-same-batch-20260918, red/green source
+copies and backend-red.log/frontend-red.log/backend-green.log/frontend-green.log/
+runtime-green.log. Containers use --pull never --network none, read-only source,
+disposable scratch files and synthetic SQLite/API fixtures; no live env or mounts.
+Cached backend8491604ee01d and node22-lock-35420d5e3ec0 builder25e83a56052d used.
+Source files transferred from the isolated worktree; no local runtime tests.
+
+Commands/results (all on BS10610):
+- python -m pytest tests/test_wgs_sampleinfo_upload.py -q -p no:cacheprovider
+  --tb=short from /repo/backend: RED2failed14passed (batch inequality); GREEN16passed.
+- python -m pytest scripts/tests/test_wgs_sampleinfo_upload.py -q
+  -p no:cacheprovider --tb=short from /repo:1passed, including existing-directory
+  protection and no sampleinfo regeneration.
+- vitest run src/SubmissionOptions.test.tsx --reporter=dot: final RED3failed6passed
+  for saved all/ref/no not restored. Initial fixture was corrected to model POST
+  preparing_sampleinfo followed by GET config_review and await route settlement.
+- vitest run src/SubmissionOptions.test.tsx src/SubmissionRefresh.test.tsx
+  --reporter=dot: GREEN10passed. First GREEN attempt exposed the Step1 clear;
+  fixed that same-scope cause before the final passing run.
+- npm run build (tsc -b && vite build):exit0, index-CRIjUB8d.js. Build outputs
+  were disposable and not installed. No full suite or real-batch/browser launch;
+  only tests relevant to these two corrections were needed.
+
+Next: review/integrate this source commit and deploy only with separate target
+authorization. Existing live pages are unchanged. Rollback is reverting the
+bounded source commit; no data rollback, deletion or cleanup is required.
+
 ## 2026-09-18 Authorized BS96 deployment complete
 
 Goal: publish existing verified updates and diagnose screenshot Failed to fetch.

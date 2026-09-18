@@ -1,5 +1,19 @@
 # TASKS.md
 
+## SAMPLEINFO-SAME-BATCH-20260918
+
+- [x] User approved same-batch import only when the target analysis directory is absent.
+- [x] Locate equality rejection in wgs_sampleinfo_upload.validate_table;
+  confirm existing backend and runtime no-overwrite checks.
+- [x] Extend existing synthetic tests for same-batch acceptance and destination rejection.
+- [x] Run focused RED, remove only the source/destination batch inequality, run GREEN.
+- [x] Fix Step2 saved-reference initialization and protect it from Step1 resets;
+  preserve same-value polling edits and explicit approval, reject missing values.
+- [x] BS10610 offline validation: backend16, runtime1, frontend10; frontend build.
+- [x] Update API/UI wording and own-branch source handoff; no production release.
+- SSH recovered after intermittent jump-host handshake failures; persistent
+  test-host session used for isolated validation. No remaining source-fix blocker.
+
 ## BS96-UI-DEPLOY-20260918
 
 - [x] Explicit production authorization, owner login and live mount/gate preflight.

@@ -57,8 +57,8 @@ def validate_table(content: str, batch: str) -> tuple[bytes, int, str]:
         if len(set(values)) != len(values) or any(not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,127}', item) for item in values):
             raise ValueError('Sampleinfo sample/data IDs must be safe, non-empty and unique')
     old_batches = {row['分析批次'].strip() for row in rows}
-    if len(old_batches) != 1 or '' in old_batches or batch in old_batches:
-        raise ValueError('Use a new analysis batch different from the source sampleinfo batch')
+    if len(old_batches) != 1 or '' in old_batches:
+        raise ValueError('Sampleinfo requires one non-empty analysis batch')
     sequencing = [row['上机批次'].strip() for row in rows if row['上机批次'].strip()]
     if not sequencing or any(not re.fullmatch(r'[0-9]{8}[A-Z]', item) for item in sequencing):
         raise ValueError('Sampleinfo sequencing batches must use YYYYMMDDX format')

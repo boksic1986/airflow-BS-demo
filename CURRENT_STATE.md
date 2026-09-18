@@ -1,5 +1,20 @@
 # CURRENT_STATE.md
 
+## 2026-09-18 sampleinfo batch/configuration corrections — verified source only
+
+User approved allowing the source analysis batch when its destination project
+does not exist, retaining no-overwrite and three-stage confirmations. Independent
+branch jiucheng/fix/sampleinfo-same-batch-20260918 starts at main1255a06.
+Removed the blanket source-batch inequality; existing directory/symlink, source
+consistency and idempotency checks remain. Step2 now restores the run's saved
+reference for both new and recovered submissions, without inventing defaults;
+Step1 initialization no longer clears a created run's value. Unconfirmed edits
+survive same-value polls. No native workflow, pending or approval API change.
+SSH recovered to server10610. Offline candidate validation: backend16pass,
+runtime1pass, frontend10pass and build pass after focused RED reproduction.
+Candidate: candidates/sampleinfo-same-batch-20260918 under the test control root.
+No local runtime tests, deployment, live data/service changes or main/production merge.
+
 ## 2026-09-18 BS96 approved UI/Phase/ledger publication
 
 Published verified source4f4d45a to server96 at releases/20260918-ui-4f4d45a.
