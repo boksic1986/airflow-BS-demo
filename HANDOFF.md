@@ -1,5 +1,38 @@
 # HANDOFF.md
 
+## 2026-09-18 same-batch / Step2 production publication authorized
+
+User explicitly requested merging main and production and deploying BS96.
+Source9ff67d3 fast-forwarded and atomically pushed to main and
+jiucheng/release/production. Production rollout is limited to backend/frontend;
+preserve scanner, reference-worker, observer, Airflow, all gates and mounts.
+No analysis submission, data deletion, manual DB writes, pending/config changes
+or offline project modification is authorized by this publication.
+BS96 SSH authenticated as chenjc on server96; actual backend is ui-4f4d45a,
+not the historical current symlink. Existing scoped BS10610 acceptance retained;
+only target-host offline build and minimum live acceptance will be run here.
+Completed: server96 publication at2026-09-18T08:44:03Z; backend e177f1eddc01,
+frontend8bef173a7235. Candidate app-tree comparison confirmed only
+wgs_sampleinfo_upload.py differs from the previous live backend. Full environment,
+command, entrypoint, user, network, ports and unrelated mounts preserved. Other10
+service IDs unchanged, including scanner/reference-worker/observer/Airflow.
+Offline TypeScript/Vite and static image builds exit0; Compose config/up exit0;
+nginx syntax/reload passed. New gateway index/JS/CSS exactly match build bytes;
+health/capabilities/runs/dashboard APIs200. Previous scoped tests not repeated.
+Before cutover10runs had no active work. After cutover a newly created run at
+08:44:42Z was running; this task made no analysis submission/approval request.
+No data cleanup or manual DB change. Exact receipt/rollback:
+docs/releases/2026-09-18-sampleinfo-bs96.md. Final documentation-only commit follows
+the already-pushed application commit, then both branches/production clone sync.
+
+Bounded diagnostic corrections: wrong short runtime image alias returned missing
+image, corrected to documented full alias; guessed auth header returned401,
+corrected from main.py. Container-to-public-gateway probe returned403 under
+existing ACL; host-to-real-gateway checks200, no allowlist change. First post
+deployment env comparison compared list order and failed; normalized key/value
+comparison proved exact equality. These diagnostic failures caused no extra
+service changes. No unresolved deployment issue, no browser/real workflow test.
+
 ## 2026-09-18 same-batch sampleinfo and Step2 reference fixes — source verified
 
 Scope: allow an imported sampleinfo's analysis batch to match the requested

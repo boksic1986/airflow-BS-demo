@@ -11,6 +11,9 @@
   preserve same-value polling edits and explicit approval, reject missing values.
 - [x] BS10610 offline validation: backend16, runtime1, frontend10; frontend build.
 - [x] Update API/UI wording and own-branch source handoff; no production release.
+- [x] Subsequent explicit authorization: promote9ff67d3 to main/production and sync production clone.
+- [x] BS96 offline build, two-service deployment and minimum live acceptance;
+  preserve10other services/configuration; record exact rollback and source pins.
 - SSH recovered after intermittent jump-host handshake failures; persistent
   test-host session used for isolated validation. No remaining source-fix blocker.
 

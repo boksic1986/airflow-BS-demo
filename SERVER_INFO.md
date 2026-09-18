@@ -1,5 +1,18 @@
 # SERVER_INFO.md
 
+## 2026-09-18 same-batch / Step2 release9ff67d3
+
+BS96/server96: backend e177f1eddc01 mounts
+/data/airflow-WGS/releases/20260918-sampleinfo-9ff67d3/backend read-only.
+Frontend8bef173a7235 uses airflow-demo/frontend:sampleinfo-9ff67d3,
+image54739d6c9098fa5509070856ad92ebfa89face280813d7648bc02573d77b9fa6.
+Assets index-CRIjUB8d.js/index-UzgQaua7.css verified byte-for-byte through gateway.
+Private compose/rollback/before/acceptance: sampleinfo-9ff67d3-control under
+/data/airflow-WGS (control2700, Compose/rollback0600). All10other services retain
+their prior containers and independent sources, including reference-worker's
+ui-4f4d45a baseline. Global current unchanged; do not use it for redeployment.
+Receipt: docs/releases/2026-09-18-sampleinfo-bs96.md.
+
 ## 2026-09-18 UI/Phase/ledger release4f4d45a
 
 BS96/server96 owner chenjc6708:bioinfo520. Backend342e86a9f10c now mounts

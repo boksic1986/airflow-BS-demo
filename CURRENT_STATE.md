@@ -1,5 +1,19 @@
 # CURRENT_STATE.md
 
+## 2026-09-18 same-batch / Step2 fixes deployed to BS96
+
+User explicitly authorized main/production promotion and BS96 publication.
+Application9ff67d3 is pushed to both branches and the production clone is synced.
+BS96 backend/frontend now use releases/20260918-sampleinfo-9ff67d3 and private
+sampleinfo-9ff67d3-control/compose.json. Only those two services were recreated;
+all other10service IDs and all environment/mount/gate settings were preserved.
+Offline frontend build and gateway health/capabilities/runs/dashboard/new assets
+passed. No real import/approval/analysis POST was used for acceptance. Existing
+BS10610 focused tests were not repeated. No workflow/pending/schema changes.
+After cutover a separate new run appeared; its creation is not a deployment
+action. Receipt: docs/releases/2026-09-18-sampleinfo-bs96.md. No remaining release
+blocker; user can refresh the submit page and retry the intended confirmations.
+
 ## 2026-09-18 sampleinfo batch/configuration corrections — verified source only
 
 User approved allowing the source analysis batch when its destination project

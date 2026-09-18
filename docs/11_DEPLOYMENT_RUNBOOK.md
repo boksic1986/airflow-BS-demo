@@ -1,5 +1,15 @@
 # Deployment runbook
 
+## Same-batch / Step2 publication (2026-09-18)
+
+BS96 backend/frontend-nginx now use
+/data/airflow-WGS/sampleinfo-9ff67d3-control/compose.json; rollback.json restores
+their exact previous ui-4f4d45a pins. Reference-worker and all other services
+remain on their own existing compositions. Only target backend/frontend-nginx
+with --no-deps --pull never; validate config first and reload nginx afterward.
+Do not repoint global current or deploy unrelated runtime scripts from this tree.
+See [publication and acceptance](releases/2026-09-18-sampleinfo-bs96.md).
+
 ## UI/Phase/ledger publication (2026-09-18)
 
 BS96 backend/frontend-nginx/sample-reference-worker now use
