@@ -56,3 +56,16 @@ nav[aria-label="Rule pages"] > span {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+
+.ledger-panel > h2 { margin-bottom: 14px; }
+.ledger-panel > .tab-row { margin-bottom: 14px; }
+
+.searchable-select { position: relative; flex: 1; min-width: 160px; }
+.searchable-select > label { display: block; margin-bottom: 8px; font-size: 0.875rem; font-weight: 600; }
+.searchable-select-input { display: flex; position: relative; }
+.searchable-select-input input { width: 100%; padding-right: 32px; }
+.searchable-select-input button { position: absolute; right: 1px; top: 1px; bottom: 1px; width: 30px; border: 0; background: transparent; color: inherit; cursor: pointer; }
+.searchable-select ul { position: absolute; z-index: 20; top: 100%; left: 0; right: 0; max-height: 240px; overflow: auto; margin: 4px 0 0; padding: 4px; list-style: none; background: white; border: 1px solid #c8d4df; border-radius: 8px; box-shadow: 0 4px 12px #102a431f; }
+.searchable-select li { padding: 7px 10px; border-radius: 4px; overflow-wrap: anywhere; }
+.searchable-select li[role="option"] { cursor: pointer; }
+.searchable-select li[aria-selected="true"], .searchable-select li.highlighted, .searchable-select li[role="option"]:hover { background: #e8f4f8; color: #07566c; }

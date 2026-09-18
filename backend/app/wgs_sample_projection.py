@@ -34,7 +34,7 @@ QC_FIELDS = {
 COUNT_INPUTS = {"SNV_count": "01_SNV/{sample}.flt.tsv", "CNV_count": "03_CNV/Annot/{sample}.CNV.tsv"}
 
 
-def get_wgs_sample_projection(*, session, settings, run: AnalysisRun) -> dict[str, list[dict[str, Any]]]:
+def get_wgs_sample_projection(*, session, settings, run: AnalysisRun, include_sample_details: bool = False) -> dict[str, Any]:
     """Return the only public WGS sample projections.
 
     The manifest is read from the frozen batch with a strict allow-list.  The
@@ -43,12 +43,15 @@ def get_wgs_sample_projection(*, session, settings, run: AnalysisRun) -> dict[st
     """
     batch_root = _batch_root(settings=settings, run=run)
     manifest, manifest_summary = (
-        _read_manifest(batch_root / "sampleinfo.tsv") if batch_root else ([], {})
+        _read_manifest(batch_root / "sampleinfo.tsv", include_sample_details=include_sample_details) if batch_root else ([], {})
     )
     qc = _read_qc(batch_root, release_id=str((run.params_json or {}).get("pipeline_release_id") or "")) if batch_root else {}
     samples = session.scalars(
         select(Sample).where(Sample.analysis_id == run.analysis_id, selected_clause()).order_by(Sample.sample_id)
     ).all()
+    if include_sample_details:
+        selected_ids = {sample.sample_id for sample in samples}
+        manifest = [row for row in manifest if row["sample_id"] in selected_ids]
     rules = session.scalars(
         select(RuleState).where(
             RuleState.analysis_id == run.analysis_id,
@@ -132,7 +135,7 @@ def _batch_root(*, settings, run: AnalysisRun) -> Path | None:
         return None
 
 
-def _read_manifest(path: Path) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def _read_manifest(path: Path, *, include_sample_details: bool = False) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if not path.is_file() or path.is_symlink():
         return [], {}
     rows: list[dict[str, Any]] = []
@@ -163,6 +166,15 @@ def _read_manifest(path: Path) -> tuple[list[dict[str, Any]], dict[str, Any]]:
                     "estimated_report_date": report_date,
                 }
             )
+            if include_sample_details:
+                # Opt-in only for the authenticated run-detail sample endpoint.
+                # Never persist clinical identity or expand global/QC projections.
+                rows[-1].update({
+                    "name": _text(source.get("姓名")),
+                    "hospital": _text(source.get("送检医院")),
+                    "order_number": _text(source.get("订单编号")),
+                    "test_project": _text(source.get("检测项目")),
+                })
             if family_id:
                 families.add(family_id)
             order_id = _text(source.get("订单编号"))

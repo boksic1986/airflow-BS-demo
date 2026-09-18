@@ -60,6 +60,8 @@ it('keeps sync failure visible and replaces unclassified reason with safe text',
   open();
   await screen.findByText('SYNTHETIC');
   expect(screen.getByRole('alert')).toHaveTextContent('交接来源同步异常');
+  expect(screen.queryByText('同步详情')).not.toBeInTheDocument();
+  expect(screen.getByRole('alert')).not.toHaveTextContent('请查看同步详情');
   expect(screen.queryByText('待核对原因')).toBeNull();
   expect(screen.queryByText('unrecognized_private_text')).not.toBeInTheDocument();
 });

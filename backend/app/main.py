@@ -142,7 +142,7 @@ from app.wgs_lifecycle_service import (
     update_wgs_lifecycle_status,
 )
 from app.platform_resources_service import get_platform_resources
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, literal, or_, select, union_all
 
 
 logger = logging.getLogger(__name__)
@@ -1800,6 +1800,7 @@ def run_samples(analysis_id: str) -> dict[str, object]:
                 session=session,
                 settings=get_settings(),
                 run=run,
+                include_sample_details=True,
             )
     except PipelineRegistryError as exc:
         raise _pipeline_http_exception(exc) from exc
@@ -1961,9 +1962,39 @@ def run_rules(
         selected_attempt = attempt if attempt is not None else int(run.attempt or 1)
         query = select(RuleState).where(RuleState.analysis_id == analysis_id, RuleState.attempt == selected_attempt)
         summary_query = query  # Attempt-wide context; table filters must not alter phase totals.
+        if selected_attempt == int(run.attempt or 1):
+            from app.sample_selection_scope import selected_clause
         displayed_status = RuleState.status
         if selected_attempt == int(run.attempt or 1) and run.status == "success":
             displayed_status = case((RuleState.status.in_(("planned", "accepted", "pending", "queued", "submitted", "running", "started")), "success"), else_=RuleState.status)
+        summary_rows_query = summary_query.with_only_columns(
+            RuleState.rule_name,
+            displayed_status,
+            RuleState.sample_id,
+            RuleState.family_id,
+            func.count(),
+            literal(selected_attempt),
+        ).group_by(RuleState.rule_name, displayed_status, RuleState.sample_id, RuleState.family_id)
+        summary_sources = [summary_rows_query]
+        if selected_attempt == int(run.attempt or 1):
+            summary_sources.append(
+                select(
+                    literal(None), literal(None), Sample.sample_id, Sample.family_id,
+                    literal(0), literal(selected_attempt),
+                ).where(Sample.analysis_id == analysis_id, selected_clause())
+            )
+        summary_sources.append(
+            select(
+                literal(None), literal(None), literal(None), literal(None),
+                literal(0), RuleState.attempt,
+            ).where(RuleState.analysis_id == analysis_id).distinct()
+        )
+        summary_rows = list(session.execute(union_all(*summary_sources)))
+        filter_options = {
+            "sample_ids": sorted({sample for _, _, sample, _, _, _ in summary_rows if sample}),
+            "family_ids": sorted({family for _, _, _, family, _, _ in summary_rows if family}),
+        }
+        attempts = sorted({int(row_attempt) for _, _, _, _, _, row_attempt in summary_rows if row_attempt is not None} | {int(run.attempt or 1)})
         if status_filter:
             query = query.where(displayed_status == status_filter)
         if rule:
@@ -1977,7 +2008,9 @@ def run_rules(
             names = session.scalars(query.with_only_columns(RuleState.rule_name).distinct()).all()
             query = query.where(RuleState.rule_name.in_([name for name in names if phase_for_rule(name, pipeline_name=run.pipeline_name, release_id=run_phase_release(run)) == phase]))
         phase_summaries = {}
-        for name, state, count in session.execute(summary_query.with_only_columns(RuleState.rule_name, displayed_status, func.count()).group_by(RuleState.rule_name, displayed_status)):
+        for name, state, _sample, _family, count, _row_attempt in summary_rows:
+            if name is None:
+                continue
             label = phase_for_rule(name, pipeline_name=run.pipeline_name, release_id=run_phase_release(run))
             summary = phase_summaries.setdefault(label, dict(phase=label, total=0, running=0, success=0, failed=0, canceled=0, skipped=0))
             summary["total"] += count
@@ -2011,11 +2044,12 @@ def run_rules(
         return {
             "items": serialize_rule_states(session=session, run=run, rows=page, settings=get_settings()),
             "phases": pinned_phase_definitions(run.pipeline_name, run_phase_release(run)),
+            "filter_options": filter_options,
             "total": int(total),
             "attempt": selected_attempt,
             "current_attempt": int(run.attempt or 1),
             "phase_summaries": sorted(phase_summaries.values(), key=lambda item: phase_order(item["phase"], pipeline_name=run.pipeline_name)),
-            "attempts": sorted(set(session.scalars(select(RuleState.attempt).where(RuleState.analysis_id == analysis_id).distinct()).all()) | {int(run.attempt or 1)}),
+            "attempts": attempts,
             "limit": limit,
             "offset": offset,
         }

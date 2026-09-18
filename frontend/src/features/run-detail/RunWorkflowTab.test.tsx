@@ -21,9 +21,10 @@ it("defaults to running rules, twenty per page, without expanding execution-grou
 
 it("passes running/twenty-row paging and exact independent filters to the server query", () => {
   const change=vi.fn();
-  render(<RunWorkflowTab progress={null} rules={[]} page={{items:[],limit:20,offset:0,total:21,current_attempt:2}} onQueryChange={change} />);
+  render(<RunWorkflowTab progress={null} rules={[]} page={{items:[],limit:20,offset:0,total:21,current_attempt:2,filter_options:{sample_ids:["S1"],family_ids:["F1"]}}} onQueryChange={change} />);
   expect(screen.queryByRole("combobox",{name:"Attempt"})).not.toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText("Sample"),{target:{value:"S1"}});
+  fireEvent.focus(screen.getByRole("combobox",{name:"Sample"}));
+  fireEvent.click(screen.getByRole("option",{name:"S1"}));
   expect(change).toHaveBeenLastCalledWith(expect.objectContaining({sampleId:"S1",status:"running",limit:20,offset:0}));
   fireEvent.click(screen.getByRole("button",{name:"Next"}));
   expect(change).toHaveBeenLastCalledWith(expect.objectContaining({status:"running",limit:20,offset:20}));
@@ -35,18 +36,41 @@ it("filters sample and family independently without prefix matches", () => {
     {rule:"family-only",sample_id:"S2",family_id:"S1",status:"running"},
     {rule:"prefix-only",sample_id:"S10",family_id:"F1",status:"running"},
   ]} />);
-  fireEvent.change(screen.getByLabelText("Sample"),{target:{value:"S1"}});
+  fireEvent.focus(screen.getByRole("combobox",{name:"Sample"}));
+  fireEvent.click(screen.getByRole("option",{name:"S1"}));
   const table=screen.getByRole("table",{name:"Pipeline rule instances"});
   expect(within(table).getByText("sample-match")).toBeInTheDocument();
   expect(within(table).queryByText("family-only")).toBeNull();
   expect(within(table).queryByText("prefix-only")).toBeNull();
-  fireEvent.change(screen.getByLabelText("Family"),{target:{value:"S1"}});
+  fireEvent.focus(screen.getByRole("combobox",{name:"Family"}));
+  fireEvent.click(screen.getByRole("option",{name:"S1"}));
   expect(within(table).queryByText("sample-match")).toBeNull();
 });
 
 it("keeps full phase summaries independent of running-only rows", () => {
   render(<RunWorkflowTab progress={null} rules={[{rule:"a",phase:"Mapping",status:"success"},{rule:"b",phase:"Mapping",status:"canceled"}]} />);
   expect(within(screen.getByRole("table",{name:"Pipeline phase summary"})).getByText("canceled")).toBeInTheDocument();
+});
+
+it("offers whole-run identities and phases on an empty running page; searches without submitting partial IDs", () => {
+  const change = vi.fn();
+  render(<RunWorkflowTab progress={null} rules={[]} page={{items:[],total:0,limit:20,offset:0,phases:[{key:"mapping",label:"Mapping",order:2}],filter_options:{sample_ids:["MOCK-S1","MOCK-S2"],family_ids:["MOCK-F1"]}}} onQueryChange={change} />);
+  expect(screen.getByRole("combobox",{name:"Rule status"})).toHaveValue("running");
+  fireEvent.change(screen.getByRole("combobox",{name:"Phase"}),{target:{value:"Mapping"}});
+  expect(change).toHaveBeenLastCalledWith(expect.objectContaining({phase:"Mapping",status:"running",offset:0}));
+  change.mockClear();
+  const sample = screen.getByRole("combobox",{name:"Sample"});
+  fireEvent.focus(sample);
+  fireEvent.change(sample,{target:{value:"S2"}});
+  expect(screen.queryByRole("option",{name:"MOCK-S1"})).toBeNull();
+  expect(change).not.toHaveBeenCalled();
+  fireEvent.keyDown(sample,{key:"ArrowDown"});
+  fireEvent.keyDown(sample,{key:"ArrowDown"});
+  fireEvent.keyDown(sample,{key:"Enter"});
+  expect(change).toHaveBeenLastCalledWith(expect.objectContaining({sampleId:"MOCK-S2",status:"running",offset:0}));
+  fireEvent.focus(sample);
+  fireEvent.click(screen.getAllByRole("option",{name:"All"}).find(item=>item.tagName!=="OPTION")!);
+  expect(change).toHaveBeenLastCalledWith(expect.objectContaining({sampleId:"",status:"running",offset:0}));
 });
 
 it("uses attempt-wide server summaries for both phase displays while row status changes", () => {

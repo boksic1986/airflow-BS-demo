@@ -2,7 +2,14 @@
   "source_commit": "cc9bde3",
   "release_id": "wgs-4.2.1-cc9bde3",
   "verified_equivalent_releases": {
-    "wgs-4.2.1-34bfcbf": "34bfcbf82238af684d005314360c9c9739377351"
+    "wgs-4.2.1-34bfcbf": "34bfcbf82238af684d005314360c9c9739377351",
+    "wgs-4.2.1-ebf1f4b": "ebf1f4bf2512feecdc3762e463145130192ca8bb"
+  },
+  "verified_source_overrides": {
+    "wgs-4.2.1-ebf1f4b": {
+      "rule/ROH.smk": "764355f20b21a05e1d184f707c2396d74bfffaae",
+      "rule/WGS_SNV.smk": "8a027c7556d72a418631dc99da4faa5ef84841a1"
+    }
   },
   "sources": {
     "rule/CNV.smk": "ab02b5d71f703b3e41248a29abc6948034401096",

@@ -37,6 +37,7 @@ def test_phase_summary_ignores_row_filters_but_preserves_attempt(tmp_path, monke
         assert response.status_code == 200
         page = response.json()
         assert page["total"] == expected_total
+        assert page["filter_options"] == {"sample_ids": ["S1", "S2"], "family_ids": ["F1", "F2"]}
         assert len(page["items"]) == min(1, expected_total)
         if page["items"] and filters.get("status"):
             assert page["items"][0]["status"] == filters["status"]
@@ -47,6 +48,7 @@ def test_phase_summary_ignores_row_filters_but_preserves_attempt(tmp_path, monke
     old = client.get("/api/runs/SUMMARY/rules?attempt=1&status=success", headers=headers).json()
     assert old["total"] == 0
     assert old["items"] == []
+    assert old["filter_options"] == {"sample_ids": ["S0"], "family_ids": ["F0"]}
     assert [(item["phase"], item["total"], item["failed"]) for item in old["phase_summaries"]] == [("FASTQ QC", 1, 1)]
 
 

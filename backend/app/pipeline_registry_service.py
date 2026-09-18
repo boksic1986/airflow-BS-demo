@@ -213,8 +213,8 @@ def _project_wgs_qc(*, session, settings, run, **_) -> dict[str, Any]:
     }
 
 
-def _project_wgs_samples(*, session, settings, run, **_) -> dict[str, Any]:
-    return get_wgs_sample_projection(session=session, settings=settings, run=run)
+def _project_wgs_samples(*, session, settings, run, include_sample_details=False, **_) -> dict[str, Any]:
+    return get_wgs_sample_projection(session=session, settings=settings, run=run, include_sample_details=include_sample_details)
 
 
 def _project_wgs_dashboard_qc_statuses(*, session, settings, runs, **_) -> dict[str, str]:

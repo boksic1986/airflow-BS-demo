@@ -1,5 +1,22 @@
 # Frontend specification
 
+## Approved batch/sample presentation (2026-09-18, test sync)
+
+- Ledger heading, inner tabs and filters have 14px separation. Hide sync
+  details and its pagination; retain a short error/last-good warning.
+- Overview order is Batch, Pipeline, Status, Batch QC, Samples / families,
+  Orders, Operator, Created, Submitted, Started, Finished, Attempt, DAG run.
+  Reuse workspace batch QC; remove the separate manifest summary and duplicated
+  release/path/method/sample attributes.
+- Samples order is Sample ID, Name, Family / relation, Sample types, Order,
+  Test project, 送检医院, Received, Estimated report, Status. Missing fields
+  show `-`; the dedicated QC tab retains all criteria and judgments.
+- Rules keeps default status `running` and existing 20-row paging. Phase is a
+  dropdown; Sample/Family are searchable exact-option comboboxes. Options are
+  independent of status/pagination and partial search text is never submitted.
+- Hide Files tab and stop its request; retain backend artifact interfaces.
+- This is test-branch source only; it does not publish to BS96.
+
 ## CCE log download and native labels (2026-09-17 test branch)
 
 WGS/GATK CCE Logs replace Copy with Download logs using the existing shared

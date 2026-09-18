@@ -374,6 +374,10 @@ export type Sample = {
 
 export type WgsSampleManifestRow = {
   sample_id: string;
+  name?: string | null;
+  hospital?: string | null;
+  order_number?: string | null;
+  test_project?: string | null;
   data_id?: string | null;
   sample_type?: string | null;
   family_id?: string | null;
@@ -1679,7 +1683,7 @@ export function getRunFamilies(analysisId: string): Promise<{items: WgsFamily[]}
 
 export type RuleQuery = {attempt?: number; limit?: number; offset?: number; status?: string; rule?: string; sampleId?: string; familyId?: string; phase?: string; sort?: "execution_order" | "active_first"};
 export type RulePhaseSummary = {phase: string; status: string; total: number; running: number; success: number; failed: number; canceled: number};
-export type RulePage = {items: RuleEvent[]; total: number; limit: number; offset: number; attempt?: number; current_attempt?: number; attempts?: number[]; phase_summaries?: RulePhaseSummary[]};
+export type RulePage = {items: RuleEvent[]; total: number; limit: number; offset: number; attempt?: number; current_attempt?: number; attempts?: number[]; phase_summaries?: RulePhaseSummary[]; phases?: Array<{key: string; label: string; order: number}>; filter_options?: {sample_ids: string[]; family_ids: string[]}};
 export function getRunRules(analysisId: string, options: RuleQuery = {}): Promise<RulePage> {
   const params = new URLSearchParams();
   params.set("limit", String(options.limit ?? 50));

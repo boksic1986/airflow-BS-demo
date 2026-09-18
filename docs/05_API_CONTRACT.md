@@ -1,5 +1,26 @@
 # API contract
 
+## WGS ebf1f4b Phase mapping (2026-09-18, test sync)
+
+The exact release `wgs-4.2.1-ebf1f4b` uses the audited fine-phase inventory:
+`pre_process_cleanFastq` is FASTQ QC, `pre_process_mapping` is Mapping, and
+`pre_process_Dedup` is Duplicate marking. Rules, phase filters, phase summaries
+and phase definitions share the existing projector. This is rule-to-phase
+equivalence, not biological or QC equivalence: two changed source blobs are
+recorded in policy metadata. Unknown releases/rules still return Unknown; no
+version-prefix fallback is allowed.
+
+## File-ledger history discovery (2026-09-18, test sync)
+
+The shared runtime may retain receipts for multiple project roots. The file
+reference reconciler validates request/receipt identity and the binding's own
+root/batch/control-path consistency before ignoring a different project root.
+It never opens that foreign project root or deletes previously imported DB
+history. A generation without a published `prepare_analysis` receipt is not a
+completed selection and is revisited on later passes. Existing invalid receipts,
+inconsistent bindings and missing/hash-mismatched published artifacts still
+report synchronization errors. No endpoint, schema or source identity changes.
+
 ## Existing Step5 log package download (2026-09-17 test branch)
 
 `GET /api/runs/{analysis_id}/logs/index` adds `archive` for WGS/GATK adapters:
@@ -666,7 +687,8 @@ Until an authoritative namespace-global producer is available, WGS global slot p
 - WGS sample projections may add `order_number_masked`, `test_project`, and an
   optional future `status_reason`. The order value is always `****` plus at
   most the last four source characters; the raw order number is neither stored
-  in sample metadata nor returned by the API. An absent db_v2 reason remains
+  in sample metadata nor returned by global APIs. The explicitly approved
+  run-detail exception is documented below. An absent db_v2 reason remains
   absent rather than being fabricated.
 
 ## Generic platform endpoints
@@ -700,7 +722,7 @@ Existing `/api/wgs/*` routes remain supported for WGS submission, intake, eviden
 
 - `GET /api/runs/{analysis_id}/workspace` returns one `snapshot_at` and the complete `active_transfer`; Current Progress and Transfers must render that same object during Step1 or Step5.
 - Transfer percentages are derived from `bytes_transferred / bytes_total`, serialized to one decimal place, and fixed at `100.0` for successful terminal transfers. Per-file rows expose privacy-safe display name, bytes, speed, checksum state, `started_at`, and `ended_at`.
-- `GET /api/runs/{analysis_id}/samples` adds `manifest_summary`. It contains only aggregate batch/sample/family/order counts, allowlisted project/method/date/type summaries, delivery status, and a controlled relative project path. It never returns order identifiers or clinical identity fields.
+- `GET /api/runs/{analysis_id}/samples` adds `manifest_summary`. That summary contains only aggregate batch/sample/family/order counts, allowlisted project/method/date/type summaries, delivery status, and a controlled relative project path. The run-detail exception below permits selected sample identity fields, never in the summary.
 - `GET /api/runs` returns `workflow_status` and `workflow_label` as a stable fallback when detailed stage rail evidence is unavailable.
 - `GET /api/runs/{analysis_id}/rules?sort=active_first` orders running/started records before planned and terminal records while retaining server pagination and explicit start/end/elapsed fields.
 - `POST /api/runs/{analysis_id}/actions/cleanup-step7` accepts the existing first-run body. A failed-action retry additionally requires `retry_failed=true` and the current `expected_action_id`; stale or non-failed generations return conflict.
@@ -762,7 +784,7 @@ Internal `/api/internal/gatk/runs/{analysis_id}/stages/{stage}` and
 
 ## Privacy
 
-Responses never include patient names, hospitals, credentials, raw absolute storage paths, or arbitrary filesystem content. Artifacts are accessed by controlled keys.
+Except for the explicitly approved WGS run-detail sample fields below, responses exclude patient names and hospitals. Credentials, raw absolute storage paths and arbitrary filesystem content remain excluded. Artifacts are accessed by controlled keys.
 # WGS recovery approval semantics (2026-09-11)
 
 ## Same-attempt stage recovery (2026-09-15, source only)
@@ -834,3 +856,19 @@ available from the latest complete measurement despite an unfinished final line.
 The native-only phase label falls back to the shared exact-name WGS catalog if
 registration has no cloud pipeline_release_id. This classifies displayed modules;
 it does not attest the native source version or change execution/selection logic.
+
+## Run-detail presentation fields (2026-09-18, test sync)
+
+Authenticated `GET /api/runs/{analysis_id}/samples` may return WGS manifest
+`name`, `hospital`, `order_number` and `test_project`, alongside existing
+sample type/dates/family fields. These values are allowlisted from the bound
+frozen sampleinfo and only returned for participating Sample IDs. They are not
+newly persisted. The opt-in exists only at this run-detail endpoint; global
+sample search, workspace and QC responses keep privacy-safe projections.
+Missing values remain null and arbitrary clinical columns are not exposed.
+
+`GET /api/runs/{analysis_id}/rules` adds `filter_options.sample_ids` and
+`filter_options.family_ids`: sorted distinct identities for the selected
+attempt, plus participating samples for the current attempt. They do not
+depend on row filters, limit or offset. Historical attempts do not inherit
+current Sample rows. Existing `phases` supplies the full pinned phase catalog.
