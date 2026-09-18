@@ -30,6 +30,28 @@ The historical `14` main-only / `23` test-only divergence is closed by a merge,
 not by rebasing or discarding test commits. See
 `docs/TEST_BRANCH_SYNC_HOLD_20260918.md` for the decision transition.
 
+## Consolidated development designs
+
+The primary test branch now owns the current documentation-only development
+queue. Two new design branches were reviewed and consolidated without merging
+their branch histories or any application code:
+
+- Run control from `jiucheng/feature/run-control-20260918` commit `1c631b7`:
+  controlled CCE pause, same-attempt checkpoint recovery and exact online
+  project deletion. See
+  `docs/superpowers/specs/2026-09-18-run-control.md` and `RC-01` through `RC-05`.
+- WGS two-source QC from `jiucheng/docs/wgs-qc-two-source-20260918` commit
+  `53fc860`: required ordinary `QCstat.tsv` plus conditional source-qualified
+  `multi.QCstat.tsv` evidence for `F57J`/`UPC` samples. See
+  `docs/2026-09-18-wgs-qc-two-source-contract.md` and `QC2-01` through `QC2-03`.
+
+Both designs are complete and their implementation has not started. They are
+proposals, not available APIs or runtime capabilities. This consolidation did
+not authorize code, schema, application tests, remote validation, deployment or
+real task/data operations. Existing `CCE-RECOVERY-01` remains a separate but
+prerequisite-aligned implementation track; run control must reuse its execution
+versus monitoring-state contract instead of creating a competing path.
+
 ## Test environment and readiness
 
 The target is BS10610/server10610 test. Runtime roots, gates and release
@@ -42,8 +64,9 @@ The branch contains recorded Local/SGE integration, native execution views,
 CCE log-package download, native labels, GATK phase projection and worker-child
 timing work. It is not declared fully tested or ready for main. Remaining work
 includes reconciling the archived open checklist against current code/evidence,
-the deferred CCE recovery implementation, operator-facing visual acceptance and
-one final combined BS10610 acceptance after the branch scope stabilizes.
+the deferred CCE recovery implementation, the newly documented run-control and
+two-source QC work, operator-facing visual acceptance and one final combined
+BS10610 acceptance after the branch scope stabilizes.
 
 ## Repository hygiene
 
@@ -60,9 +83,10 @@ test worktree. Their content must be triaged before any further removal. See
 
 ## Open work
 
-`TASKS.md` is the authoritative compact queue. After verifying and pushing the
-lineage merge, compare/archive the remaining old dirty worktrees and continue
-the test validation matrix. No production deployment is authorized.
+`TASKS.md` is the authoritative compact queue. Continue the remaining dirty-
+worktree triage and test validation matrix; begin any documented development
+track only after a separate implementation instruction. No production
+deployment or live data operation is authorized.
 
 ## Historical evidence
 

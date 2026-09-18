@@ -1,5 +1,64 @@
 # Handoff
 
+## 2026-09-18 consolidate new development documents into the primary test branch
+
+### Goal and source selection
+
+Make the primary test branch the single authoritative place for current planned
+development. The two Git common repositories and their worktrees/refs were
+inventoried after a remote fetch. Only two commits newer than test tip `2d899e5`
+were documentation-only development proposals:
+
+- `1c631b7` on `jiucheng/feature/run-control-20260918`;
+- `53fc860` on `jiucheng/docs/wgs-qc-two-source-20260918`.
+
+Older feature, fix, release and operations branches were not treated as new
+development merely because they contain Markdown. Their historical deployment
+or handoff notes remain evidence, not active queue entries.
+
+### Consolidated content
+
+- Added `docs/superpowers/specs/2026-09-18-run-control.md` unchanged in meaning:
+  proposed CCE pause, same-attempt checkpoint recovery, exact cloud/Airflow/
+  biodemo deletion, residual handling, tombstone, scanner fence and permissions.
+- Added `docs/2026-09-18-wgs-qc-two-source-contract.md` unchanged in meaning:
+  ordinary batch QC remains authoritative while applicable `F57J`/`UPC` samples
+  receive separately labelled WgsMetrics supplemental evidence.
+- Rewrote the source branches' task snippets into the current compact
+  `TASKS.md`: `RC-01` through `RC-05` and `QC2-01` through `QC2-03`, with owner,
+  sequence, dependency, scope and authorization boundaries.
+- Updated `CURRENT_STATE.md` so both designs are visible beside the existing
+  `CCE-RECOVERY-01` track without claiming any implementation or validation.
+
+The source branches had different bases: run control was based directly on
+`2d899e5`, while the QC document was based on main `1255a06`. Their full commits
+and inherited state files were therefore not merged or cherry-picked. Only the
+two specs and reconciled current-branch state were retained.
+
+### Scope and validation
+
+This was documentation and Git inventory only. No backend, frontend, DAG,
+runtime, migration, application test, SSH, Docker, database, analysis, service
+or production operation was performed. The designs do not register APIs, change
+QC policy at runtime or authorize pause/resume/delete of a real task.
+
+Validation covers the exact five-file documentation delta, local Markdown link
+resolution, task-ID/spec consistency, source-spec comparison, `git diff --check`,
+and proof that `backend`, `dags`, `scripts`, `frontend`, migrations and runtime
+configuration did not change. No application test is applicable to this
+documentation-only consolidation.
+
+### Next action and rollback
+
+Review `TEST-VALIDATION-01`, then select a documented development track under a
+new implementation instruction. Coordinate run control with CCE recovery before
+coding; the two-source QC work is independent. Production activation, test-to-
+main promotion and live task/data actions remain separately authorized.
+
+Rollback is a single documentation revert. The two source branches remain
+available as provenance until repository hygiene separately classifies them;
+this consolidation does not authorize deleting their worktrees or branches.
+
 ## 2026-09-18 test-branch backlog consolidation and synchronization hold
 
 ### Goal

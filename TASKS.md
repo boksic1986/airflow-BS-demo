@@ -24,6 +24,49 @@ Acceptance: every candidate for later promotion has current, source-matched test
 evidence; unfinished or deferred work is explicit; no historical checkbox is
 treated as complete merely because it was omitted from the compact queue.
 
+## RUN-CONTROL-20260918 — design complete, implementation not started
+
+Owner sequence: Workflow -> Backend -> Airflow -> Frontend -> QA/release owner.
+Coordinate its execution-state and reconnect contract with `CCE-RECOVERY-01`;
+do not build a second, conflicting recovery path.
+
+- [x] Audit existing cancel/resume/Step7 behavior and document exact pause,
+  same-attempt recovery and project-deletion semantics.
+- [ ] `RC-01` — implement restricted runtime controls, exact ownership checks,
+  quiescence evidence, checkpoint recovery and per-object cloud cleanup.
+- [ ] `RC-02` — add the durable admin operation, cloud-first deletion journal,
+  independent tombstone and scanner suppression fence.
+- [ ] `RC-03` — add the dedicated control DAG and generation-fenced dispatch,
+  callback and terminal-state handling.
+- [ ] `RC-04` — add existing-page controls, destructive preview/confirmation,
+  unsupported reasons and partial retry display.
+- [ ] `RC-05` — run focused synthetic BS10610 acceptance after separate
+  implementation and test authorization.
+
+Spec: `docs/superpowers/specs/2026-09-18-run-control.md`. The task cards retain
+their dependencies, exact acceptance, risks and rollback rules in that document.
+No code, migration, remote validation, real task action or production activation
+is authorized by the design or by this queue entry.
+
+## WGS-QC-TWO-SOURCE-20260918 — design complete, implementation not started
+
+Owner: Backend/QC projection first, then Frontend, with QA covering both.
+This work is independent of CCE run control and may be developed separately.
+
+- [x] Document required batch `QCstat.tsv` authority and conditional
+  `multi.QCstat.tsv` WgsMetrics evidence for selected `F57J`/`UPC` samples.
+- [ ] `QC2-01` — implement exact optional-artifact discovery, source-qualified
+  projection, release-pinned applicability/judgment and synthetic fixtures.
+- [ ] `QC2-02` — update the API contract and Run Detail QC presentation so the
+  supplemental fields appear only for applicable rare-disease samples.
+- [ ] `QC2-03` — verify ordinary-only, complete rare-disease and missing-
+  supplemental-evidence cases without changing native QC, pending or DAG logic.
+
+Spec: `docs/2026-09-18-wgs-qc-two-source-contract.md`. Same-named metrics from
+the two sources must never overwrite, substitute for or silently validate one
+another. No database migration, native workflow change or production publication
+is part of the documented scope.
+
 ## CCE-RECOVERY-01 — approved design, implementation incomplete
 
 Owner: Workflow for adapter/runtime behavior; Airflow/Backend for state
