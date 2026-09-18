@@ -1,6 +1,18 @@
-# Test branch synchronization hold — 2026-09-18
+# Test branch synchronization decision — 2026-09-18
 
-## Decision
+## Later decision: full lineage inclusion
+
+After the selective three-fix port and repository inventory, the user changed
+the desired Git relationship: current main and production history must be fully
+contained by the test branch, while test retains its own additional commits.
+On 2026-09-18 both remote refs point to `1255a06`, so one merge from
+`origin/main` establishes both ancestry relationships. This supersedes the
+hold below for main-to-test synchronization only.
+
+It does not authorize test-to-main promotion, production deployment, runtime
+mutation, or importing old worktree/patch branches.
+
+## Earlier decision and preserved rationale
 
 `jiucheng/test/wgs-local-main-sync-20260917` is the single primary test
 development branch, but it is not ready to synchronize with `main`. Some

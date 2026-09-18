@@ -176,6 +176,43 @@ def test_receipt_rejects_source_sampleinfo_mutation(
         gate._validated_prepare_receipt(payload(tmp_path, generation=1), request)
 
 
+@pytest.mark.parametrize("generation", [2, 3])
+def test_failed_prepare_reuses_frozen_input_without_receipt(tmp_path, monkeypatch, generation):
+    gate = load_gate()
+    monkeypatch.setattr(gate, "RUNTIME_RUN_ROOT", str(tmp_path / "runtime"))
+    source = write_source(tmp_path)
+    request_path = gate._prepare_handoff_request(payload(tmp_path, generation=1))
+    request = json.loads(request_path.read_text())
+    manifest_path = Path(request["pending_input"]["manifest_path"])
+    manifest = json.loads(manifest_path.read_text())
+    frozen = Path(manifest["payload"]["path"])
+    frozen.write_text(frozen.read_text() + "20260908A\t20260908A\tFAMILY-2\tSAMPLE-2\tDATA-2\tWGS\tmother\tF\tmissing_pair\t\t20260908A\t\n")
+    expected = frozen.read_bytes()
+    manifest["payload"].update(sha256=gate._sha256_file(frozen), row_count=1)
+    manifest_path.write_text(json.dumps(manifest))
+    request["pending_input"]["manifest_sha256"] = gate._sha256_file(manifest_path)
+    request_path.write_text(json.dumps(request))
+    # A failed setup may leave an intervening directory but no handoff request.
+    if generation == 3:
+        (request_path.parent.parent / "generation-2").mkdir()
+    recovered_path = gate._prepare_handoff_request(payload(tmp_path, generation=generation))
+    recovered = json.loads(recovered_path.read_text())
+    recovered_manifest = json.loads(Path(recovered["pending_input"]["manifest_path"]).read_text())
+    assert Path(recovered_manifest["payload"]["path"]).read_bytes() == expected
+    assert recovered_manifest["payload"]["row_count"] == 1
+    assert not (request_path.parent / "prepare_analysis.receipt.json").exists()
+
+
+def test_failed_prepare_does_not_accept_changed_frozen_pending(tmp_path, monkeypatch):
+    gate = load_gate()
+    monkeypatch.setattr(gate, "RUNTIME_RUN_ROOT", str(tmp_path / "runtime"))
+    write_source(tmp_path)
+    request = gate._prepare_handoff_request(payload(tmp_path, generation=1))
+    (request.parent / "pending-input.tsv").write_text("changed\n")
+    with pytest.raises(RuntimeError, match="pending payload changed"):
+        gate._prepare_handoff_request(payload(tmp_path, generation=2))
+
+
 def test_release_runtime_only_enforces_cce_adapter_version(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -18,7 +18,22 @@ Use candidates/onprem-main-282dfb0-control/compose.json, explicit backend,
 wgs-run-observer, frontend-nginx; --no-deps --pull never. Rollback.json restores
 those3 services only, followed by nginx reload. No DB migration, DAG update or
 production gate/root copy. Receipt: releases/2026-09-17-onprem-main-sync-bs10610.md.
+## UI/Phase/ledger publication (2026-09-18)
 
+BS96 backend/frontend-nginx/sample-reference-worker now use
+ui-4f4d45a-control/compose.json; rollback.json contains their exact prior pins.
+Worker has ONLY the tested ledger reader delta on its independent baseline.
+Other services must retain their existing compositions. Run config --quiet,
+then up -d --no-deps --pull never only for the affected services and gracefully
+reload nginx after backend address changes. No global current redeployment.
+See [publication and acceptance](releases/2026-09-18-ui-phase-ledger-bs96.md).
+
+## Automatic intake activation (2026-09-17)
+
+Production WGS scan period is now600 seconds and automatic analysis is enabled
+for the Clinical Samplelist source. See [activation receipt and rollback](releases/2026-09-17-auto-intake-bs96.md).
+Do not restore older auto-disabled or1800-second settings from historical
+release descriptions. Preserve current per-service sources and recorded gates.
 ## Complete QC count publication (2026-09-17)
 
 BS96 backend/frontend now use qc-all-counts-4e9196d-control/compose.json;

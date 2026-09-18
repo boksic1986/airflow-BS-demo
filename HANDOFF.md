@@ -176,3 +176,31 @@ The three unique branches remain local and have standalone bundles. Moved disk
 remnants and packages can be restored from the task-artifact archive. Deleted
 local merged branches are recoverable from `origin/main` or reflogs. No runtime
 or data rollback is required.
+
+## 2026-09-18 main/production lineage merge into test
+
+### Goal
+
+Establish the user-requested relationship in which current main and production
+are ancestors of the primary test branch, while preserving all test-only
+commits and Native/Local/SGE adaptations.
+
+### Completed before merge verification
+
+- Committed the three approved fix ports as `8f062f9`.
+- Committed compact state and repository hygiene records as `91060d0`.
+- Confirmed live remote refs `main` and `jiucheng/release/production` both point
+  to `1255a06`; no second production merge is required.
+- Merged `origin/main` with explicit conflict review. Duplicate three-fix
+  conflicts retain the test SQL budget, Native status choices and CCE log
+  archive UI. WGS prepare-recovery source/tests from `1255a06` are included.
+- Combined test and production environment/runbook observations; compact test
+  state remains the current queue.
+
+### Pending in this entry
+
+- Complete the merge commit, run focused tests and ancestry checks, then push
+  the primary test branch.
+
+No runtime host, analysis, database or production deployment is authorized by
+this Git-only merge.

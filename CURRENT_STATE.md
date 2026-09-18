@@ -1,8 +1,8 @@
 # Current state
 
-Updated 2026-09-18 after backlog consolidation and the user-authorized selective
-sync of three reviewed fixes from main. The test branch remains independent;
-this narrow exception is not a general main synchronization.
+Updated 2026-09-18 after the user authorized a complete Git lineage sync from
+current main/production into the primary test branch. Test-only development
+remains on the test branch; main and production are now required ancestors.
 
 ## Repository role
 
@@ -10,28 +10,25 @@ this narrow exception is not a general main synchronization.
   `D:/pipeline/airflow-demo-worktrees/wgs-local-main-sync-20260917`.
 - Primary test development branch:
   `jiucheng/test/wgs-local-main-sync-20260917`.
-- Base source: `f0b07c4`; the current worktree carries the authorized fixes and
-  state-document update pending local commit/push disposition.
+- Pre-sync test tip: `f0b07c4`. The approved three-fix integration is committed
+  as `8f062f9`; repository-state consolidation is `91060d0`.
 - This is the only remote branch under `origin/jiucheng/test/*`.
 
-## Main separation rule
+## Branch relationship rule
 
-The test branch and `main` are intentionally not synchronized as whole branches.
-On 2026-09-18 the user explicitly approved one bounded exception: port the
-functional changes and focused tests from `e7f0373`, `cb1c3fe` and `347e4ed`.
-Their production release records and main-side state files were not imported.
-Until the test queue is complete and the user separately approves promotion:
+Current `origin/main` and `origin/jiucheng/release/production` both point to
+`1255a06`. The user explicitly authorized merging that complete history into
+the primary test branch after committing the three reviewed fix ports. The
+resulting invariant is:
 
-- do not merge, rebase or broadly backport `main` into this test branch;
-- do not merge or cherry-pick this test branch into `main`;
-- do not treat a newer commit, deployed production state or passing isolated
-  test as promotion readiness;
-- keep unfinished implementation and acceptance evidence on the test branch.
+- main and production must be ancestors of the test branch;
+- test may retain additional test-only implementation and evidence;
+- test-to-main promotion remains a separate reviewed and authorized action;
+- old worktree/patch branches are not merge sources unless separately selected.
 
-The refreshed 2026-09-18 comparison (`main=1255a06`, test base `f0b07c4`,
-main-only 14, test-only 23) remains inventory evidence, not an integration
-plan. All other main-only commits remain held. See
-`docs/TEST_BRANCH_SYNC_HOLD_20260918.md`.
+The historical `14` main-only / `23` test-only divergence is closed by a merge,
+not by rebasing or discarding test commits. See
+`docs/TEST_BRANCH_SYNC_HOLD_20260918.md` for the decision transition.
 
 ## Test environment and readiness
 
@@ -63,10 +60,9 @@ test worktree. Their content must be triaged before any further removal. See
 
 ## Open work
 
-`TASKS.md` is the authoritative compact queue. The immediate action is to
-compare and archive the eight retained dirty worktrees without changing the
-primary test branch. The test validation matrix follows that hygiene pass. No
-branch synchronization or production work is part of either action.
+`TASKS.md` is the authoritative compact queue. After verifying and pushing the
+lineage merge, compare/archive the remaining old dirty worktrees and continue
+the test validation matrix. No production deployment is authorized.
 
 ## Historical evidence
 

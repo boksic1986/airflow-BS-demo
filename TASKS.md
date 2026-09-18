@@ -50,7 +50,7 @@ Owner: QA/Frontend.
 - [ ] Record browser evidence or a precise blocker. Component tests do not
   substitute for this unclaimed visual check.
 
-## TEST-SYNC-HOLD-01 — preserve separation from main
+## TEST-LINEAGE-SYNC-01 — test contains current main and production
 
 Owner: coordinator.
 
@@ -65,8 +65,14 @@ Owner: coordinator.
 - [x] Confirm the remaining full-frontend failure is already present at base
   `f0b07c4` (`starts stage one...` cannot find `S1`); keep it visible rather
   than attributing it to this sync.
-- [x] Hold every other main-only and legacy-branch commit while testing is
-  incomplete; see `docs/TEST_BRANCH_SYNC_HOLD_20260918.md`.
+- [x] Record the earlier hold and the later user-authorized policy change in
+  `docs/TEST_BRANCH_SYNC_HOLD_20260918.md`.
+- [x] Commit the three approved fix ports as `8f062f9`.
+- [x] Commit the compact test state and repository hygiene record as `91060d0`.
+- [ ] Merge `origin/main=origin/jiucheng/release/production=1255a06` and prove
+  both refs are ancestors of the resulting test tip.
+- [ ] Run focused backend/frontend/runtime tests on the merged source and push
+  the test branch.
 - [ ] After all required testing completes, prepare a test-to-main promotion
   manifest with only validated commits and explicit omissions.
 - [ ] Promote to `main` only after separate user approval and current main
@@ -93,8 +99,8 @@ Inventory: `docs/REPOSITORY_HYGIENE_20260918.md`.
 
 ## Deferred and separately authorized
 
-- Any synchronization or promotion beyond the three explicitly authorized
-  2026-09-18 fix ports.
+- Any test-to-main promotion or production deployment. The approved direction
+  in this task is main/production history into test only.
 - Actual WGS/GATK task recovery, batch reset, rerun or new real analysis.
 - BS96 production deployment, scanner/dispatch changes or database mutation.
 - Cleanup of offline project/results/FASTQ/sampleinfo/pending/evidence data.

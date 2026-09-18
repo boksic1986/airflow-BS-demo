@@ -60,7 +60,37 @@ candidates/onprem-main-282dfb0-control. Current symlink remains historical.
 Other7services and all environment values/imageIDs retained; Local registration,
 launch/monitor true, scan/dispatch false, instancebs10610-onprem-review.
 No BS96 update. Full receipt: docs/releases/2026-09-17-onprem-main-sync-bs10610.md.
+## 2026-09-18 UI/Phase/ledger release4f4d45a
 
+BS96/server96 owner chenjc6708:bioinfo520. Backend342e86a9f10c now mounts
+/data/airflow-WGS/releases/20260918-ui-4f4d45a/backend (read-only).
+Frontendb92af6923f78 uses airflow-demo/frontend:ui-4f4d45a,
+imageb77dc1142fbe097ac9a8e05bf368528c835c91accfb4b4e2c7d782d7e30349d3;
+served index-BQSJdqVH.js/index-UzgQaua7.css verified200.
+Reference-workerdeb7a4d5b7aa mounts this release's sample-reference-worker/backend,
+cloned from sampleinfo-f72a12e with only ledger reader replaced. Other9IDs kept.
+Private paired compose/rollback/before: /data/airflow-WGS/ui-4f4d45a-control.
+Global current remains historical; actual mounts take precedence. Scanner600s,
+auto-enabled, approved roots, credentials and all other settings unchanged.
+Source wgs-clinical-shared ready, pending0;0915B success. Receipt below docs/releases.
+
+## 2026-09-17 Ledger registration rebind only
+
+BS96 wgs-clinical-shared registration_key repaired to approved Clinical root;
+old-root key and unchanged scope/secret verified before locked transaction.
+Backend1dc96daabc2d/reference-worker3a490c0d1d53 unchanged. No service restart.
+Normal sync now imports0915B6selected rows,pending0; source error still reports
+history_binding_mismatch for old-root history. No false ready health override.
+Private audit: Clinical/WGS_Clinical/prepare/ledger-registration-repair-20260917.json.
+
+## 2026-09-17 Automatic WGS intake configuration
+
+BS96/server96 backend1dc96daabc2d and scanner b4a90d98aebe now consume
+/data/airflow-WGS/auto-intake-20260917-config at /af05-config. Source/image pins
+unchanged; private Compose/rollback in auto-intake-20260917-control. Other ten
+service IDs unchanged. Effective scan600 seconds,auto-enabled; exact source
+/sg2/50.ctapa/Clinical/WGS_Clinical/HWcloud_Target_Capture. Initial scan successful,
+20260917A waiting_sequencing. This does not deploy the Local/SGE test branch.
 ## 2026-09-17 Complete QC criteria/counts release4e9196d
 
 BS96 backend2950f374ab8a mounts
