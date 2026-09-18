@@ -1,5 +1,24 @@
 # Workflow runtime integration
 
+## WGS analysis preparation diagnostics and recovery (2026-09-18)
+
+The private runner retains native analysis preparation stdout/stderr under the
+attempt control workdir as `prepare_analysis.generation-N.log` (`0600`).
+Generations remain separate. On subprocess failure, status carries the exit code
+and private log basename, not the full command that hides the cause in Airflow's
+truncated SSH error. Raw clinical output stays private; no new public log
+endpoint. Native prepare arguments, receipts, pending selection and stage
+execution fences remain unchanged. This does not enable automatic retries or
+downstream CCE execution.
+
+On an explicitly registered retry, the most recent earlier handoff request is
+used even if an intermediate generation failed before creating its request.
+Existing valid receipts supply pending output as before; missing receipts supply
+the original verified frozen input. Identity/source/manifest/payload checks
+remain in force and invalid existing receipts are never treated as absent. No
+success receipt is fabricated and no shared pending file is rewritten by the
+recovery.
+
 ## GATK logger release (2026-09-17)
 
 New GATK prepares use profile r2 and an independent SFS root, pinned

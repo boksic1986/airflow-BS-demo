@@ -1077,20 +1077,42 @@ def _write_pending_input(
     payload: dict[str, Any], source: Path, pending_payload: Path
 ) -> int:
     generation = int(payload.get("generation") or 1)
-    if generation > 1:
-        previous_root = pending_payload.parent.parent / f"generation-{generation - 1}"
+    for previous_generation in range(generation - 1, 0, -1):
+        previous_root = pending_payload.parent.parent / f"generation-{previous_generation}"
         previous_request = previous_root / "handoff-request.json"
-        if previous_request.is_file() and not previous_request.is_symlink():
-            previous_payload = {**payload, "generation": generation - 1}
-            _validated_prepare_receipt(previous_payload, previous_request)
+        if previous_root.is_symlink() or previous_request.is_symlink():
+            raise RuntimeError("WGS prepare handoff previous input path is invalid")
+        if previous_request.is_file():
             request = json.loads(previous_request.read_text(encoding="utf-8"))
-            receipt = json.loads(
-                (Path(str(request["artifact_root"])) / "prepare_analysis.receipt.json").read_text(
-                    encoding="utf-8"
+            previous_payload = {
+                **payload, "generation": previous_generation,
+                "execution_id": request.get("execution_id"),
+                "request_hash": request.get("request_hash"),
+            }
+            _validate_existing_handoff_request(previous_payload, previous_request)
+            receipt_path = previous_root / "prepare_analysis.receipt.json"
+            if receipt_path.exists() or receipt_path.is_symlink():
+                _validated_prepare_receipt(previous_payload, previous_request)
+                receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+                descriptor = receipt["private_pending_payload"]
+                previous_artifact = previous_root / str(descriptor["artifact_key"])
+            else:
+                # Failed preparation has no output receipt. Carry its frozen input,
+                # including across a generation that failed before request creation.
+                manifest = json.loads(
+                    Path(request["pending_input"]["manifest_path"]).read_text(encoding="utf-8")
                 )
-            )
-            descriptor = receipt["private_pending_payload"]
-            previous_artifact = previous_root / str(descriptor["artifact_key"])
+                descriptor = manifest["payload"]
+                previous_artifact = Path(str(descriptor["path"]))
+                if (
+                    previous_artifact.is_symlink()
+                    or previous_root.resolve() not in previous_artifact.resolve().parents
+                    or not previous_artifact.is_file()
+                    or descriptor.get("sha256") != _sha256_file(previous_artifact)
+                ):
+                    raise RuntimeError("WGS prepare handoff pending payload changed")
+                if type(descriptor.get("row_count")) is not int or descriptor["row_count"] < 0:
+                    raise RuntimeError("WGS prepare handoff pending row count is invalid")
             pending_payload.touch(mode=0o600, exist_ok=False)
             with previous_artifact.open("rb") as source_handle, pending_payload.open("wb") as target_handle:
                 shutil.copyfileobj(source_handle, target_handle, length=1024 * 1024)
@@ -1445,6 +1467,28 @@ def _run_prepare_analysis(payload: dict[str, Any]) -> None:
     finally: os.close(descriptor)
 
 
+def _run_logged_prepare(payload: dict[str, Any]) -> None:
+    """Keep native prepare output private, outside Airflow's truncated error."""
+    log_path = _workdir(payload) / (
+        f"prepare_analysis.generation-{int(payload.get('generation') or 1)}.log"
+    )
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor = os.open(
+        log_path, os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW, 0o600
+    )
+    with os.fdopen(descriptor, "ab", buffering=0) as log_handle:
+        try:
+            subprocess.run(
+                build_prepare_command(payload), check=True, env=_clean_env(),
+                stdout=log_handle, stderr=subprocess.STDOUT,
+            )
+        except subprocess.CalledProcessError as error:
+            raise RuntimeError(
+                f"WGS prepare failed (exit code {error.returncode}); "
+                f"see private runtime log {log_path.name}"
+            ) from None
+
+
 def _run_prepare_analysis_impl(payload: dict[str, Any]) -> None:
     _validate_test_project(payload)
     binding_path = _binding_path(payload)
@@ -1474,7 +1518,7 @@ def _run_prepare_analysis_impl(payload: dict[str, Any]) -> None:
     if existing_run_id is not None:
         _retain_prior_attempt_batch(payload, expected_batch_root, existing_run_id)
     handoff_request = _prepare_handoff_request(payload)
-    subprocess.run(build_prepare_command(payload), check=True, env=_clean_env())
+    _run_logged_prepare(payload)
     if handoff_request is not None:
         payload["prepare_handoff_receipt"] = _validated_prepare_receipt(payload, handoff_request)
         _test_selection_fence(payload,payload['prepare_handoff_receipt'])
