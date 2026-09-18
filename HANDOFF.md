@@ -197,10 +197,27 @@ commits and Native/Local/SGE adaptations.
 - Combined test and production environment/runbook observations; compact test
   state remains the current queue.
 
-### Pending in this entry
+### Verification and publication
 
-- Complete the merge commit, run focused tests and ancestry checks, then push
-  the primary test branch.
+- Merge commit: `e8ce35a`; pushed to
+  `origin/jiucheng/test/wgs-local-main-sync-20260917`.
+- `origin/main` and `origin/jiucheng/release/production` are both ancestors;
+  each reports `0` commits absent from test and test reports `26` additional
+  commits at the merge tip.
+- BS10610 isolated source candidate:
+  `candidates/lineage-sync-e8ce35a`; no service deployment or restart.
+- Existing backend Docker image, network disabled and source mounted read-only:
+  the exact three-fix plus prepare-recovery set passed `36` tests.
+- A broader backend set passed `94` and failed `6`. All six failing node IDs
+  fail identically on first-parent baseline `91060d0` in the same image, so
+  they remain pre-existing test-branch contract drift rather than merge
+  regressions.
+- Existing frontend build image, network disabled and candidate copied to
+  tmpfs: selected tests passed `32` and failed the already recorded
+  `starts stage one...`/missing `S1` case. Production build passed and emitted
+  `index-D2PoeP0p.js` plus `index-D4g5ndFq.css`.
+- Local checks were limited to Python compilation, policy JSON parsing and
+  `git diff --check`; no local dependency environment was created.
 
 No runtime host, analysis, database or production deployment is authorized by
 this Git-only merge.

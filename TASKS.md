@@ -69,9 +69,9 @@ Owner: coordinator.
   `docs/TEST_BRANCH_SYNC_HOLD_20260918.md`.
 - [x] Commit the three approved fix ports as `8f062f9`.
 - [x] Commit the compact test state and repository hygiene record as `91060d0`.
-- [ ] Merge `origin/main=origin/jiucheng/release/production=1255a06` and prove
+- [x] Merge `origin/main=origin/jiucheng/release/production=1255a06` and prove
   both refs are ancestors of the resulting test tip.
-- [ ] Run focused backend/frontend/runtime tests on the merged source and push
+- [x] Run focused backend/frontend/runtime tests on the merged source and push
   the test branch.
 - [ ] After all required testing completes, prepare a test-to-main promotion
   manifest with only validated commits and explicit omissions.
