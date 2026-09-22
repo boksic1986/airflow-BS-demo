@@ -73,6 +73,14 @@ and dispatch remain pending. No existing budget/evidence suite rerun.
 
 ### Current lineage to reservation bridge (2026-09-23, internal only)
 
+Actual producer compatibility update: plugin commit0d606489, candidate wheel
+0.6.4+biosan4.p0.1, generated WGS/GATK admission fixtures under synthetic API.
+Four opt-in consumer checks passed on BS10610, hash-pinned original files:
+candidate alone is rejected; candidate plus a deliberately synthetic terminal
+is compatible. No consumer policy was relaxed for pipeline=synthetic. This
+supersedes "no producer fixture" observations, not the missing real terminal
+writer/adapter/runtime acceptance. Neither artifact is an authorization seal.
+
 `app.cce_recovery_service.reserve_monitored_recovery` binds the current failed
 Step3 monitor to its explicit, current Master-submit execution (original Step2
 or a replacement submitted by Step3). It checks frozen release/workdir, attempt,

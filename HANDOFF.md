@@ -1,5 +1,45 @@
 # Handoff
 
+## 2026-09-23 actual candidate producer/consumer contract check
+
+After f73e284, plugin owner delivered commit
+0d60648922b27aee25eda3ea7900f50467fbe0d9, version0.6.4+biosan4.p0.1.
+Verified clean source worktree at
+/mnt/biodevrwbi/33.chenjiucheng/project/worktrees/snakemake-kubernetes-p0-submit-20260922.
+Evidence root E:
+/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/plugin-p0-submit-20260922.
+Actual wheel SHA256 independently verified:
+520914e26ced796b70805f2daf35e027c00fa1e985aadb855d72807c6aef844b.
+Wheel: E/build-0d60648922b27aee25eda3ea7900f50467fbe0d9/wheel/
+snakemake_executor_plugin_kubernetes-0.6.4+biosan4.p0.1-py3-none-any.whl.
+Owner's source/wheel56-test results were read in E/HANDOFF.md, not rerun here.
+
+Original admission fixture uses pipeline=synthetic, correctly outside consumer
+allowlist. Requested regeneration, not edited JSON or a permissive production
+change. Owner generated E/fixtures/wgs-admission and gatk-admission through that
+wheel and synthetic API; generation1, explicit Master-submit execution identities.
+Raw context/candidate SHA256 pins are in the new opt-in test file. Generator and
+provenance: E/generate-pipeline-fixtures.py and E/pipeline-fixtures.log.
+
+Added backend/tests/test_cce_recovery_producer_contract.py only; no production
+code changed in this follow-up. With E/fixtures mounted read-only at /producer:
+`CCE_PRODUCER_FIXTURE_ROOT=/producer python -m pytest -q -p no:cacheprovider tests/test_cce_recovery_producer_contract.py --tb=short`
+Result4 passed0.08s, exit0; own candidate producer-contract.log. Same cached
+backend image8491604ee01d, network none/read-only/1CPU/1GiB, no live DB mount.
+Candidate-alone rejection plus synthetic-terminal compatibility tested for both
+adapters. The terminal is test scaffolding, NOT real runtime evidence or a seal.
+No extra RED/implementation cycle: this is contract acceptance of existing code.
+Missing external fixture env explicitly skips opt-in tests, never counts as pass.
+
+Fresh preflight: server10610; current and actual backend mounts unchanged from
+preceding entry; scan/dispatch false. Read-only bounded test DB transaction found
+GATK_20260922_112207_23AD29 attempt1 running/step1_upload; coordinator notified.
+No shared service, that run, BS96, database write, install, image deploy or cleanup.
+Updated state/tasks/runtime/prerequisite/ledger docs. Working branch unchanged.
+Next: trusted Master terminal/Worker quiescence writer and adapter binding,
+then dispatch/callback/control fences. CR-01–05 incomplete, policy unwired/off.
+Rollback this test/docs commit only; source evidence and real data untouched.
+
 ## 2026-09-23 P0 evidence-to-action bridge and manual resume fence
 
 Goal: user requested next step of existing P0, not P1 pause/delete. Continued in

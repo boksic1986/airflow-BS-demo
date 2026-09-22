@@ -18,6 +18,18 @@ No unrelated regression suite. Preserve the original worktree's dirty files.
 
 ## Current progress
 
+- Actual producer follow-up: plugin0d606489 clean and wheel hash verified;
+  original pipeline=synthetic fixture not allowed as WGS/GATK. Owner regenerated
+  wgs-admission/gatk-admission through the same candidate wheel.4 hash-pinned
+  consumer checks passed0.08s (producer-contract.log): candidate alone rejects,
+  actual candidate plus synthetic terminal is compatible. No real terminal seal
+  or runtime integration claimed. No code-policy relaxation or plugin-suite rerun.
+- Fresh BS10610 mounts/gates unchanged; bounded read-only transaction found
+  GATK_20260922_112207_23AD29 in Step1 upload. Only isolated candidate files/
+  network-none test container changed; coordinator notified, no shared deployment.
+  Pending-fixture notes below are superseded; trusted terminal/binding writers,
+  dispatch/fences and actual integration remain pending.
+
 - 2026-09-23: internal DB-lineage bridge now joins current failed Step3 monitor,
   actual Master-submit binding, controlled reader, validator and budget.22 new
   WGS/GATK synthetic checks passed1.04s on BS10610. Stale identities and replaced

@@ -1,5 +1,10 @@
 # Active test-branch tasks
 
+CR-01 producer-to-consumer compatibility: plugin0d606489 actual WGS/GATK fixture
+bytes and wheel hash verified;4 consumer checks passed0.08s on BS10610. This
+supersedes pending-fixture notes below, not pending trusted runtime terminal
+generation, binding writer or live integration. Automatic policy remains off.
+
 2026-09-23 CR-01/02 slice: internal Master-submit/monitor lineage-to-reservation
 bridge implemented;22 focused synthetic checks passed. WGS resume-stage refuses
 unfinished automatic recovery before mutation/dispatch;8 entry tests passed.

@@ -1,5 +1,18 @@
 # Current state
 
+## 2026-09-23 actual plugin candidate contract accepted (not end-to-end)
+
+Verified plugin0d606489 clean worktree and candidate wheel SHA256. Original
+pipeline=synthetic fixture was not relaxed into the WGS/GATK allowlist; producer
+owner regenerated both adapters' fixtures from the same wheel. Four opt-in
+consumer checks passed0.08s on BS10610: candidate alone rejects; actual producer
+candidate plus an explicitly synthetic terminal matches the draft contract.
+Input bytes are hash-pinned. No runtime seal or live recovery acceptance implied.
+No plugin-suite rerun, package install, shared deploy or automatic enablement.
+Fresh read-only test DB snapshot still had GATK_20260922_112207_23AD29 running
+Step1 upload; only own isolated candidate and network-none container were used.
+Next: trusted runtime terminal writer and adapter binding/dispatch/callback fences.
+
 ## 2026-09-23 P0 internal reservation bridge and WGS manual fence
 
 Implemented current Master-submit/Step3-monitor lineage binding to the existing

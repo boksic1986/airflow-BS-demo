@@ -1,5 +1,13 @@
 # P0 recovery prerequisite review — 2026-09-22
 
+2026-09-23 update: actual plugin candidate0d60648922b27aee25eda3ea7900f50467fbe0d9
+and wheel0.6.4+biosan4.p0.1 delivered; clean source and wheel SHA verified. Real
+producer-generated WGS/GATK admission fixtures pass4 focused consumer contract
+checks with synthetic terminal scaffolding. Candidate alone still rejects.
+No real Master terminal writer/seal, image deployment or auto-enable accepted.
+Original source findings below describe the baseline, not the new candidate.
+See HANDOFF and P0 progress ledger for exact artifacts/commands and remaining gates.
+
 Status: external producer/artifact implementation approved; isolated synthetic
 testing released during the existing upload. Formal service integration/deploy
 still gated. CR-01 through CR-05 are not complete. Baseline: test `1da45f3`.
