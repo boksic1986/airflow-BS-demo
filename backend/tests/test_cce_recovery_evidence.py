@@ -73,6 +73,7 @@ def test_incomplete_conflicting_live_or_foreign_terminal_is_rejected(evidence, f
 
 @pytest.mark.parametrize("field,value", [
     ("category", "WORKER_CREATE_REJECTED"), ("category", "MISSING_FASTQ"),
+    ("category", "WORKER_SUBMIT_GUARD_FAILED"),
     ("category", "OOM"), ("creation_state", "UNKNOWN"), ("creation_state", "CONFLICT"),
     ("retryable", False), ("exhausted", False), ("request_count", 0),
 ])

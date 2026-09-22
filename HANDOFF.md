@@ -1,5 +1,55 @@
 # Handoff
 
+## 2026-09-23 bs6 actual producer-to-consumer acceptance
+
+User requested next step; sourceb5d8718 on existing isolated P0 branch. Prior SSH
+blocker cleared on the first user-requested fresh attempt. Used runtime/backend
+and handoff skills for remote-only scoped acceptance, not shared deployment.
+Only two test files and related state/runtime/progress docs changed; no production
+implementation or recovery policy change. Existing guard negative matrix extended
+by one parameter (WGS/GATK); new opt-in actual bs6 contract file adds12 checks.
+This is compatibility validation of existing behavior, not a RED/GREEN claim for
+a new production implementation. No broad suite or plugin86-test rerun.
+
+Fresh BS10610/server10610 uid6708; current resolves20260912-opt-4d3d24e6.
+Backend36ff21f87356 /app readonly from
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260923-step7-ae416fa/backend/backend;
+/config readonly from current release; image8491604ee01d. EnvironmentBS10610-Test,
+scan/dispatch=false. Own candidate writable, no permission changes. A bounded
+readonly test DB transaction (5s statement timeout) returned nonterminal_runs=[];
+rolled back, no clinical fields queried. No shared service restart/changes or
+BS96 access. Existing Step7 services and all runtime inputs/results preserved.
+
+Producer fixture root E:
+/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/plugin-bs6-heavy-p0-20260923/consumer-fixtures-v1
+Four scopes: wgs-admission/gatk-admission/wgs-guard/gatk-guard. Each contains actual
+context.json, submit-events.ndjson, journal-state.json, executor-failure.json and
+explicit empty jobs.ndjson. No admitted Workers or producer terminal seal.
+Owner uses real bs6 SubmissionManager and Executor quota guard with synthetic
+external API/quota responses/clock. Independently read/verified provenance and
+checksum pins, then test checked all20 raw-file hashes and actual wheel bytes.
+SHA256SUMS SHA a22a6d55de4947f0884c16c21d102222cd41c9c3f6a59159a4a9bd6c392fb038;
+fixture-provenance.json SHA b36fab5298a58bc8e749a82a35ccc37816ebda485a3757f91ead68afbf73ce9d;
+wheel SHA f9671d22ed02ec5a3edf0af861e116c0ea7dc9de816de6e07926fa869e2bb546.
+Generator SHA in pinned provenance4e5fd7e63bcc6e715ef757f30b634e4a2e6c861cd6e7d4a812c52bb46a811783.
+No old fixture relabeling or producer-byte rewriting.
+
+Candidate C: control-root/candidates/p0-airflow-recovery-20260922. Copied only
+current consumer/probe modules and selected tests into C. Ran cached image
+8491604ee01d with --pull=never --network=none --read-only,1CPU/1GiB,/tmp64MiB;
+only C/backend,C/scripts,E,wheel mounted readonly, no DB/env credentials/kubeconfig.
+PYTHONPATH=/candidate:/candidate/backend CCE_BS6_FIXTURE_ROOT=/producer:
+`python -m pytest -q -p no:cacheprovider backend/tests/test_cce_recovery_bs6_contract.py backend/tests/test_cce_recovery_evidence.py -k 'bs6 or WORKER_SUBMIT_GUARD_FAILED' --tb=short`
+Result14 passed,62 deselected0.32s exit0, no skips. Log C/bs6-consumer-contract.log.
+Kernel swap-limit warning unchanged; tests otherwise clean. git diff --check.
+
+Scope of result: admission candidate/inventory format compatible; guard unknown
+rejects; all candidate-only inputs reject. Synthetic terminal scaffolding cannot
+prove a live complete Master terminal or enable recovery. Remaining existing
+control/dispatch/callback/adapter and terminal-evidence gaps stay open. No actual
+analysis, automatic enablement, publish/install/merge/production mutation.
+Rollback source test/docs commit only; no runtime data rollback needed.
+
 ## 2026-09-23 next slice: bs6 consumer acceptance blocked before remote access
 
 Source930348c, same isolated branch. User requested next step. Scope is actual

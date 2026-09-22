@@ -1,5 +1,12 @@
 # Active test-branch tasks
 
+CR-01 bs6 candidate-format acceptance complete: actual wheel-generated WGS/GATK
+admission+guard fixtures, raw-file/wheel/provenance SHA pins;14 BS10610 checks
+passed0.32s,62 unrelated cases deselected. No existing production behavior change.
+No live terminal/recovery acceptance: synthetic terminal scaffolding is not proof
+of complete Master history. Continue remaining CR-02/03 control/dispatch/callback
+and adapter work under existing scope; do not mark end-to-end P0 complete.
+
 CR-01 bs6 consumer acceptance in progress, not passed: BS10610 preflight blocked
 at BS jump host172.17.61.18:22 handshake. Actual producer fixtures requested;
 WORKER_SUBMIT_GUARD_FAILED negative test added but not run. Next: fresh test-host

@@ -1,5 +1,21 @@
 # Current state
 
+## 2026-09-23 bs6 consumer contract acceptance passed
+
+SSH restored. Actual hash-pinned bs6 wheel generated WGS/GATK admission and guard
+fixtures; consumer and inventory checks passed14/14 on BS10610 (0.32s,62 unrelated
+cases deselected). Guard category alone also rejects with otherwise qualifying
+synthetic values. Candidate without terminal rejects for all four scopes.
+No production code, allowlist, API/DB, service or automatic-policy change.
+
+This closes bs6 candidate-format compatibility only. Positive terminal objects
+in tests are explicitly synthetic, not runtime evidence; complete Master/Worker
+terminal support and recovery dispatch/adapter/callback integration remain open.
+Next: remaining existing control/dispatch/callback fences and adapter integration,
+without restoring the extra audit track or enabling recovery on incomplete proof.
+Fresh test backend36ff21f87356 mounts20260923-step7-ae416fa/backend/backend;
+test gates scan/dispatch=false, readonly nonterminal-run query returned[].
+
 ## 2026-09-23 bs6 consumer acceptance started; SSH preflight blocked
 
 User requested next step. Selected actual bs6 consumer contract acceptance only,

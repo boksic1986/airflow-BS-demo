@@ -18,6 +18,17 @@ No unrelated regression suite. Preserve the original worktree's dirty files.
 
 ## Current progress
 
+- Fromb5d8718: SSH restored; fresh Step7 backend mount/gates confirmed and bounded
+  readonly nonterminal query returned[]. Actual bs6 WGS/GATK admission+guard
+  fixtures received and raw bytes/wheel/provenance hash-pinned.14 focused consumer
+  checks passed0.32s,62 unrelated cases deselected, no skips, no plugin suite rerun.
+  Candidate-only inputs and guard errors reject; admission draft-contract format
+  remains compatible. Production code unchanged; no deployment/policy enablement.
+- Ruling: count this as bs6 candidate-format acceptance only, not trusted terminal
+  or end-to-end automatic recovery. Positive synthetic terminal remains explicit
+  scaffolding. Next: existing control/dispatch/callback fences and adapter wiring;
+  do not reintroduce extra audit or relax the complete-evidence gate.
+
 - Next step from930348c: actual bs6 consumer acceptance selected. Single fresh
   BS10610 preflight failed at jump172.17.61.18:22 SSH handshake, before remote
   script execution. No new fingerprint, test, service change or runtime write.

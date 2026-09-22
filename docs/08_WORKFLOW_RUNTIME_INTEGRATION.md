@@ -1,5 +1,23 @@
 # Workflow runtime integration
 
+## bs6 candidate compatibility (2026-09-23, isolated acceptance)
+
+Actual plugin0.6.4+bs6 commit0b19bb605cdff619a7f09b34a6fe774e4b43d357 keeps
+submit-context.v1, submit-event.v1 and executor-failure.v1. New category
+WORKER_SUBMIT_GUARD_FAILED is UNKNOWN/retryable=false, not a recovery allowlist
+entry. Existing consumer and inventory validators reject it without code changes.
+WGS/GATK admission candidates remain compatible with the draft consumer contract.
+Four actual-wheel-generated fixture scopes and two category-only negative checks
+passed14 tests on BS10610. Wheel, fixture checksum manifest and provenance are
+pinned in backend/tests/test_cce_recovery_bs6_contract.py; source bytes untouched.
+
+Candidate-only inputs reject. Positive tests use explicitly synthetic terminal
+objects solely to isolate contract compatibility, not to attest Master termination,
+complete failure history or eligibility. No new terminal producer was delivered;
+earlier proposed extra Master audit implementation below is not current approved
+scope. Missing complete trusted evidence still refuses automatic recovery. No
+service deployment, API/DB change, plugin installation or automatic enablement.
+
 ## P0 Master failure detail (source only, 2026-09-23)
 
 The UID-bound workload probe now adds `master_job_condition` (type/reason) and
