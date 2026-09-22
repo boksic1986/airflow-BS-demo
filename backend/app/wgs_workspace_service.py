@@ -13,7 +13,7 @@ from app.wgs_sample_projection import get_wgs_batch_qc_status
 from app.wgs_stage_contract import canonical_wgs_stage, project_wgs_orchestration, wgs_stage_definition
 from app.wgs_transfer_projection import (
     ACTIVE_TRANSFER_STATUSES, TRANSFER_STAGES, active_transfer_snapshot,
-    transfer_stage_progress,
+    transfer_stage_progress, project_upload_wait, project_download_wait,
 )
 from app.wgs_stage_estimates import attach_stage_estimates
 
@@ -21,7 +21,7 @@ from app.wgs_stage_estimates import attach_stage_estimates
 FAILED_RULE_STATUSES = {"failed", "error", "terminated"}
 
 
-def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_slot_limit: int = 25, heavy_slot_mode: str = "monitor-only", evidence_root: str | None = None, settings=None) -> dict:
+def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_slot_limit: int = 25, heavy_slot_mode: str = "monitor-only", evidence_root: str | None = None, settings=None, airflow_client=None) -> dict:
     if (run.params_json or {}).get('native_monitor_only'):
         return dict(run=run_payload, summary=dict(sample_count=run_payload.get('sample_count', 0),
             rule_count=0, failed_rule_count=0, batch_qc_status='unknown'), progress=None,
@@ -158,6 +158,8 @@ def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_s
     }
     if transfer_stage:
         progress.update(transfer_stage_progress(transfer_payload))
+    progress = project_upload_wait(session=session, run=run, payload=progress)
+    progress = project_download_wait(session=session, run=run, payload=progress, airflow_client=airflow_client)
     return {
         "snapshot_at": datetime.now(timezone.utc).isoformat(),
         "run": run_payload,

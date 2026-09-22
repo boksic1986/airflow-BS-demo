@@ -4,6 +4,20 @@ Updated 2026-09-22 after refreshing the authoritative test branch and
 reassessing all documented development against current main/production.
 Historical tasks are archived and are not silently reopened or marked complete.
 
+## Completed production synchronization (not development)
+
+- [x] Include `f875488` / `cdd5c80`: analysis-batch submission titles and its
+  BS96 publication record.
+- [x] Include `1d0e718` / `132b8a1`: queued upload waiting projection and its
+  BS96 publication record.
+- [x] Include `4b09b7b` / `43cd0c5`: queued download waiting projection and its
+  BS96 publication record.
+- [ ] Publish the combined selective application baseline to BS10610 only after
+  the current mistaken test upload is cancelled before Step2 and zero other test
+  analyses are active. This is release work, not another development track.
+
+The old `9ff67d3`-only BS10610 candidate is superseded. Do not deploy it.
+
 ## Priority and execution order
 
 | Priority | Track | Why now / entry gate |

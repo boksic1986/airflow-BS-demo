@@ -1,5 +1,29 @@
 # Frontend specification
 
+## WGS download waiting (2026-09-22)
+
+Use the existing transfer display for Step5 queue evidence: Downloading WGS
+results / waiting / empty stationary bar, no percentage/speed/ETA. Once download
+starts, retain normal measured progress. Failed/completed states are not relabeled.
+Tracker and detail share the backend projection; no frontend runtime change.
+
+## 2026-09-22 waiting for upload (source only)
+
+Once execution is approved but the CCE upload slot is still pending, display
+Uploading FASTQ with stage substatus waiting and an empty stationary bar.
+Do not show the preceding preparation's success/Stage complete/green full bar.
+Consume the backend waiting projection through the existing progress component;
+do not manufacture a transfer percentage. Real upload progress remains unchanged.
+
+## 2026-09-22 submission titles use the entered analysis batch
+
+Incomplete-submission cards in Dashboard/Submit, the saved Step1 heading and
+final execution confirmation use the saved `analysis_batch` from Step1 (legacy
+`batch`, then `batch_no`, then run identity if unavailable). They never use
+`sequencing_batch` as a task title. Pending samples can originate from several
+sequencing batches; the sample preview keeps each row's original sequencing
+batch. No sampleinfo, pending, API or database mutation is part of this fix.
+
 ## 2026-09-18 imported sampleinfo configuration review
 
 After creating or restoring a run, Step2 restores `params.use_reference` from

@@ -1,5 +1,25 @@
 # Handoff
 
+## 2026-09-22 latest main/production fixes merged into test
+
+The user clarified that BS10610 must receive more than `9ff67d3`: current main
+and production also contain the analysis-batch title, upload-waiting and
+download-waiting corrections. Both source refs were fetched and verified equal
+at `43cd0c5`; the test branch was missing exactly six commits (`f875488` through
+`43cd0c5`). The merge preserves test-only work and incorporates those completed
+production fixes and records. Conflict resolution retains the compact test
+state documents while adding the new completed-release facts; the workspace
+code combines the test-only native-monitor shortcut with main's upload/download
+projection and Airflow-client parameter.
+
+The prior remote `sampleinfo-main-9ff67d3-20260922` candidate is superseded and
+must not be activated. Its independent monitor remains the authority for safely
+stopping mistaken test run `GATK_20260922_112207_23AD29` after Step1 and before
+Step2. No duplicate monitor was started, no service was changed, and no data was
+deleted. After cancellation and zero-active-run verification, rebuild from the
+actual BS10610 mounts and recreate only backend/frontend-nginx. Preserve the
+separately rotated admin password/session state and all gates/mounts/env values.
+
 ## 2026-09-22 remove redundant blanket validation gate
 
 The user determined that `TEST-VALIDATION-01` would duplicate testing already
