@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import secrets
+import json
+import hashlib
+from pathlib import Path
 
 from sqlalchemy import select
 
@@ -89,7 +92,7 @@ def request_step7_cleanup(*, session, airflow_client, analysis_id: str, batch_co
         raise ValueError(reason)
     generation = int(existing.generation if existing else 0) + 1
     action_id = f"step7-sfs-{secrets.token_hex(6)}"
-    dag_run_id = f"maintenance__{analysis_id}__a{run.attempt}__step7__{action_id[-12:]}"
+    dag_run_id = f"wgs_maintenance__{analysis_id}__a{run.attempt}__step7__{action_id[-12:]}"
     action = WgsMaintenanceAction(
         action_id=action_id,
         analysis_id=analysis_id,
@@ -97,7 +100,8 @@ def request_step7_cleanup(*, session, airflow_client, analysis_id: str, batch_co
         action_type=ACTION_TYPE,
         generation=generation,
         retry_of_action_id=existing.action_id if existing else None,
-        target_snapshot_json=_target_snapshot(session=session, run=run),
+        target_snapshot_json=(dict(existing.target_snapshot_json or {}) if existing
+                              else _target_snapshot(session=session, run=run)),
         linkage_group="sfs",
         status="requested",
         requested_by=requested_by,
@@ -136,7 +140,7 @@ def authorize_step7_runtime(*, session, run: AnalysisRun, action_id: str) -> Wgs
 def _trigger_step7_action(airflow_client, run: AnalysisRun, action: WgsMaintenanceAction) -> None:
     ensure_dag_run(
         airflow_client=airflow_client,
-        dag_id="bio_wgs",
+        dag_id=("bio_wgs_maintenance" if str(action.maintenance_dag_run_id).startswith('wgs_maintenance__') else "bio_wgs"),
         dag_run_id=str(action.maintenance_dag_run_id),
         conf={
             "analysis_id": run.analysis_id,
@@ -148,10 +152,134 @@ def _trigger_step7_action(airflow_client, run: AnalysisRun, action: WgsMaintenan
             "maintenance_mode": "cleanup_step7",
             "maintenance_action_id": action.action_id,
             "step7_generation": action.generation,
+            "step7_previous_action_id": action.retry_of_action_id,
+            "step7_previous_generation": action.generation - 1 if action.retry_of_action_id else None,
             "step7_target_snapshot": dict(action.target_snapshot_json or {}),
             "source_dag_run_id": run.dag_run_id,
         },
     )
+
+
+def maintenance_context(*, session, request_root, analysis_id, action_id, attempt, generation, dag_run_id):
+    latest = session.scalar(select(WgsMaintenanceAction).where(
+        WgsMaintenanceAction.analysis_id == analysis_id, WgsMaintenanceAction.attempt == attempt,
+        WgsMaintenanceAction.action_type == ACTION_TYPE).order_by(WgsMaintenanceAction.generation.desc()))
+    if (not latest or latest.action_id != action_id or latest.generation != generation
+            or latest.maintenance_dag_run_id != dag_run_id):
+        raise ValueError('stale_step7_observation')
+    root = Path(request_root).resolve()
+    path = root / analysis_id / f'attempt-{attempt}' / 'step7_cleanup.json'
+    if root not in path.resolve().parents or path.is_symlink():
+        raise ValueError('unsafe_step7_request')
+    if not path.exists():
+        if latest.retry_of_action_id:
+            raise ValueError('Step7 prior request unavailable; cleanup state unknown')
+        return {'registered': False}
+    payload = json.loads(path.read_text())
+    source = session.scalar(select(WgsMaintenanceAction).where(
+        WgsMaintenanceAction.analysis_id == analysis_id, WgsMaintenanceAction.attempt == attempt,
+        WgsMaintenanceAction.action_type == ACTION_TYPE,
+        WgsMaintenanceAction.action_id == payload.get('maintenance_action_id')))
+    if (not source or source.generation > generation or payload.get('analysis_id') != analysis_id
+            or payload.get('attempt') != attempt or payload.get('stage') != 'step7_cleanup'
+            or payload.get('step7_generation', 1) != source.generation):
+        raise ValueError('Step7 registered identity mismatch')
+    result = {'registered': True, 'action': source.action_id, 'generation': source.generation}
+    if payload.get('orchestration_contract_version') == 2:
+        result['runtime_identity'] = {key: payload.get(key) for key in ('execution_id', 'generation', 'request_hash')}
+    return result
+
+
+def observe_maintenance(*, session, request_root, analysis_id, action_id, attempt,
+                        generation, dag_run_id, status, message=''):
+    """Fence callbacks without altering the successful biological run."""
+    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id,
+        AnalysisRun.attempt == attempt).with_for_update())
+    latest = session.scalar(select(WgsMaintenanceAction).where(
+        WgsMaintenanceAction.analysis_id == analysis_id, WgsMaintenanceAction.attempt == attempt,
+        WgsMaintenanceAction.action_type == ACTION_TYPE).order_by(WgsMaintenanceAction.generation.desc()))
+    if (not run or not latest or latest.action_id != action_id or latest.generation != generation
+            or latest.maintenance_dag_run_id != dag_run_id):
+        raise ValueError('stale_step7_observation')
+    if status not in {'running', 'success', 'failed', 'stopped'}:
+        raise ValueError('invalid_step7_observation')
+    if status == 'stopped':
+        # Only the independent DAG sends this after a live, identity-bound probe
+        # proves the previous executor has stopped. This is not a timeout callback.
+        try:
+            source = maintenance_context(session=session, request_root=request_root,
+                analysis_id=analysis_id, action_id=action_id, attempt=attempt,
+                generation=generation, dag_run_id=dag_run_id)
+        except (ValueError, OSError):
+            source = {}
+        if not source.get('registered') or source['generation'] >= generation:
+            raise ValueError('Step7 stopped predecessor identity missing')
+        payload = json.loads((Path(request_root) / analysis_id / f'attempt-{attempt}' / 'step7_cleanup.json').read_text())
+        if payload.get('orchestration_contract_version') == 2:
+            from app.wgs_stage_execution_service import transition_stage_execution
+            transition_stage_execution(session=session, execution_id=payload['execution_id'],
+                generation=payload['generation'], status='failed',
+                message='Step7 executor confirmed stopped before manual retry')
+        session.commit()
+        return serialize_maintenance_action(latest)
+    # An Airflow timeout must not overwrite an exact successful runtime receipt.
+    marker = Path(request_root) / analysis_id / f'attempt-{attempt}' / 'step7_cleanup.status.json'
+    confirmed_success = False
+    if marker.is_file() and not marker.is_symlink():
+        try:
+            evidence = json.loads(marker.read_text())
+        except (OSError, ValueError):
+            evidence = {}
+        identities = {(action_id, generation)}
+        if latest.retry_of_action_id:
+            identities.add((latest.retry_of_action_id, generation - 1))
+        try:
+            source = maintenance_context(session=session, request_root=request_root,
+                analysis_id=analysis_id, action_id=action_id, attempt=attempt,
+                generation=generation, dag_run_id=dag_run_id)
+        except (ValueError, OSError):
+            source = {}
+        if source.get('registered'):
+            identities.add((source['action'], source['generation']))
+        if (evidence.get('schema_version') == 'wgs-runtime.stage-status.v1'
+                and evidence.get('analysis_id') == analysis_id and evidence.get('attempt') == attempt
+                and evidence.get('stage') == 'step7_cleanup'
+                and (evidence.get('maintenance_action_id'), evidence.get('step7_generation', 1)) in identities
+                and (evidence.get('orchestration_contract_version') != 2 or
+                     bool(source.get('runtime_identity')) and all(evidence.get(key) == value
+                         for key, value in source['runtime_identity'].items()))
+                and evidence.get('status') == 'success'):
+            from app.wgs_observer import upsert_stage_state
+            if evidence.get('orchestration_contract_version') == 2:
+                from app.wgs_stage_execution_service import transition_stage_execution
+                accepted = transition_stage_execution(session=session, execution_id=evidence['execution_id'],
+                    generation=evidence['generation'], status='success',
+                    receipt_hash=hashlib.sha256(marker.read_bytes()).hexdigest(),
+                    evidence_type='wgs-runtime.stage-status.v1', terminal_payload=evidence)
+            else:
+                accepted = True
+            if accepted:
+                status, message = 'success', ''
+                confirmed_success = True
+                upsert_stage_state(session, analysis_id=analysis_id, attempt=attempt,
+                    stage_code='step7_cleanup', stage_status='success',
+                    updated_at=datetime.now(timezone.utc), allow_terminal_retry=True,
+                    progress_percent=100, progress_source='wgs-runtime.stage-status.v1')
+    if status == 'success' and not confirmed_success:
+        status = 'running'  # Wait for the exact receipt on the shared mount.
+    if latest.status == 'success':
+        return serialize_maintenance_action(latest)
+    now = datetime.now(timezone.utc)
+    latest.status = status
+    latest.error_message = (message or '清理状态待确认：监控已停止，重试前核对原执行')[:500] if status == 'failed' else None
+    if status == 'running':
+        latest.started_at = latest.started_at or now
+        latest.ended_at = None
+    else:
+        latest.ended_at = now
+    latest.updated_at = now
+    session.commit()
+    return serialize_maintenance_action(latest)
 
 
 def _block_reason(session, run: AnalysisRun, execution_enabled: bool, runtime_enabled: bool) -> str | None:

@@ -1,5 +1,24 @@
 # API contract
 
+## Step7 independent maintenance (2026-09-22 test candidate)
+
+Public cleanup-step7 request/response shapes remain unchanged. A manual retry
+creates a maintenance generation inheriting the frozen target snapshot; the DAG
+first reconciles the actual registered predecessor, including earlier retries.
+Internal service authentication protects two new routes beneath
+`/api/internal/wgs/runs/{analysis_id}/maintenance/{action_id}`:
+
+- GET context: attempt, generation, dag_run_id; returns registered=false or
+  registered=true with exact registered action/generation, never filesystem paths.
+- POST observation: attempt, generation, dag_run_id, status, message. Only the
+  latest exact action may update. running/success/failed update maintenance only;
+  stopped is an internal proof report after live predecessor probing, permitting
+  an interrupted Step7 stage execution to close before manual retry registration.
+
+Successful exact receipts override timeout callbacks. Unknown execution is
+reported as failed monitoring with a state-unconfirmed message, not perpetual
+queued and not permission to blindly delete. No database migration.
+
 ## WGS ebf1f4b Phase mapping (2026-09-18, test sync)
 
 The exact release `wgs-4.2.1-ebf1f4b` uses the audited fine-phase inventory:

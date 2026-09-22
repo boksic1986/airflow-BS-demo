@@ -1506,14 +1506,17 @@ def test_failed_step7_v1_retry_accepts_new_immutable_action_request(
     request_path = tmp_path / "step7_cleanup.json"
     request_path.write_text('{"maintenance_action_id":"new-action"}\n', encoding="utf-8")
     payload = {
+        "schema_version": "wgs-runtime.request.v4",
         "analysis_id": "WGS_20260826_010203_A1B2C3",
         "attempt": 1,
         "stage": "step7_cleanup",
         "maintenance_action_id": "new-action",
         "step7_generation": 2,
     }
+    request_path.write_text(json.dumps(payload), encoding="utf-8")
     request_path.with_suffix(".status.json").write_text(
-        json.dumps({"status": "failed", "message": "old action failure"}),
+        json.dumps({**payload, "step7_generation": 1, "maintenance_action_id": "old-action",
+                    "status": "failed", "message": "old action failure"}),
         encoding="utf-8",
     )
     request_path.with_suffix(".worker.json").write_text(

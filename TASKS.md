@@ -9,6 +9,17 @@
 - [ ] Allow P0 and Step7 remote integration only in separate service-ownership
   windows, with a fresh active-run and actual-mount preflight before mutation.
 
+## STEP7-MAINTENANCE-20260922
+
+- [x] User-approved scope and isolated test-branch baseline identified.
+- [x] Read-only preflight: BS10610 active upload; deployment hold confirmed.
+- [x] Draft independent WGS maintenance, exact-operation reconciliation,
+  frozen-target manual retry and failure synchronization (not yet accepted).
+- [x] Single focused BS10610 acceptance:30 backend/runtime,9 DAG,1 isolated integration.
+- [ ] Resolve test wrapper hardcoded production config_dir before deployment.
+- [ ] Test-branch commit/integration and scoped test deployment.
+
+Checkpoint: `docs/STEP7_MAINTENANCE_20260922.md`. Not shipped; production excluded.
 
 Updated 2026-09-22 after refreshing the authoritative test branch and
 reassessing all documented development against current main/production.

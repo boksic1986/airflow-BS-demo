@@ -2942,10 +2942,39 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
     launch_lock = _sidecar_path(payload, ".launch.lock")
     worker_lock = _sidecar_path(payload, ".worker.lock")
     log_path = _sidecar_path(payload, ".worker.log")
+    step7_archived_retry = 0
     launch_lock.parent.mkdir(parents=True, exist_ok=True)
     with launch_lock.open("a+", encoding="utf-8") as lock_handle:
         fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+        if payload['stage'] == 'step7_cleanup':
+            current_request = load_request(payload['analysis_id'], int(payload['attempt']), 'step7_cleanup')
+            if current_request != payload:
+                raise ValueError('Step7 request changed before launch')
         previous = _read_json(state_path)
+        if payload['stage'] == 'step7_cleanup' and previous and previous.get('request_sha256') != request_sha:
+            old_status = _read_json(_sidecar_path(payload, '.status.json'))
+            if _process_matches(previous):
+                raise RuntimeError('previous Step7 executor is still active')
+            if previous.get('boot_id') == _boot_id():
+                try:
+                    os.killpg(int(previous['pid']), 0)
+                except ProcessLookupError:
+                    pass
+                else:
+                    raise RuntimeError('previous Step7 process group is still active')
+            with worker_lock.open('a+') as probe:
+                try:
+                    fcntl.flock(probe.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError as exc:
+                    raise RuntimeError('previous Step7 executor lock is active') from exc
+                if int(payload.get('orchestration_contract_version') or 1) != 2:
+                    if (old_status.get('analysis_id') != payload['analysis_id']
+                            or old_status.get('attempt') != payload['attempt']
+                            or old_status.get('stage') != 'step7_cleanup'
+                            or int(old_status.get('step7_generation', 1)) >= int(payload.get('step7_generation', 1))):
+                        raise ValueError('previous Step7 evidence identity mismatch')
+                    step7_archived_retry = _archive_failed_stage_generation(payload)
+                    previous = {}
         old_executor_locked = False
         if payload.get('resume_action_id'):
             with worker_lock.open('a+') as probe:
@@ -2979,7 +3008,7 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
         )
         previous = _read_json(state_path)
         status = _read_json(_sidecar_path(payload, ".status.json"))
-        retry_no = 0
+        retry_no = step7_archived_retry
         contract_v1_failed_retry = (
             int(payload.get("orchestration_contract_version") or 1) != 2
             and status.get("status") == "failed"
@@ -3132,6 +3161,77 @@ def _finish_reattached_stage(payload):
     return 0
 
 
+def step7_probe(analysis_id: str, attempt: int, action: str, generation: int) -> dict[str, Any]:
+    """Probe only the registered Step7 identity; never launch or delete here."""
+    from contextlib import ExitStack
+    payload = load_request(analysis_id, attempt, 'step7_cleanup')
+    if (payload.get('maintenance_action_id') != action
+            or int(payload.get('step7_generation', 1)) != generation):
+        raise ValueError('Step7 request identity mismatch')
+    result = {'analysis_id': analysis_id, 'attempt': attempt,
+              'maintenance_action_id': action, 'step7_generation': generation}
+    request_sha = hashlib.sha256(_request_path(analysis_id, attempt, 'step7_cleanup').read_bytes()).hexdigest()
+    with ExitStack() as stack:
+        for suffix in ('.launch.lock', '.worker.lock'):
+            path = _sidecar_path(payload, suffix)
+            if path.is_symlink():
+                raise ValueError('unsafe Step7 lock')
+            if not path.exists():
+                continue
+            handle = stack.enter_context(path.open('r'))
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                worker = _read_json(_sidecar_path(payload, '.worker.json'))
+                return {**result, 'status': 'running' if worker.get('request_sha256') == request_sha else 'unknown'}
+        def read(suffix):
+            path = _sidecar_path(payload, suffix)
+            if path.is_symlink():
+                raise ValueError('unsafe Step7 evidence')
+            return json.loads(path.read_text()) if path.exists() else {}
+        worker, status = read('.worker.json'), read('.status.json')
+        if worker:
+            try:
+                live = (worker['boot_id'] == _boot_id()
+                        and worker['process_start_time'] == _process_start_time(int(worker['pid'])))
+            except FileNotFoundError:
+                live = False
+            if live:
+                return {**result, 'status': 'running' if worker.get('request_sha256') == request_sha else 'unknown'}
+            # The Python parent can exit before a deletion subprocess. nohup /
+            # setsid launches the worker in its own group; never replay while
+            # an orphan in that group might still be deleting.
+            if worker.get('boot_id') == _boot_id():
+                try:
+                    os.killpg(int(worker['pid']), 0)
+                except ProcessLookupError:
+                    pass
+                else:
+                    return {**result, 'status': 'unknown', 'message': '清理状态待确认：原执行进程组仍存在'}
+        if status:
+            if (status.get('schema_version') != 'wgs-runtime.stage-status.v1'
+                    or status.get('analysis_id') != analysis_id or status.get('attempt') != attempt
+                    or status.get('stage') != 'step7_cleanup'):
+                raise ValueError('Step7 evidence identity mismatch')
+            same = (status.get('maintenance_action_id') == action
+                    and int(status.get('step7_generation', 1)) == generation)
+            if same and payload.get('orchestration_contract_version') == 2 and any(
+                    status.get(key) != payload.get(key) for key in ('execution_id', 'generation', 'request_hash')):
+                raise ValueError('Step7 runtime generation mismatch')
+            if same and status.get('status') in ('success', 'failed'):
+                return {**result, 'status': status['status'], 'message': status.get('message', '')}
+            if same:
+                return {**result, 'status': 'failed', 'message': '清理进程已退出，尚无成功回执'}
+            # A new manually requested action may replace only a proven stopped
+            # predecessor. start_async_stage still enforces its own launch fence.
+            if int(status.get('step7_generation', 1)) >= generation:
+                raise ValueError('Step7 evidence generation mismatch')
+            return {**result, 'status': 'not_started'}
+        if worker:
+            return {**result, 'status': 'unknown', 'message': '清理状态待确认：缺少执行回执'}
+        return {**result, 'status': 'not_started'}
+
+
 def main() -> int:
     global CCE_PIPELINE_BIN
     from wgs_release_runtime import select_release_runtime
@@ -3143,6 +3243,23 @@ def main() -> int:
         if worker_mode or reattach_mode
         else os.getenv("SSH_ORIGINAL_COMMAND", "") or " ".join(sys.argv[1:])
     )
+    parts = shlex.split(command)
+    if parts and parts[0] in {'wgs-step7-status', 'wgs-step7-start'}:
+        if len(parts) != 5:
+            raise ValueError('invalid Step7 operation')
+        verb, aid, attempt_text, action, generation_text = parts
+        analysis_id, attempt, stage = parse_command(f'wgs-runtime {aid} {attempt_text} step7_cleanup')
+        generation = int(generation_text)
+        if not re.fullmatch(r'step7-sfs-[a-f0-9]{12}', action) or generation < 1:
+            raise ValueError('invalid Step7 action identity')
+        result = step7_probe(analysis_id, attempt, action, generation)
+        if verb == 'wgs-step7-start' and result['status'] == 'not_started':
+            payload = load_request(analysis_id, attempt, stage)
+            CCE_PIPELINE_BIN = select_release_runtime(payload, default_cli=CCE_PIPELINE_BIN)
+            started = start_async_stage(payload)
+            result['status'] = 'success' if started['status'] == 'complete' else 'running'
+        print(json.dumps(result, sort_keys=True))
+        return 0
     analysis_id, attempt, stage = parse_command(command)
     payload = load_request(analysis_id, attempt, stage)
     CCE_PIPELINE_BIN = select_release_runtime(payload, default_cli=CCE_PIPELINE_BIN)

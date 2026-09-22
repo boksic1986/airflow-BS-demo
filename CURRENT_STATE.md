@@ -12,6 +12,23 @@ projections are canceled. Its exact input lease was released. No OBS, SFS,
 NFS/local input, sampleinfo, runtime/evidence, database or service data was
 deleted, and no other test analysis is active.
 
+## 2026-09-23 Step7 focused acceptance passed; deployment held
+
+Backend/runtime30, DAG9, isolated DAG integration1 passed on BS10610.
+Only one harness-noexec failure retried; no real SFS cleanup. Fresh active runs
+empty, test node runner inactive. Test wrapper hardcodes production config_dir;
+deployment stopped before changes, user confirmation requested for test-only
+binding correction. See docs/STEP7_MAINTENANCE_20260922.md for exact evidence.
+
+## 2026-09-22 WGS Step7 maintenance draft
+
+Test-only implementation checkpoint: `docs/STEP7_MAINTENANCE_20260922.md`.
+BS10610 has one active GATK Step1 upload; deployment hold remains. Independent
+Step7 maintenance/recovery code and focused tests are drafted in the isolated
+worktree. Read-only code review findings were addressed. Acceptance, commit and
+deployment remain pending the coordinator's explicit release. No production or
+runtime changes were performed; no tests have run.
+
 ## 2026-09-22 redundant blanket validation removed
 
 The user confirmed that work already developed, tested and published to

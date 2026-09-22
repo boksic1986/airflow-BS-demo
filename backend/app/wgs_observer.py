@@ -585,9 +585,10 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
     if stage not in SUPPORTED_RUNTIME_SYNC_STAGES:
         raise ValueError("unsupported runtime stage status")
     with session_factory() as session:
-        analysis = session.scalar(
-            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
-        )
+        analysis_query = select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        if stage == 'step7_cleanup':
+            analysis_query = analysis_query.with_for_update()
+        analysis = session.scalar(analysis_query)
         if analysis is None or analysis.attempt != attempt:
             raise ValueError("runtime stage status references an unknown active attempt")
         contract_v2 = int((analysis.params_json or {}).get("orchestration_contract_version") or 1) == 2
@@ -872,6 +873,20 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
             action = session.scalar(action_query)
             if action is None:
                 raise ValueError("Step7 cleanup status has no registered maintenance action")
+            latest_action = session.scalar(select(WgsMaintenanceAction).where(
+                WgsMaintenanceAction.analysis_id == analysis_id,
+                WgsMaintenanceAction.attempt == attempt,
+                WgsMaintenanceAction.action_type == 'cleanup_step7_sfs',
+            ).order_by(WgsMaintenanceAction.generation.desc()))
+            if (latest_action.action_id != action.action_id
+                    or int(payload.get('step7_generation') or 1) != action.generation):
+                return False
+            if action.status == 'success' and status != 'success':
+                return False
+            if action.status == 'failed' and status in {'accepted', 'running'}:
+                # Monitoring failure is actionable. An old nonterminal sidecar
+                # is not proof of a live executor and must not hide that failure.
+                return False
             normalized = {"accepted": "queued", "running": "running", "success": "success", "failed": "failed"}.get(status)
             if normalized is None:
                 raise ValueError("Step7 cleanup status is invalid")

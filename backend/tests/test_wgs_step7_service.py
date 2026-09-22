@@ -70,6 +70,7 @@ def test_step7_requires_successful_delivery_and_uses_server_generated_contract()
             requested_by="admin",
         )
         assert action["action_type"] == "cleanup_step7_sfs"
+        assert airflow.calls[0][0] == 'bio_wgs_maintenance'
         assert airflow.calls[0][2]["maintenance_mode"] == "cleanup_step7"
         assert "confirm" not in airflow.calls[0][2]
         assert "path" not in airflow.calls[0][2]
@@ -267,6 +268,7 @@ def test_failed_step7_can_retry_as_new_generation_without_overwriting_history() 
         assert history[1].retry_of_action_id == history[0].action_id
         assert retried["generation"] == 2
         assert airflow.calls[0][2]["step7_target_snapshot"]["batch"] == "20260905A"
+        assert history[1].target_snapshot_json == history[0].target_snapshot_json
 
 
 def test_step7_retry_rejects_stale_expected_action() -> None:

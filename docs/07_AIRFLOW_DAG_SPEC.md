@@ -1,5 +1,15 @@
 # Airflow DAG specification
 
+## WGS independent Step7 maintenance (2026-09-22 candidate)
+
+New requests use bio_wgs_maintenance (max_active_runs=1), with only
+step7_cleanup and wait_step7_cleanup. No analysis or transfer pool is used.
+Existing maintenance run IDs retain their old DAG route. Task retries are zero;
+read-only reconnection delays are30/60/120 seconds. An ambiguous launch response
+is reconciled before at most one identical resend, allowed only if not_started.
+Running/success attaches, unknown stops, failed deletion needs manual retry.
+Failure callbacks affect only the maintenance action. Test acceptance pending.
+
 ## R2-3 isolated native monitoring candidate (2026-09-15)
 
 New bio_wgs_native_monitor deliberately leaves the existing bio_wgs CCE graph

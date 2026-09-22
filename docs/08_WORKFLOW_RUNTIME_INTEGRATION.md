@@ -1,5 +1,19 @@
 # Workflow runtime integration
 
+## Step7 restricted reconciliation (2026-09-22 test candidate)
+
+The existing runner accepts wgs-step7-status and wgs-step7-start followed by
+analysis_id, attempt, maintenance_action_id and step7_generation. Both must match
+the registered Step7 request. Probe does not execute cleanup, change locks or
+rewrite receipts. It checks existing launch/worker locks, PID/boot/start identity,
+orphan process group and exact status evidence. Missing or conflicting proof
+fails closed. Start rechecks the registered identity under the existing launch
+lock and uses the existing nohup/setsid executor. Old delayed requests cannot
+start a newer action. Existing bare wgs-runtime commands remain supported.
+Frozen cleanup target equality is checked on registration; retries preserve
+the original target. Unowned partial remnants remain blocked. No new delete
+implementation or changes to Step1–6/GATK/bioinformatics scripts.
+
 ## Native UI evidence adapter (2026-09-17 test)
 
 Native monitor and native-view share a bounded reader of

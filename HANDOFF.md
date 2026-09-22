@@ -42,6 +42,60 @@ released. One RunAction and one AuditLog record the user cancellation with
 multipart state, SFS/NFS/local file, sampleinfo, runtime/evidence, database,
 container or service was deleted or restarted.
 
+## 2026-09-23 Step7 accepted source, deployment safety stop
+
+User resumed Step7; production WES checked running/normal upload-slot wait.
+Focused BS10610 acceptance30+9+1 passed with mock external calls/network-none,
+isolated SQLite for DAG integration. No real run submission or data deletion.
+One noexec harness failure rerun alone; Airflow pytest supplied from cached
+backend packages because image lacked it. Full commands/results in Step7 doc.
+Fresh test active platform/Airflow runs empty, test runner process absent.
+Coordinator released window but required fresh binding check: test wrapper
+airflow-wgs-test/forced-command.sh actually reads production airflow-wgs env
+and runner. STOPPED before deployment and asked user for test-only correction.
+No backend/observer/DAG/runner deployed, no service restarted; production unchanged.
+Next: obtain confirmation, validate test env/runtime roots, correct only test
+wrapper, apply Step7 deltas to actual pins (not whole old tree), scoped deployment.
+Do not repeat passing tests or enable real cleanup for acceptance. Rollback source
+by commit revert; deployment rollback unnecessary because nothing published yet.
+
+## 2026-09-23 Step7 acceptance resumed; transport blocked
+
+Production GATK work is finished separately; this branch remains Step7-only.
+Fresh BS10610 preflight confirmed server10610 and backend actual source still
+20260917-native-ui-76915d8-r2, with stale active GATK_20260922_112207_23AD29.
+Coordinator asked to reconcile deployment gate; no shared-service changes.
+Prepared local source archive D:/pipeline/task-artifacts/step7-maintenance-20260923.tar.gz.
+SCP to candidates and following SSH staging command both failed before remote
+execution: connection reset at 172.17.61.18 SSH banner, exit1. Therefore candidate
+upload/extraction and isolated pytest did not run. Do not count this as test
+failure or passing evidence. Next restore the configured SSH route, stage the
+archive, execute only focused tests once, and coordinate P0 before deployment.
+No commit or remote acceptance yet; no production fallback.
+
+## 2026-09-22 Step7 maintenance draft — waiting for test environment
+
+User approved test-only independent WGS Step7 maintenance and reconnect/manual
+recovery. Isolated branch `jiucheng/fix/wgs-step7-maintenance-20260922` starts at
+test `eaed38e`. Read-only BS10610 preflight confirms one active GATK Step1 upload;
+the environment coordinator's deployment hold remains. User permits code work
+while upload finishes, not deployment or testing before release.
+
+Draft changes: independent two-task maintenance DAG; Step7-only probe/start;
+frozen-target retry; authenticated context/observation endpoints; exact identity
+and stale-receipt fences; focused backend/DAG/runtime tests and documentation.
+Read-only review findings addressed: registration command, stale running receipt,
+v1 archive counter. Static `git diff --check` passes. Runtime tests NOT run.
+No service, task, lease, data or production was changed. Code is uncommitted.
+Coordinator owns upload completion/cancellation and baseline deployment; do not
+start a second cancellation monitor. After explicit release, verify active tasks
+and actual mounts, then perform the single focused acceptance and synthetic DAG
+case. No real SFS deletion. Test-branch commit/integration and scoped deployment
+follow successful acceptance. Rollback restores only test code/configuration;
+do not remove results or replay requests.
+See `docs/STEP7_MAINTENANCE_20260922.md` for exact findings, scope and remaining
+implementation/acceptance. This is not a completed fix or deployment.
+
 ## 2026-09-22 remove redundant blanket validation gate
 
 The user determined that `TEST-VALIDATION-01` would duplicate testing already

@@ -461,6 +461,14 @@ class WgsSubmissionDraftResultRequest(BaseModel):
     source_fingerprint: str = Field(pattern="^[0-9a-f]{64}$")
 
 
+class WgsMaintenanceObservation(BaseModel):
+    attempt: int = Field(ge=1)
+    generation: int = Field(ge=1)
+    dag_run_id: str = Field(min_length=1, max_length=256)
+    status: str
+    message: str = Field(default='', max_length=500)
+
+
 class WgsStep7CleanupRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     batch_confirmation: str = Field(min_length=1, max_length=128)
@@ -2102,7 +2110,7 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                     session.commit()
                     return {'analysis_id': analysis_id, 'attempt': request.attempt, 'stage': stage_name,
                         'status': 'accepted', 'generation': payload['generation'], 'execution_id': payload['execution_id']}
-            elif (run.params_json or {}).get('resume_action_id'):
+            elif stage_name != 'step7_cleanup' and (run.params_json or {}).get('resume_action_id'):
                 raise ValueError('stage registration requires the current recovery identity')
             dispatch = session.scalar(
                 select(WgsExecutionDispatch).where(
@@ -2498,6 +2506,9 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 payload["expected_batch_root"] = str(test_root / str(params["batch_no"]))
             if step7_action is not None:
                 snapshot = dict(step7_action.target_snapshot_json or {})
+                for key in ('control_workdir', 'analysis_project_root', 'expected_batch_root'):
+                    if key in snapshot and snapshot[key] != payload[key]:
+                        raise ValueError('frozen Step7 target changed')
                 snapshot.update(
                     {
                         "control_workdir": payload["control_workdir"],
@@ -2510,6 +2521,7 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 session.flush()
                 payload["step7_target_snapshot"] = snapshot
                 payload["step7_generation"] = step7_action.generation
+                payload["step7_previous_action_id"] = step7_action.retry_of_action_id
             contract_v2 = bool(getattr(settings, "wgs_contract_v2_enabled", False)) and int(
                 params.get("orchestration_contract_version") or 1
             ) == 2
@@ -3139,6 +3151,34 @@ def cleanup_step7(
     if payload is None:
         raise HTTPException(status_code=404, detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"})
     return payload
+
+
+@app.post('/api/internal/wgs/runs/{analysis_id}/maintenance/{action_id}/observation',
+    dependencies=[Depends(require_internal_service_token)])
+def internal_wgs_maintenance_observation(analysis_id: str, action_id: str, request: WgsMaintenanceObservation):
+    from app.wgs_step7_service import observe_maintenance
+    try:
+        with get_sessionmaker()() as session:
+            return observe_maintenance(session=session,
+                request_root=get_settings().wgs_runtime_request_root,
+                analysis_id=analysis_id, action_id=action_id,
+                **request.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail={'code': 'WGS_MAINTENANCE_INVALID', 'message': str(exc)}) from exc
+
+
+@app.get('/api/internal/wgs/runs/{analysis_id}/maintenance/{action_id}/context',
+    dependencies=[Depends(require_internal_service_token)])
+def internal_wgs_maintenance_context(analysis_id: str, action_id: str,
+        attempt: int = Query(ge=1), generation: int = Query(ge=1), dag_run_id: str = Query(min_length=1)):
+    from app.wgs_step7_service import maintenance_context
+    try:
+        with get_sessionmaker()() as session:
+            return maintenance_context(session=session, request_root=get_settings().wgs_runtime_request_root,
+                analysis_id=analysis_id, action_id=action_id, attempt=attempt,
+                generation=generation, dag_run_id=dag_run_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail={'code': 'WGS_MAINTENANCE_INVALID', 'message': str(exc)}) from exc
 
 
 @app.post("/api/internal/gatk/runs/{analysis_id}/maintenance/{action_id}",
