@@ -18,7 +18,7 @@
 - [x] Single focused BS10610 acceptance:30 backend/runtime,9 DAG,1 isolated integration.
 - [x] User-approved test wrapper isolation correction and scoped test deployment.
 - [x] Step7 source commit ae416fa, health/DAG registration check.
-- [ ] Primary test-branch integration (coordinated separately; no production merge).
+- [x] Primary test-branch integration completed; no main or production merge.
 
 Checkpoint: `docs/STEP7_MAINTENANCE_20260922.md`. Not shipped; production excluded.
 

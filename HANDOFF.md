@@ -1,5 +1,15 @@
 # Handoff
 
+## 2026-09-23 Step7 primary test-branch integration
+
+Coordinator integrated Step7 commits `ae416fa` and `08696d6` into the primary
+test branch. Only the three state documents conflicted; resolution retained the
+completed stale-run cancellation record, Step7 publication evidence and the
+independent P0 checkpoint. Application files applied without conflict. Existing
+focused BS10610 evidence was accepted without rerunning the redundant suite.
+No main, production or BS96 mutation was performed. Rollback is by reverting
+the resulting test-branch commits; it must not delete runtime data.
+
 ## 2026-09-22 user-authorized immediate GATK Step1 cancellation and OBS cleanup
 
 2026-09-23 scope correction before final control-plane mutation: the user later

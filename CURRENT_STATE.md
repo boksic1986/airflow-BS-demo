@@ -1,5 +1,12 @@
 # Current state
 
+## 2026-09-23 Step7 integrated into the primary test branch
+
+The accepted Step7 source and BS10610 publication evidence from `ae416fa` and
+`08696d6` are integrated into `jiucheng/test/wgs-local-main-sync-20260917`.
+This integration preserves the existing P0 checkpoint and test-run cancellation
+record. It does not promote Step7 to `main` or production.
+
 ## 2026-09-23 cancelled stale BS10610 GATK Step1 projection
 
 The user-authorized stop of test run `GATK_20260922_112207_23AD29-a1`
@@ -18,7 +25,8 @@ Source ae416fa. Test-only wrapper corrected, original effective runtime copied
 into isolated test directory with Step7-only delta; production hashes unchanged.
 Scoped five-component release20260923-step7-ae416fa active. Healthok, independent
 maintenance DAG registered with2tasks/max_active_runs1. No real SFS operation.
-Focused40cases already passed; no repeat. Test-branch integration remains.
+Focused40cases already passed; no repeat. Primary test-branch integration is
+complete.
 
 ## 2026-09-23 Step7 focused acceptance passed; deployment held
 
