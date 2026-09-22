@@ -13,7 +13,9 @@ risk-based implementation order. This is planning only.
 - Fast-forwarded the clean primary test worktree from `cd7771b` to remote
   `e44dc3e`; no local change was overwritten.
 - Current `origin/main` and production both equal `9b381eb` and are not ancestors
-  of test. `git rev-list --left-right --count origin/main...HEAD` is `2 33`.
+  of test. Before this planning commit,
+  `git rev-list --left-right --count origin/main...HEAD` was `2 33`; the
+  documentation commit only increases the test-only side.
 - The two absent main commits are `9ff67d3` (same-batch import and saved-review
   fix) and `9b381eb` (its BS96 release record). They are already released work,
   not new development, but must be reviewed into the test baseline before coding.

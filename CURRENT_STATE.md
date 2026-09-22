@@ -2,13 +2,13 @@
 
 ## 2026-09-22 prioritized development backlog refresh
 
-The authoritative test branch is `e44dc3e`. Current `origin/main` and
+The priority audit used test tip `e44dc3e`. Current `origin/main` and
 `origin/jiucheng/release/production` both point to `9b381eb`; they have two
-commits not present in test (`9ff67d3`, `9b381eb`), while test has 33 commits not
-present in main. The required main/production-as-ancestor invariant is therefore
-temporarily unsatisfied. Restore it with an explicit reviewed test-baseline
-refresh before starting implementation; do not rebase or discard test-only
-designs.
+commits not present in test (`9ff67d3`, `9b381eb`), while test retains additional
+test-only history plus this planning update. The required
+main/production-as-ancestor invariant is therefore temporarily unsatisfied.
+Restore it with an explicit reviewed test-baseline refresh before starting
+implementation; do not rebase or discard test-only designs.
 
 The current development order is:
 
@@ -94,7 +94,8 @@ required invariant remains:
 - test-to-main promotion remains a separate reviewed and authorized action;
 - old worktree/patch branches are not merge sources unless separately selected.
 
-The current divergence is two main-only and 33 test-only commits. Review and
+The current main-only side is exactly two commits; calculate the test-only count
+from live refs because planning documentation itself advances test. Review and
 merge the current main history into test; do not rebase or discard test commits.
 See `docs/TEST_BRANCH_SYNC_HOLD_20260918.md` for the original decision transition.
 
