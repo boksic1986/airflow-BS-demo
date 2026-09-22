@@ -2,8 +2,9 @@
 
 ## 2026-09-23 Step7 integrated into the primary test branch
 
-The accepted Step7 source and BS10610 publication evidence from `ae416fa` and
-`08696d6` are integrated into `jiucheng/test/wgs-local-main-sync-20260917`.
+The accepted Step7 source, BS10610 publication evidence and final safe-entry
+record from `ae416fa`, `08696d6` and `8697a8b` are integrated into
+`jiucheng/test/wgs-local-main-sync-20260917`.
 This integration preserves the existing P0 checkpoint and test-run cancellation
 record. It does not promote Step7 to `main` or production.
 

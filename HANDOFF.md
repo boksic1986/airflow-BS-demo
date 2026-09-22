@@ -2,7 +2,7 @@
 
 ## 2026-09-23 Step7 primary test-branch integration
 
-Coordinator integrated Step7 commits `ae416fa` and `08696d6` into the primary
+Coordinator integrated Step7 commits `ae416fa`, `08696d6` and `8697a8b` into the primary
 test branch. Only the three state documents conflicted; resolution retained the
 completed stale-run cancellation record, Step7 publication evidence and the
 independent P0 checkpoint. Application files applied without conflict. Existing
@@ -51,6 +51,15 @@ released. One RunAction and one AuditLog record the user cancellation with
 `data_deleted=false`. No other test analysis is active. No OBS object or
 multipart state, SFS/NFS/local file, sampleinfo, runtime/evidence, database,
 container or service was deleted or restarted.
+
+## 2026-09-23 Step7 final test-entry boundary result
+
+Post-publication read-only synthetic request probe completed with expected
+exit1: registered runtime request is missing. Traceback uses the isolated test
+runner; no cleanup was launched. Existing request visibility wait explains the
+delay. No repeat of the 40 passed cases. Commits ae416fa and 08696d6 delivered
+as bundle to the primary test coordinator; its integration confirmation remains
+separate from deployed BS10610 status. Production Step7 unchanged.
 
 ## 2026-09-23 Step7 BS10610 publication
 

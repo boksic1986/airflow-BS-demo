@@ -2,6 +2,15 @@
 
 Status: FOCUSED TESTS PASSED / BS10610 COMPONENTS UPDATED.
 
+Final boundary probe: the actual test worker invoked test forced-command.sh
+with a synthetic unregistered Step7 identity. After the existing request
+visibility wait it exited 1 with `registered runtime request is missing`;
+traceback confirms `/home/ctapa/.config/airflow-wgs-test/wgs_runtime_gate.py`.
+This is expected safe rejection, not a cleanup failure or additional passing
+test. No cleanup was launched. Source ae416fa and publication record 08696d6
+were delivered by bundle to the primary test-branch coordinator; integration
+confirmation is tracked separately from the completed BS10610 publication.
+
 ## 2026-09-23 authorized test-only publication
 
 User approved correcting only the test wrapper binding. Test wrapper now uses
