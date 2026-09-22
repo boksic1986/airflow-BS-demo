@@ -1,6 +1,20 @@
 # Active test-branch tasks
 
-Updated 2026-09-22 for the CCE recovery design revision only. This file tracks unresolved work for the independent test
+## WGS-SUBMIT2-20260922 — proposal written; native source confirmed
+
+Spec: `docs/2026-09-22-wgs-two-step-editable-sampleinfo-design.md`.
+- [x] Audit approval/cancel boundaries, runtime input/hash and intake deduplication.
+- [x] Design two-step confirmation and editable frozen sampleinfo input.
+- [x] SUBMIT2-04: incorporate WGS owner native-code confirmation (ebf1f4b/9f4f359).
+- [ ] Before implementation/release, verify actual production runner source binding.
+- [ ] SUBMIT2-01: final-submit intent/gates and scoped cancelled-draft release.
+- [ ] SUBMIT2-02: revisioned editing and frozen runtime input handoff.
+- [ ] SUBMIT2-03: two-step frontend and focused BS10610 acceptance.
+Implementation not authorized by this documentation-only request.
+
+
+Updated 2026-09-22 for CCE recovery and WGS submission development designs.
+This file tracks unresolved work for the independent test
 branch `jiucheng/test/wgs-local-main-sync-20260917`. Historical tasks are
 archived and are not silently reopened or marked complete.
 

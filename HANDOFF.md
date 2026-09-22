@@ -90,6 +90,48 @@ samples. This keeps identically named metrics apart without a wide table or
 ordinary-row placeholders. Documentation/task cards only; no code, test,
 runtime, data or deployment change.
 
+## 2026-09-22 submission design queued for development
+
+User authorized completing the combined development document and committing it
+to the pending-development test branch. Incorporated WGS owner source evidence,
+two-step final-submit boundary, editable input/revision/hash contract, automatic
+intake deduplication and narrow cancellation semantics. Only four documentation
+files are included. Preserve newer test-branch CCE recovery design updates;
+main/production and existing operations-worktree changes are excluded.
+Validation: document links, task identifiers and git diff --check only; no
+application tests, server operations or deployment are necessary for this change.
+
+
+## 2026-09-22 WGS two-step submission and editable sampleinfo proposal
+
+User requested combined assessment and updated design only. New isolated docs
+worktree wgs-submission-design-20260922 branches from local test9333160; main
+inspection baseline9b381eb. No remote production command, source implementation,
+test execution, merge or push performed. Existing0919B operational changes stay
+in their original worktree. New design and CURRENT_STATE/TASKS/HANDOFF only.
+
+Confirmed current approval2 starts analysis and can mutate pending; cancellation
+works at config_review before approval, not after. Proposed final submission
+defers analysis side effects until one explicit decision. Editing uses a private
+working copy, revision and hash frozen before analysis, rather than modifying
+an existing frozen source/receipt. Runtime already handles existing sampleinfo
+with valid receipt reuse or missing-receipt archive/regeneration. Auto-dispatch
+may instead be blocked by a retained manual task: narrowly release explicitly
+cancelled uncommitted drafts, never all terminal tasks.
+
+WGS-pipeline thread01a09149-ad9d-7e92-b98a-16d9cae075e2 was explicitly asked
+to confirm current native source/commit, file-exists behavior and --sampleinfo
+handoff effects. Its returned server-source audit is incorporated: server10610
+wgs-4.2.0 HEAD ebf1f4b, prepare script last change9f4f359. Native sampleinfo/all
+refuse existing files; analysis accepts valid edited copy, with updated source
+hash/request for handoff. Source is not rewritten; final sampleinfo is derived.
+Pending mutation precedes final directory rename, including zero-selected cases.
+Actual production runner binding remains unverified; check once before rollout.
+No native source edit or overwrite switch is proposed.
+Document links and scope checked locally; no runtime test is appropriate for
+this proposal. Rollback removes this proposal only, without service/data effects.
+
+
 ## 2026-09-18 consolidate new development documents into the primary test branch
 
 ### Goal and source selection

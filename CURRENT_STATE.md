@@ -24,6 +24,22 @@ branch `jiucheng/docs/cce-recovery-design-20260922`, based on local tracking ref
 documentation revision, not a primary-test/main/production merge or deployment.
 The older repository/deployment observations below remain dated history.
 
+## 2026-09-22 WGS submission simplification proposal
+
+Documentation-only proposal in
+`docs/2026-09-22-wgs-two-step-editable-sampleinfo-design.md`: two user steps,
+editable per-run sampleinfo before final submit, unchanged native selection,
+and narrow automatic-intake release for cancelled uncommitted manual drafts.
+Airflow main9b381eb source was inspected. Current native prepare confirmation
+was requested from WGS-pipeline thread01a09149-ad9d-7e92-b98a-16d9cae075e2;
+its answer confirms native sampleinfo/all refuse existing files, whereas
+analysis accepts a valid frozen copy. Native server HEAD ebf1f4b, script last
+change9f4f359; actual production runner binding remains unverified. No production
+inspection, implementation or tests.
+Work branch jiucheng/docs/wgs-submission-design-20260922 is based on test9333160;
+the existing0919B operations worktree and its uncommitted records are untouched.
+
+
 Updated 2026-09-18 after the user authorized a complete Git lineage sync from
 current main/production into the primary test branch. Test-only development
 remains on the test branch; main and production are now required ancestors.
