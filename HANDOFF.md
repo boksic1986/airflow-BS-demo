@@ -1,5 +1,20 @@
 # Handoff
 
+## 2026-09-22 remove redundant blanket validation gate
+
+The user determined that `TEST-VALIDATION-01` would duplicate testing already
+completed before production publication. The queue now accepts existing release
+evidence for completed work and requires focused tests only for newly authorized
+changes. No standalone missing-`S1` rerun or branch-wide validation matrix is a
+prerequisite.
+
+The next priority is P0 `CCE-RECOVERY-01`: review the proposed bounded recovery
+policy for the known 0918A/0919B failure causes, then implement `CR-01`–`CR-05`
+under a separate development instruction. P1 remains two-step WGS submission
+followed by run control. This update changes only `CURRENT_STATE.md`, `TASKS.md`
+and `HANDOFF.md`; it performs no application test, SSH, runtime, database,
+analysis, deployment or data action. Rollback is a documentation-only revert.
+
 ## 2026-09-22 completed production commits synchronized into test
 
 ### Goal and authorization
@@ -19,8 +34,8 @@ they must not be represented as future development.
 - Resolved documentation conflicts by retaining the compact test backlog and
   adding the production feature, server, release and rollback facts. No
   application behavior was rewritten during conflict resolution.
-- `TEST-LINEAGE-SYNC-01` is complete. These commits add no development card;
-  the next P0 remains `TEST-VALIDATION-01`.
+- `TEST-LINEAGE-SYNC-01` is complete. These commits add no development card.
+  The later priority correction above closes redundant `TEST-VALIDATION-01`.
 
 ### Checks, environment and rollback
 

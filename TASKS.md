@@ -8,16 +8,15 @@ Historical tasks are archived and are not silently reopened or marked complete.
 
 | Priority | Track | Why now / entry gate |
 | --- | --- | --- |
-| P0 | `TEST-VALIDATION-01` | Build the source-matched matrix and reclassify the pre-existing missing-`S1` failure on the synchronized test source. |
-| P1 | `CCE-RECOVERY-01` / `CR-01`–`CR-05` | Prevent monitoring/infrastructure faults from producing unsafe status or duplicate compute; this is a dependency for run control. |
-| P2 | `WGS-SUBMIT2-20260922` | Reduce manual-preparation side effects and confirmation errors; verify the actual runner binding before implementation. |
-| P2 | `RUN-CONTROL-20260918` | Operator safety is important, but pause/resume/delete must reuse the reviewed CCE recovery identity, budget and fencing contracts. |
-| P3 | `WGS-QC-TWO-SOURCE-20260918` | Bounded supplemental QC projection; ordinary QC remains authoritative, so it follows runtime and submission safety work. |
-| P4 | `WGS-CNVPLOT-20260918` | Read-only usability enhancement with no workflow or QC decision effect. |
-| P5 | Acceptance, promotion and hygiene | Execute after selected implementation scope stabilizes; hygiene cannot discard unclassified worktrees. |
+| P0 | `CCE-RECOVERY-01` / `CR-01`–`CR-05` | Prevent monitoring/infrastructure faults from producing unsafe status or duplicate compute; this is a dependency for run control. |
+| P1 | `WGS-SUBMIT2-20260922` | Reduce manual-preparation side effects and confirmation errors; verify the actual runner binding before implementation. |
+| P1 | `RUN-CONTROL-20260918` | Operator safety is important, but pause/resume/delete must reuse the reviewed CCE recovery identity, budget and fencing contracts. |
+| P2 | `WGS-QC-TWO-SOURCE-20260918` | Bounded supplemental QC projection; ordinary QC remains authoritative, so it follows runtime and submission safety work. |
+| P3 | `WGS-CNVPLOT-20260918` | Read-only usability enhancement with no workflow or QC decision effect. |
+| P4 | Acceptance, promotion and hygiene | Execute after selected implementation scope stabilizes; hygiene cannot discard unclassified worktrees. |
 
 Do not start two tracks that edit the same Backend/Airflow contracts at once.
-Within P2, finish the submission gate/frozen-input contract before beginning
+Within P1, finish the submission gate/frozen-input contract before beginning
 run-control Backend/Airflow integration. The QC and CNV tracks are independent
 only after their owner worktrees are isolated from the synchronized baseline.
 
@@ -33,28 +32,17 @@ Spec: `docs/2026-09-22-wgs-two-step-editable-sampleinfo-design.md`.
 - [ ] SUBMIT2-03: two-step frontend and focused BS10610 acceptance.
 Implementation not authorized by this documentation-only request.
 
-## TEST-VALIDATION-01 — establish the real unfinished test matrix
+## TEST-VALIDATION-01 — closed as redundant
 
-Owner: coordinator and QA, with each component owner confirming its rows.
+- [x] Accept existing release and production-publication evidence for work that
+  was already developed, tested and deployed.
+- [x] Do not create a branch-wide revalidation matrix or rerun the historical
+  missing-`S1` test solely because completed history was synchronized into test.
+- [x] Require each newly authorized development track to carry its own focused
+  tests and BS10610 acceptance for the source it changes.
 
-- [ ] Reconcile unchecked items from the archived `TASKS.md` with current code,
-  current branch history and existing release/test evidence.
-- [ ] Classify every still-relevant item as `implementation pending`,
-  `test pending`, `operator acceptance pending`, `deferred by scope`, or
-  `superseded with evidence`.
-- [ ] Create one compact validation matrix containing component, exact source,
-  required test, last accepted evidence, current blocker and owner.
-- [ ] Run only missing focused tests after the matrix is reviewed; do not repeat
-  accepted suites without a matching code change.
-- [ ] On the synchronized test source, rerun the focused submission test that previously
-  could not find `S1`; classify it as implementation defect, stale test contract
-  or superseded evidence before assigning a fix.
-- [ ] After branch scope stabilizes, run one combined BS10610 acceptance with
-  scanner/automatic dispatch preserved at their approved test settings.
-
-Acceptance: every candidate for later promotion has current, source-matched test
-evidence; unfinished or deferred work is explicit; no historical checkbox is
-treated as complete merely because it was omitted from the compact queue.
+Revisit historical evidence only when a new change touches the same path, a
+specific inconsistency blocks development, or the user requests a fresh audit.
 
 ## RUN-CONTROL-20260918 — design complete, implementation not started
 
@@ -187,8 +175,8 @@ Owner: coordinator.
 - [x] Integrate current `origin/main` and production `9b381eb` into test while
   preserving all test-only designs. `9ff67d3` and `9b381eb` are already released,
   completed work and require no follow-up development card.
-- [ ] Re-run the affected sampleinfo/submission tests only as part of
-  `TEST-VALIDATION-01`; record whether the earlier missing-`S1` failure remains.
+- [x] Do not rerun sampleinfo/submission tests merely for this history sync;
+  existing production acceptance remains authoritative.
 - [ ] After all required testing completes, prepare a test-to-main promotion
   manifest with only validated commits and explicit omissions.
 - [ ] Promote to `main` only after separate user approval and current main

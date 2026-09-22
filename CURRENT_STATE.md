@@ -1,5 +1,20 @@
 # Current state
 
+## 2026-09-22 redundant blanket validation removed
+
+The user confirmed that work already developed, tested and published to
+production must retain its existing acceptance evidence and must not be put
+through a new branch-wide validation cycle merely because its Git history was
+synchronized into test. `TEST-VALIDATION-01` is therefore closed as redundant.
+The earlier missing-`S1` test is not rerun as a standalone gate; revisit it only
+if a newly authorized change touches that path or it blocks that change's focused
+acceptance.
+
+The next development priority is now P0 `CCE-RECOVERY-01`: review the bounded
+0918A/0919B recovery policy, then implement `CR-01` through `CR-05` with tests
+scoped to those new changes. No remote test or runtime action is authorized by
+this planning correction.
+
 ## 2026-09-22 completed production fixes synchronized into test
 
 The primary test branch now includes production-completed commits `9ff67d3`
@@ -21,13 +36,11 @@ as new development or reopened in the backlog.
 
 The current development order is:
 
-1. P0: complete the source-matched validation matrix, including
-   reclassification of the missing-`S1` test.
-2. P1: review and implement the bounded CCE recovery contract (`CR-01`–`CR-05`).
-3. P2: implement two-step WGS submission/editable frozen input, then run control
+1. P0: review and implement the bounded CCE recovery contract (`CR-01`–`CR-05`).
+2. P1: implement two-step WGS submission/editable frozen input, then run control
    on top of the reviewed CCE identity/fencing contract.
-4. P3/P4: add two-source supplemental QC, then the read-only CNV plot viewer.
-5. P5: operator acceptance, combined BS10610 validation, promotion planning and
+3. P2/P3: add two-source supplemental QC, then the read-only CNV plot viewer.
+4. P4: operator acceptance, combined BS10610 validation, promotion planning and
    non-destructive repository hygiene after the selected scope stabilizes.
 
 This ordering reflects recent operational evidence: 0918A/0919B recovery gaps
