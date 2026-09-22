@@ -1,5 +1,27 @@
 # HANDOFF.md
 
+## 2026-09-22 download wait publication completed
+
+Source4b09b7b published13:18Z to server96 in
+/data/airflow-WGS/releases/20260922-download-waiting-4b09b7b/backend, by applying
+only four-file delta on actual upload-waiting-1d0e718 live source. Existing
+ACTIVE_TRANSFER_STATUSES timing import/context retained. Patch --check passed;
+exact changed-file set checked, imports/main syntax passed cached image/network
+none; Compose config passed before backend-only recreation. New backend0efb49677e24.
+All23other running host containers unchanged; frontend nginx graceful reload only.
+Env/mounts/networks/ports/gates preserved; no DB/data/workflow writes or cleanup.
+Private download-waiting-4b09b7b-control contains rollback.json/compose.json,
+before.json/after.json/source.patch/acceptance.json, directory0700/files0600.
+
+Authenticated LAN gateway health/tracker/workspace200. C/E/B remain upload
+waiting/null; D upload79.4->79.5%, workspace running. No actual download queue
+currently exists; this branch was verified with BS10610 synthetic cases, not by
+starting a real analysis. Tests22passed1.35s; no extra full tests/browser workflow.
+Source+publication records promoted with non-force atomic main/production push;
+verify exact remote tips before reporting completion. Other worktrees untouched.
+Rollback backend only with recorded rollback.json and nginx reload; never down
+stack/repoint current or alter runtime. No outstanding code/test/deployment error.
+
 ## 2026-09-22 download waiting correction, authorized deployment pending
 
 User approved download equivalent plus BS96/main/production publication.

@@ -7,8 +7,10 @@
 - [x] Read-only shared projection from current Airflow tasks; protect actual
   transfer/execution/terminal state and preserve DB snapshot on HTTP failure.
 - [x] BS10610 focused RED/GREEN:22passed, network-isolated synthetic SQLite.
-- [ ] Publish delta on actual BS96 source, verify live health and preserve workloads.
-- [ ] Non-force main/production source promotion and remote tip verification.
+- [x] Publish4b09b7b delta on actual BS96 source; health/tracker/workspace200,
+  all23other containers preserved. No live download-wait case currently.
+- Promotion bundle:4b09b7b + publication docs; atomic non-force main/production
+  push followed by remote tip verification.
 
 ## UPLOAD-WAITING-DISPLAY-20260922
 

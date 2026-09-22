@@ -1,5 +1,15 @@
 # SERVER_INFO.md
 
+## 2026-09-22 download-waiting backend publication
+
+BS96/server96 backend0efb49677e24 mounts
+/data/airflow-WGS/releases/20260922-download-waiting-4b09b7b/backend read-only.
+Four-file4b09b7b delta on prior upload-waiting release; image unchanged.
+Private compose/rollback/snapshots/acceptance: download-waiting-4b09b7b-control.
+All23other container IDs and scan/auto/execution gates preserved. Frontend still
+analysis-batch-f875488. LAN gateway/API200; D upload continues79.5%. Current
+symlink unchanged; use actual mounts and service-specific Compose, not current.
+
 ## 2026-09-22 upload-waiting backend publication
 
 BS96/server96 backend abe6560500a8 mounts

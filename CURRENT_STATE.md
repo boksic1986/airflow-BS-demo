@@ -1,14 +1,18 @@
 # CURRENT_STATE.md
 
-## 2026-09-22 download queue display verified, publication in progress
+## 2026-09-22 download queue display published to BS96
 
 Own branch jiucheng/fix/download-waiting-display-20260922 from132b8a1.
 WGS download waiting now uses actual current-DAG acquire/start queue evidence,
 not Step4 success alone. Tracker and workspace share Step5/waiting/null progress.
 Current-attempt real stage/transfer evidence wins; Airflow HTTP failure preserves
 DB snapshot. No scheduler/runtime/schema/state writes. BS10610 isolated22tests
-passed after RED reproduced Step4 instead of Step5. User authorized BS96 and
-main/production promotion; actual production publication recorded below when done.
+passed after RED reproduced Step4 instead of Step5. Published4b09b7b at13:18Z:
+releases/20260922-download-waiting-4b09b7b/backend on actual upload-waiting baseline.
+Backend only recreated; nginx reloaded;23other container IDs preserved. Gateway
+health/tracker/workspace200; C/E/B still upload waiting, D79.4->79.5% running.
+No live download queue exists now; queue acceptance is synthetic, not a real-run
+claim. Main/production promotion includes this source and publication record.
 
 ## 2026-09-22 upload queue display published to BS96
 
