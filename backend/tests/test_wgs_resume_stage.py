@@ -108,6 +108,34 @@ def test_same_attempt_action_preserves_frozen_identity_and_reserves_only_new_sta
         assert len(session.scalars(select(RunAction).where(RunAction.action=='resume_stage')).all())==1
 
 
+@pytest.mark.parametrize('recovery_status', ['reserved', 'queued', 'uncertain'])
+def test_manual_resume_cannot_bypass_pending_compute_recovery(setup, recovery_status):
+    factory, _, client, path, _ = setup
+    original = path.read_bytes()
+    with factory.begin() as session:
+        session.add(RunAction(analysis_id=AID, action='cce_compute_recovery',
+            result_status=recovery_status, payload_json={'attempt': 1, 'action_id': 'synthetic-auto'}))
+    with pytest.raises(ValueError, match='automatic recovery'):
+        request(setup)
+    assert client.posts == []
+    assert path.read_bytes() == original
+    with factory() as session:
+        assert len(session.scalars(select(WgsStageExecution)).all()) == 2
+        assert session.scalar(select(RunAction).where(RunAction.action == 'resume_stage')) is None
+
+
+def test_manual_resume_after_automatic_exhaustion_preserves_history(setup):
+    factory, _, client, _, _ = setup
+    with factory.begin() as session:
+        session.add(RunAction(analysis_id=AID, action='cce_compute_recovery',
+            result_status='failed', payload_json={'attempt': 1, 'action_id': 'synthetic-auto', 'ordinal': 2}))
+    result = request(setup)
+    assert result['attempt'] == 1 and len(client.posts) == 1
+    with factory() as session:
+        previous = session.scalar(select(RunAction).where(RunAction.action == 'cce_compute_recovery'))
+        assert previous.payload_json['ordinal'] == 2 and previous.result_status == 'failed'
+
+
 def test_lost_airflow_post_response_is_reconciled_without_second_submission(setup):
     setup[2].lose_reply=True
     setup[2].lose_lookup=True

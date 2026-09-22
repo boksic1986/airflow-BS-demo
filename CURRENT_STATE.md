@@ -1,5 +1,20 @@
 # Current state
 
+## 2026-09-23 P0 internal reservation bridge and WGS manual fence
+
+Implemented current Master-submit/Step3-monitor lineage binding to the existing
+reader, evidence validator and reservation budget.22 focused WGS/GATK synthetic
+checks passed (1.04s). Added the WGS resume-stage guard against unfinished
+automatic recovery; RED reproduced bypass, GREEN8 checks passed (1.17s).
+Tests ran only in the BS10610 isolated network-none cached-image candidate.
+No shared service, database, live task, BS96 or main/production change.
+
+The proposed trusted binding fields have no adapter writer/caller yet. Producer
+source now exists in its independent worktree but no final producer fixture or
+terminal-wrapper acceptance was supplied. Automatic recovery remains unwired/off.
+Next: actual producer/wrapper binding, reservation dispatch and remaining control/
+callback fences; CR-01–05 are not complete. No repeated unchanged helper suites.
+
 ## P0 next slice: controlled reader complete, producer integration pending
 
 Added `cce_recovery_reader.py`;26 focused checks passed on BS10610 in the same

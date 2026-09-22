@@ -1,5 +1,27 @@
 # 04 数据库设计
 
+## P0 recovery lineage journal (2026-09-23, internal source only)
+
+No columns, tables, migration or historical backfill. Future trusted adapters
+must freeze `cce_master_binding` in the actual Master-submit execution's existing
+terminal_payload_json: `{context, evidence_scope, workdir}`. The context is the
+validated submit-context contract; scope is relative to the adapter-configured
+evidence root. The current Step3 monitor stores `cce_master_submit_execution_id`
+in its own terminal_payload_json. These identities are deliberately distinct.
+The same JSON contract applies to WgsStageExecution and PipelineStageExecution.
+No current adapter writes these proposed bindings yet; arbitrary receipt fields
+are not sufficient authority, and missing historical bindings fail closed.
+
+RunAction action `cce_compute_recovery` adds `evidence_binding` to its existing
+budget journal payload: monitor execution/generation/request hash, submit
+generation/request hash, release_id, category, relative evidence_key and
+evidence_sha256. Source execution and Master UID remain top-level journal fields.
+Replays cannot replace these identities or evidence contents. Reservation and
+WGS manual resume-stage use the AnalysisRun row lock; active same-attempt
+automatic actions block manual resume before request-file writes or dispatch.
+Terminal automatic history is retained and does not block manual resume.
+PostgreSQL concurrency acceptance and other control-entry fences remain pending.
+
 ## Native presentation projections (2026-09-17)
 
 No schema or Sample writes. Existing WgsOnpremExecutionSnapshot.sample_scope_json

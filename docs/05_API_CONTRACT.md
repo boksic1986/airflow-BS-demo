@@ -798,6 +798,12 @@ match. Preparation/maintenance and client-supplied paths/commands are rejected.
 Response is `{analysis_id, attempt, stage, generation, action_id, status}`.
 
 RunAction retains original and deterministic recovery DagRun identities.
+P0 source-only guard (2026-09-23): an unfinished same-attempt
+`cce_compute_recovery` action blocks resume-stage before request mutation or
+Airflow calls, even when the run still says failed. Unclassifiable unfinished
+automatic-action attempt metadata also blocks. Finished automatic actions do
+not prevent manual resume or reset their existing history/budget. No new route
+or request/response field is added; automatic recovery remains unwired/off.
 Analysis, attempt, release and workdir are preserved. Repeated keys and identical
 active operations dedupe; different active stages conflict. An uncertain dispatch
 stays visibly recoverable and reconciles the same DagRun before any new POST.

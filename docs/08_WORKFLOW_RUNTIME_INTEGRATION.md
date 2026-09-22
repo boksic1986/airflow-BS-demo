@@ -71,6 +71,31 @@ Recovery must preserve explicit Master-submit/monitor lineage.26 isolated
 BS10610 synthetic reader checks passed; current producer/wrapper integration
 and dispatch remain pending. No existing budget/evidence suite rerun.
 
+### Current lineage to reservation bridge (2026-09-23, internal only)
+
+`app.cce_recovery_service.reserve_monitored_recovery` binds the current failed
+Step3 monitor to its explicit, current Master-submit execution (original Step2
+or a replacement submitted by Step3). It checks frozen release/workdir, attempt,
+generation and request hash, invokes the controlled reader, then reserves under
+the existing attempt budget. The persisted action binds both execution identities
+and evidence contents; repeated callbacks cannot swap evidence or spend twice.
+See docs04 for the proposed trusted binding JSON fields. Missing historical
+bindings reject rather than manufacturing lineage. Caller owns rollback/commit.
+
+This bridge does not populate bindings, initialize policy, change run status,
+dispatch, or expose an endpoint. It has no production caller. Actual producer
+fixtures and trusted terminal wrapper remain outstanding. Automatic policy stays
+off; dispatch still needs fresh control/quiescence checks and callback fencing.
+22 focused WGS/GATK synthetic checks passed on BS10610, using real reader,
+validator and budget with synthetic files/SQLite, not live Kubernetes or DB.
+
+WGS `request_resume_stage` now refuses unfinished same-attempt compute-recovery
+actions under the same AnalysisRun row lock, before frozen-request mutation or
+Airflow calls. Terminal automatic history remains intact and manual resume is
+still allowed afterward. Eight tests of this existing entry passed on BS10610.
+This is one entry-point fence, not completion of generic resume, GATK, Step7,
+dispatch or PostgreSQL concurrency acceptance. No unrelated regression rerun.
+
 ## Native UI evidence adapter (2026-09-17 test)
 
 Native monitor and native-view share a bounded reader of

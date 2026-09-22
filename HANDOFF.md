@@ -1,5 +1,46 @@
 # Handoff
 
+## 2026-09-23 P0 evidence-to-action bridge and manual resume fence
+
+Goal: user requested next step of existing P0, not P1 pause/delete. Continued in
+isolated jiucheng/runtime/CR01-cce-recovery-20260922 from7bfa967. Original dirty
+ops workspace and Step7-owned main.py/wgs_step7_service.py/wgs_observer.py untouched.
+
+Added backend/app/cce_recovery_service.py and its synthetic test file: current
+failed Step3 monitor explicitly binds to actual Master-submit execution; frozen
+release/workdir/hash/generation and controlled evidence validated before reserve.
+RunAction stores both identities and sealed-content binding; replay cannot replace
+evidence. No status mutation, external dispatch, public endpoint or auto enablement.
+Updated wgs_resume_service.py and test_wgs_resume_stage.py: unfinished same-attempt
+automatic recovery blocks manual Resume before frozen files or Airflow change;
+terminal automatic history stays intact. Updated docs04/05/08, state/tasks/ledger.
+
+BS10610 read-only fingerprint in this turn: server10610, control root
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS, current20260912-opt-4d3d24e6,
+actual backend mount releases/20260917-native-ui-76915d8-r2/backend; cached image
+8491604ee01d. Test environment and scan/dispatch false. Only own candidate files
+changed: candidates/p0-airflow-recovery-20260922. No service or deployment change,
+so no rollback release selected. Shared database/runtime paths were not mounted.
+
+Commands in cached image, network none/read-only/1CPU/1GiB, synthetic SQLite:
+- python -m pytest -q -p no:cacheprovider tests/test_cce_recovery_service.py
+  RED missing module; GREEN22 passed1.04s, service-red.log/service-green.log.
+- python -m pytest -q -p no:cacheprovider tests/test_wgs_resume_stage.py
+  RED selected pending guard failed DID NOT RAISE, exit1; GREEN whole affected
+  file8 passed1.17s, exit0; resume-fence-red.log/resume-fence-green.log.
+  Only tracked wgs_stage_contract.yaml additionally mounted read-only at /config.
+Kernel swap-limit warning unchanged. No unchanged helper suite/local runtime
+tests, live Postgres, Kubernetes or browser checks were run: none needed for this
+internal slice; concurrency/actual producer integration remain required later.
+
+Producer worktree now has submission_recovery.py plus plugin/init/tests changes;
+owner still active, no final commit/producer fixture accepted. Proposed binding
+writer and terminal wrapper remain missing. Do not deploy or enable automatic
+recovery from these synthetic results. Before future shared-service work, recheck
+active runs and mounts and coordinate Step7. Next: actual producer/wrapper-bound
+adapter handoff, dispatch and remaining control/callback fences. Rollback this
+source commit; no production/data state to undo. P0 remains incomplete.
+
 ## P0 next step: controlled evidence reader (test only)
 
 User: continue next step. Worktree/branch unchanged from73f8d4e, original dirty

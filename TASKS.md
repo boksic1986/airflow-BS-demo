@@ -1,5 +1,12 @@
 # Active test-branch tasks
 
+2026-09-23 CR-01/02 slice: internal Master-submit/monitor lineage-to-reservation
+bridge implemented;22 focused synthetic checks passed. WGS resume-stage refuses
+unfinished automatic recovery before mutation/dispatch;8 entry tests passed.
+No trusted binding writer, runtime caller, dispatch or policy enablement yet.
+Real producer/wrapper, remaining entry-point fences, callbacks and PostgreSQL
+concurrency remain outstanding. This does not complete CR-01 or CR-02.
+
 CR-01 reader slice: controlled fixed-file reader implemented,26 new focused
 synthetic checks passed. Still pending actual plugin fixture + trusted terminal
 wrapper + Master-submit/monitor lineage; CR-01 is NOT end-to-end complete.

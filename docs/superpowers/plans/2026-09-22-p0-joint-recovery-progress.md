@@ -18,6 +18,22 @@ No unrelated regression suite. Preserve the original worktree's dirty files.
 
 ## Current progress
 
+- 2026-09-23: internal DB-lineage bridge now joins current failed Step3 monitor,
+  actual Master-submit binding, controlled reader, validator and budget.22 new
+  WGS/GATK synthetic checks passed1.04s on BS10610. Stale identities and replaced
+  evidence cannot reserve; no production caller or trusted-binding writer yet.
+- WGS manual resume-stage fence RED demonstrated bypass of reserved automatic
+  action; GREEN8 checks passed1.17s. Reserved/queued/uncertain block before files
+  or Airflow; completed automatic history is preserved and permits manual resume.
+  Other entries/dispatch/callback/PostgreSQL concurrency remain pending.
+- Plugin owner now has actual submission_recovery.py and integration changes in
+  its worktree; no final commit/producer fixture accepted yet. Automatic recovery
+  remains unwired/off. No deployment, BS96, shared service/database or live-task
+  mutation. Earlier draft-only plugin observations below are historical.
+- Ruling: reuse existing terminal_payload_json for proposed immutable trusted
+  submit/monitor bindings (docs04), no new table/backfill or public input. This
+  advances internal integration without inventing evidence for old releases.
+
 - Next slice from73f8d4e: controlled fixed-file reader RED→GREEN26 checks0.09s;
   only new reader tests ran. Descriptor nofollow, file bounds/type/link checks,
   duplicate-key rejection and bound content validation; no runtime route wired.
