@@ -1,5 +1,21 @@
 # Handoff
 
+## 2026-09-22 submit recovery documents to the pending-development branch
+
+User now authorizes submitting the documentation to primary test branch
+`jiucheng/test/wgs-local-main-sync-20260917`. Remote advanced from9333160 to
+cd7771b with QC presentation and CNV viewer designs; preserve both unchanged.
+Integrate6540982 with that tip; resolve only competing TASKS/HANDOFF insertions,
+retaining both sets of entries. Delta against remote is limited to the same
+four recovery documentation files. No application, main/production or runtime
+changes; application tests remain inapplicable.
+
+GitHub port22 timed out;443 worked with StrictHostKeyChecking=yes and existing
+github.com HostKeyAlias after the separate443 host alias was unknown. No host
+key checks disabled, credentials exposed or persistent SSH config changed.
+Verify exact file scope, whitespace, no conflict markers and preserved remote
+designs before a normal fast-forward push; do not force-push on remote races.
+
 ## 2026-09-22 CCE recovery redesign — documentation only
 
 ### Goal and authority
@@ -53,6 +69,26 @@ image/schema/permission changes need explicit scope review, not implicit uplift.
 No automatic kill of Workers, data cleanup, inputs/receipts repair or prepare.
 No test/main/production merge or push is part of this document revision.
 Rollback is a documentation revert only; no runtime or data state changed.
+
+## 2026-09-18 WGS CNV plot viewer design
+
+Documented a narrow WGS-only `CNV plot` Run Detail tab. It resolves only
+selected-sample native PNGs from the frozen bound `03_CNV` directory, lists
+sample IDs at left and lazily streams one image at right. The observed V4.2.1
+plots are 4800x1200 PNGs at about 0.4 MiB each, so PNG is retained; HTML/SVG
+redraw and eager batch preload are excluded. No code, synthetic fixture,
+runtime/data operation, workflow change or deployment occurred. Future work is
+`CNV-01` through `CNV-03` in the new design document.
+
+## 2026-09-18 QC two-source presentation simplification
+
+The approved presentation direction supersedes the prior expandable
+supplemental-row idea: Run Detail QC uses default **常规临检** for batch
+`QCstat.tsv` and conditional **罕见病** for batch `multi.QCstat.tsv`. The latter
+is hidden when no `F57J`/`UPC` sample applies and contains only applicable
+samples. This keeps identically named metrics apart without a wide table or
+ordinary-row placeholders. Documentation/task cards only; no code, test,
+runtime, data or deployment change.
 
 ## 2026-09-18 consolidate new development documents into the primary test branch
 

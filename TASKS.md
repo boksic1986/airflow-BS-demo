@@ -55,10 +55,12 @@ This work is independent of CCE run control and may be developed separately.
 
 - [x] Document required batch `QCstat.tsv` authority and conditional
   `multi.QCstat.tsv` WgsMetrics evidence for selected `F57J`/`UPC` samples.
-- [ ] `QC2-01` — implement exact optional-artifact discovery, source-qualified
-  projection, release-pinned applicability/judgment and synthetic fixtures.
-- [ ] `QC2-02` — update the API contract and Run Detail QC presentation so the
-  supplemental fields appear only for applicable rare-disease samples.
+- [ ] `QC2-01` — implement exact optional-artifact discovery and a separate
+  rare-disease WgsMetrics projection, plus release-pinned applicability/judgment
+  and synthetic fixtures.
+- [ ] `QC2-02` — update the API contract and Run Detail QC presentation with
+  default `常规临检` and conditional `罕见病` tags; each tag reads only its own
+  batch-level source.
 - [ ] `QC2-03` — verify ordinary-only, complete rare-disease and missing-
   supplemental-evidence cases without changing native QC, pending or DAG logic.
 
@@ -67,6 +69,23 @@ the two sources must never overwrite, substitute for or silently validate one
 another. No database migration, native workflow change or production publication
 is part of the documented scope.
 
+## WGS-CNVPLOT-20260918 — design complete, implementation not started
+
+Owner sequence: Backend restricted file projection, then Frontend, then QA.
+
+- [x] Confirm native per-sample `03_CNV/<sample_id>.CNV_genome.png` naming,
+  image dimensions and bounded one-image-at-a-time display strategy.
+- [ ] `CNV-01` — add WGS-only selected-sample list and controlled PNG streaming
+  from the frozen bound result root; no generic file browser.
+- [ ] `CNV-02` — add the WGS Run Detail `CNV plot` tab with left sample selector
+  and one lazy-loaded right image pane.
+- [ ] `CNV-03` — run synthetic authorization/availability and component tests;
+  do not run or download a biological workflow.
+
+Spec: `docs/2026-09-18-wgs-cnv-plot-viewer-design.md`. PNG remains the native
+artifact; HTML/SVG redraw, eager batch preload, CNV interpretation and any
+workflow/QC change are out of scope.
+
 ## CCE-RECOVERY-01 — scope expanded 2026-09-22, revised design awaiting review
 
 Owner: Workflow for adapter/runtime behavior; Airflow/Backend for state
@@ -74,6 +93,8 @@ projection; Frontend only for shared stale/monitoring display.
 
 - [x] Revise the design for user-approved0918A Worker creation disconnect and
   0919B Gatekeeper admission timeout; explicitly defer0919C missing-input repair.
+- [x] Integrate the four-file document revision with current test-branch designs
+  under explicit user submission approval; preserve QC and CNV work unchanged.
 - [ ] Review revised policy defaults: at most two automatic same-attempt compute
   recoveries,60/180s waits, original deadline, persistent shared failure budget.
 - [ ] CR-01: bind source-level query/Worker-create error evidence to execution

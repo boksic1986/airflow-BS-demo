@@ -2,6 +2,11 @@
 
 ## 2026-09-22 CCE recovery design revision only
 
+Follow-up user instruction authorizes submission to the pending-development
+test branch. Integration retains remote cd7771b QC/CNV designs and adds only
+the four recovery document changes; main/production and runtime stay untouched.
+This supersedes the original no-test-merge boundary below, not the no-code gate.
+
 User confirmed inclusion of0918A Worker-creation transport disconnect and0919B
 Gatekeeper admission timeout in future automatic checkpoint recovery;0919C
 missing FASTQ/input repair remains excluded. The design now proposes two
@@ -63,6 +68,11 @@ their branch histories or any application code:
   `53fc860`: required ordinary `QCstat.tsv` plus conditional source-qualified
   `multi.QCstat.tsv` evidence for `F57J`/`UPC` samples. See
   `docs/2026-09-18-wgs-qc-two-source-contract.md` and `QC2-01` through `QC2-03`.
+- WGS CNV plot viewer design: a WGS-only Run Detail tab lists selected sample
+  IDs and streams one native bound `03_CNV/<sample_id>.CNV_genome.png` at a
+  time. It is not implemented; no generic artifact reader, image conversion,
+  workflow/QC change, test run or deployment is authorized. See
+  `docs/2026-09-18-wgs-cnv-plot-viewer-design.md` and `CNV-01` through `CNV-03`.
 
 Both designs are complete and their implementation has not started. They are
 proposals, not available APIs or runtime capabilities. This consolidation did
