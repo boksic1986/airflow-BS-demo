@@ -1,5 +1,56 @@
 # Handoff
 
+## 2026-09-23 next step: submission inventory to UID probe
+
+User: 继续下一步. Source22d47cb, isolated P0 branch/worktree unchanged. Added
+scripts/cce_recovery_inventory.py and its new test file only; no existing runtime
+entry changed. Joined complete bound journal/checkpoint/candidate/admitted-manifest
+snapshot validation to prior read-only UID probe. All intents feed probe queries;
+missing/extra/partial/conflicting evidence rejects. No terminal seal or automatic
+authorization; internally consistent stale snapshots are not finality proof.
+Updated docs08, CURRENT_STATE, TASKS and existing P0 progress ledger. Runtime and
+handoff skills kept this slice test-only; no new plan or unrelated feature added.
+
+Fresh gate: ssh BS10610 -> server10610; control root
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS; current -> releases/20260912-opt-4d3d24e6;
+actual backend/app -> releases/20260917-native-ui-76915d8-r2/backend, config from
+current release, image8491604ee01d; test environment, scan/dispatch=false.
+Bounded read-only test DB transaction active_runs=[]. Existing candidate/evidence
+access used; no permission change. Shared backend/frontend window belongs to WES
+UI task. All shared services, workflows, inputs/results, bs5 artifact and BS96
+preserved; no install/deploy/deletion/analysis submission/database write.
+
+Candidate C: control-root/candidates/p0-airflow-recovery-20260922.
+Fixture E: /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/plugin-p0-submit-20260922/fixtures.
+Command (scripts mounted at /candidate/scripts:ro, E at /producer:ro):
+`PYTHONPATH=/candidate CCE_PRODUCER_FIXTURE_ROOT=/producer python -m pytest -q -p no:cacheprovider scripts/tests/test_cce_recovery_inventory.py --tb=short`
+RED with --maxfail=1: ModuleNotFoundError scripts.cce_recovery_inventory,
+1 failed0.04s, exit1, C/inventory-red.log. Expected missing implementation, not
+an environment problem; implemented then GREEN26 passed0.08s, exit0,
+C/inventory-green.log. All tests ran, including both actual producer fixtures.
+Cached image8491604ee01d, --pull=never --network=none --read-only,1CPU/1GiB,
+ephemeral /tmp scratch only, no DB/kubeconfig/live runtime mounts. Kernel swap
+limit warning unchanged. Two composition tests use prior synthetic subprocess
+fixture, not repeated prior test cases. No old suites or local runtime tests run.
+
+Plugin-owner read-only source report inspected locally at
+D:/pipeline/task-artifacts/plugin-p0-submit-20260922/MASTER_ERROR_PRODUCER_READONLY_REVIEW.md;
+remote same basename under E parent. Frozen cached Master490153a56b64,
+Snakemake9.24.0+biosan1: SubmissionFailure reaches CLI ERROR without mandatory
+JOB_ERROR; rule-status excludes ERROR; cancellation/monitor callback races and
+swallowed logger flush errors prevent completeness inference. Need typed origin
+binding, cumulative mixed/unknown error accounting and explicit healthy final
+footer. Admitted Worker historical outcomes must also be accounted for; no-active
+observations and404 are not proof of zero historical rule failure. Report is source
+review, not producer implementation/acceptance. bs5 remains unchanged.
+
+Next: trusted Master audit/terminal producer plus final snapshot and Worker
+history binding, then adapter writer, dispatch/callback/control fences. CR-01–05
+not complete. Live cluster/PostgreSQL concurrency/full integration not run because
+not implemented in this slice and shared-service window is unavailable; obtain
+fresh gate and coordinated window before service acceptance. No runtime rollback
+needed; reverting this source-only commit removes helpers with no data effect.
+
 ## 2026-09-23 next step: bound workload observation prerequisite
 
 User: 下一步. Source branch unchanged fromd9bd2a7. Used runtime/planning and inline

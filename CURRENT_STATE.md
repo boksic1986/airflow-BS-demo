@@ -1,5 +1,22 @@
 # Current state
 
+## 2026-09-23 P0 submission inventory joined to workload probe
+
+Added `scripts/cce_recovery_inventory.py`: verifies bound context, producer
+checkpoint/hash chain, every submit intent/result, cumulative failure candidate,
+and admitted Worker manifest. The composed probe derives all Worker identities
+from that snapshot, not a caller-supplied subset. BS10610:26 focused checks passed
+in0.08s, including actual WGS/GATK producer fixtures and the probe connection.
+No previous suite rerun, service change, BS96, deployment or policy enablement.
+
+This proves snapshot consistency and current workload observations only. Final
+Master audit/digest binding and admitted Worker historical outcomes are still
+required; a stale valid snapshot or absent Job cannot establish zero rule failures.
+Source review found submission exceptions bypass JOB_ERROR and existing logger
+omits ERROR; do not build a positive seal from empty rule errors. Next is the
+trusted Master audit producer/terminal integration, then dispatch and fences.
+CR-01–05 remain incomplete; shared-service window remains reserved for WES UI.
+
 ## 2026-09-23 P0 bound workload probe
 
 Added runtime-side read-only Master/Worker probe with exact UID, namespace,

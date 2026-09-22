@@ -1,5 +1,35 @@
 # Workflow runtime integration
 
+## P0 submission inventory and workload reconciliation (source only)
+
+`scripts.cce_recovery_inventory.validate_submission_inventory` consumes trusted
+bound bytes for submit-events.ndjson, journal-state.json, executor-failure.json
+and the schema2 admitted Worker manifest. It checks exact context/types, complete
+NDJSON records, duplicate JSON keys, producer chained hash/byte/record checkpoint,
+one intent per Worker, monotonic bounded requests, frozen token/spec/job-attempt,
+admission UID, and one-to-one cumulative failure/manifest membership. Partial,
+unknown, conflicting or extra/missing evidence fails closed. Repeated manifest
+entries currently reject rather than silently deduplicate.
+
+`probe_submission_inventory` derives every Worker identity from that validated
+snapshot and calls the existing UID-bound read-only probe. No arbitrary Worker
+subset parameter, writes, delete, seal or recovery authorization. Raw-byte hashes
+returned here are snapshot bindings, distinct from the canonical candidate JSON
+digest used by the backend terminal validator. A future trusted terminal writer
+must bind the FINAL snapshot plus Master error audit; checksums are neither
+writer authentication nor proof that an earlier consistent snapshot is final.
+No current restricted-runner/adapter entry invokes the composed helper yet.
+
+Missing/terminal workloads establish no-active-work observations only, not zero
+historical rule failures. Every admitted Worker needs trustworthy terminal/history
+accounting before a positive recovery seal; TTL/deletion and missing evidence
+remain unknown. Cached Master source review (Snakemake9.24.0+biosan1) confirmed
+SubmissionFailure can bypass JOB_ERROR; rule-status drops ERROR and logger close
+can suppress write/flush failures. Existing generic RUN_FAILED is insufficient.
+Trusted Master audit producer/footer and explicit source coverage remain pending.
+26 focused BS10610 checks passed, including two real producer-generated synthetic
+fixture scopes and subprocess-boundary composition. No live cluster acceptance.
+
 ## P0 internal recovery budget (2026-09-22, source only)
 
 `app.cce_recovery_budget.reserve_compute_recovery` reserves within the caller's

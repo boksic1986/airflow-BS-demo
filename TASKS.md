@@ -1,5 +1,11 @@
 # Active test-branch tasks
 
+CR-03 next prerequisite: submission journal/checkpoint/candidate/manifest
+validation now composes with the UID probe.26 focused BS10610 checks passed,
+including actual WGS/GATK producer fixtures. No finality/terminal seal, complete
+Master error audit, Worker history proof, dispatch or automatic enablement yet.
+Next: trusted producer and terminal integration; do not add unrelated controls.
+
 CR-03 prerequisite slice: UID-bound read-only workload probe implemented;
 25 checks passed on BS10610. No old Resume behavior changed and no terminal
 seal emitted. Full Master error summary + complete journal/manifest binding,

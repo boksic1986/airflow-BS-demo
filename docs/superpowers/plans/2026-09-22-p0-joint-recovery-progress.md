@@ -18,6 +18,26 @@ No unrelated regression suite. Preserve the original worktree's dirty files.
 
 ## Current progress
 
+- 2026-09-23 next slice from22d47cb: complete snapshot inventory validator and
+  composed UID probe. RED missing module (exit1), GREEN26 passed0.08s (exit0),
+  actual producer WGS/GATK admission fixtures included, no skips. Only new test
+  file executed; no shared service/test DB/runtime/production mutation.
+- Ruling: chained checkpoint + journal + manifest proves snapshot consistency,
+  not finality or writer authentication. Future Master audit/footer must bind final
+  raw digests; the composed helper intentionally emits no seal/authority. Missing
+  historical admitted-Worker outcome cannot be treated as zero rule failures.
+- Plugin owner completed bounded source review without changing bs5: submission
+  exception bypasses JOB_ERROR, ERROR is dropped by rule-status, cancellation can
+  race with remote polling, logger stop suppresses flush errors. Full source-line
+  and hash evidence: plugin-p0-submit-20260922/MASTER_ERROR_PRODUCER_READONLY_REVIEW.md
+  under the existing WGS_test/cce-evidence root. Implementation must capture typed
+  submission cause before cancellation plus mixed/unknown causes, and explicitly
+  finalize after producers stop. No text/class-name whitelist or empty-log seal.
+- Next: implement the minimum trusted Master audit/terminal path under the
+  approved Master/runtime scope; keep frozen bs5 intact until coordinated change.
+  Then adapter binding writer/dispatch/callback fences. This slice does not close
+  CR-01 or CR-03; automatic recovery remains off and service window belongs to WES UI.
+
 - Bound workload observation prerequisite: scripts/cce_recovery_workloads.py,
   exact UID/namespace/controller ownership and complete container exits, missing
   Job residual-Pod checks, read-only bounded queries. RED missing module then
