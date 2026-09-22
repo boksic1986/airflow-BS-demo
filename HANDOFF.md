@@ -1,5 +1,53 @@
 # Handoff
 
+## 2026-09-23 next step: bound workload observation prerequisite
+
+User: 下一步. Source branch unchanged fromd9bd2a7. Used runtime/planning and inline
+execution skills, preserved existing scope/ledger; no per-slice agent dispatch.
+Added scripts/cce_recovery_workloads.py and scripts/tests/test_cce_recovery_workloads.py.
+No existing runtime/Resume entry or workflow changed. Probe binds exact Master/
+Worker UIDs, namespace and Pod controller ownership; rejects active/terminating,
+missing/paged Pod inventories or incomplete main/init/ephemeral container exits.
+Missing Job still queries residual Pods. Bounded read-only kubectl commands only.
+It cannot prove input-list completeness or classify errors; deliberately no seal,
+automatic permission, backend caller or deployment. Updated docs08/state/tasks/ledger.
+
+Fresh BS10610 preflight: server10610, control root
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS, current20260912-opt-4d3d24e6;
+actual backend/app20260917-native-ui-76915d8-r2/backend, cached image8491604ee01d,
+scanner/dispatch false. Bounded read-only test DB transaction returned active_runs=[].
+Coordinator then assigned shared-service window to WES UI task: no backend/frontend
+mutation or deploy. Only own candidates/p0-airflow-recovery-20260922 used here.
+
+Synthetic command (PYTHONPATH=/candidate; own scripts mounted read-only there):
+`python -m pytest -q -p no:cacheprovider scripts/tests/test_cce_recovery_workloads.py --tb=short`
+RED with --maxfail=1: missing module,1 failed0.04s,exit1. GREEN25 passed0.06s,exit0.
+Logs workloads-red.log/workloads-green.log in own candidate. Cached backend image,
+network none/read-only/1CPU/1GiB, no DB/kubeconfig/live runtime mounts. Tests replace
+only subprocess boundary, exercising actual object/UID/state validation. No prior
+helper, plugin suite, unrelated test, local runtime or actual cluster check rerun.
+Initial scp failed exit1 because candidate scripts/tests did not exist; created
+only that exact candidate subdirectory and copied successfully. No files deleted.
+Kernel swap-limit warning unchanged. No permissions broadened or shared install.
+
+Read-only source findings: huawei-cloud-runtime source83e7adb (untracked historical
+asset backup left untouched). Native no-active-worker guard only checks states
+from manifest, not exact UID/residual Pods. Master RUN_FAILED is generic and current
+rule-status logger filters events/no complete classified error footer. These cannot
+authorize recovery. Next: complete submit journal/admitted-manifest reader + trusted
+Master error summary/writer, then adapter binding/dispatch/callback fences. Do not
+write a positive terminal seal from zero observed rule errors alone.
+
+Plugin version update verified: f1d3fa58a5075387500dd72620c03affe49b48e7 is metadata/
+version only, recovery.py bytes identical to0d606489 and worktree clean. New
+0.6.4+bs5 wheel SHA256 independently checked:
+8ab618cb46d9e8d06ed0063096b30d9ffad3c3c41c7ba25f101ad6903165a26b.
+Path: plugin-p0-submit-20260922/build-f1d3fa58a5075387500dd72620c03affe49b48e7/wheel/
+snakemake_executor_plugin_kubernetes-0.6.4+bs5-py3-none-any.whl under the same evidence
+root in preceding entry. No install or producer-suite rerun; old hash-pinned fixtures
+retain old wheel provenance. No BS96/production/data mutation. Rollback source
+commit only; no runtime data state to undo. CR-01–05 not complete.
+
 ## 2026-09-23 actual candidate producer/consumer contract check
 
 After f73e284, plugin owner delivered commit

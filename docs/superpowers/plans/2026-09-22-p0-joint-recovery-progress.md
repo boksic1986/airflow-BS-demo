@@ -18,6 +18,19 @@ No unrelated regression suite. Preserve the original worktree's dirty files.
 
 ## Current progress
 
+- Bound workload observation prerequisite: scripts/cce_recovery_workloads.py,
+  exact UID/namespace/controller ownership and complete container exits, missing
+  Job residual-Pod checks, read-only bounded queries. RED missing module then
+  GREEN25 checks0.06s on BS10610. No existing runner caller or seal emission.
+- Ruling: do not reuse baseline runtime83e7adb no-active-worker guard as P0 proof;
+  it omits exact UID and residual Pod checks. Build the minimal read-only probe
+  without changing legacy manual Resume. Cost: trusted inventory binding and
+  cumulative Master error-summary producer still required before a terminal seal.
+- Fresh BS10610 active_runs=[] and backend mounts/gates unchanged. Shared-service
+  window now belongs to WES UI; no deployment here. Only isolated candidate writes.
+  Plugin f1d3fa58 /0.6.4+bs5 metadata-only change and new wheel hash verified;
+  original fixture/test evidence remains bound to0d606489. No suite rerun/install.
+
 - Actual producer follow-up: plugin0d606489 clean and wheel hash verified;
   original pipeline=synthetic fixture not allowed as WGS/GATK. Owner regenerated
   wgs-admission/gatk-admission through the same candidate wheel.4 hash-pinned

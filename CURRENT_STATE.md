@@ -1,5 +1,22 @@
 # Current state
 
+## 2026-09-23 P0 bound workload probe
+
+Added runtime-side read-only Master/Worker probe with exact UID, namespace,
+controller-owner and complete container termination checks, including Pods left
+after a Job disappears.25 focused synthetic checks passed0.06s on BS10610.
+It observes only caller-bound identities, not submission inventory completeness;
+it does NOT issue a terminal seal or authorize recovery. No existing runner,
+workflow, shared service or automatic policy changed.
+
+Source review confirmed baseline runtime83e7adb's no-active-worker guard is not
+sufficient for P0 (no exact Worker UID/residual Pod checks); RUN_FAILED and the
+current logger lack a complete classified Master failure summary. Next: trusted
+summary plus full submission journal/manifest binding, then terminal writer and
+dispatch fencing. Shared service window is held by the WES UI task; no deploy.
+Plugin rename f1d3fa58 /0.6.4+bs5 verified metadata-only and recovery source bytes
+unchanged; new wheel hash recorded in HANDOFF. Original fixture provenance retained.
+
 ## 2026-09-23 actual plugin candidate contract accepted (not end-to-end)
 
 Verified plugin0d606489 clean worktree and candidate wheel SHA256. Original

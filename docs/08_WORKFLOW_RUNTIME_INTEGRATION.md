@@ -104,6 +104,37 @@ still allowed afterward. Eight tests of this existing entry passed on BS10610.
 This is one entry-point fence, not completion of generic resume, GATK, Step7,
 dispatch or PostgreSQL concurrency acceptance. No unrelated regression rerun.
 
+### Bound workload observations (2026-09-23, not a terminal seal)
+
+`scripts/cce_recovery_workloads.py:probe_bound_workloads` issues read-only
+exact-name Job and job-name-selected Pod queries through the frozen runtime's
+kubectl command builder. Configured namespace must match the frozen binding.
+The exact Master Job UID must be Failed/inactive, and the bound Master Pod UID
+must appear among terminated, correctly owned Pods. Worker UIDs are exact;
+missing Jobs still require querying their residual Pods. An expected absent
+Worker with no known UID cannot adopt an unexpected Job/Pod.
+
+All main/init/ephemeral container status inventories must match Pod specs and
+show terminated exit codes. Active/deleting/foreign/ambiguous objects, missing
+Pod lists, pagination, failed queries and changed identities reject. Only a
+successful exact-name --ignore-not-found query may represent an absent Job.
+Each command has at most30s and the caller's overall budget at most300s (default
+120s). No Kubernetes writes, deletion, file mutation or status changes occur.
+
+Caller MUST first bind a complete submission journal and admitted Worker
+manifest to the frozen Master context; an arbitrary list is not complete proof.
+Return values are observations only: no sealed/complete/inventory-complete or
+automatic-recovery permission. Multiple queries are not an atomic snapshot;
+dispatch must recheck current identity and quiescence under its control fence.
+No current adapter calls this probe yet.25 synthetic boundary checks passed on
+BS10610, not a real cluster or terminal-writer acceptance.
+
+Source83e7adb's `_require_no_active_workers` and generic RUN_FAILED marker cannot
+replace this boundary or the missing complete Master error summary. Do not
+derive rule_failure_count=0 from an empty/partial logger stream. The existing
+rule-status logger filters events and has no complete classified fatal footer;
+trusted producer/wrapper work remains necessary before sealing/auto-enabling.
+
 ## Native UI evidence adapter (2026-09-17 test)
 
 Native monitor and native-view share a bounded reader of

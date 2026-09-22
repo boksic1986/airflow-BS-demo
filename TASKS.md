@@ -1,5 +1,11 @@
 # Active test-branch tasks
 
+CR-03 prerequisite slice: UID-bound read-only workload probe implemented;
+25 checks passed on BS10610. No old Resume behavior changed and no terminal
+seal emitted. Full Master error summary + complete journal/manifest binding,
+terminal writer, adapter/dispatch/callback integration remain required.
+Shared backend/frontend deployment held for WES UI task; independent tests only.
+
 CR-01 producer-to-consumer compatibility: plugin0d606489 actual WGS/GATK fixture
 bytes and wheel hash verified;4 consumer checks passed0.08s on BS10610. This
 supersedes pending-fixture notes below, not pending trusted runtime terminal
