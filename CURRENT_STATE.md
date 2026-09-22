@@ -1,5 +1,17 @@
 # Current state
 
+## 2026-09-23 cancelled stale BS10610 GATK Step1 projection
+
+The user-authorized stop of test run `GATK_20260922_112207_23AD29-a1`
+is now reflected in the test control plane. The DagRun is failed,
+`start_step1_upload` stayed success, `wait_step1_upload` is failed and
+`submit_step2_master` never started. Node200 has zero matching processes.
+The business run and 43 samples are cancelled; Step1 and its transfer are
+canceled; 60 completed file projections remain success and 26 unfinished
+projections are canceled. Its exact input lease was released. No OBS, SFS,
+NFS/local input, sampleinfo, runtime/evidence, database or service data was
+deleted, and no other test analysis is active.
+
 ## 2026-09-22 redundant blanket validation removed
 
 The user confirmed that work already developed, tested and published to

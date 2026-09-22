@@ -1,5 +1,47 @@
 # Handoff
 
+## 2026-09-22 user-authorized immediate GATK Step1 cancellation and OBS cleanup
+
+2026-09-23 scope correction before final control-plane mutation: the user later
+directed production to reuse/continue the uploaded FASTQ objects, so OBS deletion
+is no longer authorized or required. The exact node200 process count is now zero;
+the test DagRun is already failed and Step2 never started. The remaining mutation
+is limited to marking this one test analysis/attempt, its Step1 execution,
+transfer and unfinished per-file projections cancelled, releasing only
+`wgs-obs-upload-01`, and adding audit/action records. Preserve all completed OBS
+objects and multipart state, SFS/NFS/local inputs, sampleinfo, runtime requests,
+logs/evidence, workdir, databases, services and every other analysis.
+
+The user explicitly replaced the earlier wait-for-upload instruction: stop the
+mistaken BS10610 test run `GATK_20260922_112207_23AD29` attempt 1 during
+Step1 and remove only its partially uploaded OBS FASTQ objects. The exact online
+target is the immutable runtime-bound `OBS_UPLOAD_PATH` for execution
+`GATK_20260922_112207_23AD29-a1-step1_upload-g1`; its target SHA-256 is
+`f48ae0ac292478c704136e62d90caaef75ca82eb4470cffd0ed515229b1d0fbb`.
+The plaintext OBS bucket/object identity remains private and is not committed.
+
+Authorized online actions: stop the exact DagRun before Step2, terminate/abort
+the exact attempt's multipart upload, remove objects below only that frozen OBS
+prefix, release only its input transfer lease, and mark the test attempt
+cancelled. Protected and not authorized for deletion: source/local/NFS FASTQ,
+sampleinfo, runtime requests, logs, evidence, workdir, the production WGS run,
+other OBS prefixes/batches, databases, services and release candidates. Before
+mutation the DagRun was running with Step1 `329296309017 / 457613089569` bytes,
+59/86 files complete, 8 running and 19 accepted; Step2 had no task state or
+`PipelineStageExecution`. Private preflight evidence is mode 0600 under
+`candidates/cancel-gatk-20260922` on BS10610. Itemized deletion results and
+recovery limitations must be appended after execution.
+
+Final control-plane result, 2026-09-23: exact node200 process count was zero;
+the DagRun was failed, `wait_step1_upload` failed and `submit_step2_master` had
+no state. The business run and all 43 samples are now cancelled, the Step1
+execution and transfer are canceled, 60 completed file projections remain
+success, 26 unfinished projections are canceled, and `wgs-obs-upload-01` is
+released. One RunAction and one AuditLog record the user cancellation with
+`data_deleted=false`. No other test analysis is active. No OBS object or
+multipart state, SFS/NFS/local file, sampleinfo, runtime/evidence, database,
+container or service was deleted or restarted.
+
 ## 2026-09-22 remove redundant blanket validation gate
 
 The user determined that `TEST-VALIDATION-01` would duplicate testing already

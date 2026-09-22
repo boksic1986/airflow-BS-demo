@@ -1,5 +1,15 @@
 # Active test-branch tasks
 
+## 2026-09-23 BS10610 integration gate
+
+- [x] Reconcile stale test GATK `GATK_20260922_112207_23AD29-a1` as a
+  user-cancelled Step1 run and release only its input-transfer lease.
+- [x] Verify zero matching node200 processes, no Step2 execution and no other
+  active BS10610 analysis; preserve all uploaded and local data.
+- [ ] Allow P0 and Step7 remote integration only in separate service-ownership
+  windows, with a fresh active-run and actual-mount preflight before mutation.
+
+
 Updated 2026-09-22 after refreshing the authoritative test branch and
 reassessing all documented development against current main/production.
 Historical tasks are archived and are not silently reopened or marked complete.
