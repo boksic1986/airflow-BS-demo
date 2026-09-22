@@ -1,5 +1,11 @@
 # Active test-branch tasks
 
+CR-01 producer update: bs6 candidate0b19bb605cdff619a7f09b34a6fe774e4b43d357
+received from owner, including preserved HeavySlotQuota and duplicate-adoption
+manifest fix. Owner reports86 source +86 wheel checks. Actual bs6 consumer
+acceptance remains pending; no complete terminal producer or deployment implied.
+WORKER_SUBMIT_GUARD_FAILED remains outside the automatic allowlist.
+
 2026-09-23 scope correction: no additional Master audit/producer track. The
 batch example only checks diagnostic completeness. Continue existing CR-01–05;
 next consumer work is remaining control/dispatch/callback fences and adapter

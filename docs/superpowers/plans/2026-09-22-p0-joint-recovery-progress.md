@@ -18,6 +18,15 @@ No unrelated regression suite. Preserve the original worktree's dirty files.
 
 ## Current progress
 
+- bs6 owner handoff received:0b19bb605cdff619a7f09b34a6fe774e4b43d357,
+  wheel SHA256 f9671d22ed02ec5a3edf0af861e116c0ea7dc9de816de6e07926fa869e2bb546.
+  Preserves biosan5 HeavySlotQuota; duplicate-adoption manifest/receipt fix.
+  Owner reports86 source and86 actual-wheel checks; not rerun here. New
+  WORKER_SUBMIT_GUARD_FAILED stays UNKNOWN/retryable=false, statically rejected
+  by existing consumer allowlist. Actual bs6 consumer fixture acceptance pending;
+  no new complete terminal producer or deployment/automatic authority delivered.
+  Test baseline now reported ab8695d: recheck live fingerprint before remote work.
+
 - Scope correction after owner coordination: the user's batch example is only
   a Master error-completeness check. Runtime owner confirmed bs6 integration
   preserves all biosan5 HeavySlotQuota behavior and excludes extra Master audit.

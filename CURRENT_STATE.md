@@ -1,5 +1,16 @@
 # Current state
 
+## 2026-09-23 bs6 candidate handoff received (not deployed)
+
+Plugin owner reports clean commit0b19bb605cdff619a7f09b34a6fe774e4b43d357,
+0.6.4+bs6 combining biosan5 quota behavior and P0. Source and wheel each passed
+86 checks according to owner evidence, not rerun here. New
+WORKER_SUBMIT_GUARD_FAILED is UNKNOWN/retryable=false; current consumer's two
+category allowlist already rejects it. No policy change needed. No new trusted
+terminal producer was delivered; end-to-end automatic recovery remains unready.
+Coordinator reports test baseline ab8695d after Step7; fresh mounts/active-run
+preflight is required before the next remote action, not the old fingerprint.
+
 ## 2026-09-23 P0 scope correction: continue the existing plan
 
 User clarified that the Master failure example is a completeness check, not a

@@ -1,5 +1,29 @@
 # Handoff
 
+## 2026-09-23 bs6 producer handoff received
+
+Owner: WGS-cloud-plugins task019f9d79-be3f-7701-af33-3595d72bbfac.
+Branch jiucheng/plugin-bs6-heavy-p0-20260923; commit
+0b19bb605cdff619a7f09b34a6fe774e4b43d357, reported clean. Combines full biosan5
+5dd176a baseline with P0 0d606489. Wheel version0.6.4+bs6, SHA256
+f9671d22ed02ec5a3edf0af861e116c0ea7dc9de816de6e07926fa869e2bb546.
+Evidence root:
+/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/plugin-bs6-heavy-p0-20260923
+Report HANDOFF_BS6.md; wheel below build-0b19bb605cdff619a7f09b34a6fe774e4b43d357/wheel/.
+Owner reports baseline24 passed, source86 passed7.38s, actual wheel86 passed7.01s;
+not independently rerun here. Duplicate adoption now emits one manifest entry
+and permits actual quota receipt release in success/lost-response tests.
+
+Static consumer inspection: cce_recovery_evidence.CATEGORIES remains the two
+approved transport/admission categories; WORKER_SUBMIT_GUARD_FAILED with UNKNOWN
+and retryable=false cannot pass it. No code or allowlist change. No new complete
+Master terminal producer/seal; no automatic recovery enablement. Candidate was
+not installed, deployed or promoted. Future consumer acceptance must use actual
+bs6 fixtures, not relabel previous wheel evidence. Coordinator reports BS10610
+test branch ab8695d/Step7 deployed; P0 not deployed. Revalidate live mounts and
+active runs before remote work. This update only records owner handoff; local
+git diff --check, no redundant runtime tests. Revert docs to roll back this note.
+
 ## 2026-09-23 user scope correction and producer alignment
 
 User: MasterPod failure example requests a completeness check; continue original
