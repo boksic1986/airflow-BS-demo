@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunStageState, RuleEventRaw
 from app.diagnostics_service import gatk_rule_log_contexts, wgs_rule_log_contexts
-from app.wgs_transfer_projection import TRANSFER_STAGES, active_transfer_snapshot, transfer_stage_progress, project_upload_wait
+from app.wgs_transfer_projection import TRANSFER_STAGES, active_transfer_snapshot, transfer_stage_progress, project_upload_wait, project_download_wait
 from app.workflow_phases import phase_for_rule, phase_order, wgs_phase_for_rule, wgs_phase_order, run_phase_release
 from app.wgs_stage_contract import (
     canonical_wgs_stage,
@@ -197,7 +197,8 @@ def enrich_progress(*, session, run: AnalysisRun, payload: dict) -> dict:
     payload["current_rule"] = current_rule
     if not payload.get("current_item") and current_rule:
         payload["current_item"] = current_rule
-    return project_upload_wait(session=session, run=run, payload=payload)
+    payload = project_upload_wait(session=session, run=run, payload=payload)
+    return project_download_wait(session=session, run=run, payload=payload)
 
 
 def _history_runs(session, run: AnalysisRun) -> list[AnalysisRun]:

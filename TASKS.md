@@ -1,5 +1,15 @@
 # TASKS.md
 
+## DOWNLOAD-WAITING-DISPLAY-20260922
+
+- [x] User approves same waiting/empty-bar behavior and BS96/main/production rollout.
+- [x] Trace WGS acquire-result slot path: denied acquisition has no persistent wait.
+- [x] Read-only shared projection from current Airflow tasks; protect actual
+  transfer/execution/terminal state and preserve DB snapshot on HTTP failure.
+- [x] BS10610 focused RED/GREEN:22passed, network-isolated synthetic SQLite.
+- [ ] Publish delta on actual BS96 source, verify live health and preserve workloads.
+- [ ] Non-force main/production source promotion and remote tip verification.
+
 ## UPLOAD-WAITING-DISPLAY-20260922
 
 - [x] Read-only BS96 evidence:0921B/E approved, CCE dispatch waiting_resource;

@@ -1,12 +1,80 @@
 from datetime import datetime, timedelta, timezone
 
 import pytest
+import httpx
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.models import AnalysisRun, Base, RunStageState, TransferJob, WgsExecutionDispatch
 from app.wgs_timing_service import enrich_progress
 from app.wgs_workspace_service import build_wgs_workspace
+
+
+@pytest.mark.parametrize("lease_state,start_state,run_status,transfer_status,waiting", [
+    ("up_for_reschedule", None, "publishing", None, True),
+    ("queued", None, "running", None, True),
+    ("success", "queued", "running", None, True),
+    (None, None, "running", None, False),
+    ("failed", None, "running", None, False),
+    ("unavailable", None, "running", None, False),
+    ("success", "running", "running", None, False),
+    ("up_for_reschedule", None, "failed", None, False),
+    ("up_for_reschedule", None, "running", "running", False),
+    ("up_for_reschedule", None, "running", "success", False),
+    ("up_for_reschedule", None, "running", "failed", False),
+])
+def test_download_queue_requires_current_airflow_evidence(
+    lease_state, start_state, run_status, transfer_status, waiting,
+):
+    tasks = [
+        {"task_id": "result_transfer.acquire_obs_transfer_slot", "state": lease_state},
+        {"task_id": "result_transfer.start_step5_download", "state": start_state},
+    ]
+    class Airflow:
+        def list_task_instances(self, dag_id, dag_run_id):
+            assert (dag_id, dag_run_id) == ("bio_wgs", "MOCK_DOWNLOAD-a2")
+            if lease_state == "unavailable":
+                raise httpx.ConnectError("synthetic unavailable")
+            return {"task_instances": tasks}
+
+    engine = create_engine("sqlite+pysqlite://")
+    Base.metadata.create_all(engine)
+    with Session(engine) as session:
+        run = AnalysisRun(analysis_id="MOCK_DOWNLOAD", pipeline_name="wgs",
+            dag_id="bio_wgs", dag_run_id="MOCK_DOWNLOAD-a2", status=run_status,
+            attempt=2, current_stage="step4_publish", workdir="/synthetic")
+        session.add(run)
+        session.add(RunStageState(analysis_id=run.analysis_id, attempt=2,
+            stage_code="step4_publish", stage_label="Publishing WGS results",
+            stage_status="success", progress_available=True, progress_percent=100,
+            progress_source="synthetic"))
+        # Historical transfer must not hide a current-attempt wait.
+        session.add(TransferJob(analysis_id=run.analysis_id, attempt=1,
+            transfer_id="old-download", transfer_type="result_download",
+            direction="download", status="success"))
+        if transfer_status:
+            session.add(TransferJob(analysis_id=run.analysis_id, attempt=2,
+                transfer_id="current-download", transfer_type="result_download",
+                direction="download", status=transfer_status))
+        session.commit()
+        tracker = enrich_progress(session=session, run=run, payload={"airflow_tasks": tasks})
+        assert tracker["stage_code"] == ("step5_download" if waiting else "step4_publish")
+        detail = build_wgs_workspace(session=session, run=run, run_payload={},
+                                     airflow_client=Airflow())["progress"]
+        for progress in (tracker, detail):
+            assert progress["stage_code"] == ("step5_download" if waiting else "step4_publish")
+            if waiting:
+                assert progress["stage_status"] == "waiting"
+                assert progress["stage_label"] == "Downloading WGS results"
+                assert progress["progress_available"] is False
+                assert progress["progress_percent"] is None
+                assert progress["speed_bps"] is None
+                assert progress["eta_seconds"] is None
+                assert progress.get("estimated_progress_percent") is None
+                assert progress["orchestration_stages"][4]["stage_status"] == "waiting"
+        assert run.current_stage == "step4_publish"
+        assert run.status == run_status
+        assert not session.dirty
 
 
 @pytest.mark.parametrize("approved,target,dispatch_state,run_status,waiting", [

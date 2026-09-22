@@ -1,5 +1,36 @@
 # HANDOFF.md
 
+## 2026-09-22 download waiting correction, authorized deployment pending
+
+User approved download equivalent plus BS96/main/production publication.
+Source branch jiucheng/fix/download-waiting-display-20260922 from132b8a1.
+Root cause: WGS acquire_result_transfer_slot returns waiting without updating
+run stage when no lease; prior Step4 success remains visible. No new persistent
+state added: use actual current-DAG acquire/start queue evidence, shared in
+wgs_transfer_projection and wired through timing/workspace/main. Workspace only
+fetches task evidence for eligible pre-download candidates. Real current-attempt
+stage/execution/download-transfer rows override stale queue tasks. HTTP failure
+preserves DB snapshot; terminal/local runs unchanged. No workflow/lease changes.
+
+BS10610/server10610 verified actual native-ui-76915d8-r2 backend, image8491604ee01d,
+scan/auto false. Isolated candidate candidates/download-waiting-20260922 under
+approved control root, no real data/DB/runtime mounts; network none/read-only
+source. pytest -q -p no:cacheprovider tests/test_wgs_shared_transfer_progress.py:
+RED expected Step4/Step5 mismatch; GREEN22passed1.35s. Logs red.log/green.log.
+No frontend code/build or full suite repeated per user's minimal-testing request.
+
+BS96 preflight: server96, actual backend abe6560500a8 with upload-waiting-1d0e718
+app bind, control root/release2770 hanjj:bioinfo, scan/auto/execution true. Active
+C/E/B upload waits, D uploading79.4%; no current download queue for live canary.
+Only backend recreation and graceful nginx reload permitted; preserve all other
+containers/gates and all data. Stage this four-file delta on copied actual live
+source; never wholesale deploy older main or repoint global current. No deletion,
+DB update, pending/input edit, analysis submission or runtime restart authorized.
+
+Changed files: four backend modules, focused shared-transfer test, API/UI and
+CURRENT_STATE/TASKS/HANDOFF. Minor diagnostic rg Windows wildcard/missing-module
+errors resolved by inspecting actual named files; no runtime/test blocker.
+
 ## 2026-09-22 upload queue production publication completed
 
 At12:33Z deployed1d0e718 on BS96/server96, only backend recreated and nginx

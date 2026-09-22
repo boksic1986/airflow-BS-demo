@@ -1701,7 +1701,8 @@ def run_samples(analysis_id: str) -> dict[str, object]:
 @app.get("/api/runs/{analysis_id}/workspace")
 def run_workspace(analysis_id: str) -> dict[str, object]:
     # Reuse the public run-detail projection while keeping the browser's first
-    # paint to one HTTP resource. All progress in this endpoint is DB-backed.
+    # paint to one HTTP resource. Only a pre-download queue candidate additionally
+    # reads current Airflow task evidence; numeric progress remains DB-backed.
     detail = run_detail(analysis_id)
     with get_sessionmaker()() as session:
         run = session.scalar(
@@ -1728,6 +1729,7 @@ def run_workspace(analysis_id: str) -> dict[str, object]:
             heavy_slot_mode=str(getattr(settings, "wgs_heavy_slot_mode", "monitor-only")),
             evidence_root=str(getattr(settings, "wgs_evidence_root", "") or ""),
             settings=settings,
+            airflow_client=get_airflow_client(),
         )
 
 

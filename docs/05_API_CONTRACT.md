@@ -1,5 +1,22 @@
 # API contract
 
+## 2026-09-22 WGS download queue presentation
+
+Tracker/progress/workspace share a read-only download wait projection. Only an
+active CCE WGS run with current-DAG `result_transfer.acquire_obs_transfer_slot`
+scheduled/queued/running/rescheduled/deferred evidence (or acquired and download
+start queued/scheduled) can project Step5 / Downloading WGS results / waiting.
+The prior Step4 must be successful, or the run has reached the Step5 boundary.
+Current-attempt Step5/6 stage state/execution or any download transfer takes
+precedence, including failed/completed evidence; old attempts do not block it.
+Numeric progress/bytes/speed/ETA are null; no inherited Step4 estimate is shown.
+Step5 rail is waiting. Source is `airflow-download-queue`.
+
+Workspace adds an Airflow task-list read only for eligible pre-download candidates;
+other workspace progress stays DB-backed. Airflow HTTP failure retains the DB
+snapshot without inventing a queue state. No schema/endpoint/scheduler/lease,
+runtime receipt or database mutation; normal started/terminal transfers unchanged.
+
 ## 2026-09-22 approved CCE upload waiting projection (source only)
 
 WGS tracker/progress/workspace replace completed prepare_analysis presentation

@@ -1,5 +1,12 @@
 # Frontend specification
 
+## WGS download waiting (2026-09-22)
+
+Use the existing transfer display for Step5 queue evidence: Downloading WGS
+results / waiting / empty stationary bar, no percentage/speed/ETA. Once download
+starts, retain normal measured progress. Failed/completed states are not relabeled.
+Tracker and detail share the backend projection; no frontend runtime change.
+
 ## 2026-09-22 waiting for upload (source only)
 
 Once execution is approved but the CCE upload slot is still pending, display
