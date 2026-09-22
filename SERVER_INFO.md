@@ -1,5 +1,17 @@
 # SERVER_INFO.md
 
+## 2026-09-18 same-batch / Step2 release `9ff67d3`
+
+BS96/server96 backend `e177f1eddc01` mounts
+`/data/airflow-WGS/releases/20260918-sampleinfo-9ff67d3/backend` read-only.
+Frontend `8bef173a7235` uses `airflow-demo/frontend:sampleinfo-9ff67d3`, image
+`54739d6c9098fa5509070856ad92ebfa89face280813d7648bc02573d77b9fa6`.
+Assets `index-CRIjUB8d.js` / `index-UzgQaua7.css` were verified byte-for-byte
+through the gateway. Private deployment evidence is under
+`/data/airflow-WGS/sampleinfo-9ff67d3-control`; all ten unrelated services kept
+their previous containers and sources. The global `current` pointer was not
+changed. Receipt: `docs/releases/2026-09-18-sampleinfo-bs96.md`.
+
 ## 2026-09-17 CCE log download / native labels
 
 BS10610/server10610 backend c497d821b719 and frontend a764527b365c use

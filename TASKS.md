@@ -8,8 +8,7 @@ Historical tasks are archived and are not silently reopened or marked complete.
 
 | Priority | Track | Why now / entry gate |
 | --- | --- | --- |
-| P0 | `TEST-LINEAGE-SYNC-01` refresh | `origin/main` and production are at `9b381eb`, two commits absent from test; restore the required ancestry before code development. |
-| P0 | `TEST-VALIDATION-01` | Build the source-matched matrix and reclassify the pre-existing missing-`S1` failure after the main refresh. |
+| P0 | `TEST-VALIDATION-01` | Build the source-matched matrix and reclassify the pre-existing missing-`S1` failure on the synchronized test source. |
 | P1 | `CCE-RECOVERY-01` / `CR-01`–`CR-05` | Prevent monitoring/infrastructure faults from producing unsafe status or duplicate compute; this is a dependency for run control. |
 | P2 | `WGS-SUBMIT2-20260922` | Reduce manual-preparation side effects and confirmation errors; verify the actual runner binding before implementation. |
 | P2 | `RUN-CONTROL-20260918` | Operator safety is important, but pause/resume/delete must reuse the reviewed CCE recovery identity, budget and fencing contracts. |
@@ -20,7 +19,7 @@ Historical tasks are archived and are not silently reopened or marked complete.
 Do not start two tracks that edit the same Backend/Airflow contracts at once.
 Within P2, finish the submission gate/frozen-input contract before beginning
 run-control Backend/Airflow integration. The QC and CNV tracks are independent
-only after their owner worktrees are isolated from the P0 baseline refresh.
+only after their owner worktrees are isolated from the synchronized baseline.
 
 ## WGS-SUBMIT2-20260922 — proposal written; native source confirmed
 
@@ -47,7 +46,7 @@ Owner: coordinator and QA, with each component owner confirming its rows.
   required test, last accepted evidence, current blocker and owner.
 - [ ] Run only missing focused tests after the matrix is reviewed; do not repeat
   accepted suites without a matching code change.
-- [ ] After the P0 main refresh, rerun the focused submission test that previously
+- [ ] On the synchronized test source, rerun the focused submission test that previously
   could not find `S1`; classify it as implementation defect, stale test contract
   or superseded evidence before assigning a fix.
 - [ ] After branch scope stabilizes, run one combined BS10610 acceptance with
@@ -162,7 +161,7 @@ Owner: QA/Frontend.
 - [ ] Record browser evidence or a precise blocker. Component tests do not
   substitute for this unclaimed visual check.
 
-## TEST-LINEAGE-SYNC-01 — historical sync complete; current refresh pending
+## TEST-LINEAGE-SYNC-01 — complete
 
 Owner: coordinator.
 
@@ -185,11 +184,11 @@ Owner: coordinator.
   both refs are ancestors of the resulting test tip.
 - [x] Run focused backend/frontend/runtime tests on the merged source and push
   the test branch.
-- [ ] Review and integrate current `origin/main` and production `9b381eb` into
-  test. The absent commits are `9ff67d3` (same-batch import/review fix) and
-  `9b381eb` (its production release record); preserve all test-only designs.
-- [ ] Re-run the affected sampleinfo/submission tests on the merged test source
-  and record whether the earlier missing-`S1` failure remains.
+- [x] Integrate current `origin/main` and production `9b381eb` into test while
+  preserving all test-only designs. `9ff67d3` and `9b381eb` are already released,
+  completed work and require no follow-up development card.
+- [ ] Re-run the affected sampleinfo/submission tests only as part of
+  `TEST-VALIDATION-01`; record whether the earlier missing-`S1` failure remains.
 - [ ] After all required testing completes, prepare a test-to-main promotion
   manifest with only validated commits and explicit omissions.
 - [ ] Promote to `main` only after separate user approval and current main
@@ -216,8 +215,8 @@ Inventory: `docs/REPOSITORY_HYGIENE_20260918.md`.
 
 ## Deferred and separately authorized
 
-- Any test-to-main promotion or production deployment. The approved direction
-  in this task is main/production history into test only.
+- Any test-to-main promotion or production deployment. This task only synchronized
+  the already completed main/production history into test.
 - Actual WGS/GATK task recovery, batch reset, rerun or new real analysis.
 - BS96 production deployment, scanner/dispatch changes or database mutation.
 - Cleanup of offline project/results/FASTQ/sampleinfo/pending/evidence data.

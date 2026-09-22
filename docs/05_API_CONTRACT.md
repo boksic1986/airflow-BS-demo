@@ -108,8 +108,9 @@ are unchanged. No output-directory API field or new endpoint is introduced.
 
 The private input copy changes only its analysis-batch column to `batch`; original
 sequencing batches and all other field values are preserved. The original file
-is untouched. The batch must differ from the source analysis batch and must not
-reuse an existing run/directory. Exact repeat requests reuse the same submission;
+is untouched. The requested batch may equal the source analysis batch; a new
+submission is allowed only if its destination project does not exist. Source rows
+must still contain one non-empty analysis batch. Exact repeat requests reuse the same submission;
 different content/options/owner at that identity are rejected. The existing
 catalog creation lock is reused. Imported text lives only in the private runtime
 request spool, not DB params, DAG conf, audit logs or browser draft storage.

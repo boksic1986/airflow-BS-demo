@@ -74,7 +74,6 @@ def test_uploaded_table_is_private_idempotent_and_independent(tmp_path):
 
 @pytest.mark.parametrize('overrides', [
     {'batch': '../escape'}, {'batch': '/absolute'},
-    {'batch': '20260910A'},
     {'sampleinfo_text': TABLE + TABLE.splitlines(True)[1]},
     {'sampleinfo_text': ''}, {'sampleinfo_text': 'x' * (512 * 1024 + 1)},
 ])
@@ -86,7 +85,8 @@ def test_invalid_upload_does_not_create_run(tmp_path, overrides):
         assert not airflow.calls
 
 
-def test_server_path_import_preserves_source_and_returns_standard_project_path(tmp_path):
+@pytest.mark.parametrize('batch', ['20260910A_CCE_TEST', '20260910A'])
+def test_server_path_import_preserves_source_and_returns_standard_project_path(tmp_path, batch):
     settings, airflow, engine = setup(tmp_path)
     source = Path(settings.wgs_analysis_project_container_root) / 'old' / 'sampleinfo.tsv'
     source.parent.mkdir()
@@ -94,13 +94,18 @@ def test_server_path_import_preserves_source_and_returns_standard_project_path(t
     settings.wgs_analysis_project_node200_root = '/approved/WGS_Clinical'
     from app.main import WgsCatalogRunRequest
     request = WgsCatalogRunRequest(project_id='WGS_Clinical', platform='T7',
-                                  batch='20260910A_CCE_TEST', fastq_root_id='T7_Fastq',
+                                  batch=batch, fastq_root_id='T7_Fastq',
                                   sampleinfo_path='/approved/WGS_Clinical/old/sampleinfo.tsv')
     with Session(engine) as session:
         result = create_and_submit_run(session=session, settings=settings, airflow_client=airflow,
                                        username='owner', **request.model_dump())
         assert result['params']['sampleinfo_source_path'] == '/approved/WGS_Clinical/old/sampleinfo.tsv'
-        assert result['params']['prepared_project_path'] == '/approved/WGS_Clinical/WGS_20260910A_CCE_TEST_T7Hg38V4.2.1'
+        assert result['params']['prepared_project_path'] == f'/approved/WGS_Clinical/WGS_{batch}_T7Hg38V4.2.1'
+        assert result['params']['submission_phase'] == 'preparing_sampleinfo'
+        assert len(airflow.calls) == 1
+        if batch == '20260910A':
+            saved = Path(settings.wgs_runtime_request_root) / result['analysis_id'] / 'sampleinfo-upload.tsv'
+            assert saved.read_text() == TABLE
         assert source.read_text() == TABLE
         assert 'PRIVATE_SYNTHETIC' not in str(result) + str(airflow.calls)
         assert not (source.parent.parent / 'prepare').exists()
@@ -138,16 +143,18 @@ def test_server_path_still_rejects_unavailable_or_nonregular_source(tmp_path, so
         assert not airflow.calls
 
 
-def test_existing_or_symlinked_destination_is_not_adopted(tmp_path):
+@pytest.mark.parametrize('batch', ['20260910A_CCE_TEST', '20260910A'])
+def test_existing_or_symlinked_destination_is_not_adopted(tmp_path, batch):
     settings, airflow, engine = setup(tmp_path)
     root = Path(settings.wgs_analysis_project_container_root)
-    target = root / 'WGS_20260910A_CCE_TEST_T7Hg38V4.2.1'
+    target = root / f'WGS_{batch}_T7Hg38V4.2.1'
     target.mkdir()
     with Session(engine) as session:
-        with pytest.raises(ValueError, match='exists'): submit(session, settings, airflow)
+        with pytest.raises(ValueError, match='exists'): submit(session, settings, airflow, batch=batch)
         (root / 'WGS_20260910A_LINK_T7Hg38V4.2.1').symlink_to(target, target_is_directory=True)
         with pytest.raises(ValueError): submit(session, settings, airflow, batch='20260910A_LINK')
         assert session.scalar(select(AnalysisRun)) is None
+        assert not airflow.calls
 
 
 def test_missing_native_columns_rejected_before_creating_run(tmp_path):

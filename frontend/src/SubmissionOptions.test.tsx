@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import {cleanup, fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {act, cleanup, fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {afterEach, expect, it, vi} from 'vitest';
 import App from './App';
 
@@ -57,17 +57,21 @@ it('restores the run analysis batch instead of a stale submission draft in targe
   expect(screen.getByRole('dialog')).toHaveTextContent('20260910A_CCE_TEST · 0 samples');
   expect(screen.getByRole('dialog')).not.toHaveTextContent('STALE_DRAFT');
 });
-it('submits a server sampleinfo path and shows the prepared project path at sample review', async()=>{
+it.each(['all', 'ref', 'no', undefined])('reviews imported sampleinfo using the saved reference %s without release defaults', async(useReference)=>{
   window.history.pushState({},'', '/submit');
   const posts:Record<string,unknown>[]=[];
+  const postUrls:string[]=[];
+  const detail={analysis_id:'WGS_SYNTHETIC',pipeline:'wgs',attempt:1,status:'running',params:{submission_phase:'config_review',use_reference:useReference,sampleinfo_source_path:'/approved/old/sampleinfo.tsv',prepared_project_path:'/approved/WGS_20260910A_CCE_TEST_T7Hg38V4.2.1'}};
   vi.stubGlobal('fetch', vi.fn((input:RequestInfo|URL, init?:RequestInit)=>{
     const url=String(input);
-    if(init?.method==='POST') posts.push(JSON.parse(String(init.body)));
+    if(init?.method==='POST') {posts.push(JSON.parse(String(init.body)));postUrls.push(url);}
+    if(url.endsWith('/actions/approve-wgs-config')) detail.params.submission_phase='preparing_analysis';
     const data=url.endsWith('/auth/me')?{username:'tester',role:'operator'}
       :url.endsWith('/platform/capabilities')?{environment:'test',deployed_pipelines:['wgs'],pipelines:[{id:'wgs',display_name:'WGS',dag_id:'bio_wgs',enabled:true,submit_enabled:true,capabilities:['submit'],execution_targets:['cce']}]}
       :url.endsWith('/wgs/release')?{source_commit:'cc9bde3',config_options_enabled:false,execution_enabled:true,runtime_adapter_enabled:true}
       :url.endsWith('/wgs/projects')?{items:[{project_id:'WGS_Clinical',display_name:'WGS',platforms:[{platform_id:'T7',display_name:'T7'}],fastq_roots:[{root_id:'T7_Fastq',display_name:'T7'}]}]}
-      :url.endsWith('/wgs/runs')?{analysis_id:'WGS_SYNTHETIC',status:'running',params:{submission_phase:'config_review',sampleinfo_source_path:'/approved/old/sampleinfo.tsv',prepared_project_path:'/approved/WGS_20260910A_CCE_TEST_T7Hg38V4.2.1'}}
+      :url.endsWith('/wgs/runs')?{...detail,params:{...detail.params,submission_phase:'preparing_sampleinfo'}}
+      :url.endsWith('/runs/WGS_SYNTHETIC')?detail
       :{items:[],total:0};
     return Promise.resolve(new Response(JSON.stringify(data),{status:200}));
   }));
@@ -75,12 +79,28 @@ it('submits a server sampleinfo path and shows the prepared project path at samp
   fireEvent.change(await screen.findByLabelText('Input mode'),{target:{value:'sampleinfo'}});
   fireEvent.change(screen.getByLabelText('Batch'),{target:{value:'20260910A_CCE_TEST'}});
   fireEvent.change(screen.getByLabelText('Sampleinfo path'),{target:{value:'/approved/old/sampleinfo.tsv'}});
-  fireEvent.click(screen.getByRole('button',{name:'导入样本信息'}));
+  await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'导入样本信息'}));});
   await waitFor(()=>expect(posts).toHaveLength(1));
   expect(posts[0]).toMatchObject({batch:'20260910A_CCE_TEST',sampleinfo_path:'/approved/old/sampleinfo.tsv'});
   expect(posts[0]).not.toHaveProperty('sampleinfo_text');
   expect(posts[0]).not.toHaveProperty('output_child');
   expect(await screen.findByText('/approved/WGS_20260910A_CCE_TEST_T7Hg38V4.2.1')).toBeInTheDocument();
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Confirm configuration'})).toBeEnabled());
+  expect(screen.getByLabelText('Use reference')).toBeDisabled();
+  if(useReference) {
+    await waitFor(()=>expect(screen.getByLabelText('Use reference')).toHaveValue(useReference));
+    expect(posts).toHaveLength(1); // Review still requires an explicit confirmation.
+    fireEvent.click(screen.getByRole('button',{name:'Confirm configuration'}));
+    await waitFor(()=>expect(posts).toHaveLength(2));
+    expect(postUrls[1]).toMatch(/\/runs\/WGS_SYNTHETIC\/actions\/approve-wgs-config$/);
+    expect(posts[1]).toEqual({use_reference:useReference,resource_set:'default'});
+    expect(await screen.findByRole('heading',{name:'Preparing analysis directory'})).toBeInTheDocument();
+  } else {
+    expect(screen.getByLabelText('Use reference')).toHaveValue('');
+    fireEvent.click(screen.getByRole('button',{name:'Confirm configuration'}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('No audited or frozen reference selection is available');
+    expect(posts).toHaveLength(1); // No invented fallback or premature workflow start.
+  }
 });
 it('keeps inactive catalog options informational and submits no overrides',async()=>{
   window.history.pushState({},'','/submit');

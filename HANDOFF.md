@@ -1,5 +1,37 @@
 # Handoff
 
+## 2026-09-22 completed production commits synchronized into test
+
+### Goal and authorization
+
+The user clarified that `9ff67d3` and `9b381eb` should be included directly in
+the primary test branch. Both are already completed and deployed production work;
+they must not be represented as future development.
+
+### Result and scope
+
+- Target: local Git primary test worktree/branch
+  `jiucheng/test/wgs-local-main-sync-20260917`.
+- Verified `origin/main` and `origin/jiucheng/release/production` both at
+  `9b381eb`; pre-merge divergence was `2 35`.
+- Merged `origin/main` normally, preserving the complete `9ff67d3` application
+  fix and `9b381eb` BS96 release record plus all test-only history.
+- Resolved documentation conflicts by retaining the compact test backlog and
+  adding the production feature, server, release and rollback facts. No
+  application behavior was rewritten during conflict resolution.
+- `TEST-LINEAGE-SYNC-01` is complete. These commits add no development card;
+  the next P0 remains `TEST-VALIDATION-01`.
+
+### Checks, environment and rollback
+
+This repository synchronization performs no SSH, Docker, database, runtime,
+analysis, gate or data operation. The production release's existing acceptance
+evidence is retained in `docs/releases/2026-09-18-sampleinfo-bs96.md`; local
+runtime tests are not used as a substitute for BS10610. Checks are limited to
+merge ancestry, exact file scope, conflict-marker/link/task consistency and
+`git diff --check`. Rollback, if explicitly requested before further work, is a
+normal Git revert of the merge; it must not alter BS96, BS10610 or analysis data.
+
 ## 2026-09-22 development backlog refresh and priority decision
 
 ### Goal

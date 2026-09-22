@@ -1,19 +1,28 @@
 # Current state
 
+## 2026-09-22 completed production fixes synchronized into test
+
+The primary test branch now includes production-completed commits `9ff67d3`
+(same-batch sampleinfo import and saved Step2 reference restoration) and
+`9b381eb` (the corresponding BS96 release record) through an explicit history
+merge. These two commits are completed release work, not pending development,
+and add no follow-up implementation task. `main` and production remain at
+`9b381eb`; test retains its additional test-only history and planning documents.
+
+No runtime environment was changed by this repository sync. The production
+release evidence remains in `docs/releases/2026-09-18-sampleinfo-bs96.md`.
+
 ## 2026-09-22 prioritized development backlog refresh
 
-The priority audit used test tip `e44dc3e`. Current `origin/main` and
-`origin/jiucheng/release/production` both point to `9b381eb`; they have two
-commits not present in test (`9ff67d3`, `9b381eb`), while test retains additional
-test-only history plus this planning update. The required
-main/production-as-ancestor invariant is therefore temporarily unsatisfied.
-Restore it with an explicit reviewed test-baseline refresh before starting
-implementation; do not rebase or discard test-only designs.
+The priority audit originally used test tip `e44dc3e`. Current `origin/main` and
+`origin/jiucheng/release/production` both point to `9b381eb`; their two later
+production-completed commits are now included in test. They must not be counted
+as new development or reopened in the backlog.
 
 The current development order is:
 
-1. P0: refresh main/production into test and complete the source-matched
-   validation matrix, including reclassification of the missing-`S1` test.
+1. P0: complete the source-matched validation matrix, including
+   reclassification of the missing-`S1` test.
 2. P1: review and implement the bounded CCE recovery contract (`CR-01`–`CR-05`).
 3. P2: implement two-step WGS submission/editable frozen input, then run control
    on top of the reviewed CCE identity/fencing contract.
@@ -85,18 +94,18 @@ remains on the test branch; main and production are now required ancestors.
 ## Branch relationship rule
 
 Current `origin/main` and `origin/jiucheng/release/production` both point to
-`9b381eb`. The earlier merge established the invariant below at `1255a06`, but
-the later same-batch/review fix and its release record are not yet in test. The
-required invariant remains:
+`9b381eb`. Test now includes that history, including the completed same-batch /
+Step2 fix and its production release record. The branch relationship remains:
 
-- main and production must be ancestors of the test branch;
+- current main and production are ancestors of the test branch;
 - test may retain additional test-only implementation and evidence;
 - test-to-main promotion remains a separate reviewed and authorized action;
 - old worktree/patch branches are not merge sources unless separately selected.
 
-The current main-only side is exactly two commits; calculate the test-only count
-from live refs because planning documentation itself advances test. Review and
-merge the current main history into test; do not rebase or discard test commits.
+The two former main-only commits `9ff67d3` and `9b381eb` are completed work and
+must not create new development cards. Calculate divergence from live refs
+because planning documentation itself advances test; do not rebase or discard
+test commits.
 See `docs/TEST_BRANCH_SYNC_HOLD_20260918.md` for the original decision transition.
 
 ## Consolidated development designs

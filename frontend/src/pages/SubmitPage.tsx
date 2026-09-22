@@ -59,6 +59,7 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
   const [inputMode, setInputMode] = useSubmissionDraft('wgs','input-mode','catalog');
   const [sampleinfoPath, setSampleinfoPath] = useSubmissionDraft('wgs', 'sampleinfo-path', '');
   const [testPreview, setTestPreview] = useState<WgsTestPreview | null>(null);
+  const [created, setCreated] = useState<RunDetail | null>(null);
   const previewInputs=JSON.stringify([inputMode,testSource,testChild,algo,useReference,release?.release_id]);
   const currentPreviewInputs=useRef(previewInputs);
   currentPreviewInputs.current=previewInputs;
@@ -67,7 +68,7 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
   useEffect(()=>()=>{previewGeneration.current+=1;},[]);
   useEffect(()=>{
     const contract=release?.submission_options;
-    if (!release || requestedRun) return;
+    if (!release || requestedRun || created) return;
     const identity=release.release_id || release.source_commit;
     const valid=contract?.defaults && contract.callers.some(item=>item.value===contract.defaults?.algo) && contract.reference_values.includes(contract.defaults.use_reference);
     if(!valid){setAlgo('');setUseReference('');return;}
@@ -75,10 +76,17 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
       setAlgo(contract.defaults!.algo);setUseReference(contract.defaults!.use_reference);setOptionsRelease(identity);
       setTestPreview(null);
     }
-  },[release,requestedRun,optionsRelease,algo,useReference]);
+  },[release,requestedRun,created?.analysis_id,optionsRelease,algo,useReference]);
   useEffect(()=>{if(release && !release.test_project_enabled && inputMode==='test')setInputMode('catalog');},[release,inputMode,setInputMode]);
   const [samples, setSamples] = useState<Sample[]>([]);
-  const [created, setCreated] = useState<RunDetail | null>(null);
+  const savedReference = created?.params?.use_reference;
+  useEffect(() => {
+    // Both a new submission and a restored run carry the server's saved choice.
+    // Depend on its value, not each poll response, to retain unconfirmed edits.
+    if (savedReference === "all" || savedReference === "ref" || savedReference === "no") {
+      setUseReference(savedReference);
+    }
+  }, [created?.analysis_id, savedReference]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [restoring, setRestoring] = useState(Boolean(requestedRun));
@@ -120,11 +128,6 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
       const {detail, items} = await getWgsSubmissionSnapshot(refreshId);
       if (!isCurrent()) return;
       setCreated(detail); setSamples(items);
-      const reference = detail.params?.use_reference;
-      // Restore saved choices once; background status refresh must not overwrite
-      // an operator's unconfirmed selection in configuration review.
-      if ((!created || created.analysis_id !== detail.analysis_id) &&
-        (reference === "all" || reference === "ref" || reference === "no")) setUseReference(reference);
     } finally {
       if (isCurrent()) setRestoring(false);
     }
