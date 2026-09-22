@@ -1,5 +1,59 @@
 # Handoff
 
+## 2026-09-22 CCE recovery redesign — documentation only
+
+### Goal and authority
+
+User requests a revised development design covering0918A Worker-create transport
+disconnect and0919B Gatekeeper admission timeout. Missing-input repair (0919C)
+is deferred. This authorizes document changes, not application implementation,
+real recovery, remote validation, production deployment or branch promotion.
+
+Native isolated worktree is based on local test tracking ref9333160; branch
+`jiucheng/docs/cce-recovery-design-20260922`. Existing dirty operations worktrees
+remain untouched. No dependency installation or application baseline tests:
+this is Markdown-only work under the project's local-editing boundary.
+
+### Revised scope and files
+
+- `docs/superpowers/specs/2026-09-17-wgs-gatk-cce-connection-recovery-design.md`:
+  replace blanket automatic-Master exclusion with two source-bound allowlisted
+  failure classes; keep ordinary500, unknown causes, real rule errors and
+  input defects excluded. Add persistent two-recovery budget,60/180s proposed
+  waits, original deadline, old Worker quiescence, exact UID lineage, safe
+  replay/reconciliation, user-stop priority, adapter gates and state display.
+  Include0918A Step4 uncertain dispatch without blind publish replay.
+- `TASKS.md`: CR-01–05 future delivery/acceptance cards; implementation unchecked.
+- `CURRENT_STATE.md`: revised scope, proposal/review status and exact branch base.
+- `HANDOFF.md`: this scope, evidence and handoff record.
+
+Two/60/180 values are design defaults proposed for review, not previously
+approved operational settings. Query retries remain separate from compute
+recovery; both must be bounded and cannot reset silently. Resume reuses frozen
+inputs/attempt/workdir and existing outputs; incomplete rules may execute again.
+
+### Checks and intentionally unrun work
+
+Read the current test-ref spec/task queue and bounded local resume source;
+checked the design link, CR-01–05 in spec and task queue, contradictory exclusions
+and exact four-file whitelist with Git diff/status. `git diff --check` passed;
+`git diff --exit-code -- backend frontend dags scripts config` returned0 with
+no output. These are document checks, not application validation. No
+SSH/API/DB/Docker/workflow command was run.
+Do not run pytest/npm/DAG import checks for this document-only delta. Future
+application tests require development authorization and BS10610 isolation.
+
+### Remaining work, risks and rollback
+
+Written-spec review precedes a detailed execution plan and coding. Runtime
+error evidence availability, existing Worker quiescence primitives, GATK
+capability and atomic control fences must be demonstrated in CR-01–03; fail
+closed if an old bundle cannot support them. Necessary external source/release,
+image/schema/permission changes need explicit scope review, not implicit uplift.
+No automatic kill of Workers, data cleanup, inputs/receipts repair or prepare.
+No test/main/production merge or push is part of this document revision.
+Rollback is a documentation revert only; no runtime or data state changed.
+
 ## 2026-09-18 consolidate new development documents into the primary test branch
 
 ### Goal and source selection

@@ -1,6 +1,6 @@
 # Active test-branch tasks
 
-Updated 2026-09-18. This file tracks unresolved work for the independent test
+Updated 2026-09-22 for the CCE recovery design revision only. This file tracks unresolved work for the independent test
 branch `jiucheng/test/wgs-local-main-sync-20260917`. Historical tasks are
 archived and are not silently reopened or marked complete.
 
@@ -67,20 +67,35 @@ the two sources must never overwrite, substitute for or silently validate one
 another. No database migration, native workflow change or production publication
 is part of the documented scope.
 
-## CCE-RECOVERY-01 — approved design, implementation incomplete
+## CCE-RECOVERY-01 — scope expanded 2026-09-22, revised design awaiting review
 
 Owner: Workflow for adapter/runtime behavior; Airflow/Backend for state
 projection; Frontend only for shared stale/monitoring display.
 
-- [ ] Add source-level error classification and bounded runtime reconnect.
-- [ ] Separate execution status from monitoring/Airflow status.
-- [ ] Add the GATK adapter recovery entry with frozen identity and idempotency.
-- [ ] Add shared stale/monitoring display and focused BS10610 tests.
+- [x] Revise the design for user-approved0918A Worker creation disconnect and
+  0919B Gatekeeper admission timeout; explicitly defer0919C missing-input repair.
+- [ ] Review revised policy defaults: at most two automatic same-attempt compute
+  recoveries,60/180s waits, original deadline, persistent shared failure budget.
+- [ ] CR-01: bind source-level query/Worker-create error evidence to execution
+  identity; classify the two allowed causes and reject unknown/mixed failures.
+- [ ] CR-02: single recovery decision owner, durable budget/action deduplication,
+  user-stop fence and restart-safe accounting using existing records/transactions.
+- [ ] CR-03: reuse adapter Resume with old Master/Worker quiescence checks,
+  UID lineage and lost-response reconciliation; coordinate DAG/callback/lease
+  fences and automatic downstream continuation; include uncertain Step4 dispatch.
+- [ ] CR-04: shared Tracker/detail waiting, recovering, exhausted and stale
+  evidence presentation without overwriting historical execution outcomes.
+- [ ] CR-05: one focused synthetic BS10610 acceptance for changed paths, default-
+  off/per-adapter activation and release/rollback record; no real analysis.
 
 Spec:
 `docs/superpowers/specs/2026-09-17-wgs-gatk-cce-connection-recovery-design.md`.
-This task does not authorize actual task recovery, automatic Master replacement,
-whole-workflow retry, Local/SGE changes, Step7 cleanup or production deployment.
+Spec section8.1 maps CR-01–05 owners, dependencies and acceptance. Proposed
+automatic Master replacement is limited to those two causes and all safety
+guards; it is not an available capability or authorization to execute it now.
+No missing-input repair, prepare/pending/config changes, whole-workflow retry,
+Local/SGE, Step7, implementation, remote tests or production activation now.
+Review the revised spec before the code-level execution plan/development.
 
 ## TEST-ACCEPTANCE-01 — operator-facing verification incomplete
 

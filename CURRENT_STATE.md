@@ -1,5 +1,24 @@
 # Current state
 
+## 2026-09-22 CCE recovery design revision only
+
+User confirmed inclusion of0918A Worker-creation transport disconnect and0919B
+Gatekeeper admission timeout in future automatic checkpoint recovery;0919C
+missing FASTQ/input repair remains excluded. The design now proposes two
+same-attempt automatic recoveries (60/180s waits), persistent budget/original
+deadline, exact failed Master and inactive Worker checks, shared manual/control
+fences, UID lineage, automatic downstream progression and truthful shared UI.
+The0918A Step4 dispatch timeout retains query-before-replay semantics.
+
+Only the existing connection-recovery spec and CURRENT_STATE/TASKS/HANDOFF
+are changed. CR-01–05 are future work; policy details await written review.
+No application code, tests, runtime/environment, real task or data changes.
+Worktree: `C:/Users/11217/.codex/worktrees/cce-recovery-design-20260922/airflow-demo`;
+branch `jiucheng/docs/cce-recovery-design-20260922`, based on local tracking ref
+`origin/jiucheng/test/wgs-local-main-sync-20260917=9333160`. This is an isolated
+documentation revision, not a primary-test/main/production merge or deployment.
+The older repository/deployment observations below remain dated history.
+
 Updated 2026-09-18 after the user authorized a complete Git lineage sync from
 current main/production into the primary test branch. Test-only development
 remains on the test branch; main and production are now required ancestors.
