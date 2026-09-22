@@ -1,5 +1,52 @@
 # HANDOFF.md
 
+## 2026-09-22 upload queue production publication completed
+
+At12:33Z deployed1d0e718 on BS96/server96, only backend recreated and nginx
+gracefully reloaded. Source release20260922-upload-waiting-1d0e718 preserves
+all live tracker-stage-0119a35 fixes; exactly three app files changed. Backend
+abe6560500a8;23other running container IDs, env values, non-app mounts, ports,
+restart policy, command, user and networks retained. Scan/auto/execution true.
+No DB/pending/data writes, cloud actions, workflow restart or deletion.
+
+LAN gateway index/health/tracker/workspace200; B/E now Uploading FASTQ/waiting
+with null percentages. D still running, upload53.3->53.5%; its Airflow monitor
+briefly retried during backend recycle and returned up_for_reschedule12:35Z.
+No claim of zero API downtime; underlying upload process was not restarted.
+Rollback and private before/after/acceptance are under upload-waiting-1d0e718-control.
+See docs/releases/2026-09-22-upload-waiting-bs96.md for exact rollback command.
+
+No repeated full tests: BS10610 focused11backend/3frontend retained; deployed
+source imports checked with cached production image/network none, then live
+read-only acceptance. Frontend application unchanged in this fix.
+Modified publication docs: CURRENT_STATE,TASKS,HANDOFF,SERVER_INFO,runbook/release.
+Promotion bundle includes ancestor frontendf875488 and backend1d0e718; main/prod
+fresh fetch both9b381eb, fast-forward compatible. Push atomically without force
+and verify both remote tips. Other dirty worktrees/branches untouched.
+
+Failures resolved: first SSH handshake aborted on BS jump (no mutation);
+connection probe recovered. Patch --check stopped because live timing import
+also contains ACTIVE_TRANSFER_STATUSES; adapted only patch context, retained it
+and active-stage recovery logic. No patch applied before that check passed.
+Gateway requests originating from Docker bridge/host loopback returned403 under
+existing nginx allowlist; actual LAN172.17.61.96 gateway200 without policy changes.
+GitHub443 fetch timed out; ordinary GitHub SSH22 subsequently fetches successfully.
+
+## 2026-09-22 upload queue production publication authorized
+
+User explicitly requests deployment to BS96, then main/production branch sync.
+Verified server96, /data/airflow-WGS, backend actual read-only app mount
+releases/20260921-tracker-stage-0119a35/backend; current symlink is stale and
+will not be changed. Publish only three backend source deltas from 1d0e718
+on a copy of that live source; preserve existing recovery patches. Only backend
+container recreation and graceful frontend nginx reload are authorized here.
+Airflow, scanner, dispatch, runtime, cloud workloads and all data are protected;
+no cleanup, database writes, pending edits or workflow restart. Rollback will use
+owner-only captured backend Compose configuration. BS10610 focused tests already
+passed (11 backend, 3 frontend); production checks limited to imports and API/
+container invariants. Initial GitHub SSH443 fetch timed out; remote branch
+ancestry must be refreshed before publishing, no force push.
+
 ## 2026-09-22 upload queue display correction — source verified
 
 User asks0921B/E waiting-for-upload rows to show Uploading FASTQ / waiting and

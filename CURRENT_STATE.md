@@ -1,5 +1,19 @@
 # CURRENT_STATE.md
 
+## 2026-09-22 upload queue display published to BS96
+
+Published 1d0e718 as a three-file delta on live tracker-stage-0119a35, preserving
+its recovery/active-stage patches. Actual backend app mount is now
+/data/airflow-WGS/releases/20260922-upload-waiting-1d0e718/backend (read-only).
+Only backend recreated; frontend nginx gracefully reloaded. All23other running
+host containers unchanged, scan/auto/execution gates retained. LAN gateway
+index/health/tracker/workspace200:0921B/E Uploading FASTQ / waiting / null percent;
+0921D upload advanced53.3 to53.5%. Its monitor briefly retried during recycle,
+then returned up_for_reschedule; no upload/analysis process restarted.
+This release bundle promotes both earlier frontend f875488 and queue1d0e718
+to main and jiucheng/release/production; no unrelated runtime branch included.
+Details/rollback: docs/releases/2026-09-22-upload-waiting-bs96.md.
+
 ## 2026-09-22 upload queue display correction — verified, not deployed
 
 Branch jiucheng/fix/upload-waiting-display-20260922 based on cdd5c80.

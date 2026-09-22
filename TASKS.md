@@ -9,7 +9,10 @@
 - [x] BS10610 synthetic11backend +3frontend checks; actual upload percentages,
   no-approval, local target, committed dispatch and failed status protected.
 - [x] API/UI/state documentation and source commit on own branch.
-- [ ] BS96 publication pending; no current production service change authorized/executed.
+- [x] User-authorized BS96 publication: three-file delta on live backend,
+  LAN gateway/API acceptance;23other containers preserved, no workflow restart.
+- Source promotion bundle: f875488 +1d0e718 and publication docs, main and
+  jiucheng/release/production; verify remote tips after non-force atomic push.
 
 ## ANALYSIS-BATCH-TITLE-20260922
 
@@ -20,7 +23,8 @@
 - [x] Update UI contract and handoff; preserve samples, pending and other worktrees.
 - [x] Subsequent user instruction: correct live6-sample0921C display on BS96;
   frontend-only publication and asset/API acceptance, all23other running host containers preserved.
-- Main/production promotion remains unrequested/not performed. No DB/run/input edit.
+- Included in subsequent user-authorized main/production promotion bundle.
+  No DB/run/input edit.
 
 ## SAMPLEINFO-SAME-BATCH-20260918
 

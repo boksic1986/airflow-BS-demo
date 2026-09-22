@@ -1,5 +1,14 @@
 # Deployment runbook
 
+## Upload queue display publication (2026-09-22)
+
+BS96 backend alone uses /data/airflow-WGS/upload-waiting-1d0e718-control/compose.json.
+This is a delta on actual live tracker-stage-0119a35, not the older Git baseline.
+Frontend remains analysis-batch-f875488-control; never deploy both from the
+backend-only Compose. Rollback backend using rollback.json, --no-deps --pull never,
+then nginx -t and graceful reload. Preserve Airflow/scanner/dispatch/data/gates.
+See [publication and acceptance](releases/2026-09-22-upload-waiting-bs96.md).
+
 ## Same-batch / Step2 publication (2026-09-18)
 
 BS96 backend/frontend-nginx now use

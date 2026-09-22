@@ -1,5 +1,16 @@
 # SERVER_INFO.md
 
+## 2026-09-22 upload-waiting backend publication
+
+BS96/server96 backend abe6560500a8 mounts
+/data/airflow-WGS/releases/20260922-upload-waiting-1d0e718/backend read-only.
+It retains all tracker-stage-0119a35 source except the three1d0e718 deltas.
+Private effective Compose/rollback/before/after/acceptance:
+/data/airflow-WGS/upload-waiting-1d0e718-control (0700; files0600).
+Frontend remains analysis-batch-f875488;23other container IDs unchanged.
+Global current remains stale and is not the effective backend release.
+LAN gateway / and /api/health200; B/E queue and D live upload verified.
+
 ## 2026-09-22 analysis batch title frontend publication
 
 BS96/server96 now serves frontend source f875488, image tag
