@@ -1,5 +1,14 @@
 # Frontend specification
 
+## 2026-09-22 submission titles use the entered analysis batch
+
+Incomplete-submission cards in Dashboard/Submit, the saved Step1 heading and
+final execution confirmation use the saved `analysis_batch` from Step1 (legacy
+`batch`, then `batch_no`, then run identity if unavailable). They never use
+`sequencing_batch` as a task title. Pending samples can originate from several
+sequencing batches; the sample preview keeps each row's original sequencing
+batch. No sampleinfo, pending, API or database mutation is part of this fix.
+
 ## 2026-09-18 imported sampleinfo configuration review
 
 After creating or restoring a run, Step2 restores `params.use_reference` from

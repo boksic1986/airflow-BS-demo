@@ -1,5 +1,14 @@
 # CURRENT_STATE.md
 
+## 2026-09-22 analysis batch title correction — source verified, not deployed
+
+Branch jiucheng/fix/analysis-batch-title-20260922, based on main9b381eb.
+Incomplete cards and saved/final submission headings use the entered analysis
+batch, never a sample sequencing batch. Pending/sampleinfo and per-sample batch
+metadata are unchanged. BS10610 isolated synthetic regression: RED2failed/6passed,
+GREEN8passed; TypeScript/Vite build passed. No service restart, production change,
+main/production merge or push. Next: promote/deploy only if requested.
+
 ## 2026-09-18 same-batch / Step2 fixes deployed to BS96
 
 User explicitly authorized main/production promotion and BS96 publication.

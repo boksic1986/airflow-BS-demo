@@ -19,7 +19,7 @@ export function useIncompleteWgsSubmissions(enabled = true) {
 export function SubmissionResumeCard({run}: {run: RunDetail}) {
   const [cancelled,setCancelled]=useState(false);
   if(cancelled) return null;
-  const batch = String(run.params?.sequencing_batch || run.params?.analysis_batch || run.params?.batch_no || run.analysis_id);
+  const batch = String(run.params?.analysis_batch || run.params?.batch || run.params?.batch_no || run.analysis_id);
   const phase = WGS_SUBMISSION_PHASES[String(run.params?.submission_phase || "")];
   return <div className="submission-resume-row"><Link className="attention-item submission-resume-card" to={`/submit?pipeline=wgs&analysis_id=${encodeURIComponent(run.analysis_id)}`}>
     <span className="attention-marker warning" aria-hidden="true" />

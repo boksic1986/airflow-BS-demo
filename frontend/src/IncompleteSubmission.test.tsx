@@ -4,7 +4,7 @@ import {afterEach, expect, it, vi} from 'vitest';
 import App from './App';
 
 afterEach(() => {cleanup();vi.unstubAllGlobals();window.history.pushState({},'', '/');});
-function fixture() {
+function fixture(analysisBatch = 'MOCK_BATCH') {
   let phase='config_review';let unavailable=false;let posts=0;
   const json=(value:unknown)=>Promise.resolve(new Response(JSON.stringify(value),{status:200,headers:{'Content-Type':'application/json'}}));
   vi.stubGlobal('fetch',vi.fn((input:RequestInfo|URL,init?:RequestInit)=>{
@@ -21,17 +21,27 @@ function fixture() {
     if(p==='/api/wgs/projects')return json({items:[]});
     if(p==='/api/wgs/submissions/incomplete'){
       if(unavailable)return Promise.resolve(new Response('{}',{status:503}));
-      const items=['approved','cancelled'].includes(phase)?[]:[{analysis_id:'SAVED',pipeline:'wgs',status:'running',attempt:1,created_at:'2026-09-11T01:00:00Z',params:{sequencing_batch:'MOCK_BATCH',submission_phase:phase,submission_mode:'manual'}}];
+      const items=['approved','cancelled'].includes(phase)?[]:[{analysis_id:'SAVED',pipeline:'wgs',status:'running',attempt:1,created_at:'2026-09-11T01:00:00Z',params:{analysis_batch:analysisBatch,sequencing_batch:'MOCK_BATCH',submission_phase:phase,submission_mode:'manual'}}];
       return json({items,total:items.length,limit:100,offset:0});
     }
     if(/^\/api\/runs\/(SAVED|AUTO|APPROVED)$/.test(p)){
-      const id=p.split('/').pop();return json({analysis_id:id,pipeline:'wgs',attempt:1,status:'running',created_at:'2026-09-11T01:00:00Z',params:{sequencing_batch:id==='SAVED'?'MOCK_BATCH':id,submission_phase:id==='APPROVED'?'approved':phase,submission_mode:id==='AUTO'?'auto_dispatch':'manual'}});
+      const id=p.split('/').pop();return json({analysis_id:id,pipeline:'wgs',attempt:1,status:'running',created_at:'2026-09-11T01:00:00Z',params:{analysis_batch:analysisBatch,sequencing_batch:id==='SAVED'?'MOCK_BATCH':id,submission_phase:id==='APPROVED'?'approved':phase,submission_mode:id==='AUTO'?'auto_dispatch':'manual'}});
     }
     if(p==='/api/dashboard/overview')return json({pipeline:'wgs',attention_items:[],totals:{},sample_summary:{total:0,running:0,workflow_failed:0,qc_failed:0,completed:0}});
     return json({items:[],total:0});
   }));
   return {phase:(next:string)=>{phase=next;},fail:()=>{unavailable=true;},posts:()=>posts};
 }
+
+it.each(['/', '/submit'])('uses the Step1 analysis batch instead of a pending sample sequencing batch on %s',async(path)=>{
+  window.history.pushState({},'',path);const f=fixture('MOCK_ANALYSIS');render(<App/>);
+  const link=await screen.findByRole('link',{name:/MOCK_ANALYSIS.*继续提交/});
+  expect(screen.queryByRole('link',{name:/MOCK_BATCH.*继续提交/})).not.toBeInTheDocument();
+  expect(link).toHaveAttribute('href','/submit?pipeline=wgs&analysis_id=SAVED');
+  fireEvent.click(link);
+  expect(await screen.findByText('已保存提交 · MOCK_ANALYSIS')).toBeInTheDocument();
+  expect(f.posts()).toBe(0);
+});
 
 it('finds the server saved submission from plain Submit Run and continues without creating another run',async()=>{
   window.history.pushState({},'','/submit');const f=fixture();render(<App/>);

@@ -113,7 +113,7 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
   const project = useMemo(() => catalog?.items.find((item) => item.project_id === projectId) || catalog?.items[0], [catalog, projectId]);
   const executionEnabled = Boolean(release?.execution_enabled && release.runtime_adapter_enabled);
   const phase = String(created?.params?.submission_phase || "select");
-  const executionBatch = String(created?.params?.analysis_batch || created?.params?.batch || created?.params?.sequencing_batch || created?.params?.batch_no || "-");
+  const executionBatch = String(created?.params?.analysis_batch || created?.params?.batch || created?.params?.batch_no || created?.analysis_id || "-");
   const currentStep = restoring || (requestedRun && !created) || ['cancelled', 'cancelling_submission'].includes(phase)
     ? 0 : ['config_review', 'preparing_analysis'].includes(phase) ? 2
     : ['execution_review', 'approved'].includes(phase) ? 3 : 1;
@@ -195,7 +195,7 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
     {phase === "cancelling_submission" ? <section className="panel" role="status"><h2>取消尚未确认</h2><p>已禁止继续确认配置。请使用右上角“重试取消提交”完成停止确认。</p></section> : null}
     {requestedRun ? <section className="panel"><Link to={`/runs/${requestedRun}`}>View existing run</Link>{restoring ? <p>Restoring submission...</p> : null}{!restoring && !created ? <p>The existing run could not be loaded. Refresh to retry; no new run has been submitted.</p> : null}</section> : null}
     <ol className="wizard-steps" aria-label="WGS 提交步骤">
-    <SubmissionStep number={1} current={currentStep} title="选择批次与参数" description="选择输入来源和批次，生成样本预览；此时不会启动云上分析。" summary={created ? `已保存提交 · ${String(created.params?.sequencing_batch || created.params?.batch || created.analysis_id)}` : undefined}>
+    <SubmissionStep number={1} current={currentStep} title="选择批次与参数" description="选择输入来源和批次，生成样本预览；此时不会启动云上分析。" summary={created ? `已保存提交 · ${executionBatch}` : undefined}>
     {!created && !requestedRun ? <section className="panel"><form className="form-grid wgs-grouped-form" onSubmit={prepare}>
       {pipelineSelector}
       <fieldset disabled={submitting}><legend>Input and project</legend>

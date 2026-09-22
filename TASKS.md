@@ -1,5 +1,14 @@
 # TASKS.md
 
+## ANALYSIS-BATCH-TITLE-20260922
+
+- [x] Confirm user contract: titles use Step1-entered batch; mixed sequencing
+  batches from pending must not rename the task.
+- [x] Correct shared incomplete cards and saved/final submission headings only.
+- [x] BS10610 focused synthetic RED/GREEN (2 regression cases plus6existing), build.
+- [x] Update UI contract and handoff; preserve samples, pending and other worktrees.
+- Main/production promotion and deployment are not performed or newly authorized.
+
 ## SAMPLEINFO-SAME-BATCH-20260918
 
 - [x] User approved same-batch import only when the target analysis directory is absent.

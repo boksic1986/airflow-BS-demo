@@ -1,5 +1,39 @@
 # HANDOFF.md
 
+## 2026-09-22 analysis batch title correction — source only
+
+Goal/user decision: task titles use the Step1-entered batch, not the first
+sample's sequencing batch; pending legitimately mixes source batches.
+Changed only IncompleteSubmissions.tsx, SubmitPage.tsx, their existing
+IncompleteSubmission.test.tsx, UI spec and CURRENT_STATE/TASKS/HANDOFF.
+Shared cards prefer analysis_batch, then legacy batch/batch_no/run identity;
+saved Step1 and final confirmation share the same analysis-batch expression.
+No sequencing_batch fallback remains in those headings. Per-sample sequencing
+display, original/frozen sampleinfo, pending, backend and DB are untouched.
+
+Isolated worktree: C:/Users/11217/.codex/worktrees/analysis-batch-title-20260922/airflow-demo,
+branch jiucheng/fix/analysis-batch-title-20260922, base main9b381eb.
+BS10610 preflight: server10610, chenjc6708:bioinfo520; control root
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS. Current still points to
+releases/20260912-opt-4d3d24e6, actual backend/frontend sources are pinned to
+releases/20260917-native-ui-76915d8-r2. Scan/auto-dispatch false, execution true.
+Observed service mounts only; none modified. No source or credential from live
+containers was used for tests. Candidate under control root:
+candidates/analysis-batch-title-20260922 (synthetic frontend only).
+Cached builder25e83a56052d, --pull never --network none, candidate read-only
+mount at /src copied into disposable /app. No DB/network/runtime volume mounted.
+
+Commands/results: npm test -- --run src/IncompleteSubmission.test.tsx --reporter=dot
+RED exit1 (new2cases failed, existing6passed); same command after minimal fix
+GREEN8passed, npm run build exit0 (TypeScript/Vite). red.log/green.log in candidate.
+Initial rg referenced absent wgs_run_service.py (exit2); actual creation path
+confirmed in wgs_submission_service.py. Tar reported a harmless clock-skew warning.
+No local runtime tests or unrelated suite, no real analysis actions/services.
+No production mutation, source promotion or push. Other dirty worktrees preserved.
+Remaining: source commit only; request explicit promotion/deployment before
+changing live UI. Rollback is reverting this presentation-only change; no data
+rollback required. Live pages remain unchanged until publication.
+
 ## 2026-09-18 same-batch / Step2 production publication authorized
 
 User explicitly requested merging main and production and deploying BS96.
