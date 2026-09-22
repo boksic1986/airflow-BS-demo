@@ -7,20 +7,12 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import case
 
 from app.airflow_client import AirflowClient
 from app.config import get_cors_origins, get_internal_service_token, get_settings
-from app.wgs_onprem_execution_service import (OnpremProjectRegistration, OnpremExecutionRegistration,
-    RegistrationConflict, register_project, register_execution)
-from app.wgs_onprem_launch_service import NativeLaunchClaim, claim_native_launch
-from app.wgs_onprem_monitor_service import NativeObservationRequest, observe_native_execution
-from app.wgs_onprem_monitor_attach import attach_native_monitor
-from app.wgs_onprem_views import native_view
-from app.log_archive_service import log_archive_index, open_log_archive
 from app.dashboard_service import get_dashboard_overview, get_dashboard_runs
 from app.db import check_database, get_sessionmaker
 from app.diagnostics_service import (
@@ -142,7 +134,7 @@ from app.wgs_lifecycle_service import (
     update_wgs_lifecycle_status,
 )
 from app.platform_resources_service import get_platform_resources
-from sqlalchemy import func, literal, or_, select, union_all
+from sqlalchemy import func, or_, select
 
 
 logger = logging.getLogger(__name__)
@@ -272,15 +264,6 @@ def require_internal_service_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"code": "INTERNAL_SERVICE_AUTH_REQUIRED", "message": "Valid internal service token required."},
         )
-
-
-def require_native_monitor_token(
-    x_airflow_demo_token: str | None = Header(default=None, alias="X-Airflow-Demo-Token"),
-) -> None:
-    if not get_internal_service_token():
-        raise HTTPException(status_code=403, detail={"code": "NATIVE_MONITOR_AUTH_NOT_CONFIGURED",
-                                                    "message": "Native monitoring requires internal authentication."})
-    require_internal_service_token(x_airflow_demo_token)
 
 
 class InputScanRequest(BaseModel):
@@ -815,97 +798,6 @@ def pipeline_config_validate(request: PipelineConfigValidationRequest) -> dict[s
         )
     except PipelineRegistryError as exc:
         raise _pipeline_http_exception(exc) from exc
-
-
-@app.post("/api/wgs/onprem/projects")
-def register_wgs_onprem_project(request: OnpremProjectRegistration,
-                               user: AuthenticatedUser = Depends(operator_user)) -> dict:
-    settings = get_settings()
-    if not getattr(settings, "auth_required", False) or user.id <= 0:
-        raise HTTPException(status_code=403, detail={"code": "PERSONAL_SESSION_REQUIRED",
-                                                    "message": "A personal platform session is required."})
-    try:
-        with get_sessionmaker()() as session:
-            return register_project(session=session, settings=settings, request=request, username=user.username)
-    except RegistrationConflict as exc:
-        raise HTTPException(status_code=409, detail={"code": "ONPREM_REGISTRATION_CONFLICT", "message": str(exc)}) from exc
-    except PermissionError as exc:
-        raise HTTPException(status_code=403, detail={"code": "FORBIDDEN", "message": str(exc)}) from exc
-    except (ValueError, OSError) as exc:
-        raise HTTPException(status_code=400, detail={"code": "ONPREM_PROJECT_INVALID",
-                                                    "message": "Project binding or registered path is invalid/unavailable."}) from exc
-
-
-@app.post("/api/wgs/onprem/projects/{project_uuid}/executions")
-def register_wgs_onprem_execution(project_uuid: str, request: OnpremExecutionRegistration,
-                                  user: AuthenticatedUser = Depends(operator_user)) -> dict:
-    settings = get_settings()
-    if not getattr(settings, "auth_required", False) or user.id <= 0:
-        raise HTTPException(status_code=403, detail={"code": "PERSONAL_SESSION_REQUIRED",
-                                                    "message": "A personal platform session is required."})
-    try:
-        with get_sessionmaker()() as session:
-            return register_execution(session=session, settings=settings, project_uuid=project_uuid,
-                                      request=request, username=user.username)
-    except RegistrationConflict as exc:
-        raise HTTPException(status_code=409, detail={"code": "ONPREM_EXECUTION_CONFLICT", "message": str(exc)}) from exc
-    except PermissionError as exc:
-        raise HTTPException(status_code=403, detail={"code": "FORBIDDEN", "message": str(exc)}) from exc
-    except (ValueError, OSError) as exc:
-        raise HTTPException(status_code=400, detail={"code": "ONPREM_EXECUTION_INVALID",
-                                                    "message": "Native identity, inputs or private snapshot storage are invalid/unavailable."}) from exc
-
-
-@app.post("/api/wgs/onprem/executions/{execution_id}/claim")
-def claim_wgs_onprem_launch(execution_id: str, request: NativeLaunchClaim,
-                            user: AuthenticatedUser = Depends(operator_user)) -> dict:
-    settings = get_settings()
-    if not getattr(settings, "auth_required", False) or user.id <= 0:
-        raise HTTPException(status_code=403, detail={"code": "PERSONAL_SESSION_REQUIRED",
-                                                    "message": "A personal platform session is required."})
-    try:
-        with get_sessionmaker()() as session:
-            return claim_native_launch(session=session, settings=settings, execution_id=execution_id,
-                                       request=request, username=user.username)
-    except RegistrationConflict as exc:
-        raise HTTPException(status_code=409, detail={"code": "ONPREM_LAUNCH_CONFLICT", "message": str(exc)}) from exc
-    except PermissionError as exc:
-        raise HTTPException(status_code=403, detail={"code": "FORBIDDEN", "message": str(exc)}) from exc
-    except (ValueError, OSError) as exc:
-        raise HTTPException(status_code=400, detail={"code": "ONPREM_LAUNCH_INVALID",
-                                                    "message": "Native launch inputs or evidence are invalid/unavailable."}) from exc
-
-
-@app.post("/api/internal/wgs/onprem/runs/{analysis_id}/executions/{execution_id}/observe",
-          dependencies=[Depends(require_native_monitor_token)])
-def observe_wgs_onprem_execution(analysis_id: str, execution_id: str,
-                                 request: NativeObservationRequest) -> dict:
-    try:
-        with get_sessionmaker()() as session:
-            return observe_native_execution(session=session, settings=get_settings(),
-                analysis_id=analysis_id, execution_id=execution_id, request=request)
-    except RegistrationConflict as exc:
-        raise HTTPException(status_code=409, detail={"code": "ONPREM_OBSERVATION_CONFLICT",
-                                                    "message": str(exc)}) from exc
-
-
-@app.post("/api/wgs/onprem/executions/{execution_id}/monitor")
-def attach_wgs_onprem_monitor(execution_id: str, request: NativeLaunchClaim,
-                             user: AuthenticatedUser = Depends(operator_user)) -> dict:
-    settings = get_settings()
-    if not getattr(settings, 'auth_required', False) or user.id <= 0:
-        raise HTTPException(status_code=403, detail={"code": "PERSONAL_SESSION_REQUIRED"})
-    try:
-        with get_sessionmaker()() as session:
-            return attach_native_monitor(session=session, settings=settings, execution_id=execution_id,
-                request=request, username=user.username, airflow=get_airflow_client())
-    except PermissionError as exc:
-        raise HTTPException(status_code=403, detail={"code": "FORBIDDEN", "message": str(exc)}) from exc
-    except RegistrationConflict as exc:
-        raise HTTPException(status_code=409, detail={"code": "ONPREM_MONITOR_CONFLICT", "message": str(exc)}) from exc
-    except httpx.HTTPError as exc:
-        raise HTTPException(status_code=503, detail={"code": "ONPREM_MONITOR_UNAVAILABLE",
-            "message": "Retry monitor attachment only; do not repeat claim or launch."}) from exc
 
 
 @app.post("/api/runs", status_code=status.HTTP_201_CREATED)
@@ -1806,25 +1698,6 @@ def run_samples(analysis_id: str) -> dict[str, object]:
         raise _pipeline_http_exception(exc) from exc
 
 
-@app.get("/api/runs/{analysis_id}/native-view")
-def run_native_view(analysis_id: str, execution_id: str | None = Query(default=None, max_length=128),
-                    section: str = Query(default='samples', pattern='^(samples|rules|logs|qc)$'),
-                    offset: int = Query(default=0, ge=0), limit: int = Query(default=25, ge=1, le=100),
-                    history_offset: int = Query(default=0, ge=0), query: str = Query(default='', max_length=256),
-                    match_index: int = Query(default=0, ge=0),
-                    rule_status: str = Query(default='', pattern='^(|running|success|failed|unknown)$'),
-                    sample_id: str = Query(default='', max_length=256), family_id: str = Query(default='', max_length=256),
-                    phase: str = Query(default='', max_length=128)):
-    with get_sessionmaker()() as session:
-        payload = native_view(session=session, settings=get_settings(), analysis_id=analysis_id,
-            execution_id=execution_id, section=section, offset=offset, limit=limit,
-            history_offset=history_offset, query=query, match_index=match_index,
-            rule_status=rule_status, sample_id=sample_id, family_id=family_id, phase=phase)
-        if payload is None:
-            raise HTTPException(404, detail={'code': 'NATIVE_EXECUTION_NOT_FOUND', 'message': 'Native run/execution not found'})
-        return payload
-
-
 @app.get("/api/runs/{analysis_id}/workspace")
 def run_workspace(analysis_id: str) -> dict[str, object]:
     # Reuse the public run-detail projection while keeping the browser's first
@@ -1964,39 +1837,17 @@ def run_rules(
         selected_attempt = attempt if attempt is not None else int(run.attempt or 1)
         query = select(RuleState).where(RuleState.analysis_id == analysis_id, RuleState.attempt == selected_attempt)
         summary_query = query  # Attempt-wide context; table filters must not alter phase totals.
+        identities = list(session.execute(summary_query.with_only_columns(RuleState.sample_id, RuleState.family_id).distinct()))
         if selected_attempt == int(run.attempt or 1):
             from app.sample_selection_scope import selected_clause
+            identities.extend(session.execute(select(Sample.sample_id, Sample.family_id).where(Sample.analysis_id == analysis_id, selected_clause())))
+        filter_options = {
+            "sample_ids": sorted({sample for sample, _ in identities if sample}),
+            "family_ids": sorted({family for _, family in identities if family}),
+        }
         displayed_status = RuleState.status
         if selected_attempt == int(run.attempt or 1) and run.status == "success":
             displayed_status = case((RuleState.status.in_(("planned", "accepted", "pending", "queued", "submitted", "running", "started")), "success"), else_=RuleState.status)
-        summary_rows_query = summary_query.with_only_columns(
-            RuleState.rule_name,
-            displayed_status,
-            RuleState.sample_id,
-            RuleState.family_id,
-            func.count(),
-            literal(selected_attempt),
-        ).group_by(RuleState.rule_name, displayed_status, RuleState.sample_id, RuleState.family_id)
-        summary_sources = [summary_rows_query]
-        if selected_attempt == int(run.attempt or 1):
-            summary_sources.append(
-                select(
-                    literal(None), literal(None), Sample.sample_id, Sample.family_id,
-                    literal(0), literal(selected_attempt),
-                ).where(Sample.analysis_id == analysis_id, selected_clause())
-            )
-        summary_sources.append(
-            select(
-                literal(None), literal(None), literal(None), literal(None),
-                literal(0), RuleState.attempt,
-            ).where(RuleState.analysis_id == analysis_id).distinct()
-        )
-        summary_rows = list(session.execute(union_all(*summary_sources)))
-        filter_options = {
-            "sample_ids": sorted({sample for _, _, sample, _, _, _ in summary_rows if sample}),
-            "family_ids": sorted({family for _, _, _, family, _, _ in summary_rows if family}),
-        }
-        attempts = sorted({int(row_attempt) for _, _, _, _, _, row_attempt in summary_rows if row_attempt is not None} | {int(run.attempt or 1)})
         if status_filter:
             query = query.where(displayed_status == status_filter)
         if rule:
@@ -2010,9 +1861,7 @@ def run_rules(
             names = session.scalars(query.with_only_columns(RuleState.rule_name).distinct()).all()
             query = query.where(RuleState.rule_name.in_([name for name in names if phase_for_rule(name, pipeline_name=run.pipeline_name, release_id=run_phase_release(run)) == phase]))
         phase_summaries = {}
-        for name, state, _sample, _family, count, _row_attempt in summary_rows:
-            if name is None:
-                continue
+        for name, state, count in session.execute(summary_query.with_only_columns(RuleState.rule_name, displayed_status, func.count()).group_by(RuleState.rule_name, displayed_status)):
             label = phase_for_rule(name, pipeline_name=run.pipeline_name, release_id=run_phase_release(run))
             summary = phase_summaries.setdefault(label, dict(phase=label, total=0, running=0, success=0, failed=0, canceled=0, skipped=0))
             summary["total"] += count
@@ -2051,7 +1900,7 @@ def run_rules(
             "attempt": selected_attempt,
             "current_attempt": int(run.attempt or 1),
             "phase_summaries": sorted(phase_summaries.values(), key=lambda item: phase_order(item["phase"], pipeline_name=run.pipeline_name)),
-            "attempts": attempts,
+            "attempts": sorted(set(session.scalars(select(RuleState.attempt).where(RuleState.analysis_id == analysis_id).distinct()).all()) | {int(run.attempt or 1)}),
             "limit": limit,
             "offset": offset,
         }
@@ -2482,7 +2331,6 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 cce_pipeline_version=release.cce_pipeline_version,
                 pipeline_build_sha256=release.pipeline_build_sha256,
                 resource_manifest_sha256=release.resource_manifest_sha256,
-                prepare_execution=params.get("prepare_execution"),
             )
             if params.get("sampleinfo_upload"):
                 payload['sampleinfo_upload'] = dict(params['sampleinfo_upload'])
@@ -2517,12 +2365,11 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 contract = load_wgs_stage_contract(
                     Path(settings.wgs_stage_contract_path)
                 )
-                if (payload.get("prepare_execution") or {}).get("mode", "cce") == "cce":
-                    payload["heavy_io_contract"] = {
-                        "limit": contract.heavy_io.limit,
-                        "mode": contract.heavy_io.mode,
-                        "unit": "work_pod",
-                    }
+                payload["heavy_io_contract"] = {
+                    "limit": contract.heavy_io.limit,
+                    "mode": contract.heavy_io.mode,
+                    "unit": "work_pod",
+                }
                 if (
                     request.force_new_generation
                     and stage_name in SUPPORTED_RUNTIME_SYNC_STAGES
@@ -3392,8 +3239,6 @@ def run_log_index(analysis_id: str) -> dict[str, object]:
             )
             handler = adapter.list_logs if adapter is not None and adapter.list_logs is not None else list_run_logs
             payload = handler(session=session, analysis_id=analysis_id, settings=get_settings())
-            if payload is not None and run is not None and adapter is not None and adapter.log_archive_root:
-                payload['archive'] = log_archive_index(run, get_settings(), adapter.log_archive_root)
     except InvalidRunPathError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -3407,28 +3252,6 @@ def run_log_index(analysis_id: str) -> dict[str, object]:
             detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
         )
     return payload
-
-
-@app.get("/api/runs/{analysis_id}/logs/archive")
-def download_run_log_archive(analysis_id: str, key: str = Query(pattern='^[a-f0-9]{32}$')):
-    try:
-        with get_sessionmaker()() as session:
-            run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
-            if run is None:
-                raise ValueError('Run unavailable')
-            adapter = require_pipeline(get_settings(), run.pipeline_name).adapter
-            stream = open_log_archive(run, get_settings(), adapter.log_archive_root, key)
-            filename = f'{run.analysis_id}-a{run.attempt}-logs.tar.gz'
-    except PipelineRegistryError as exc:
-        raise _pipeline_http_exception(exc) from exc
-    except ValueError as exc:
-        raise HTTPException(404, detail={'code':'LOG_ARCHIVE_UNAVAILABLE', 'message':'日志包不可用，请刷新后重试。'}) from exc
-    def chunks():
-        with stream:
-            yield from iter(lambda: stream.read(1024*1024), b'')
-    return StreamingResponse(chunks(), media_type='application/gzip', headers={
-        'Content-Disposition': f'attachment; filename="{filename}"',
-        'Cache-Control':'private, no-store', 'X-Content-Type-Options':'nosniff'})
 
 
 @app.get("/api/runs/{analysis_id}/artifacts")
