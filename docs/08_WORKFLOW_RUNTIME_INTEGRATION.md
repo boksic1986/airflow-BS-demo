@@ -1,5 +1,23 @@
 # Workflow runtime integration
 
+## P0 Master failure detail (source only, 2026-09-23)
+
+The UID-bound workload probe now adds `master_job_condition` (type/reason) and
+`master_pods` keyed by each observed owned Pod UID. Each Pod contains its name,
+phase/reason and main/init/ephemeral container exit code, reason, signal,
+restart_count and last terminated state. Existing bound Master exit-code output
+is preserved. Missing fields remain null; unknown reason strings become Unknown.
+Only fixed Kubernetes reason codes are retained, never message/stderr/credentials.
+Conflicting Failed conditions or invalid restart/termination data reject.
+
+BackoffLimitExceeded is a Job-controller terminal symptom, NOT the underlying
+cause and NOT a third recovery allowlist entry. Pod OOMKilled/Error evidence may
+coexist and must remain visible. Restart counts/lastState are observations only:
+lastState is not a full restart history, and deleted/TTL Pods are not reconstructed.
+The eventual Master audit/terminal writer still must prove complete cause coverage;
+these fields neither emit a seal nor permit recovery. No API/DB projection or
+production deployment is included.34 affected synthetic checks passed on BS10610.
+
 ## P0 submission inventory and workload reconciliation (source only)
 
 `scripts.cce_recovery_inventory.validate_submission_inventory` consumes trusted

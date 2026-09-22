@@ -1,5 +1,44 @@
 # Handoff
 
+## 2026-09-23 Master BackoffLimitExceeded coverage increment
+
+User requested next step and whether reported20260921D Master BackoffLimitExceeded
+is covered. Source8439f55; same isolated P0 branch. Design section3.1 already
+explicitly denies recovery based on this symptom alone. Existing P0 probe dropped
+reason detail: now retains master_job_condition and all observed Master Pod
+main/init/ephemeral exits/reasons/signals/restarts/last termination. Keeps fixed
+safe reason codes, omits messages, retains missing values as null, rejects invalid
+history/ambiguous failure condition. No new recovery category, seal or permission.
+Only scripts/cce_recovery_workloads.py, new focused tests and related state/spec/docs
+files changed. No live caller/API/DB projection or production workflow changed.
+
+Fresh test fingerprint: BS10610/server10610 uid6708; control root
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS; current20260912-opt-4d3d24e6;
+actual backend/app20260917-native-ui-76915d8-r2/backend and config from current,
+read-only; image8491604ee01d; PLATFORM_ENVIRONMENT=BS10610-Test, scan/dispatch=false.
+Own candidate writable, no permission changes. No active-run query needed for this
+network-none synthetic check; no shared-service change (window still not acquired).
+
+Under candidates/p0-airflow-recovery-20260922, cached image with --pull=never,
+--network=none --read-only,1CPU/1GiB, only own scripts mounted read-only; no DB,
+kubeconfig/live runtime or credentials. PYTHONPATH=/candidate:
+`python -m pytest -q -p no:cacheprovider scripts/tests/test_cce_master_failure_observation.py --tb=short --maxfail=1`
+RED1 failed0.04s exit1: KeyError master_job_condition, expected missing feature.
+GREEN command removed --maxfail=1 and additionally selected affected
+scripts/tests/test_cce_recovery_workloads.py and
+scripts/tests/test_cce_recovery_inventory.py::test_validated_inventory_drives_every_exact_worker_query.
+Result34 passed0.06s exit0 (7 new,25 affected probe,2 composition), no skips.
+Logs master-observation-red.log/master-observation-green.log. Swap-limit warning
+unchanged. No unrelated suites/local runtime tests. git diff --check required.
+
+No BS96/real cluster query;20260921D root cause and current production DB evidence
+NOT confirmed. User report is not classified as eligible. Kubernetes official Job
+docs confirm backoff terminal semantics; implementation coverage checked from repo.
+Remaining: full trusted Master audit/final footer and complete Worker historical
+outcomes, then adapter/dispatch/fences. lastState is not complete restart history.
+No shared deploy, bs5 replacement, automatic enablement, cleanup or resume.
+Rollback this source commit only; no runtime data/state changed.
+
 ## 2026-09-23 next step: submission inventory to UID probe
 
 User: 继续下一步. Source22d47cb, isolated P0 branch/worktree unchanged. Added

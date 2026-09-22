@@ -18,6 +18,17 @@ No unrelated regression suite. Preserve the original worktree's dirty files.
 
 ## Current progress
 
+- 2026-09-23 from8439f55: user asked next step plus20260921D BackoffLimitExceeded
+  coverage. Existing design already excludes that symptom alone from automatic
+  eligibility. Extended existing probe (no new helper service) to preserve exact
+  Master condition and all observed Master Pod termination/restart evidence.
+  RED KeyError master_job_condition; GREEN34 affected checks passed0.06s. No
+  unrelated suites, actual production diagnosis, deployment or recovery action.
+- Ruling: retain BackoffLimitExceeded as diagnostic evidence, never infer transport
+  or admission root cause from it. Cost: a failure with only that symptom remains
+  manual until complete bound root-cause evidence is available. This does not
+  complete the trusted Master audit producer/footer or advance automatic enablement.
+
 - 2026-09-23 next slice from22d47cb: complete snapshot inventory validator and
   composed UID probe. RED missing module (exit1), GREEN26 passed0.08s (exit0),
   actual producer WGS/GATK admission fixtures included, no skips. Only new test

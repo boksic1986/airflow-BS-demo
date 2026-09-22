@@ -95,6 +95,10 @@ bundle。旧通用错误归为“未分类、待确认”，不无条件自动�
 | `worker_create_admission_timeout`（0919B 类） | 同一创建调用收到 HTTP500，结构化原因指向 `mutation.gatekeeper.sh` 的 `context deadline exceeded`，并导致当前 Master 退出 | 任意 HTTP500、Gatekeeper 策略拒绝、403、配额/参数/权限错误 |
 
 两类均须有权威 Master 失败/退出证据，且没有冲突的生信 rule 失败证据。
+`BackoffLimitExceeded` 已纳入错误记录范围，但只表示 Job 失败达到重试限制，
+不是第三类自动续跑根因。记录该条件时同时保留已观测 Master Pod 的退出码、
+容器原因和重启信息；仅有这一条件而缺少源头证据仍转人工，不能推断为0918A
+或0919B类。20260921D 的用户报告不作为该批次根因已核实或已恢复的证据。
 Master 仍活跃则只接回监控；不能因为读到一条创建错误而替换正在运行的 Master。
 未分类、退出原因缺失、多重根因、源头错误已被吞掉均转人工，不猜测。
 OOM、磁盘不足、缺 FASTQ、校验失败、镜像拉取失败和真实 rule 非零退出

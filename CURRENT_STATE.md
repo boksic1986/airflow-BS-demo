@@ -1,5 +1,16 @@
 # Current state
 
+## 2026-09-23 P0 Master failure observations
+
+Extended the existing UID probe to retain the Master Job failure reason and all
+observed Master Pod main/init/ephemeral termination reasons/codes/signals and
+restart/last-termination evidence. BackoffLimitExceeded is recorded as a terminal
+symptom, not an automatic-recovery category; no messages/private stderr returned.
+BS10610:34 affected checks passed0.06s. No production query/change/deployment.
+20260921D is user-reported context only; its actual root cause and persisted
+production record were not examined here. The full trusted Master error audit,
+final footer and recovery integration remain pending; no seal/permission emitted.
+
 ## 2026-09-23 P0 submission inventory joined to workload probe
 
 Added `scripts/cce_recovery_inventory.py`: verifies bound context, producer

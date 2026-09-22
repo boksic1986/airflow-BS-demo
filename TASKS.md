@@ -1,5 +1,10 @@
 # Active test-branch tasks
 
+CR-03 Master observation increment: Job reason (including BackoffLimitExceeded)
+and all observed Master Pod/container termination and restart details retained.
+34 affected BS10610 checks passed. This is diagnostic evidence, not complete
+Master error coverage or automatic eligibility; full producer/footer still pending.
+
 CR-03 next prerequisite: submission journal/checkpoint/candidate/manifest
 validation now composes with the UID probe.26 focused BS10610 checks passed,
 including actual WGS/GATK producer fixtures. No finality/terminal seal, complete

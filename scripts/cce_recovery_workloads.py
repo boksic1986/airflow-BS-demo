@@ -14,6 +14,10 @@ import time
 
 DNS = re.compile(r"[a-z0-9](?:[-a-z0-9.]{0,251}[a-z0-9])?\Z")
 UID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z")
+REASONS = frozenset({"BackoffLimitExceeded", "DeadlineExceeded", "PodFailurePolicy",
+    "FailedIndexes", "MaxFailedIndexesExceeded", "CompletionsReached", "SuccessPolicy",
+    "OOMKilled", "Error", "Completed", "ContainerCannotRun", "StartError",
+    "Evicted", "NodeLost", "UnexpectedAdmissionError", "Shutdown"})
 
 
 def _identity(value, pattern):
@@ -34,6 +38,22 @@ def _unique_json(pairs):
             raise ValueError("duplicate workload JSON field")
         result[key] = value
     return result
+
+
+def _reason(value):
+    # Never publish arbitrary message/stderr fields as a structured cause.
+    if value is None:
+        return None
+    return value if isinstance(value, str) and value in REASONS else "Unknown"
+
+
+def _termination(value):
+    value = _object(value)
+    code, signal = value.get("exitCode"), value.get("signal")
+    if (type(code) is not int or not 0 <= code <= 255
+            or (signal is not None and (type(signal) is not int or not 0 <= signal <= 64))):
+        raise ValueError("container termination evidence is invalid")
+    return dict(exit_code=code, signal=signal, reason=_reason(value.get("reason")))
 
 
 def _metadata(value, namespace):
@@ -65,7 +85,7 @@ def _job_state(value, namespace, name, uid):
     return states.pop()
 
 
-def _terminated_pods(value, namespace, job_uid):
+def _terminated_pods(value, namespace, job_uid, *, diagnostics=None):
     if (not isinstance(value, dict) or value.get("kind") not in {"List", "PodList"}
             or not isinstance(value.get("items"), list)
             or not isinstance(value.get("metadata"), dict)
@@ -86,7 +106,7 @@ def _terminated_pods(value, namespace, job_uid):
         status, spec = _object(pod.get("status")), _object(pod.get("spec"))
         if status.get("phase") not in {"Succeeded", "Failed"}:
             raise ValueError("Pod is active or uncertain")
-        exits = {}
+        exits, containers_observed = {}, []
         for names_key, states_key in (("containers", "containerStatuses"),
                 ("initContainers", "initContainerStatuses"),
                 ("ephemeralContainers", "ephemeralContainerStatuses")):
@@ -109,7 +129,22 @@ def _terminated_pods(value, namespace, job_uid):
                     raise ValueError("container is active or exit status is unknown")
                 if names_key == "containers":
                     exits[state["name"]] = code
+                if diagnostics is not None:
+                    restarts = state.get("restartCount")
+                    if restarts is not None and (type(restarts) is not int or restarts < 0):
+                        raise ValueError("container restart evidence is invalid")
+                    previous = _object(state.get("lastState", {}))
+                    if previous and set(previous) != {"terminated"}:
+                        raise ValueError("previous container termination is unknown")
+                    containers_observed.append(dict(
+                        kind={"containers": "main", "initContainers": "init",
+                              "ephemeralContainers": "ephemeral"}[names_key],
+                        name=state["name"], **_termination(terminated), restart_count=restarts,
+                        previous_termination=_termination(previous["terminated"]) if previous else None))
         observed[metadata["uid"]] = exits
+        if diagnostics is not None:
+            diagnostics[metadata["uid"]] = dict(name=metadata["name"], phase=status["phase"],
+                reason=_reason(status.get("reason")), containers=containers_observed)
     return observed
 
 
@@ -162,7 +197,13 @@ def probe_bound_workloads(*, runtime, config, namespace, master_job,
     master = query("job", master_job)
     if _job_state(master, namespace, master_job, master_job_uid) != "Failed":
         raise ValueError("bound Master is not a terminal failed Job")
-    pods = _terminated_pods(query("pods", master_job), namespace, master_job_uid)
+    failed_conditions = [c for c in master["status"]["conditions"]
+                         if c.get("type") == "Failed" and c.get("status") == "True"]
+    if len(failed_conditions) != 1:
+        raise ValueError("Master failure condition is ambiguous")
+    master_pods = {}
+    pods = _terminated_pods(query("pods", master_job), namespace, master_job_uid,
+                            diagnostics=master_pods)
     if master_pod_uid not in pods:
         raise ValueError("bound Master Pod terminal state is unavailable")
     observations = []
@@ -171,4 +212,6 @@ def probe_bound_workloads(*, runtime, config, namespace, master_job,
         pods_for_job = _terminated_pods(query("pods", name), namespace, uid)
         observations.append(dict(name=name, uid=uid, job_state=state, pods=len(pods_for_job)))
     return dict(master_job_uid=master_job_uid, master_pod_uid=master_pod_uid,
-        master_container_exit_codes=pods[master_pod_uid], workers=observations)
+        master_container_exit_codes=pods[master_pod_uid], workers=observations,
+        master_job_condition=dict(type="Failed", reason=_reason(failed_conditions[0].get("reason"))),
+        master_pods=master_pods)
