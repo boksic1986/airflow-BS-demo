@@ -1,24 +1,5 @@
 # Deployment runbook
 
-## Download queue display publication (2026-09-22)
-
-BS96 backend now uses /data/airflow-WGS/download-waiting-4b09b7b-control/compose.json.
-Four-file delta preserves prior upload-waiting and runtime recovery fixes. Only
-backend recreation plus frontend nginx reload; all other services retain pins.
-Rollback backend to upload-waiting using this control's rollback.json, config
---quiet then up -d --no-deps --pull never backend, nginx -t and nginx -s reload.
-No data rollback, orphan cleanup or global current switch. See
-[release record](releases/2026-09-22-download-waiting-bs96.md).
-
-## Upload queue display publication (2026-09-22)
-
-BS96 backend alone uses /data/airflow-WGS/upload-waiting-1d0e718-control/compose.json.
-This is a delta on actual live tracker-stage-0119a35, not the older Git baseline.
-Frontend remains analysis-batch-f875488-control; never deploy both from the
-backend-only Compose. Rollback backend using rollback.json, --no-deps --pull never,
-then nginx -t and graceful reload. Preserve Airflow/scanner/dispatch/data/gates.
-See [publication and acceptance](releases/2026-09-22-upload-waiting-bs96.md).
-
 ## Same-batch / Step2 publication (2026-09-18)
 
 BS96 backend/frontend-nginx use

@@ -1,18 +1,5 @@
 # SERVER_INFO.md
 
-## 2026-09-22 latest main/production application baseline
-
-`main` and `jiucheng/release/production` both point to `43cd0c5`. Since
-`9b381eb`, application commits `f875488`, `1d0e718` and `4b09b7b` correct the
-analysis-batch title, queued upload display and queued download display. Their
-BS96 deployments are recorded in the corresponding commits and release notes.
-
-BS10610 still runs backend/frontend source baseline
-`20260917-native-ui-76915d8-r2` while the mistaken test upload remains active.
-The prepared `sampleinfo-main-9ff67d3-20260922` candidate is validation evidence
-only and is superseded for activation; rebuild the selective release from the
-actual active mounts with all current main/production application changes.
-
 ## 2026-09-18 same-batch / Step2 release `9ff67d3`
 
 BS96/server96 backend `e177f1eddc01` mounts

@@ -1,21 +1,5 @@
 # Current state
 
-## 2026-09-22 latest completed production UI/projection fixes synchronized
-
-The primary test branch now includes the six commits through `43cd0c5` from
-current `main` and `jiucheng/release/production`. The application changes are:
-submission cards use the analysis batch (`f875488`), approved CCE uploads queued
-for a slot display Step1 as waiting (`1d0e718`), and eligible result downloads
-queued for a slot display Step5 as waiting with empty progress (`4b09b7b`). Their
-three companion commits are BS96 release records. They are completed production
-work, not new development cards. Test-only history remains on this branch.
-
-BS10610 publication is handled as a selective application release after the
-mistaken `20260921B` test upload reaches its safe cancellation point before
-Step2. The earlier `9ff67d3`-only candidate is superseded and must not be
-activated. No BS96, main, production, data or workflow change is part of this
-test synchronization.
-
 ## 2026-09-22 redundant blanket validation removed
 
 The user confirmed that work already developed, tested and published to

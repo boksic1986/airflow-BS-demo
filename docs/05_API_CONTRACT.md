@@ -1,24 +1,5 @@
 # API contract
 
-## 2026-09-22 WGS download queue presentation
-
-Tracker/progress/workspace share a read-only download wait projection. Only an
-active CCE WGS run with current-DAG acquire/start queue evidence can project
-Step5 / Downloading WGS results / waiting. Prior stage success alone is
-insufficient. Current-attempt stage or transfer evidence takes precedence.
-Progress, bytes, speed and ETA remain null; source is
-`airflow-download-queue`. Airflow read failure preserves the DB snapshot. No
-schema, scheduler, lease, runtime receipt or database mutation is introduced.
-
-## 2026-09-22 CCE upload waiting projection
-
-WGS tracker/progress/workspace replace completed preparation with Step1 /
-Uploading FASTQ / waiting when final execution is approved, CCE dispatch is
-`waiting_resource`, and no commit exists. Measurements remain unavailable and
-the rail is waiting. Unapproved, non-CCE, committed, terminal and already
-uploading runs keep their existing projections. This is read-only and does not
-change execution approval, scheduling or lease behavior.
-
 ## WGS ebf1f4b Phase mapping (2026-09-18, test sync)
 
 The exact release `wgs-4.2.1-ebf1f4b` uses the audited fine-phase inventory:

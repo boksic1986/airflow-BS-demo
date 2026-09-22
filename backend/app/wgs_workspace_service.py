@@ -22,10 +22,6 @@ FAILED_RULE_STATUSES = {"failed", "error", "terminated"}
 
 
 def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_slot_limit: int = 25, heavy_slot_mode: str = "monitor-only", evidence_root: str | None = None, settings=None, airflow_client=None) -> dict:
-    if (run.params_json or {}).get('native_monitor_only'):
-        return dict(run=run_payload, summary=dict(sample_count=run_payload.get('sample_count', 0),
-            rule_count=0, failed_rule_count=0, batch_qc_status='unknown'), progress=None,
-            active_transfer=None, validation_issues=[], slot_usage=None)
     sample_qc_statuses = list(session.scalars(
         select(Sample.qc_status).where(Sample.analysis_id == run.analysis_id, selected_clause())
     ).all())
