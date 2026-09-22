@@ -18,6 +18,15 @@ No unrelated regression suite. Preserve the original worktree's dirty files.
 
 ## Current progress
 
+- Next step from930348c: actual bs6 consumer acceptance selected. Single fresh
+  BS10610 preflight failed at jump172.17.61.18:22 SSH handshake, before remote
+  script execution. No new fingerprint, test, service change or runtime write.
+  Actual WGS/GATK admission/guard producer fixtures requested; pending receipt.
+  Existing consumer negative matrix has one new guard-category case, unrun.
+  Ruling: retain approved remote-only validation; no local/production fallback,
+  no whitelist relaxation, no redundant suite. Cost: this acceptance remains
+  pending until test-host connectivity and actual fixtures are available.
+
 - bs6 owner handoff received:0b19bb605cdff619a7f09b34a6fe774e4b43d357,
   wheel SHA256 f9671d22ed02ec5a3edf0af861e116c0ea7dc9de816de6e07926fa869e2bb546.
   Preserves biosan5 HeavySlotQuota; duplicate-adoption manifest/receipt fix.

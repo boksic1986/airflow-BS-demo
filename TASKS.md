@@ -1,5 +1,11 @@
 # Active test-branch tasks
 
+CR-01 bs6 consumer acceptance in progress, not passed: BS10610 preflight blocked
+at BS jump host172.17.61.18:22 handshake. Actual producer fixtures requested;
+WORKER_SUBMIT_GUARD_FAILED negative test added but not run. Next: fresh test-host
+fingerprint, hash-bound actual bs6 fixtures, only affected consumer/inventory
+checks. No broader regression, localhost substitute or production mutation.
+
 CR-01 producer update: bs6 candidate0b19bb605cdff619a7f09b34a6fe774e4b43d357
 received from owner, including preserved HeavySlotQuota and duplicate-adoption
 manifest fix. Owner reports86 source +86 wheel checks. Actual bs6 consumer

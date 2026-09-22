@@ -1,5 +1,36 @@
 # Handoff
 
+## 2026-09-23 next slice: bs6 consumer acceptance blocked before remote access
+
+Source930348c, same isolated branch. User requested next step. Scope is actual
+bs6 admission/guard-failure contract acceptance using readonly producer fixtures,
+not a new terminal producer or shared-service integration. Requested existing
+or minimal actual-wheel synthetic fixtures from plugin owner (WGS/GATK); no
+rerun of its86-test suite. Fixture delivery/byte hashes remain pending.
+
+Failed command: a readonly Python fingerprint script piped to
+`ssh -o BatchMode=yes -o ConnectTimeout=12 BS10610 'python3 -'`.
+Wrapper exit1; stderr `kex_exchange_identification: read: Connection reset`,
+`Connection reset by 172.17.61.18 port 22`, then proxy connection closed.
+Local `ssh -G` confirms BS10610 is chenjc@172.17.106.10 via BS, and BS is
+chenjc@172.17.61.18. Failure is at the jump-host handshake, not evidence of a
+backend, fixture or test failure. One attempt only; no blind retries or bypass.
+No verified new hostname/mount/gates/active-runs; no remote writes or services
+changed, no local runtime/production fallback. Coordinator and owner notified.
+
+Prepared one extra parameter in backend/tests/test_cce_recovery_evidence.py:
+WORKER_SUBMIT_GUARD_FAILED with otherwise qualifying synthetic values must still
+be refused solely because its category is not allowlisted. Existing UNKNOWN/
+retryable=false checks remain. Test is unrun, not GREEN; production code unchanged.
+Planned remote command after preflight: selected guard parameter in that test
+plus actual bs6 producer contract tests once hash-pinned fixtures are received,
+inside the existing isolated cached-image network-none candidate only.
+Do not count old-bs5 fixtures as bs6 acceptance. git diff --check passes locally;
+runtime validation waits for approved test connectivity. Test edit remains
+uncommitted pending validation; docs-only blocker record committed separately.
+Rollback: remove that own one-line test addition or revert docs commit; no data
+or runtime rollback required. Next condition is restored BS10610 access.
+
 ## 2026-09-23 bs6 producer handoff received
 
 Owner: WGS-cloud-plugins task019f9d79-be3f-7701-af33-3595d72bbfac.

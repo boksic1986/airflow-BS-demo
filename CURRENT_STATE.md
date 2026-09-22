@@ -1,5 +1,17 @@
 # Current state
 
+## 2026-09-23 bs6 consumer acceptance started; SSH preflight blocked
+
+User requested next step. Selected actual bs6 consumer contract acceptance only,
+not deployment. One BS10610 preflight failed during ProxyJump BS handshake:
+172.17.61.18:22 connection reset, before reaching server10610. No fresh remote
+mount/active-run fingerprint, remote writes or tests. Existing results do not
+establish current connectivity. Producer owner asked for actual wheel-generated
+WGS/GATK admission and quota-guard fixtures; receipt is pending.
+Added an unrun guard-category negative case to the existing synthetic consumer
+test; no production code/allowlist changed. Resume this exact acceptance after
+test-host access is restored; do not substitute local or production execution.
+
 ## 2026-09-23 bs6 candidate handoff received (not deployed)
 
 Plugin owner reports clean commit0b19bb605cdff619a7f09b34a6fe774e4b43d357,
