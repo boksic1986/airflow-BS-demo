@@ -1,5 +1,33 @@
 # Current state
 
+## 2026-09-22 prioritized development backlog refresh
+
+The authoritative test branch is `e44dc3e`. Current `origin/main` and
+`origin/jiucheng/release/production` both point to `9b381eb`; they have two
+commits not present in test (`9ff67d3`, `9b381eb`), while test has 33 commits not
+present in main. The required main/production-as-ancestor invariant is therefore
+temporarily unsatisfied. Restore it with an explicit reviewed test-baseline
+refresh before starting implementation; do not rebase or discard test-only
+designs.
+
+The current development order is:
+
+1. P0: refresh main/production into test and complete the source-matched
+   validation matrix, including reclassification of the missing-`S1` test.
+2. P1: review and implement the bounded CCE recovery contract (`CR-01`–`CR-05`).
+3. P2: implement two-step WGS submission/editable frozen input, then run control
+   on top of the reviewed CCE identity/fencing contract.
+4. P3/P4: add two-source supplemental QC, then the read-only CNV plot viewer.
+5. P5: operator acceptance, combined BS10610 validation, promotion planning and
+   non-destructive repository hygiene after the selected scope stabilizes.
+
+This ordering reflects recent operational evidence: 0918A/0919B recovery gaps
+affect execution correctness, while the 0919B manual-preparation rollback shows
+why submission side effects should move behind final confirmation. The QC change
+is supplemental to existing ordinary QC, and CNV viewing is a read-only usability
+feature. This planning refresh changes no application code, runtime, database,
+remote environment or real task.
+
 ## 2026-09-22 CCE recovery design revision only
 
 Follow-up user instruction authorizes submission to the pending-development
@@ -57,24 +85,23 @@ remains on the test branch; main and production are now required ancestors.
 ## Branch relationship rule
 
 Current `origin/main` and `origin/jiucheng/release/production` both point to
-`1255a06`. The user explicitly authorized merging that complete history into
-the primary test branch after committing the three reviewed fix ports. The
-resulting invariant is:
+`9b381eb`. The earlier merge established the invariant below at `1255a06`, but
+the later same-batch/review fix and its release record are not yet in test. The
+required invariant remains:
 
 - main and production must be ancestors of the test branch;
 - test may retain additional test-only implementation and evidence;
 - test-to-main promotion remains a separate reviewed and authorized action;
 - old worktree/patch branches are not merge sources unless separately selected.
 
-The historical `14` main-only / `23` test-only divergence is closed by a merge,
-not by rebasing or discarding test commits. See
-`docs/TEST_BRANCH_SYNC_HOLD_20260918.md` for the decision transition.
+The current divergence is two main-only and 33 test-only commits. Review and
+merge the current main history into test; do not rebase or discard test commits.
+See `docs/TEST_BRANCH_SYNC_HOLD_20260918.md` for the original decision transition.
 
 ## Consolidated development designs
 
-The primary test branch now owns the current documentation-only development
-queue. Two new design branches were reviewed and consolidated without merging
-their branch histories or any application code:
+The primary test branch owns the current documentation-only development queue.
+Its consolidated designs include:
 
 - Run control from `jiucheng/feature/run-control-20260918` commit `1c631b7`:
   controlled CCE pause, same-attempt checkpoint recovery and exact online
@@ -89,9 +116,18 @@ their branch histories or any application code:
   time. It is not implemented; no generic artifact reader, image conversion,
   workflow/QC change, test run or deployment is authorized. See
   `docs/2026-09-18-wgs-cnv-plot-viewer-design.md` and `CNV-01` through `CNV-03`.
+- Bounded CCE recovery for the approved 0918A Worker-create disconnect and
+  0919B Gatekeeper timeout causes, explicitly excluding 0919C input repair. See
+  `docs/superpowers/specs/2026-09-17-wgs-gatk-cce-connection-recovery-design.md`
+  and `CR-01` through `CR-05`.
+- Two-step WGS submission and revisioned editable frozen sampleinfo, with final
+  submit before analysis side effects. See
+  `docs/2026-09-22-wgs-two-step-editable-sampleinfo-design.md` and
+  `SUBMIT2-01` through `SUBMIT2-04`.
 
-Both designs are complete and their implementation has not started. They are
-proposals, not available APIs or runtime capabilities. This consolidation did
+These designs are documented and their implementation has not started; the
+revised CCE policy still awaits review. They are proposals, not available APIs
+or runtime capabilities. This consolidation did
 not authorize code, schema, application tests, remote validation, deployment or
 real task/data operations. Existing `CCE-RECOVERY-01` remains a separate but
 prerequisite-aligned implementation track; run control must reuse its execution
@@ -109,9 +145,9 @@ The branch contains recorded Local/SGE integration, native execution views,
 CCE log-package download, native labels, GATK phase projection and worker-child
 timing work. It is not declared fully tested or ready for main. Remaining work
 includes reconciling the archived open checklist against current code/evidence,
-the deferred CCE recovery implementation, the newly documented run-control and
-two-source QC work, operator-facing visual acceptance and one final combined
-BS10610 acceptance after the branch scope stabilizes.
+the revised CCE recovery implementation, two-step submission, run control,
+two-source QC, CNV viewing, operator-facing visual acceptance and one final
+combined BS10610 acceptance after the branch scope stabilizes.
 
 ## Repository hygiene
 

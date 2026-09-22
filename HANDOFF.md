@@ -1,5 +1,76 @@
 # Handoff
 
+## 2026-09-22 development backlog refresh and priority decision
+
+### Goal
+
+Refresh the authoritative test-branch planning state after new CCE recovery,
+WGS submission and display designs were added, then assign a dependency- and
+risk-based implementation order. This is planning only.
+
+### Current source and lineage evidence
+
+- Fast-forwarded the clean primary test worktree from `cd7771b` to remote
+  `e44dc3e`; no local change was overwritten.
+- Current `origin/main` and production both equal `9b381eb` and are not ancestors
+  of test. `git rev-list --left-right --count origin/main...HEAD` is `2 33`.
+- The two absent main commits are `9ff67d3` (same-batch import and saved-review
+  fix) and `9b381eb` (its BS96 release record). They are already released work,
+  not new development, but must be reviewed into the test baseline before coding.
+- The separate `D:/pipeline/airflow-demo` operations worktree has three user-
+  owned dirty state documents for the completed 0919B manual rollback. They were
+  inspected as operational evidence and left untouched.
+
+### Reorganized priority
+
+1. P0 — restore main/production ancestry in test and finish
+   `TEST-VALIDATION-01`, including a fresh classification of missing `S1` after
+   the submission-page main fix is present.
+2. P1 — `CCE-RECOVERY-01`: review the two-recovery/60–180 second policy, then
+   implement `CR-01` through `CR-05`. This addresses known 0918A/0919B failure
+   modes and defines the identity/fencing contract required by run control.
+3. P2 — `WGS-SUBMIT2-20260922`, then `RUN-CONTROL-20260918`. Submission work
+   first reduces pre-analysis side effects; run control must reuse CCE recovery
+   rather than introduce a competing recovery path.
+4. P3 — `WGS-QC-TWO-SOURCE-20260918`; it adds source-qualified supplemental
+   evidence while preserving ordinary QC authority.
+5. P4 — `WGS-CNVPLOT-20260918`; it is a bounded read-only viewer.
+6. P5 — operator acceptance, combined BS10610 evidence, promotion manifest and
+   protected worktree hygiene after the selected feature scope stabilizes.
+
+No two tracks may edit the same Backend/Airflow contracts concurrently. QC/CNV
+can use independent owner worktrees only after the P0 baseline is fixed.
+
+### Modified files and checks
+
+- `TASKS.md`: added the priority table, dependency rule, current lineage refresh
+  items and missing-`S1` reclassification gate.
+- `CURRENT_STATE.md`: recorded current commits/divergence, new designs and the
+  priority rationale.
+- `HANDOFF.md`: this entry.
+
+Validation is limited to branch/ref inventory, task/spec link and ID checks,
+the three-file Markdown whitelist and `git diff --check`. No application tests,
+SSH, Docker, database, runtime, real analysis or deployment action belongs to
+this planning pass.
+
+The target of this pass is local Git documentation at source `e44dc3e`; future
+runtime acceptance remains BS10610. No SSH alias/hostname fingerprint, current
+or rollback release path, mount/permission check, service state, scanner gate or
+dispatch setting was inspected or changed because no remote action was in scope.
+
+### Next action, risk and rollback
+
+Next action is the P0 reviewed main-to-test refresh, not feature implementation.
+Do not assume the production runner binding for editable sampleinfo until its
+future preflight. Do not enable automatic CCE recovery before policy review and
+focused BS10610 synthetic evidence. Rollback of this pass is a documentation-
+only revert; it does not alter runtime or data.
+
+Open questions are whether the revised two-recovery policy is accepted, whether
+missing `S1` remains after the main refresh, and which exact production runner
+SHA will be the future two-step-submission release target.
+
 ## 2026-09-22 submit recovery documents to the pending-development branch
 
 User now authorizes submitting the documentation to primary test branch

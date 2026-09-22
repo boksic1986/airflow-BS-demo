@@ -1,5 +1,27 @@
 # Active test-branch tasks
 
+Updated 2026-09-22 after refreshing the authoritative test branch and
+reassessing all documented development against current main/production.
+Historical tasks are archived and are not silently reopened or marked complete.
+
+## Priority and execution order
+
+| Priority | Track | Why now / entry gate |
+| --- | --- | --- |
+| P0 | `TEST-LINEAGE-SYNC-01` refresh | `origin/main` and production are at `9b381eb`, two commits absent from test; restore the required ancestry before code development. |
+| P0 | `TEST-VALIDATION-01` | Build the source-matched matrix and reclassify the pre-existing missing-`S1` failure after the main refresh. |
+| P1 | `CCE-RECOVERY-01` / `CR-01`–`CR-05` | Prevent monitoring/infrastructure faults from producing unsafe status or duplicate compute; this is a dependency for run control. |
+| P2 | `WGS-SUBMIT2-20260922` | Reduce manual-preparation side effects and confirmation errors; verify the actual runner binding before implementation. |
+| P2 | `RUN-CONTROL-20260918` | Operator safety is important, but pause/resume/delete must reuse the reviewed CCE recovery identity, budget and fencing contracts. |
+| P3 | `WGS-QC-TWO-SOURCE-20260918` | Bounded supplemental QC projection; ordinary QC remains authoritative, so it follows runtime and submission safety work. |
+| P4 | `WGS-CNVPLOT-20260918` | Read-only usability enhancement with no workflow or QC decision effect. |
+| P5 | Acceptance, promotion and hygiene | Execute after selected implementation scope stabilizes; hygiene cannot discard unclassified worktrees. |
+
+Do not start two tracks that edit the same Backend/Airflow contracts at once.
+Within P2, finish the submission gate/frozen-input contract before beginning
+run-control Backend/Airflow integration. The QC and CNV tracks are independent
+only after their owner worktrees are isolated from the P0 baseline refresh.
+
 ## WGS-SUBMIT2-20260922 — proposal written; native source confirmed
 
 Spec: `docs/2026-09-22-wgs-two-step-editable-sampleinfo-design.md`.
@@ -11,12 +33,6 @@ Spec: `docs/2026-09-22-wgs-two-step-editable-sampleinfo-design.md`.
 - [ ] SUBMIT2-02: revisioned editing and frozen runtime input handoff.
 - [ ] SUBMIT2-03: two-step frontend and focused BS10610 acceptance.
 Implementation not authorized by this documentation-only request.
-
-
-Updated 2026-09-22 for CCE recovery and WGS submission development designs.
-This file tracks unresolved work for the independent test
-branch `jiucheng/test/wgs-local-main-sync-20260917`. Historical tasks are
-archived and are not silently reopened or marked complete.
 
 ## TEST-VALIDATION-01 — establish the real unfinished test matrix
 
@@ -31,6 +47,9 @@ Owner: coordinator and QA, with each component owner confirming its rows.
   required test, last accepted evidence, current blocker and owner.
 - [ ] Run only missing focused tests after the matrix is reviewed; do not repeat
   accepted suites without a matching code change.
+- [ ] After the P0 main refresh, rerun the focused submission test that previously
+  could not find `S1`; classify it as implementation defect, stale test contract
+  or superseded evidence before assigning a fix.
 - [ ] After branch scope stabilizes, run one combined BS10610 acceptance with
   scanner/automatic dispatch preserved at their approved test settings.
 
@@ -143,7 +162,7 @@ Owner: QA/Frontend.
 - [ ] Record browser evidence or a precise blocker. Component tests do not
   substitute for this unclaimed visual check.
 
-## TEST-LINEAGE-SYNC-01 — test contains current main and production
+## TEST-LINEAGE-SYNC-01 — historical sync complete; current refresh pending
 
 Owner: coordinator.
 
@@ -166,6 +185,11 @@ Owner: coordinator.
   both refs are ancestors of the resulting test tip.
 - [x] Run focused backend/frontend/runtime tests on the merged source and push
   the test branch.
+- [ ] Review and integrate current `origin/main` and production `9b381eb` into
+  test. The absent commits are `9ff67d3` (same-batch import/review fix) and
+  `9b381eb` (its production release record); preserve all test-only designs.
+- [ ] Re-run the affected sampleinfo/submission tests on the merged test source
+  and record whether the earlier missing-`S1` failure remains.
 - [ ] After all required testing completes, prepare a test-to-main promotion
   manifest with only validated commits and explicit omissions.
 - [ ] Promote to `main` only after separate user approval and current main
