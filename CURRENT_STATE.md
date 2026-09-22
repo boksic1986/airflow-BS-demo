@@ -1,5 +1,21 @@
 # Current state
 
+## 2026-09-23 P0 scope correction: continue the existing plan
+
+User clarified that the Master failure example is a completeness check, not a
+new incident/development track. Runtime owner confirmed its current scope is
+bs6 integration on biosan5 with full HeavySlotQuota behavior preserved, without
+the additional Master audit producer. Earlier audit-next-step notes below are
+superseded. No source hooks/launcher/receipt extension will be assumed available.
+The unverified terminal-audit consumer draft is preserved in Git stash
+3c617cbd86a4b3d27309689ecdfd7fc820f73c57, excluded from the implementation branch.
+
+Continue CR-01 through CR-05 against the delivered, version-bound producer
+contract: consumer/control fences, adapters and DAG continuation. Candidate
+evidence alone still cannot authorize replacement; incomplete Master/Worker
+proof remains manual. No automatic enablement, production change or extra suite.
+Actual bs6 delivery and end-to-end recovery acceptance remain outstanding.
+
 ## 2026-09-23 P0 Master failure observations
 
 Extended the existing UID probe to retain the Master Job failure reason and all

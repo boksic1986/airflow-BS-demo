@@ -1,5 +1,14 @@
 # Active test-branch tasks
 
+2026-09-23 scope correction: no additional Master audit/producer track. The
+batch example only checks diagnostic completeness. Continue existing CR-01–05;
+next consumer work is remaining control/dispatch/callback fences and adapter
+integration using the actual delivered bs6 contract. Preserve the full
+HeavySlotQuota behavior in the runtime owner's integration. Do not treat a
+candidate, absent log or BackoffLimitExceeded as complete failure proof.
+Audit-dependent draft is stashed, not delivered or tested GREEN. Prior audit
+implementation instructions below are historical, not current scope.
+
 CR-03 Master observation increment: Job reason (including BackoffLimitExceeded)
 and all observed Master Pod/container termination and restart details retained.
 34 affected BS10610 checks passed. This is diagnostic evidence, not complete

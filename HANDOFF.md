@@ -1,5 +1,31 @@
 # Handoff
 
+## 2026-09-23 user scope correction and producer alignment
+
+User: MasterPod failure example requests a completeness check; continue original
+P0 plan. WGS owner confirmed its latest authorization: biosan5 plus existing P0
+into bs6, all HeavySlotQuota behavior preserved, no additional Master audit.
+Plugin owner stopped its separate uncommitted audit candidate. This task stopped
+the dependent terminal draft; no source hooks/launcher/RUN_FAILED extension or
+producer fixture is considered delivered. Original CR-01–05 scope remains.
+
+Preserved only our uncommitted scripts/cce_master_terminal.py, its test, and the
+additional worker_pods probe projection in Git stash
+3c617cbd86a4b3d27309689ecdfd7fc820f73c57. No user changes discarded or data removed.
+The existing committed Master diagnostic increment ce9e296 remains unchanged.
+Draft RED on BS10610 was one ModuleNotFoundError, exit1, master-terminal-red.log;
+GREEN intentionally not run after scope correction. Do not count draft coverage.
+No new remote actions, shared-service changes, installs, BS96 access or deployment
+in this scope correction. Production and automatic policy remain untouched/off.
+
+Changed state/task/spec/progress documents only after shelving draft code.
+Verify with git diff --check and explicit diff/status review; no runtime regression
+for these documentation edits. Next: existing consumer/control/callback work,
+actual bs6 contract handoff and adapter integration. Missing trusted complete
+Master/Worker terminal evidence still rejects automatic recovery; do not weaken
+that gate or restore the extra audit draft without explicit scope approval.
+Rollback: revert this documentation commit; stash retains unverified draft only.
+
 ## 2026-09-23 Master BackoffLimitExceeded coverage increment
 
 User requested next step and whether reported20260921D Master BackoffLimitExceeded

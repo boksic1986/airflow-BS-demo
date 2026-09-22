@@ -18,6 +18,27 @@ No unrelated regression suite. Preserve the original worktree's dirty files.
 
 ## Current progress
 
+- Scope correction after owner coordination: the user's batch example is only
+  a Master error-completeness check. Runtime owner confirmed bs6 integration
+  preserves all biosan5 HeavySlotQuota behavior and excludes extra Master audit.
+  Ruling: stop the additional producer/terminal draft and continue CR-01–05
+  against delivered contracts; do not lower the complete-evidence recovery gate.
+  Cost: unsupported/incomplete terminal evidence remains manual, not an automatic
+  replacement case. No new reason-enumeration or batch-specific track.
+- Own unverified draft preserved in stash3c617cbd86a4b3d27309689ecdfd7fc820f73c57;
+  RED one missing-module failure, no GREEN or actual producer acceptance. Earlier
+  audit-next notes below are superseded. Existing ce9e296 diagnostics unchanged.
+  Next work remains consumer/control/dispatch/callback fences and adapter wiring;
+  actual bs6 commit/artifact contract is pending. No services or policy changed.
+
+- User clarification afterce9e296:20260921D is only an example for Master error
+  completeness, NOT a separate incident or additional development track. Continue
+  the existing joint P0 sequence. No further reason enumeration or live-batch action.
+  Producer owner resumed minimal Master-side typed-error/cumulative/final-footer
+  implementation in an isolated candidate; consumer contract coordination in flight.
+  Keep frozen bs5, production and shared services unchanged. Do not claim the
+  diagnostic increment completes trusted Master error coverage.
+
 - 2026-09-23 from8439f55: user asked next step plus20260921D BackoffLimitExceeded
   coverage. Existing design already excludes that symptom alone from automatic
   eligibility. Extended existing probe (no new helper service) to preserve exact
