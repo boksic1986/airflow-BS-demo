@@ -1,6 +1,35 @@
 # WGS Step7 independent maintenance — implementation checkpoint
 
-Status: FOCUSED TESTS PASSED / DEPLOYMENT BLOCKED BY TEST WRAPPER BINDING.
+Status: FOCUSED TESTS PASSED / BS10610 COMPONENTS UPDATED.
+
+## 2026-09-23 authorized test-only publication
+
+User approved correcting only the test wrapper binding. Test wrapper now uses
+`/home/ctapa/.config/airflow-wgs-test` for env and runner. Test runtime/request/
+evidence roots remain `/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-ctapa/wgs-runtime`;
+analysis root remains `/sg2/50.ctapa/project/HWcloud/WGS_test/WGS_Clinical`.
+Wrapper/runner mode700 and runtime.env600, ownerctapa:bioinfo retained.
+Exact prior test files backed up under test `backups/step7-ae416fa-20260923`.
+The previously effective runtime and its existing local helper dependencies were
+copied to the isolated test directory before applying only Step7 runtime deltas;
+otherwise fixing the wrapper would activate its obsolete September10 runner.
+Production source hashes unchanged. No production env copied or modified.
+Node200 lacks Git: staging initially stopped before activation; used installed
+patch with dry-run on the private candidate, then syntax-compiled changed files.
+
+Release: `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260923-step7-ae416fa`.
+Backend/observer are scoped deltas on their distinct actual mounted baselines;
+Airflow retains its existing DAGs plus one new maintenance DAG mount.
+Compose/rollback: `candidates/step7-ae416fa-control/{compose,rollback}.json`.
+Config validation passed; backend, observer, Airflow worker/scheduler/API updated.
+Frontend only nginx reload, DB/Redis/probes/collectors unchanged. API healthok;
+new DAG registered/unpaused, max_active_runs1 and exactly2tasks confirmed.
+No live maintenance action submitted, no real SFS operation or analysis rerun.
+
+Rollback: use this control rollback Compose for those five test components,
+then nginx reload. Restore test wrapper/runner backups only if necessary; never
+restore the known production-binding wrapper for use. Keep test requests/data.
+No main/production merge or BS96 Step7 release authorized.
 
 ## 2026-09-23 focused acceptance and deployment gate
 

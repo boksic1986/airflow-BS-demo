@@ -42,6 +42,19 @@ released. One RunAction and one AuditLog record the user cancellation with
 multipart state, SFS/NFS/local file, sampleinfo, runtime/evidence, database,
 container or service was deleted or restarted.
 
+## 2026-09-23 Step7 BS10610 publication
+
+User approved test wrapper correction. Completed scoped deployment from ae416fa
+onto actual backend and observer baselines; independent DAG mounted into test
+Airflow components. Compose/rollback under candidates/step7-ae416fa-control;
+release20260923-step7-ae416fa. No production change or real cleanup submission.
+Healthok; registered DAG2tasks/max_active_runs1. Runtime/test wrapper isolation
+and exact backup paths recorded in Step7 document. All previous40tests reused.
+Initial node patch staging lacked Git, stopped before activation; applied with
+installed patch to private candidate, then syntax check. No added packages.
+Read-only synthetic missing-request wrapper probe interrupted by test worker
+replacement, so repeated only that boundary probe after service publication.
+
 ## 2026-09-23 Step7 accepted source, deployment safety stop
 
 User resumed Step7; production WES checked running/normal upload-slot wait.

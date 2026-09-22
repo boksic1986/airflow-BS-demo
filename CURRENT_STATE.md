@@ -12,6 +12,14 @@ projections are canceled. Its exact input lease was released. No OBS, SFS,
 NFS/local input, sampleinfo, runtime/evidence, database or service data was
 deleted, and no other test analysis is active.
 
+## 2026-09-23 Step7 deployed to BS10610 after authorized binding correction
+
+Source ae416fa. Test-only wrapper corrected, original effective runtime copied
+into isolated test directory with Step7-only delta; production hashes unchanged.
+Scoped five-component release20260923-step7-ae416fa active. Healthok, independent
+maintenance DAG registered with2tasks/max_active_runs1. No real SFS operation.
+Focused40cases already passed; no repeat. Test-branch integration remains.
+
 ## 2026-09-23 Step7 focused acceptance passed; deployment held
 
 Backend/runtime30, DAG9, isolated DAG integration1 passed on BS10610.

@@ -16,8 +16,9 @@
 - [x] Draft independent WGS maintenance, exact-operation reconciliation,
   frozen-target manual retry and failure synchronization (not yet accepted).
 - [x] Single focused BS10610 acceptance:30 backend/runtime,9 DAG,1 isolated integration.
-- [ ] Resolve test wrapper hardcoded production config_dir before deployment.
-- [ ] Test-branch commit/integration and scoped test deployment.
+- [x] User-approved test wrapper isolation correction and scoped test deployment.
+- [x] Step7 source commit ae416fa, health/DAG registration check.
+- [ ] Primary test-branch integration (coordinated separately; no production merge).
 
 Checkpoint: `docs/STEP7_MAINTENANCE_20260922.md`. Not shipped; production excluded.
 
