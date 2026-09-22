@@ -1,5 +1,17 @@
 # Current state
 
+## 2026-09-23 existing WGS manual-retry fence completed
+
+Legacy Resume/Rerun failed now take/refresh the AnalysisRun row lock and reject
+pending current-attempt automatic recovery before release lookup, attempt/state
+mutation or dispatch. Existing resume_stage shares the same check. Missing or
+ill-typed action attempt identity blocks; finished automatic history is retained
+and permits manual retry. Cancel keeps priority and its existing CCE restrictions.
+BS10610 RED reproduced bypass; GREEN22 focused checks passed1.23s (14 new plus
+8 affected resume-stage checks). No shared service, production, policy or DB change.
+This closes these WGS service entry points only; dispatch/callback/adapter/GATK
+integration and PostgreSQL concurrency acceptance remain pending.
+
 ## 2026-09-23 bs6 consumer contract acceptance passed
 
 SSH restored. Actual hash-pinned bs6 wheel generated WGS/GATK admission and guard

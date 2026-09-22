@@ -17,9 +17,12 @@ budget journal payload: monitor execution/generation/request hash, submit
 generation/request hash, release_id, category, relative evidence_key and
 evidence_sha256. Source execution and Master UID remain top-level journal fields.
 Replays cannot replace these identities or evidence contents. Reservation and
-WGS manual resume-stage use the AnalysisRun row lock; active same-attempt
+WGS manual resume-stage and legacy Resume/Rerun failed use a refreshed
+AnalysisRun row lock; active same-attempt
 automatic actions block manual resume before request-file writes or dispatch.
 Terminal automatic history is retained and does not block manual resume.
+Missing/ill-typed action attempt identity is ambiguous and blocks manual retries;
+cancel does not use this retry fence. No schema, migration or history deletion.
 PostgreSQL concurrency acceptance and other control-entry fences remain pending.
 
 ## Native presentation projections (2026-09-17)

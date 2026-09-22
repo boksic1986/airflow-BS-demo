@@ -18,6 +18,16 @@ No unrelated regression suite. Preserve the original worktree's dirty files.
 
 ## Current progress
 
+- Fromddda74e: closed the existing WGS legacy Resume/Rerun failed bypass of
+  pending automatic recovery. Shared the resume_stage check, refreshed run row
+  lock before decisions; cancel remains outside the retry fence. RED1 failure
+  (expected rejection absent), GREEN22 passed1.23s on isolated BS10610. No broad
+  suite, service change, policy enablement or main/production operation.
+- Ruling: preserve legacy attempt semantics once automatic actions finish; this
+  slice only prevents overlapping entry, not redesign manual Resume. Costs:
+  full dispatch/callback/adapter/GATK integration and PostgreSQL concurrency still
+  required; do not claim all retry/submission entry points are covered.
+
 - Fromb5d8718: SSH restored; fresh Step7 backend mount/gates confirmed and bounded
   readonly nonterminal query returned[]. Actual bs6 WGS/GATK admission+guard
   fixtures received and raw bytes/wheel/provenance hash-pinned.14 focused consumer

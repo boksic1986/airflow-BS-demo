@@ -24,6 +24,23 @@ CONTROL_ACTIONS = {"resume_stage", "resume", "rerun_failed", "cancel_submission"
                    "pause", "cancel", "delete", "terminate"}
 
 
+def require_no_pending_compute_recovery(*, session, run):
+    """Manual retry fence; caller holds/refreshed the same AnalysisRun row lock.
+
+    Stop/cancel paths must not use this fence: user stop keeps priority. Missing
+    attempt identity is ambiguous and blocks; completed history is preserved.
+    """
+    actions = session.scalars(select(RunAction).where(
+        RunAction.analysis_id == run.analysis_id, RunAction.action == ACTION)).all()
+    for action in actions:
+        if action.result_status in FINISHED_ACTIONS:
+            continue
+        data = action.payload_json
+        if (not isinstance(data, dict) or type(data.get('attempt')) is not int
+                or data['attempt'] == run.attempt):
+            raise ValueError('pending automatic recovery must be reconciled before manual resume')
+
+
 def _date(value):
     try:
         result = datetime.fromisoformat(value)

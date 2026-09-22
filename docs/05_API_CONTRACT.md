@@ -1,5 +1,16 @@
 # API contract
 
+## P0 WGS manual retry conflict (2026-09-23, source only)
+
+Existing actions/resume and actions/rerun_failed refuse an unfinished current-
+attempt cce_compute_recovery action before release/attempt/state changes or
+Airflow submission. Missing/ill-typed action attempt identity also refuses.
+Uses the existing ValueError validation response (400/VALIDATION_ERROR), no new
+endpoint/request field. Completed automatic action history does not block manual
+retry and is not cleared. resume_stage shares the same guard under a refreshed
+AnalysisRun row lock. Cancel keeps its prior behavior/CCE restrictions and is not
+blocked by this retry guard. Source-only; no policy activation or deployment.
+
 ## WGS ebf1f4b Phase mapping (2026-09-18, test sync)
 
 The exact release `wgs-4.2.1-ebf1f4b` uses the audited fine-phase inventory:

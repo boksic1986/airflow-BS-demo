@@ -1,5 +1,48 @@
 # Handoff
 
+## 2026-09-23 WGS legacy manual retry fence
+
+User next step; basedddda74e, same isolated P0 branch. Found action_wgs_run legacy
+Resume/Rerun failed could increase attempt/dispatch while automatic reservation
+pending, unlike resume_stage. Added shared require_no_pending_compute_recovery
+in existing cce_recovery_budget; both service entries use it after refreshed
+AnalysisRun FOR UPDATE. Guard before release lookup/attempt mutations. Keeps
+completed history, treats missing/ill-typed attempt as ambiguous. Cancel bypasses
+retry guard but retains prior CCE cancellation restriction. No main.py/Step7/
+observer/DAG/runtime changes, no new routes/DB schema/recovery permission.
+
+Fresh preflight: BS10610/server10610 uid6708; current20260912-opt-4d3d24e6;
+backend36ff21f87356 image8491604ee01d, /app readonly20260923-step7-ae416fa/backend/backend;
+/config current/config readonly; test,scan=false,dispatch=false; own candidate
+writable. No fresh active-run DB query needed for network-none synthetic-only
+tests and no shared mutation; prior [] is not presented as current evidence.
+First scp and subsequent test SSH each aborted at BS172.17.61.18:22 handshake,
+exit1; no remote test executed. Diagnostic ssh -v BS exit confirmed public-key
+login/exit0, then bounded copy/test retry succeeded. No SSH config change.
+
+New test_cce_recovery_manual_fence.py substitutes external release catalog and
+uses existing synthetic Airflow fixture; real SQLite service/dispatch/action
+paths. Covers reserved/queued/uncertain, ambiguous attempt identity, finished
+history, cancel priority and stale-session attempt refresh. Tests do not prove
+PostgreSQL locking/concurrency. Unchanged automatic budget suite not rerun.
+Candidate C=control-root/candidates/p0-airflow-recovery-20260922. Cached image
+8491604ee01d, --pull=never --network=none --read-only,1CPU/1GiB,/tmp64MiB.
+Own backend and exact wgs_stage_contract.yaml mounted readonly; no DB, real
+runtime, credentials or kubeconfig. Only C test/module/config files changed.
+RED: PYTHONPATH=/candidate/backend python -m pytest -q -p no:cacheprovider
+backend/tests/test_cce_recovery_manual_fence.py --tb=short --maxfail=1
+=>1 failed0.65s exit1: DID NOT RAISE ValueError, legacy pending reservation bypass.
+GREEN: same command without --maxfail=1, plus backend/tests/test_wgs_resume_stage.py
+=>22 passed1.23s exit0 (14 new+8 affected), no skips. Logs manual-fence-red.log,
+manual-fence-green.log. Kernel swap-capability warning unchanged. git diff --check.
+No redundant full suite/local runtime tests/shared service change/deploy/BS96.
+
+Updated API/DB documentation for service guard semantics, TASKS/CURRENT_STATE
+and P0 ledger. Remaining: dispatch/callback/lease/adapter integration and terminal
+evidence gaps, GATK path, PostgreSQL concurrency. Automatic policy remains off.
+Do not count these WGS entries as every resubmission path. Rollback source commit
+only; no runtime data/schema/production rollback needed.
+
 ## 2026-09-23 bs6 actual producer-to-consumer acceptance
 
 User requested next step; sourceb5d8718 on existing isolated P0 branch. Prior SSH

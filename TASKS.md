@@ -1,5 +1,12 @@
 # Active test-branch tasks
 
+CR-02/03 WGS manual service entries: legacy Resume/Rerun failed joined the
+existing resume_stage pending-recovery fence under a refreshed run row lock.
+22 focused BS10610 checks passed after observed RED bypass; user cancel priority
+and completed recovery history preserved. No new route or recovery enablement.
+Remaining dispatch/callback/lease and adapter/GATK controls are not complete;
+SQLite tests do not establish PostgreSQL concurrency acceptance.
+
 CR-01 bs6 candidate-format acceptance complete: actual wheel-generated WGS/GATK
 admission+guard fixtures, raw-file/wheel/provenance SHA pins;14 BS10610 checks
 passed0.32s,62 unrelated cases deselected. No existing production behavior change.

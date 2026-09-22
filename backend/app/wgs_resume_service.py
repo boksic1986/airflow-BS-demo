@@ -8,7 +8,7 @@ import httpx
 from sqlalchemy import select
 
 from app.models import AnalysisRun, RunAction, RunStageState, WgsStageExecution, WgsExecutionDispatch
-from app.cce_recovery_budget import ACTION as COMPUTE_RECOVERY_ACTION, FINISHED_ACTIONS
+from app.cce_recovery_budget import require_no_pending_compute_recovery
 from app.wgs_runtime_adapter import write_stage_request
 from app.wgs_stage_catalog import load_wgs_stage_contract
 from app.wgs_stage_execution_service import register_stage_execution
@@ -84,20 +84,13 @@ def register_recovery_stage(*, session, settings, run, stage, action):
 def request_resume_stage(*, session, settings, airflow_client, analysis_id, attempt, stage, idempotency_key, requested_by):
     if stage not in STAGES or not idempotency_key or len(idempotency_key) > 128:
         raise ValueError('a canonical Step1–6 stage and idempotency key are required')
-    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id).with_for_update())
+    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        .with_for_update().execution_options(populate_existing=True))
     if not run or run.pipeline_name != 'wgs' or run.attempt != attempt:
         raise ValueError('unknown current WGS attempt')
     # Serialize with automatic reservations on the same AnalysisRun row. Do not
     # replace frozen requests or contact Airflow while their outcome is pending.
-    automatic_actions = session.scalars(select(RunAction).where(
-        RunAction.analysis_id == analysis_id, RunAction.action == COMPUTE_RECOVERY_ACTION)).all()
-    for automatic in automatic_actions:
-        if automatic.result_status in FINISHED_ACTIONS:
-            continue
-        data = automatic.payload_json
-        if (not isinstance(data, dict) or type(data.get('attempt')) is not int
-                or data['attempt'] == attempt):
-            raise ValueError('pending automatic recovery must be reconciled before manual resume')
+    require_no_pending_compute_recovery(session=session, run=run)
     params = dict(run.params_json or {})
     if int(params.get('orchestration_contract_version', 1)) != 2 or not settings.wgs_contract_v2_enabled:
         raise ValueError('recovery requires the frozen v2 stage contract')
