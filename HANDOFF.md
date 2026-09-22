@@ -1,5 +1,35 @@
 # Handoff
 
+## P0 next step: controlled evidence reader (test only)
+
+User: continue next step. Worktree/branch unchanged from73f8d4e, original dirty
+ops worktree untouched. Applied runtime/planning/execution skills; no expanded
+pause/delete scope. Read-only BS10610 probe confirmed server10610, current
+20260912-opt-4d3d24e6, actual backend20260917-native-ui-76915d8-r2/backend,
+image8491604ee01d, test environment with scanner/dispatch disabled. Coordinator
+subsequently released upload gate, but this slice did not deploy or mutate any
+shared service/run/lease/database. Step7-owned shared files remain untouched.
+
+Changed backend/app/cce_recovery_reader.py and tests/test_cce_recovery_reader.py;
+updated docs08, CURRENT_STATE, TASKS and P0 ledger. Reader uses controlled fixed
+file names, no-follow descriptor traversal, size/type/link and JSON guards,
+pair stability checks, then existing bound validator. No public request accepts
+root/scope/context. Actual adapter binding and trusted writer remain prerequisites.
+Master Step2 creation identity is not interchangeable with Step3 monitor identity.
+
+Remote candidate candidates/p0-airflow-recovery-20260922; cached backend image,
+network none, read-only,1CPU/1GiB, no live mounts. Command:
+`python -m pytest -q -p no:cacheprovider tests/test_cce_recovery_reader.py`.
+RED: missing module (exit1). GREEN:26 passed0.09s (exit0), recorded as
+reader-red.log/reader-green.log. Kernel no-swap-limit warning unchanged.
+No repeat of unchanged budget/evidence suites, no local runtime tests.
+
+Pending: plugin real producer fixture, authoritative terminal wrapper, current
+Master/monitor lineage binding, reservation-to-dispatch/control fences, DAG/UI
+and PostgreSQL concurrency. These tests are not real Master integration or P0
+completion. Continue from plugin owner's final artifact; no additional authority
+is implied. Rollback: revert unreferenced reader/tests; no data state to undo.
+
 ## 2026-09-22 P0 draft evidence validator checkpoint
 
 Added backend/app/cce_recovery_evidence.py and its synthetic test file. Existing

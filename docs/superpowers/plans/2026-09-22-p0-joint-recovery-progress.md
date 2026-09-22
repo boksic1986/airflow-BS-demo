@@ -18,6 +18,22 @@ No unrelated regression suite. Preserve the original worktree's dirty files.
 
 ## Current progress
 
+- Next slice from73f8d4e: controlled fixed-file reader RED→GREEN26 checks0.09s;
+  only new reader tests ran. Descriptor nofollow, file bounds/type/link checks,
+  duplicate-key rejection and bound content validation; no runtime route wired.
+- Coordinator released the upload gate during this slice. Future deployment
+  still requires fresh active-run/mount preflight and agreement with Step7;
+  this task did not deploy or modify any shared service/data. Earlier blanket
+  hold entries below are historical, superseded by this scoped release.
+- Plugin source probed at1ca1e88 with only draft docs/tests; owner explicitly
+  asked to finish actual source/tests and report once. Do not count draft fixtures
+  as producer integration. Master Step2 submit context and Step3 monitor identity
+  must be kept distinct in the future lineage binding, not assumed identical.
+- Ruling: current next step closes the controlled-reader boundary while producer
+  work proceeds; no permissive entry is added to bridge missing trusted wrapper
+  evidence. Cost: automatic dispatch still unavailable until the remaining
+  CR-01/03 dependencies are implemented and accepted.
+
 - Draft consumer RED/GREEN:62 checks passed0.13s in the same BS10610 isolated
   candidate; no existing budget retest. No actual producer fixture yet. Proposed
   terminal seal contract is documented in docs08; not wired or claimed emitted

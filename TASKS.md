@@ -1,5 +1,11 @@
 # Active test-branch tasks
 
+CR-01 reader slice: controlled fixed-file reader implemented,26 new focused
+synthetic checks passed. Still pending actual plugin fixture + trusted terminal
+wrapper + Master-submit/monitor lineage; CR-01 is NOT end-to-end complete.
+Upload gate released per coordinator; service deployment still needs fresh
+active-run/mount verification and serialization with Step7. No P1 scope added.
+
 Draft pure evidence validator passed62 synthetic contract checks; actual producer
 fixture and trusted terminal-seal generation remain unverified and unwired.
 

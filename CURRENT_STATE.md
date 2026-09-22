@@ -1,5 +1,15 @@
 # Current state
 
+## P0 next slice: controlled reader complete, producer integration pending
+
+Added `cce_recovery_reader.py`;26 focused checks passed on BS10610 in the same
+network-none read-only synthetic container. Only the new test file ran. No public
+route, adapter, auto policy, recovery dispatch or service deploy changed.
+Coordinator reports upload gate released; before any future service mutation,
+recheck active runs/mounts and coordinate Step7. Test gate release is not approval
+to include P1 pause/delete or production work. Plugin owner continues actual
+producer implementation; do not claim draft-fixture tests as producer acceptance.
+
 Draft pure `cce_recovery_evidence` validator additionally completed: exact context
 binding, candidate digest, complete terminal summary and quiescence required.
 BS10610 RED then GREEN62 checks passed0.13s. This is a proposed wrapper contract,

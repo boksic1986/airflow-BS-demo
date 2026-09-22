@@ -52,6 +52,25 @@ live fences/identity/quiescence; validated metadata alone is not permission.
 62 focused synthetic draft-contract checks passed on BS10610; NOT producer or
 Master integration acceptance. No current image is claimed to emit the seal.
 
+### Controlled recovery evidence reader (source only)
+
+`app.cce_recovery_reader.read_recovery_evidence` reads only
+`executor-failure.json` and `master-terminal.json` in an adapter-selected scope.
+It walks the configured absolute root and relative components using no-follow
+directory descriptors, rejects symlinks/hardlinks/nonregular files, limits each
+file to1MiB, rejects duplicate JSON keys/nonfinite values, and verifies file
+metadata stayed stable across the pair read. It calls the existing evidence
+validator and returns only bound metadata plus a relative evidence key.
+
+The root, scope and expected context MUST be supplied by the trusted adapter's
+frozen binding, never a browser or the evidence being read. This protects reads;
+it does not authenticate a writer or prove Kubernetes quiescence. No adapter or
+public route is connected yet. Original Master context belongs to its actual
+Step2 submission; it must not be equated to a later Step3 monitoring execution.
+Recovery must preserve explicit Master-submit/monitor lineage.26 isolated
+BS10610 synthetic reader checks passed; current producer/wrapper integration
+and dispatch remain pending. No existing budget/evidence suite rerun.
+
 ## Native UI evidence adapter (2026-09-17 test)
 
 Native monitor and native-view share a bounded reader of
