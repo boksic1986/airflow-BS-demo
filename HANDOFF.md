@@ -1,5 +1,82 @@
 # Handoff
 
+## 2026-09-22 P0 draft evidence validator checkpoint
+
+Added backend/app/cce_recovery_evidence.py and its synthetic test file. Existing
+candidate/image/limits used; RED missing module, GREEN62 passed0.13s. Logs are
+evidence-red.log/evidence-green.log in the same P0 test candidate. Only this test
+file ran; budget was not rerun after unrelated pure validator additions.
+Plugin owner confirmed no completed producer fixture yet. Terminal seal is a
+proposed trusted-wrapper contract, documented in docs08 and code, not a browser
+API or authenticated signature. Exact identities, digest, complete cumulative
+failure summary and all-intent/all-manifest quiescence are mandatory. Unknown
+creation outcome stays rejected even after GET404. No producer/runtime integration,
+new endpoint, image release or automatic policy enablement is claimed.
+Continue with real producer fixture and authoritative wrapper support before
+connecting reservation or dispatch; CR-01/02 remain partial. Scope and rollback
+unchanged: unreferenced helpers only, no shared or production data changes.
+
+## 2026-09-22 P0 continued under isolated-test release
+
+Authority: user requested code and partial tests during remaining upload;
+coordinator explicitly released only separate candidate/network-none containers.
+SSH BS10610 succeeded (server10610). Current symlink remains 20260912-opt-4d3d24e6;
+actual backend mount is 20260917-native-ui-76915d8-r2/backend, image8491604ee01d,
+PLATFORM_ENVIRONMENT=BS10610-Test, intake scan and auto dispatch false.
+
+Implemented backend/app/cce_recovery_budget.py with focused synthetic tests:
+same-attempt max2, 60/180s, deadline/journal consistency, replay without double
+spend, stop/control/Step7 fences, no commit inside helper. Missing initialized
+budget rejects rather than assuming historical count0. No API or runtime caller,
+no dispatch, policy enablement or default changes. Existing state retained.
+
+Remote candidate: candidates/p0-airflow-recovery-20260922 under test control root.
+Cached backend image; docker run --rm --pull=never --network=none --read-only,
+1 CPU/1GiB, candidate /app read-only; synthetic SQLite only, no live mounts/DB.
+`python -m pytest -q -p no:cacheprovider tests/test_cce_recovery_budget.py`:
+RED missing module (exit1); GREEN54 passed1.89s (exit0), budget-red/green.log.
+Kernel warns no swap limit support; memory limit applied, no swap-limit claim.
+
+Changed code/test above, P0 ledger, prerequisite/status/task/handoff docs. No
+service restart, upload/monitor/lease/task mutation, production access or deploy.
+PostgreSQL concurrency and endpoint/DAG/runtime integration NOT tested. Shared
+control locking at dispatch is still required; reservation is not authorization
+to launch. Step7 owner is editing main.py/wgs_step7_service.py/wgs_observer.py;
+leave these paths untouched until coordinated. Plugin owner preparing candidate
+evidence schema. Next: validated consumer then adapter/fence integration; do not
+claim entire P0 complete. Rollback: remove unreferenced module, no data rollback.
+
+## 2026-09-22 P0 approved — remote acceptance blocked by baseline decision
+
+User approved full joint implementation restricted to BS10610 testing. Agreed
+versioned plugin context/failure interface with the user-selected plugin task;
+wrote `backend/tests/test_cce_recovery_budget.py` and the P0 progress ledger.
+Tests are not run and application code is not implemented. No completion claim.
+Coordinator `01a0b254-07b5-7352-99aa-871b117459ad` explicitly paused all BS10610
+deployment/acceptance while user chooses selective versus full test baseline;
+the plugin owner was informed. No deployment/restart, real analysis, production
+access or shared package installation occurred. Local `git diff --check` passed.
+Next: resolve baseline through coordinator, receive actual fingerprint, run RED
+then implement and verify the focused two-stage plan. Preserve these uncommitted
+preparations and the separate original worktree's operational records.
+
+## 2026-09-22 P0 prerequisite review — awaiting external scope confirmation
+
+User requested P0 implementation. Isolated branch
+`jiucheng/runtime/CR01-cce-recovery-20260922` starts from test `1da45f3`.
+Reviewed GATK monitor/resume and read-only BS10610 executor source (`1ca1e88`);
+the inspected producer lacks the required bound Worker-create fatal evidence.
+Exact frozen Master artifact binding is not yet verified. No application edits,
+runtime tests, real analysis, production access or deployment occurred.
+
+Changed only this entry, CURRENT_STATE, TASKS and
+`docs/P0_RECOVERY_PREREQUISITE_20260922.md`; the latter records exact paths,
+commands/failures, evidence, risk and next decision. `git diff --check` is the
+documentation check. Next: obtain scoped external producer/artifact confirmation,
+then CR-01–05 and focused synthetic BS10610 acceptance. No tests are claimed.
+Rollback is document-only; no task state or analysis data was changed. Existing
+dirty operational documents in the original worktree were left untouched.
+
 ## 2026-09-22 remove redundant blanket validation gate
 
 The user determined that `TEST-VALIDATION-01` would duplicate testing already

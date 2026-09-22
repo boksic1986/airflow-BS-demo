@@ -1,5 +1,17 @@
 # Active test-branch tasks
 
+Draft pure evidence validator passed62 synthetic contract checks; actual producer
+fixture and trusted terminal-seal generation remain unverified and unwired.
+
+P0 implementation approved (2026-09-22), including external executor/Master
+scope. CR-01–05 remain incomplete. Isolated development/no-network synthetic
+tests released while the existing upload runs; formal BS10610 service integration
+still awaits the coordinator. Internal CR-02 budget primitive implemented and
+54 focused WGS/GATK checks passed; no routes, automatic policy or dispatch enabled.
+Producer consumer, dispatch/control fences, adapter/DAG/UI work and concurrent
+PostgreSQL acceptance remain; see the P0 progress ledger.
+Do not substitute text-based guessing for bound source evidence.
+
 Updated 2026-09-22 after refreshing the authoritative test branch and
 reassessing all documented development against current main/production.
 Historical tasks are archived and are not silently reopened or marked complete.

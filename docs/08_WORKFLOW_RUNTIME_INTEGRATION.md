@@ -1,5 +1,57 @@
 # Workflow runtime integration
 
+## P0 internal recovery budget (2026-09-22, source only)
+
+`app.cce_recovery_budget.reserve_compute_recovery` reserves within the caller's
+transaction using the existing AnalysisRun row lock/RunAction JSON. It has no
+public endpoint, network call or dispatch. Version1 policy and an initialized
+`cce_recovery_budget` (attempt, count0, original_deadline) must be frozen for new
+attempts only. Missing state rejects; no migration/default enables old attempts.
+Two ordinal reservations share the attempt budget, waiting60/180s without
+extending the original deadline. Replays do not spend again; counter/journal
+disagreement, user stop and active resume/maintenance block new reservations.
+
+The producer consumer must first validate bound complete fatal evidence, exact
+terminal Master and Worker quiescence. Dispatch must commit reservation first
+and then recheck shared control/maintenance fences under the same run lock.
+Neither consumer nor dispatch is wired by this initial budget change. Existing
+manual/Step7 entry points are not yet a fully shared P0 fence; keep policy off.
+54 isolated BS10610 SQLite checks passed; PostgreSQL concurrency and integration
+remain unverified. No table/column/API or workflow behavior change.
+
+### Draft producer/terminal-seal validation (not connected)
+
+`app.cce_recovery_evidence.validate_recovery_evidence` compares frozen
+`snakemake.kubernetes.submit-context.v1`, plugin candidate
+`snakemake.kubernetes.executor-failure.v1` and proposed trusted-runtime
+`cce.master-terminal.v1`. Each carries pipeline, analysis_id, attempt (canonical
+positive decimal string), execution_id, generation (integer), request_hash,
+run_id, namespace, master_job_uid, master_pod_uid. The terminal document binds
+the candidate by canonical sorted compact UTF-8 JSON SHA256 (ensure_ascii=false,
+allow_nan=false); this digest binds contents, not caller authorization.
+
+Proposed terminal fields: sealed/complete=true, master_state=failed,
+master_pod_state=terminated, exit_code>0, fatal_source=executor_submission,
+executor_failure_count matching the nonempty candidate list,
+rule_failure_count/other_failure_count=0, worker_inventory_complete=true,
+worker_ownership_verified=true, submissions_reconciled=true,
+active_worker_jobs/active_worker_pods/unresolved_submissions=0. Boolean values
+are not integers. Completeness must cover cumulative Master failures, all
+submission intents and admitted manifests, not only failed entries or a single
+empty API list. The future runtime reader must verify controlled paths and
+frozen identity; arbitrary browser/uploaded JSON is never accepted as a seal.
+
+Every failure must be exhausted, retryable, ABSENT with no worker UID, and one
+of WORKER_CREATE_TRANSPORT / WORKER_CREATE_ADMISSION_TIMEOUT; mixed root causes,
+UNKNOWN/CONFLICT/manifest failure/missing FASTQ and absent evidence reject.
+Transport followed by a GET404 remains UNKNOWN, not proof of absence. This
+conservative draft does not yet enable the 0918A recovery path: actual producer
+fixtures, authoritative wrapper generation and all-intent reconciliation remain
+required. Existing releases without them stay disabled. Dispatch must recheck
+live fences/identity/quiescence; validated metadata alone is not permission.
+62 focused synthetic draft-contract checks passed on BS10610; NOT producer or
+Master integration acceptance. No current image is claimed to emit the seal.
+
 ## Native UI evidence adapter (2026-09-17 test)
 
 Native monitor and native-view share a bounded reader of

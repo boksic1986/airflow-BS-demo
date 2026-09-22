@@ -1,0 +1,125 @@
+"""Internal CCE recovery reservations; deliberately no dispatch or public route.
+
+Call only after bound runtime evidence validation, inside a caller transaction.
+The caller must commit before any external side effect and recheck control fences
+at dispatch. Policy AND a zero-count budget must be frozen for a new attempt;
+absence of historical state never grants a fresh budget. PostgreSQL serializes
+reservations on the existing AnalysisRun row, shared with control operations.
+"""
+from copy import deepcopy
+from datetime import datetime, timedelta, timezone
+from uuid import uuid4
+
+from sqlalchemy import select
+
+from app.models import AnalysisRun, RunAction, WgsMaintenanceAction
+
+
+ACTION = "cce_compute_recovery"
+DELAYS = (60, 180)
+STOPPED = {"success", "cancel_requested", "cancelled", "canceled", "terminated",
+           "paused", "pause_requested", "delete_requested", "deleted"}
+FINISHED_ACTIONS = {"success", "failed", "rejected", "cancelled", "canceled"}
+CONTROL_ACTIONS = {"resume_stage", "resume", "rerun_failed", "cancel_submission",
+                   "pause", "cancel", "delete", "terminate"}
+
+
+def _date(value):
+    try:
+        result = datetime.fromisoformat(value)
+        if result.tzinfo is None:
+            raise ValueError()
+        return result.astimezone(timezone.utc)
+    except (ValueError, TypeError) as error:
+        raise ValueError("invalid recovery deadline") from error
+
+
+def reserve_compute_recovery(*, session, analysis_id, attempt,
+                             source_execution_id, source_master_uid, now):
+    """Reserve/replay an action, never commit, sleep, dispatch or change run state."""
+    if type(attempt) is not int or attempt < 1:
+        raise ValueError("invalid recovery attempt")
+    if any(not isinstance(value, str) or not value.strip() or len(value) > 256
+           for value in (source_execution_id, source_master_uid)):
+        raise ValueError("recovery source identity is required")
+    if not isinstance(now, datetime) or now.tzinfo is None:
+        raise ValueError("timezone-aware recovery time required")
+    now = now.astimezone(timezone.utc)
+    run = session.scalar(select(AnalysisRun).where(
+        AnalysisRun.analysis_id == analysis_id).with_for_update()
+        .execution_options(populate_existing=True))
+    if run is None or run.attempt != attempt:
+        raise ValueError("unknown current recovery attempt")
+    if run.pipeline_name not in {"wgs", "gatk"} or run.execution_mode != "cce":
+        raise ValueError("recovery requires WGS/GATK CCE")
+    if run.status in STOPPED:
+        raise ValueError("recovery stopped by terminal or user control state")
+    params = dict(run.params_json or {})
+    policy = params.get("cce_recovery_policy")
+    if (not isinstance(policy, dict) or type(policy.get("version")) is not int
+            or policy["version"] != 1 or type(policy.get("attempt")) is not int
+            or policy["attempt"] != attempt or policy.get("enabled") is not True):
+        raise ValueError("missing, disabled or mismatched recovery policy")
+    budget = params.get("cce_recovery_budget")
+    if (not isinstance(budget, dict) or type(budget.get("attempt")) is not int
+            or budget["attempt"] != attempt or type(budget.get("count")) is not int
+            or not 0 <= budget["count"] <= len(DELAYS)
+            or not isinstance(budget.get("original_deadline"), str)):
+        raise ValueError("missing or invalid recovery budget")
+    deadline = _date(budget.get("original_deadline"))
+    if deadline != _date(policy.get("original_deadline")) or now >= deadline:
+        raise ValueError("recovery deadline changed or exhausted")
+
+    actions = session.scalars(select(RunAction).where(
+        RunAction.analysis_id == analysis_id).order_by(RunAction.id)).all()
+    journal = []
+    for action in actions:
+        data = action.payload_json
+        if action.action == ACTION:
+            if not isinstance(data, dict) or type(data.get("attempt")) is not int:
+                raise ValueError("invalid recovery budget journal")
+            if data["attempt"] != attempt:
+                continue
+            journal.append(action)
+        elif action.action in CONTROL_ACTIONS and action.result_status not in FINISHED_ACTIONS:
+            if not isinstance(data, dict) or data.get("attempt") in {None, attempt}:
+                raise ValueError("active control action blocks recovery")
+    maintenance = session.scalars(select(WgsMaintenanceAction).where(
+        WgsMaintenanceAction.analysis_id == analysis_id,
+        WgsMaintenanceAction.attempt == attempt)).all()
+    if any(action.status not in FINISHED_ACTIONS for action in maintenance):
+        raise ValueError("active maintenance blocks recovery")
+    if len(journal) != budget["count"]:
+        raise ValueError("recovery budget disagrees with durable journal")
+    for ordinal, action in enumerate(journal, 1):
+        data = action.payload_json
+        if (data.get("ordinal") != ordinal or data.get("pipeline") != run.pipeline_name
+                or data.get("workdir") != run.workdir or not data.get("action_id")
+                or _date(data.get("original_deadline")) != deadline):
+            raise ValueError("recovery budget journal identity differs")
+    # Replay never consumes a second slot, including a late callback after slot 2.
+    for action in journal:
+        data = action.payload_json
+        if data.get("source_execution_id") == source_execution_id and data.get("source_master_uid") == source_master_uid:
+            return deepcopy(data)
+        if data.get("source_master_uid") == source_master_uid:
+            raise ValueError("recovery source identity differs for the same Master")
+    if any(action.result_status not in FINISHED_ACTIONS for action in journal):
+        raise ValueError("another recovery action is active")
+    count = budget["count"]
+    if count >= len(DELAYS):
+        raise ValueError("automatic recovery budget exhausted")
+    retry_at = now + timedelta(seconds=DELAYS[count])
+    if retry_at >= deadline:
+        raise ValueError("recovery wait exceeds original deadline")
+    data = dict(action_id="cce_recovery_" + uuid4().hex, policy_version=1,
+                pipeline=run.pipeline_name, attempt=attempt, workdir=run.workdir,
+                source_execution_id=source_execution_id, source_master_uid=source_master_uid,
+                ordinal=count + 1, next_retry_at=retry_at.isoformat(),
+                original_deadline=deadline.isoformat())
+    session.add(RunAction(analysis_id=analysis_id, action=ACTION,
+        requested_by="internal-cce-recovery", result_status="reserved",
+        payload_json=data, created_at=now))
+    run.params_json = dict(params, cce_recovery_budget=dict(budget, count=count + 1))
+    session.flush()
+    return deepcopy(data)

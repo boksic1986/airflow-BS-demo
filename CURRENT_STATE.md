@@ -1,5 +1,39 @@
 # Current state
 
+Draft pure `cce_recovery_evidence` validator additionally completed: exact context
+binding, candidate digest, complete terminal summary and quiescence required.
+BS10610 RED then GREEN62 checks passed0.13s. This is a proposed wrapper contract,
+not evidence that today's plugin/Master emits it; no runtime reader or entry wired.
+
+## 2026-09-22 P0 isolated development released; first budget checks passed
+
+User released code development and partial synthetic testing while BS10610's
+existing upload completes. Coordinator confirmed separate candidate/no-network
+containers only; shared services, jobs, leases, databases and production remain
+untouched. Formal deployment and service integration still await its gate.
+
+Implemented internal `cce_recovery_budget.py`: existing AnalysisRun row lock and
+RunAction journal, two reservations per frozen attempt, 60/180s waits, immutable
+deadline, replay, transaction rollback and stop/control/maintenance checks.
+Both frozen policy and initialized budget are mandatory. No public route, policy
+initializer or dispatch is wired: this is NOT enabled automatic recovery.
+BS10610 isolated RED observed missing module; GREEN: 54 parameterized WGS/GATK
+synthetic checks passed in 1.89s. SQLite checks do not prove PostgreSQL concurrent
+serialization or live DAG/runtime behavior. CR-01–05 remain incomplete.
+Next: bound producer consumer, shared dispatch fences and adapter/DAG integration;
+coordinate Step7-owned files before modifying shared paths. See P0 ledger.
+
+## 2026-09-22 P0 implementation prerequisite
+
+The user approved joint plugin/Master/runtime/Airflow implementation, resolving
+the external-scope hold. Producer context/failure schema was agreed with the
+plugin owner, and attempt-budget tests were prepared locally but not run.
+BS10610 deployment and acceptance are paused by the environment coordinator:
+the choice between selective production-fix sync and full test-branch deployment
+is still pending. No application implementation or passing acceptance is claimed.
+See `docs/superpowers/plans/2026-09-22-p0-joint-recovery-progress.md`.
+No production, real-task operation or runtime test was performed.
+
 ## 2026-09-22 redundant blanket validation removed
 
 The user confirmed that work already developed, tested and published to
