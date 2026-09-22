@@ -1,5 +1,14 @@
 # CURRENT_STATE.md
 
+## 2026-09-22 0921C title correction published to BS96
+
+User requested fixing the6-sample0921C task. Deployed f875488 frontend only
+under releases/20260922-analysis-batch-f875488. Gateway serves verified
+index-cy5WK1Ot.js; health200. All23other running host containers unchanged, as are backend,
+data, pending, gates and workflow state. C is still config_review with6candidate
+rows; no analysis approval was sent. E became approved independently at12:02:23Z
+and correctly left incomplete submissions. Main/production refs remain unchanged.
+
 ## 2026-09-22 analysis batch title correction — source verified, not deployed
 
 Branch jiucheng/fix/analysis-batch-title-20260922, based on main9b381eb.

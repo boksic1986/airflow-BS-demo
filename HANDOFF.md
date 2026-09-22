@@ -1,5 +1,54 @@
 # HANDOFF.md
 
+## 2026-09-22 0921C live display correction completed
+
+Published f875488 frontend only at12:05Z using cached offline builder. Release
+/data/airflow-WGS/releases/20260922-analysis-batch-f875488; private compose,
+rollback, before/after snapshots and acceptance under analysis-batch-f875488-control.
+Gateway index/JS/CSS200 and bytes match deployed artifact; health200. Served
+JS index-cy5WK1Ot.js (sha256bea28d67c25da34d60ad6a29de9217824ef01d13b204592e4a699a35c990dfe1).
+All23non-frontend running host containers retain IDs; front env (key/value), command,
+entrypoint, user, workdir, mounts, ports, restart and network names unchanged.
+No backend/runtime/schema/DB writes, sampleinfo/pending edit or workflow action.
+Scoped BS106108tests/build from previous turn retained; only offline production
+build and gateway/API acceptance here, no real submission/browser action.
+
+Fresh target check: WGS_20260922_075550_FC9C3E remains config_review,
+analysis_batch20260921C,6frozen candidate rows, approvals null. Incomplete list
+now contains this C record only. E WGS_20260922_080037_13013D was independently
+approved12:02:23.681027Z, before frontend deployment; its9samples/batchE remain.
+Initial acceptance assumed both still incomplete and stopped when E disappeared;
+direct GET confirmed legitimate phase advancement, not a lost or renamed record.
+No cloud execution success is inferred from that approval.
+
+Operational failures: initial scp/scp/ssh handshake aborted at BS jump host
+before execution; TCP22 reachable, one later connection carried both source and
+deployment successfully. Post-cutover exact Env-list order assertion failed;
+normalized dictionaries proved equal. Host lacks httpx, so host gateway check
+used standard urllib; authenticated backend checks used its installed httpx.
+No service rollback was necessary. No production source branch merge/push done.
+Rollback, if later authorized: use private rollback.json config --quiet, then
+docker compose -p airflow-wgs -f <control>/rollback.json up -d --no-deps
+--pull never frontend-nginx. Do not target backend/global current or any data.
+
+## 2026-09-22 user-authorized live 0921C title correction — deployment scope
+
+User requested fixing the6-sample0921C task. Fresh BS96 GET/file checks identify
+WGS_20260922_075550_FC9C3E, attempt1, analysis_batch20260921C, config_review,
+both approvals absent. Frozen input contains6candidate rows, all analysis C;
+selected sample_count0 is expected before prepare approval, not lost input.
+Nine-sample0921E is separate and remains execution_review. No DB repair needed.
+Authorization implemented as publication of verified f875488 frontend-only;
+no approve/start/recreate-analysis or backend/runtime/database/pending change.
+Production frontend baseline9ff67d3 differs from f875488 only by the2runtime UI
+files plus focused test. Backend remains tracker-stage-0119a35, scanner/auto true.
+Only frontend-nginx may be recreated; all other live containers preserved.
+Target release releases/20260922-analysis-batch-f875488 and owner-only control
+analysis-batch-f875488-control under /data/airflow-WGS. Rollback uses unchanged
+previous frontend service spec/image54739d6c9098, not global current.
+Host server96/chenjc verified; releases root2770 hanjj:bioinfo, group writable.
+Four active dashboard records: only frontend service will change.
+
 ## 2026-09-22 analysis batch title correction — source only
 
 Goal/user decision: task titles use the Step1-entered batch, not the first

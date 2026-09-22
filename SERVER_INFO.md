@@ -1,5 +1,16 @@
 # SERVER_INFO.md
 
+## 2026-09-22 analysis batch title frontend publication
+
+BS96/server96 now serves frontend source f875488, image tag
+airflow-demo/frontend:analysis-batch-f875488. Source/build release:
+/data/airflow-WGS/releases/20260922-analysis-batch-f875488; private effective
+Compose/rollback/acceptance: /data/airflow-WGS/analysis-batch-f875488-control.
+Gateway assets index-cy5WK1Ot.js/index-UzgQaua7.css verified200/byte-matched.
+Only frontend-nginx recreated;23other running host containers preserved. Backend remains
+tracker-stage-0119a35 through step1-recovery-20260921-control/compose-r4.json.
+Global current unchanged. Scan/auto enabled and all source/data mounts retained.
+
 ## 2026-09-18 same-batch / Step2 release9ff67d3
 
 BS96/server96: backend e177f1eddc01 mounts

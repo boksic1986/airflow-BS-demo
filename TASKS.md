@@ -7,7 +7,9 @@
 - [x] Correct shared incomplete cards and saved/final submission headings only.
 - [x] BS10610 focused synthetic RED/GREEN (2 regression cases plus6existing), build.
 - [x] Update UI contract and handoff; preserve samples, pending and other worktrees.
-- Main/production promotion and deployment are not performed or newly authorized.
+- [x] Subsequent user instruction: correct live6-sample0921C display on BS96;
+  frontend-only publication and asset/API acceptance, all23other running host containers preserved.
+- Main/production promotion remains unrequested/not performed. No DB/run/input edit.
 
 ## SAMPLEINFO-SAME-BATCH-20260918
 
