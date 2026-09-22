@@ -1,5 +1,16 @@
 # CURRENT_STATE.md
 
+## 2026-09-22 upload queue display correction — verified, not deployed
+
+Branch jiucheng/fix/upload-waiting-display-20260922 based on cdd5c80.
+Live0921B/E dispatch waiting_resource with CCE waiting_upload_slot; tracker
+incorrectly projected completed prepare_analysis. Shared read-only transfer
+projection now shows Uploading FASTQ / waiting with unavailable measurements;
+existing UI renders an empty stationary bar. Applied to tracker/progress and
+workspace, without scheduler, lease, DB or frontend runtime changes.
+BS10610 focused RED1failed/10passed; GREEN11backend +3frontend passed.
+Not deployed to BS96 or merged/pushed to main/production; active analysis untouched.
+
 ## 2026-09-22 0921C title correction published to BS96
 
 User requested fixing the6-sample0921C task. Deployed f875488 frontend only

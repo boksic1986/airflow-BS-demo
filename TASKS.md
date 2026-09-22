@@ -1,5 +1,16 @@
 # TASKS.md
 
+## UPLOAD-WAITING-DISPLAY-20260922
+
+- [x] Read-only BS96 evidence:0921B/E approved, CCE dispatch waiting_resource;
+  previous prepare_analysis success causes misleading full green bar.
+- [x] Shared progress projection for approved CCE waits only; stage waiting,
+  empty measurements, current Step1 rail, no runtime/state writes.
+- [x] BS10610 synthetic11backend +3frontend checks; actual upload percentages,
+  no-approval, local target, committed dispatch and failed status protected.
+- [x] API/UI/state documentation and source commit on own branch.
+- [ ] BS96 publication pending; no current production service change authorized/executed.
+
 ## ANALYSIS-BATCH-TITLE-20260922
 
 - [x] Confirm user contract: titles use Step1-entered batch; mixed sequencing

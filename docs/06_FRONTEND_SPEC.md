@@ -1,5 +1,13 @@
 # Frontend specification
 
+## 2026-09-22 waiting for upload (source only)
+
+Once execution is approved but the CCE upload slot is still pending, display
+Uploading FASTQ with stage substatus waiting and an empty stationary bar.
+Do not show the preceding preparation's success/Stage complete/green full bar.
+Consume the backend waiting projection through the existing progress component;
+do not manufacture a transfer percentage. Real upload progress remains unchanged.
+
 ## 2026-09-22 submission titles use the entered analysis batch
 
 Incomplete-submission cards in Dashboard/Submit, the saved Step1 heading and

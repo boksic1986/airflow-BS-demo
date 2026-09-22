@@ -13,7 +13,7 @@ from app.wgs_sample_projection import get_wgs_batch_qc_status
 from app.wgs_stage_contract import canonical_wgs_stage, project_wgs_orchestration, wgs_stage_definition
 from app.wgs_transfer_projection import (
     ACTIVE_TRANSFER_STATUSES, TRANSFER_STAGES, active_transfer_snapshot,
-    transfer_stage_progress,
+    transfer_stage_progress, project_upload_wait,
 )
 from app.wgs_stage_estimates import attach_stage_estimates
 
@@ -154,6 +154,7 @@ def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_s
     }
     if transfer_stage:
         progress.update(transfer_stage_progress(transfer_payload))
+    progress = project_upload_wait(session=session, run=run, payload=progress)
     return {
         "snapshot_at": datetime.now(timezone.utc).isoformat(),
         "run": run_payload,

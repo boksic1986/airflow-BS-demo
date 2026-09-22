@@ -9,6 +9,19 @@ import {progressFromResponse} from "../lib/runProgress";
 
 afterEach(cleanup);
 
+it("shows upload waiting with an empty stationary bar rather than stage complete", () => {
+  const row = {analysis_id: "SYNTH", pipeline: "wgs", status: "running",
+    current_stage_label: "Uploading FASTQ", stage_status: "waiting", not_in_airflow: false,
+    stage_progress: {available: false, percent: null}} as DashboardRunTrackerRow;
+  render(<MemoryRouter><RunTracker rows={[row]} total={1} limit={10} offset={0} filter="all" keyword="" onFilterChange={() => {}} onKeywordChange={() => {}} onPageChange={() => {}} onSubmit={() => {}} /></MemoryRouter>);
+  expect(screen.getByText("Uploading FASTQ")).toBeInTheDocument();
+  expect(screen.getByText("waiting")).toBeInTheDocument();
+  expect(screen.queryByText("Stage complete")).not.toBeInTheDocument();
+  const bar = screen.getByRole("progressbar");
+  expect(bar).not.toHaveClass("progress-indeterminate");
+  expect(bar.firstElementChild).toHaveStyle({width: "0%"});
+});
+
 it("uses the same overall completion label in Tracker and detail for both pipelines", () => {
   for (const pipeline of ["wgs", "gatk"]) {
     const row = {analysis_id: "SYNTH", pipeline, status: "success", current_stage_label: "WGS workflow completed", not_in_airflow: false} as DashboardRunTrackerRow;

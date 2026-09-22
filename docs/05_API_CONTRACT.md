@@ -1,5 +1,17 @@
 # API contract
 
+## 2026-09-22 approved CCE upload waiting projection (source only)
+
+WGS tracker/progress/workspace replace completed prepare_analysis presentation
+with step1_upload, step_number1, label Uploading FASTQ and stage_status waiting
+when final execution is approved and the CCE dispatch is waiting_resource with
+no commit. Exact progress/bytes/speed/ETA remain null and progress_available false;
+the Step1 rail status is waiting. Progress source is wgs-execution-dispatch.
+No inference from the previous stage's success or another run's transfer.
+Unapproved, non-CCE, committed, terminal and already-uploading runs retain their
+existing projections. This is read-only; no new endpoint/schema, stage-state
+write, execution approval or scheduler/lease behavior change.
+
 ## WGS ebf1f4b Phase mapping (2026-09-17, source only)
 
 The exact release wgs-4.2.1-ebf1f4b now uses the audited fine-phase inventory:

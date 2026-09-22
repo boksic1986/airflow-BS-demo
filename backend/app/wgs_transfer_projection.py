@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import case, select
 
 from app.models import TransferFileState
-from app.models import TransferJob
+from app.models import TransferJob, WgsExecutionDispatch
 
 
 SUCCESS_STATES = {"success", "succeeded", "complete", "completed"}
@@ -12,6 +12,41 @@ ACTIVE_TRANSFER_STATUSES = {
     "publishing", "downloading",
 }
 TRANSFER_STAGES = {"step1_upload": "upload", "step5_download": "download"}
+
+
+def project_upload_wait(*, session, run, payload: dict) -> dict:
+    """Display approved CCE dispatch waits without changing workflow state."""
+    if (
+        run.pipeline_name != "wgs"
+        or str(run.status or "").lower() not in ACTIVE_TRANSFER_STATUSES
+        or payload.get("stage_code") != "prepare_analysis"
+        or payload.get("stage_status") != "success"
+        or not (run.params_json or {}).get("execution_approved_at")
+    ):
+        return payload
+    dispatch = session.scalar(select(WgsExecutionDispatch).where(
+        WgsExecutionDispatch.analysis_id == run.analysis_id,
+        WgsExecutionDispatch.desired_mode == "cce",
+        WgsExecutionDispatch.desired_target == "cce",
+        WgsExecutionDispatch.dispatch_state == "waiting_resource",
+        WgsExecutionDispatch.committed_at.is_(None),
+        WgsExecutionDispatch.committed_attempt.is_(None),
+    ))
+    if dispatch is None:
+        return payload
+    payload.update(transfer_stage_progress(None))
+    payload.update({
+        "stage_code": "step1_upload", "step_number": 1,
+        "stage_label": "Uploading FASTQ", "stage_status": "waiting",
+        "current_step": "Uploading FASTQ", "current_rule": None,
+        "current_sample": None, "note": "Waiting for CCE upload slot",
+        "progress_source": "wgs-execution-dispatch",
+        "stage_updated_at": dispatch.updated_at.isoformat() if dispatch.updated_at else None,
+    })
+    for stage in payload.get("orchestration_stages", []):
+        if stage.get("stage_code") == "step1_upload":
+            stage.update({"stage_status": "waiting", "status": "waiting", "completed_jobs": 0})
+    return payload
 
 
 def active_transfer_snapshot(*, session, run, stage: str) -> dict | None:

@@ -1,5 +1,47 @@
 # HANDOFF.md
 
+## 2026-09-22 upload queue display correction — source verified
+
+User asks0921B/E waiting-for-upload rows to show Uploading FASTQ / waiting and
+an empty bar instead of completed preparation. BS96 read-only probe identified
+WGS_20260922_080037_13013D and WGS_20260922_102447_8F03CA: both execution-approved,
+wait_execution_commit up_for_reschedule, dispatch waiting_resource, CCE target
+waiting_upload_slot. Run current stage still prepare_analysis; its successful
+receipt overrides the current queue situation. No evidence of completed upload.
+
+Scoped fix: project_upload_wait in wgs_transfer_projection.py uses existing
+dispatch identity/state plus final approval and completed preparation guard.
+No query/write of external resources, no state mutation. wgs_timing_service.py
+and wgs_workspace_service.py share the projection; queue metrics remain null,
+Step1 rail waiting, other paths unaffected. Existing RunProgressBar already
+renders waiting with0% width/no animation, so no frontend runtime edit needed.
+Changed the existing shared-transfer test and RunCompletion frontend test;
+updated API/UI docs and CURRENT_STATE/TASKS/HANDOFF. Own isolated branch
+jiucheng/fix/upload-waiting-display-20260922 starts at cdd5c80. Other worktrees
+and production remain untouched. No main/production merge/push or deployment.
+
+Remote verification: server10610, cached backend8491604ee01d, Node builder25e83a56;
+actual test backend source native-ui-76915d8-r2; scan/auto false. Candidate
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/upload-waiting-20260922.
+Network-isolated disposable containers, source mounts read-only, synthetic
+in-memory SQLite, no real data/DB/runtime mounts. Existing services untouched.
+pytest -q -p no:cacheprovider tests/test_wgs_shared_transfer_progress.py:
+RED1failed/10passed on wrong stage; GREEN11passed0.79s.
+vitest --run src/components/RunCompletion.test.tsx --reporter=dot:3passed1.36s.
+Logs red.log/green.log in candidate. No full suite or frontend build rerun:
+backend-only application change and user requires minimal focused validation.
+
+Diagnostic errors: initial test fixture omitted required progress_source;
+corrected before RED. A BS10610 SSH handshake failed at jump host; subsequent
+connection succeeded without settings changes. Some initial rg/read paths did
+not exist; file inventory resolved actual service modules. Tar clock-skew
+warnings harmless. No unresolved validation error. Future publication must
+preserve live backend tracker-stage-0119a35 fixes rather than deploying this
+older main baseline wholesale; apply only these3source deltas on verified live
+source. Request BS96 publication approval before restarting backend; keep
+frontend f875488 and all workers/scanner/runtime unchanged. Rollback the source
+release only, never database/pending or workflow data.
+
 ## 2026-09-22 0921C live display correction completed
 
 Published f875488 frontend only at12:05Z using cached offline builder. Release
