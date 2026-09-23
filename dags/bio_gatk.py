@@ -81,10 +81,26 @@ def validate_request(**context: Any) -> dict[str, Any]:
     return {"analysis_id": conf["analysis_id"], "attempt": conf["attempt"]}
 
 
+def stage_should_run(stage: str, conf: dict[str, Any]) -> bool:
+    if not conf.get('resume_action_id'):
+        return True
+    if stage in {'finalize_run', 'release_leases'}:
+        return True
+    required = {'acquire_input_transfer_slot':'step1_upload',
+                'release_input_transfer_slot':'step1_upload',
+                'acquire_result_transfer_slot':'step5_download',
+                'release_result_transfer_slot':'step5_download'}.get(stage, stage)
+    return required in conf.get('resume_stages', [])
+
+
 def register_stage(stage: str, **context: Any) -> dict[str, Any]:
     conf = dict(context["dag_run"].conf or {})
+    if not stage_should_run(stage, conf):
+        return {'stage':stage, 'status':'skipped', 'acquired':True}
     payload = {"attempt": conf["attempt"], "adapter": "gatk-runtime-200"}
-    if stage in {"release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
+    if conf.get('resume_action_id'):
+        payload['resume_action_id'] = conf['resume_action_id']
+    if conf.get('resume_action_id') or stage in {"release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
         payload["dag_run_id"] = context["dag_run"].run_id
     return _backend_json(
         f"/api/internal/gatk/runs/{conf['analysis_id']}/stages/{stage}",
@@ -97,6 +113,8 @@ def run_stage(stage: str, **context: Any) -> dict[str, Any]:
     if stage not in RUNNER_STAGES:
         raise ValueError(f"unsupported GATK runner stage: {stage}")
     registered = register_stage(stage, **context)
+    if registered.get('status') == 'skipped':
+        return registered
     conf = dict(context["dag_run"].conf or {})
     command = [
         "ssh",
@@ -135,6 +153,8 @@ def run_stage(stage: str, **context: Any) -> dict[str, Any]:
 
 def stage_ready(stage: str, **context: Any) -> bool:
     conf = dict(context["dag_run"].conf or {})
+    if not stage_should_run(stage, conf):
+        return True
     query = urlencode({"attempt": conf["attempt"], "stage": stage})
     value = _backend_json(
         f"/api/internal/gatk/runs/{conf['analysis_id']}/stage-status?{query}"

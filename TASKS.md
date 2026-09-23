@@ -1,5 +1,17 @@
 # Active test-branch tasks
 
+## 2026-09-24 Task4 GATK dispatch checkpoint
+
+- [x] GATK own service registers frozen v2 requests/history in PipelineStageExecution;
+  same RunAction/attempt and one durable Airflow POST, not WGS execution internals.
+- [x] Existing authenticated endpoint routes by registered adapter; actual
+  DagRun/action scope fences registration/acquire/finalize. GATK capability stays off.
+- [x] GATK DAG skips prepare/upload/completed stages on Resume; affected isolated tests.
+- [ ] Confirm initial Master platform-identity bootstrap source addition, then
+  implement trusted binding writer, all-writer/dispatcher proof and selected-view
+  downstream integration. No native/platform request-hash substitution.
+- [ ] Complete Task4 manual native mock acceptance before Task5, then Task6.
+
 ## 2026-09-24 Task4 WGS dispatch checkpoint accepted; Task4 remains OPEN
 
 - [x] Existing authenticated WGS Resume: durable POST intent, exact DagRun

@@ -3,17 +3,20 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import hashlib
 import json
+import secrets
 from pathlib import Path
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.cce_recovery_budget import dag_failure_fence_reason
+from app.cce_recovery_budget import dag_failure_fence_reason, require_no_pending_compute_recovery
+from app.cce_resume_dispatch import dispatch_recovery
 from app.gatk_stage_contract import gatk_stage_definition
 from app.diagnostics_service import sync_sample_statuses
 from app.models import (
     AnalysisRun,
+    RunAction,
     PipelineStageExecution,
     RuleState,
     RunStageState,
@@ -74,7 +77,8 @@ def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def register_gatk_stage(
-    *, session: Session, settings, analysis_id: str, attempt: int, stage: str
+    *, session: Session, settings, analysis_id: str, attempt: int, stage: str,
+    recovery_action=None, commit: bool = True
 ) -> dict[str, Any]:
     if stage not in STAGES:
         raise ValueError("unsupported GATK runtime stage")
@@ -82,7 +86,7 @@ def register_gatk_stage(
         select(AnalysisRun).where(
             AnalysisRun.analysis_id == analysis_id,
             AnalysisRun.pipeline_name == "gatk",
-        ).with_for_update()
+        ).with_for_update().execution_options(populate_existing=True)
     )
     if run is None or run.attempt != attempt:
         raise ValueError("unknown active GATK attempt")
@@ -113,7 +117,15 @@ def register_gatk_stage(
         .order_by(PipelineStageExecution.generation.desc())
         .limit(1)
     )
-    if latest is not None and latest.status in {"accepted", "running", "success"}:
+    if recovery_action:
+        if stage not in recovery_action.payload_json['resume_stages']:
+            raise ValueError('stage is outside the GATK recovery action')
+        path = _request_path(settings, analysis_id, attempt, stage)
+        saved = json.loads(path.read_text()) if path.is_file() else None
+        if latest and saved and saved.get('resume_action_id') == recovery_action.payload_json['action_id']:
+            _validate_recovery_request(run, latest, saved)
+            return _execution_payload(latest)
+    if not recovery_action and latest is not None and latest.status in {"accepted", "running", "success"}:
         return _execution_payload(latest)
     reopening_terminal_stage = latest is not None and latest.status in {
         "failed",
@@ -148,6 +160,24 @@ def register_gatk_stage(
             "predecessor_execution_id": predecessor.execution_id if predecessor else None,
             "predecessor_receipt_hash": predecessor.receipt_hash if predecessor else None,
         }
+        if recovery_action:
+            frozen = recovery_action.payload_json['frozen_request']
+            if saved:
+                _validate_recovery_request(run, latest, saved)
+                history = request_path.parent / 'request-history' / stage / f'generation-{latest.generation}.json'
+                if history.exists() and json.loads(history.read_text()) != saved:
+                    raise ValueError('GATK request history differs')
+                if not history.exists():
+                    _atomic_json(history, saved)
+            for key in ('runtime_workdir', 'cce_bundle', 'profile_id', 'profile_revision'):
+                request[key] = frozen[key]
+            request['resume_action_id'] = recovery_action.payload_json['action_id']
+            if latest:
+                request['resume_previous_execution'] = {key: getattr(latest, key)
+                    for key in ('execution_id', 'generation', 'request_hash')}
+                if latest.status in {'accepted', 'running'}:
+                    latest.status = 'canceled'
+                    latest.ended_at = datetime.now(timezone.utc)
         request_hash = _canonical_hash(request)
         request["request_hash"] = request_hash
     execution = PipelineStageExecution(
@@ -169,14 +199,15 @@ def register_gatk_stage(
     )
     session.add(execution)
     resuming_failed_run = run.status == "failed"
-    run.status = "running"
-    run.current_stage = stage
-    run.started_at = run.started_at or datetime.now(timezone.utc)
-    if reopening_terminal_stage or resuming_failed_run:
-        run.ended_at = None
-        run.pipeline_finished_at = None
-        run.error_summary = None
-    sync_sample_statuses(session=session, analysis_id=analysis_id, run_status="running")
+    if not recovery_action:
+        run.status = "running"
+        run.current_stage = stage
+        run.started_at = run.started_at or datetime.now(timezone.utc)
+        if reopening_terminal_stage or resuming_failed_run:
+            run.ended_at = None
+            run.pipeline_finished_at = None
+            run.error_summary = None
+        sync_sample_statuses(session=session, analysis_id=analysis_id, run_status="running")
     if stage != "prepare":
         _atomic_json(request_path, request)
     _upsert_gatk_stage_state(
@@ -194,8 +225,90 @@ def register_gatk_stage(
         progress_source="gatk-runtime",
         reopen_terminal=reopening_terminal_stage,
     )
-    session.commit()
+    if commit:
+        session.commit()
+    else:
+        session.flush()
     return _execution_payload(execution)
+
+
+def _latest_gatk(session, run, stage):
+    return session.scalar(select(PipelineStageExecution).where(
+        PipelineStageExecution.pipeline_name == 'gatk',
+        PipelineStageExecution.analysis_id == run.analysis_id,
+        PipelineStageExecution.attempt == run.attempt,
+        PipelineStageExecution.stage_code == stage)
+        .order_by(PipelineStageExecution.generation.desc()).limit(1))
+
+
+def _validate_recovery_request(run, execution, payload):
+    params = run.params_json or {}
+    if (not execution or payload.get('pipeline') != 'gatk'
+            or payload.get('analysis_id') != run.analysis_id or payload.get('attempt') != run.attempt
+            or payload.get('stage') != execution.stage_code
+            or payload.get('orchestration_contract_version') != 2
+            or payload.get('profile_id') != params.get('runtime_profile_id')
+            or payload.get('profile_revision') != params.get('runtime_profile_revision')
+            or any(payload.get(key) != getattr(execution, key) for key in ('execution_id', 'generation', 'request_hash'))
+            or _canonical_hash({key: value for key, value in payload.items() if key != 'request_hash'}) != execution.request_hash):
+        raise ValueError('GATK recovery requires an exact frozen v2 execution request')
+
+
+def request_gatk_resume_stage(*, session, settings, airflow_client, analysis_id,
+                              attempt, stage, idempotency_key, requested_by):
+    if not settings.gatk_execution_enabled:
+        raise ValueError('GATK execution is disabled')
+    if stage not in STAGES[1:] or not idempotency_key or len(idempotency_key) > 128:
+        raise ValueError('a canonical Step1–6 stage and idempotency key are required')
+    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        .with_for_update().execution_options(populate_existing=True))
+    if not run or run.pipeline_name != 'gatk' or run.attempt != attempt or run.execution_mode != 'cce':
+        raise ValueError('unknown current GATK CCE attempt')
+    require_no_pending_compute_recovery(session=session, run=run)
+    action = None
+    for previous in session.scalars(select(RunAction).where(RunAction.analysis_id == analysis_id,
+            RunAction.action == 'resume_stage').order_by(RunAction.id.desc())):
+        data = previous.payload_json
+        if data.get('attempt') != attempt:
+            continue
+        active = previous.result_status in {'reserved', 'uncertain'} or (
+            previous.result_status == 'queued' and run.status not in {'failed','success','canceled','cancelled','terminated'})
+        if data.get('idempotency_key') == idempotency_key or active:
+            if data['stage'] != stage:
+                raise ValueError('another GATK recovery stage owns this action')
+            action = previous
+            break
+    if action is None:
+        execution = _latest_gatk(session, run, stage)
+        if not execution or execution.status == 'success':
+            raise ValueError('stage has no interrupted GATK execution')
+        frozen = json.loads(_request_path(settings, analysis_id, attempt, stage).read_text())
+        _validate_recovery_request(run, execution, frozen)
+        action_id = 'resume_' + secrets.token_hex(12)
+        stages = [code for code in STAGES[STAGES.index(stage):]
+            if not (_latest_gatk(session, run, code) and _latest_gatk(session, run, code).status == 'success')]
+        data = dict(action_id=action_id, attempt=attempt, stage=stage, idempotency_key=idempotency_key,
+            original_dag_run_id=run.dag_run_id, dag_run_id=f'{analysis_id}-a{attempt}-{action_id}',
+            resume_stages=stages, frozen_request=frozen, dispatch_state='not_started')
+        action = RunAction(analysis_id=analysis_id, action='resume_stage', requested_by=requested_by,
+            payload_json=data, result_status='reserved')
+        session.add(action)
+        run.params_json = dict(run.params_json or {}, resume_action_id=action_id)
+        payload = register_gatk_stage(session=session, settings=settings, analysis_id=analysis_id,
+            attempt=attempt, stage=stage, recovery_action=action, commit=False)
+        data = dict(data)
+        data['generation'] = payload['generation']
+        data['conf'] = dict(analysis_id=analysis_id, attempt=attempt, pipeline='gatk', execution_mode='cce',
+            workdir=run.workdir, params=run.params_json, resume_stage=stage,
+            resume_action_id=action_id, resume_stages=stages)
+        action.payload_json = dict(data)
+        run.dag_run_id, run.current_stage = data['dag_run_id'], stage
+        session.commit()
+    action = dispatch_recovery(session=session, run=run, action=action,
+        airflow_client=airflow_client, latest_execution=_latest_gatk)
+    data = action.payload_json
+    return dict(analysis_id=analysis_id, attempt=attempt, stage=stage, generation=data['generation'],
+        action_id=data['action_id'], status=action.result_status)
 
 
 def record_gatk_transfer_wait(*, session: Session, analysis_id: str, attempt: int,
@@ -440,7 +553,8 @@ def _ingest_gatk_evidence(
 
 
 def finalize_gatk_run(
-    *, session: Session, settings, analysis_id: str, attempt: int
+    *, session: Session, settings, analysis_id: str, attempt: int,
+    resume_action_id: str | None = None, dag_run_id: str | None = None
 ) -> dict[str, Any]:
     status = sync_gatk_stage_status(
         session=session,
@@ -455,10 +569,14 @@ def finalize_gatk_run(
         select(AnalysisRun).where(
             AnalysisRun.analysis_id == analysis_id,
             AnalysisRun.pipeline_name == "gatk",
-        )
+        ).with_for_update().execution_options(populate_existing=True)
     )
     if run is None or run.attempt != attempt:
         raise ValueError("unknown active GATK attempt")
+    if resume_action_id or (run.params_json or {}).get('resume_action_id'):
+        from app.cce_resume_dispatch import authorize_recovery_stage
+        authorize_recovery_stage(session=session, run=run, action_id=resume_action_id,
+            dag_run_id=dag_run_id, stage='finalize_run')
     now = datetime.now(timezone.utc)
     run.status = "success"
     run.current_stage = "finalize_run"

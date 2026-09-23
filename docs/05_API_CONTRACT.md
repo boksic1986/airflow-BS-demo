@@ -1,5 +1,23 @@
 # API contract
 
+## P0-2 Task4 adapter routing checkpoint (2026-09-24, source only)
+
+The existing `POST /api/runs/{analysis_id}/actions/resume-stage` now requires the
+registered pipeline's `resume` capability and calls its own adapter. Operator and
+CSRF checks are unchanged. WGS execution gates remain WGS-only; GATK checks its
+own execution gate. GATK capability is deliberately NOT added to deployed config
+before native/all-writer Task4 acceptance; this source checkpoint is not activation.
+
+GATK uses PipelineStageExecution and its own canonical request hash, profile,
+bundle and predecessor receipts. A resumed request preserves the prior JSON in
+request-history and adds resume_action_id/resume_previous_execution to the new
+generation. Airflow dispatch reuses the same RunAction protocol described below.
+`GatkRuntimeStageRequest` adds optional resume_action_id. Once an action is current,
+every registration (including acquire/finalize) requires that action and actual
+dag_run_id; missing identity cannot fall back to ordinary registration. Slot
+acquisition and finalization recheck after helpers that can commit/ingest evidence.
+No new public endpoint, table, policy enable or production migration.
+
 ## P0-2 Task4 WGS dispatch checkpoint (2026-09-24, source only)
 
 Existing authenticated `POST /api/runs/{analysis_id}/actions/resume-stage`

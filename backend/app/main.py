@@ -346,6 +346,7 @@ class GatkRuntimeStageRequest(BaseModel):
     attempt: int = Field(ge=1)
     adapter: str = Field(pattern="^gatk-runtime-200$")
     dag_run_id: str | None = Field(default=None, min_length=1, max_length=250)
+    resume_action_id: str | None = Field(default=None, min_length=1, max_length=128)
 
 
 class GatkDagTerminalRequest(BaseModel):
@@ -381,12 +382,18 @@ class WgsResumeStageRequest(BaseModel):
 @app.post('/api/runs/{analysis_id}/actions/resume-stage')
 def resume_wgs_stage(analysis_id: str, request: WgsResumeStageRequest,
                      user: AuthenticatedUser = Depends(operator_user)):
-    from app.wgs_resume_service import request_resume_stage
-    if not _wgs_platform_execution_enabled() or not _wgs_runtime_adapter_enabled():
-        raise HTTPException(status_code=409, detail='WGS execution is disabled')
     try:
         with get_sessionmaker()() as session:
-            return request_resume_stage(session=session, settings=get_settings(), airflow_client=get_airflow_client(),
+            pipeline = session.scalar(select(AnalysisRun.pipeline_name).where(AnalysisRun.analysis_id == analysis_id))
+            if pipeline is None:
+                raise ValueError('unknown analysis')
+            if pipeline == 'wgs' and (not _wgs_platform_execution_enabled() or not _wgs_runtime_adapter_enabled()):
+                raise ValueError('WGS execution is disabled')
+            settings = get_settings()
+            adapter = get_pipeline_registry(settings).require(pipeline, capability='resume').adapter
+            if adapter.resume_stage is None:
+                raise ValueError('Pipeline does not provide same-attempt Resume')
+            return adapter.resume_stage(session=session, settings=settings, airflow_client=get_airflow_client(),
                 analysis_id=analysis_id, attempt=request.attempt, stage=request.stage,
                 idempotency_key=request.idempotency_key, requested_by=user.username)
     except (ValueError, OSError) as error:
@@ -2725,6 +2732,19 @@ def internal_gatk_runtime_stage(
         )
     try:
         with get_sessionmaker()() as session:
+            def authorize():
+                from app.cce_resume_dispatch import authorize_recovery_stage
+                run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+                    .with_for_update().execution_options(populate_existing=True))
+                if not run or run.pipeline_name != 'gatk' or run.attempt != request.attempt:
+                    raise ValueError('unknown current GATK attempt')
+                if request.resume_action_id:
+                    return authorize_recovery_stage(session=session, run=run,
+                        action_id=request.resume_action_id, dag_run_id=request.dag_run_id, stage=stage_name)
+                if (run.params_json or {}).get('resume_action_id'):
+                    raise ValueError('current GATK recovery action identity required')
+                return None
+            recovery_action = authorize()
             if stage_name in {"acquire_input_transfer_slot", "acquire_result_transfer_slot"}:
                 transfer_kind = "input" if stage_name == "acquire_input_transfer_slot" else "result"
                 transfer_id = f"{analysis_id}-a{request.attempt}-{transfer_kind}"
@@ -2735,6 +2755,7 @@ def internal_gatk_runtime_stage(
                     transfer_id=transfer_id,
                     transfer_kind=transfer_kind,
                 )
+                authorize()  # Slot helper commits; recheck controls/DagRun under the run lock.
                 record_gatk_transfer_wait(session=session, analysis_id=analysis_id,
                     attempt=request.attempt, kind=transfer_kind, acquired=bool(slot))
                 return {
@@ -2772,6 +2793,8 @@ def internal_gatk_runtime_stage(
                     settings=settings,
                     analysis_id=analysis_id,
                     attempt=request.attempt,
+                    resume_action_id=request.resume_action_id,
+                    dag_run_id=request.dag_run_id,
                 )
             return register_gatk_stage(
                 session=session,
@@ -2779,6 +2802,7 @@ def internal_gatk_runtime_stage(
                 analysis_id=analysis_id,
                 attempt=request.attempt,
                 stage=stage_name,
+                recovery_action=recovery_action,
             )
     except ValueError as exc:
         raise HTTPException(

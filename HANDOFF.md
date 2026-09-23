@@ -1,5 +1,54 @@
 # Handoff
 
+## 2026-09-24 Task4 GATK own service/DAG/HTTP source checkpoint
+
+Goal: sequential remaining Tasks4–6 with minimum affected tests. Same isolated
+platform worktree/branch, base373da98. Producer32aa7fb and Worker5b5d7ee unchanged.
+
+Implemented GATK own same-attempt Resume registration, exact canonical frozen
+request validation, history and PipelineStageExecution generation. Extracted
+existing durable RunAction dispatch/action authorization without changing WGS
+execution guard. Existing operator/CSRF endpoint routes registered adapters.
+GATK stage API requires actual DagRun/action/scope and rejects old registrations;
+acquire rechecks after committed lease; finalize rechecks after evidence ingestion.
+GATK DAG skips prepare/upload/completed stages. No registry capability enabled.
+
+Files: cce_resume_dispatch.py, gatk_runtime_service.py, wgs_resume_service.py,
+pipeline_registry.py/pipeline_registry_service.py, main.py, bio_gatk.py, two focused
+GATK tests, API/DAG contracts, plan/CURRENT_STATE/TASKS/HANDOFF. No runtime producer,
+frontend, normal workflow or frozen project files changed.
+
+Remote preflight: BS10610 server10610 uid6708; current still20260912-opt-4d3d24e6;
+backend36ff21f87356 /app RO20260923-step7-ae416fa/backend/backend, /config RO current.
+WGS_INTAKE_SCAN_ENABLED=false and WGS_AUTO_DISPATCH_ENABLED=false. Used only isolated
+offline read-only cached-image containers, synthetic in-memory SQLite, source RO,
+scratch RW; no live DB/service or cloud access. Evidence under
+/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/p02-task4-20260924.
+
+Tests: new service5 RED missing entry; DAG RED missing skip result, then GREEN.
+Initial service GREEN found SQLAlchemy mutable JSON alias omitted conf; copy before
+assignment fixed. pytest test_gatk_resume_stage.py test_wgs_resume_stage.py
+test_gatk_runtime_service.py:39 passed in5.90s (gatk-dispatch-regression.log).
+Actual HTTP adapter/scope test RED WGS-only gate, then GREEN (gatk-route-green.log);
+the paired WGS HTTP check passed before GATK fixture-thread correction. New finalize
+control race RED then GREEN (gatk-finalize-red/green.log). Real Airflow unittest
+test_gatk_resume_stage:1 passed (gatk-dag-green.log). Setup-only failures (missing
+registry fixture/SQLite thread pool and initial DAG mock return) were corrected;
+not counted as behavioral RED. No full-suite repetition or local runtime tests.
+
+Open/blocking decision: initial native Master lacks recovery_context whereas the
+replacement view has one. Native handoff request_hash is a bundle/manifest digest,
+not the platform stage request_hash. Asked user to allow necessary isolated
+cce-pipeline initial-submission platform identity binding; not yet implemented.
+Do not fabricate binding metadata from arbitrary receipts. Continue Task4 trusted
+writer/canonical mapping, paired all-writer+old dispatcher proof and selected-view
+normal downstream receipt after that confirmation. Task5/6 not started. Existing
+historical batches without evidence remain manual; no rerun authorization implied.
+
+Risk/rollback: source-only staged capability; revert this checkpoint if needed.
+No deployment/push/main merge/image/CLI changes, no data cleanup. Task4 is not
+complete and this does not authorize TTL or automatic recovery activation.
+
 ## 2026-09-24 Task4 checkpoint: authenticated WGS Resume/DagRun dispatch
 
 Goal: continue approved P0-2 Task4, starting with actual WGS service/DAG dispatch

@@ -1,5 +1,15 @@
 # Airflow DAG specification
 
+## P0-2 GATK manual recovery selection (2026-09-24, source only)
+
+bio_gatk uses the persisted resume_stages list: skipped runner/sensor/transfer
+boundaries succeed without preparing, uploading, registering or dispatching SSH.
+Finalization and final lease cleanup remain in the original graph. Selected
+registrations send actual dag_run.run_id and resume_action_id, never a conf-supplied
+DagRun ID. The backend independently checks scope/current identity/control state.
+No graph order, pool, timeout or retry-budget changes. GATK Resume capability stays
+disabled pending the restricted native integration and Task4 full acceptance.
+
 ## P0 old cleanup request protection (2026-09-23, source only)
 
 WGS/GATK directional/final lease cleanup sends actual dag_run.run_id, never the

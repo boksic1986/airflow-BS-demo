@@ -180,6 +180,16 @@ assert delete_options["preconditions"] == {"uid": old_uid, "resourceVersion": ol
 
 ## Task4 — Authenticated manual adapter closure before automatic dispatch
 
+2026-09-24 additional source checkpoint: GATK own registration/history, existing
+adapter endpoint and DAG selection implemented; shared module contains only the
+accepted durable dispatch/action fences.39 affected backend cases plus two new
+HTTP/finalize cases passed, and one real-Airflow GATK DAG case passed. Shipped GATK
+registry still lacks resume capability. Native end-to-end acceptance remains open.
+Initial native Master has no platform recovery_context yet; adding it at initial
+submission (not modifying old bundles) was submitted for user confirmation. Do not
+equate native bundle request_hash with the platform stage request_hash. This is
+not permission to advance TTL or automatic activation before the remaining gates.
+
 2026-09-24 source checkpoint accepted: WGS authenticated dispatch/DagRun boundary.
 Existing Resume now journals POST intent and reconciles exact DagRun identity;
 all recovery registrations carry and validate actual DagRun ID and stage scope.

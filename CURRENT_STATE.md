@@ -1,5 +1,27 @@
 # Current state
 
+## 2026-09-24 Task4 GATK service/DAG checkpoint; native activation still blocked
+
+GATK now has its own frozen-request Resume registration using
+PipelineStageExecution, original attempt/profile/bundle, preserved request history,
+and the existing RunAction journal. WGS/GATK share only durable Airflow dispatch
+and action authorization. The existing operator/CSRF endpoint selects the adapter;
+GATK `resume` capability is NOT enabled in the shipped registry. Its DAG skips
+prepare/upload/completed stages and carries actual DagRun/action identity.
+Registration, slot acquisition and finalization reject superseded/control states.
+
+BS10610 isolated checks:39 affected backend cases passed; the added HTTP routing
+and finalize-control cases passed separately; one real-Airflow GATK DAG case
+passed. No full suite or local runtime tests; no service/production/CLI/image change.
+
+Task4 is not complete. A concrete producer gap needs confirmation: replacement
+Master gets recovery_context, but initial Master submission does not yet bind
+platform execution identity. Native handoff request_hash and platform stage
+request_hash are DIFFERENT digests and must not be treated as interchangeable.
+User asked to authorize this necessary initial-submission source addition; no
+such producer edit performed. Trusted binding writer/all-writer proof/selected
+view downstream remain open; Task5 TTL and Task6 auto dispatch remain gated.
+
 ## 2026-09-24 Task4 checkpoint: WGS authenticated dispatch fence accepted
 
 Task4 STARTED, not complete. Existing WGS Resume journals POST intent before

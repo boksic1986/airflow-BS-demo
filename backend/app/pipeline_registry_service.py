@@ -481,10 +481,21 @@ def _cleanup_gatk_step7(*, settings, **kwargs):
     return request_cleanup(settings=settings, **kwargs)
 
 
+def _resume_wgs_stage(**kwargs):
+    from app.wgs_resume_service import request_resume_stage
+    return request_resume_stage(**kwargs)
+
+
+def _resume_gatk_stage(**kwargs):
+    from app.gatk_runtime_service import request_gatk_resume_stage
+    return request_gatk_resume_stage(**kwargs)
+
+
 ADAPTERS = {
     "generic": PipelineAdapter(adapter_id="generic"),
     "wgs": PipelineAdapter(
         adapter_id="wgs",
+        resume_stage=_resume_wgs_stage,
         request_cleanup_step7=_cleanup_wgs_step7,
         sample_qc_failures=False,
         create_run=_create_wgs_run,
@@ -512,6 +523,7 @@ ADAPTERS = {
     ),
     "gatk": PipelineAdapter(
         adapter_id="gatk",
+        resume_stage=_resume_gatk_stage,
         request_cleanup_step7=_cleanup_gatk_step7,
         sync_airflow_status=sync_gatk_airflow_status,
         airflow_sync_states=("submitted", "queued", "running", "publishing", "downloading", "failed"),
