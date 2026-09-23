@@ -241,6 +241,8 @@ def register_stage(stage: str, **context: Any) -> dict[str, Any]:
         "maintenance_action_id": conf.get("maintenance_action_id"),
         "resume_action_id": conf.get("resume_action_id"),
     }
+    if stage in {"release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
+        request_payload["dag_run_id"] = context["dag_run"].run_id
     task_instance = context.get("ti") or context.get("task_instance")
     if int(getattr(task_instance, "try_number", 1) or 1) > 1:
         request_payload["force_new_generation"] = True
@@ -468,7 +470,8 @@ def stage_ready(stage: str, **context: Any) -> bool:
             _backend_json(
                 f"/api/internal/wgs/runs/{conf['analysis_id']}/observer/deactivate",
                 method="POST",
-                payload={"attempt": conf["attempt"]},
+                payload={"attempt": conf["attempt"], "dag_run_id": context["dag_run"].run_id,
+                         "resume_action_id": conf.get("resume_action_id")},
             )
         except Exception as error:
             raise AirflowFailException('Observer deactivation outcome requires reconciliation') from error
@@ -684,13 +687,15 @@ def release_leases(**context: Any) -> dict[str, Any]:
     released = _backend_json(
         f"/api/internal/wgs/runs/{conf['analysis_id']}/stages/release_leases",
         method="POST",
-        payload={"attempt": conf["attempt"], "adapter": "wgs-runtime-200", "resume_action_id": conf.get('resume_action_id')},
+        payload={"attempt": conf["attempt"], "adapter": "wgs-runtime-200",
+                 "dag_run_id": context["dag_run"].run_id, "resume_action_id": conf.get('resume_action_id')},
     )
     _raise_if_transfer_lease_retained(stage="release_leases", response=released)
     observer = _backend_json(
         f"/api/internal/wgs/runs/{conf['analysis_id']}/observer/deactivate",
         method="POST",
-        payload={"attempt": conf["attempt"]},
+        payload={"attempt": conf["attempt"], "dag_run_id": context["dag_run"].run_id,
+                 "resume_action_id": conf.get("resume_action_id")},
     )
     failed_tasks = _upstream_failure_task_ids(context)
     if failed_tasks:

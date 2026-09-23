@@ -51,6 +51,28 @@ def dag_failure_fence_reason(*, session, run, dag_run_id):
     return None
 
 
+def require_current_dag_cleanup(*, session, analysis_id, attempt, pipeline,
+                                dag_run_id, resume_action_id=None):
+    """Fence external DagRun cleanup under the run lock, without committing.
+
+    Trusted runtime terminal ingestion keeps its existing receipt/lease guards;
+    this check is only for Airflow release and observer-deactivate requests.
+    """
+    run = session.scalar(select(AnalysisRun).where(
+        AnalysisRun.analysis_id == analysis_id,
+        AnalysisRun.pipeline_name == pipeline).with_for_update()
+        .execution_options(populate_existing=True))
+    if run is None or run.attempt != attempt:
+        raise ValueError('unknown current cleanup attempt')
+    reason = dag_failure_fence_reason(session=session, run=run, dag_run_id=dag_run_id)
+    if reason:
+        raise ValueError(f'DagRun cleanup rejected: {reason}')
+    recovery_id = (run.params_json or {}).get('resume_action_id')
+    if recovery_id and (not dag_run_id or dag_run_id != run.dag_run_id or resume_action_id != recovery_id):
+        raise ValueError('DagRun cleanup requires the current recovery identity')
+    return run
+
+
 def require_no_pending_compute_recovery(*, session, run):
     """Manual retry fence; caller holds/refreshed the same AnalysisRun row lock.
 

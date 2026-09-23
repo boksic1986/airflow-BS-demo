@@ -1,5 +1,16 @@
 # Airflow DAG specification
 
+## P0 old cleanup request protection (2026-09-23, source only)
+
+WGS/GATK directional/final lease cleanup sends actual dag_run.run_id, never the
+original conf value. WGS Step3 terminal drain and final observer drain carry
+that ID plus resume_action_id. Failed release/retained lease prevents final
+drain; the backend independently checks each request under the refreshed run
+lock. No task graph/order/pool/retry/limit changes; Local/SGE DAGs unchanged.
+No automatic dispatch enabled. Backend API must precede DAG rollout.
+Remaining observer generation projection and recovery dispatch are not covered
+by this external-cleanup fence; PostgreSQL concurrency remains unverified.
+
 ## P0 old failure callback protection (2026-09-23, source only)
 
 GATK report_dag_failure now sends actual dag_run.run_id with its existing attempt

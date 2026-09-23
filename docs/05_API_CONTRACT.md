@@ -1,5 +1,27 @@
 # API contract
 
+## P0 DagRun cleanup identity (2026-09-23, source only)
+
+Existing WGS/GATK stage requests accept optional dag_run_id (1..250 chars).
+The release_input_transfer_slot, release_result_transfer_slot and release_leases
+handlers require current pipeline/attempt and reject superseded DagRun identity.
+Current automatic-recovery history requires a DagRun ID; reserved or unbound
+actions deny cleanup, queued/uncertain exact current target can clean up. WGS
+continues to require its current resume_action_id for manual recovery.
+
+WGS observer lifecycle requests additionally accept dag_run_id and
+resume_action_id; these are checked on deactivate, not activation. A refusal
+uses each endpoint's existing validation error, not a successful no-op, and
+does not drain the observer or update the run. Identity-less legacy calls remain
+compatible only without current recovery. Authentication is unchanged.
+
+Current identity does not override transfer terminal proof. Lease release
+primitive/receipt ingestion remain unchanged. WGS partial release may commit an
+already-terminal slot, then must re-lock/recheck before projecting retained-slot
+state; a subsequent refusal does not undo that earlier valid release. Backend
+API before DAG deployment (older GATK extra-forbid model rejects the new field).
+No public API, schema, new lifecycle status or automatic enablement.
+
 ## P0 failed DagRun callback identity (2026-09-23, source only)
 
 Existing internal GATK dag-terminal accepts optional dag_run_id (1..250 chars),

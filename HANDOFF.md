@@ -1,5 +1,86 @@
 # Handoff
 
+## 2026-09-23 CR-03 old DagRun cleanup protection
+
+User next step; base3b3e142, independent jiucheng/runtime/CR01-cce-recovery-20260922.
+Coordinator confirmed no overlapping ownership and approved isolated synthetic
+validation only. Used existing execution plan, backend/runtime/DAG and handoff
+skills. Changed cce_recovery_budget.py, main.py cleanup request/handlers only,
+bio_wgs.py and bio_gatk.py cleanup payloads; added backend cleanup fence tests,
+actual DAG identity tests, updated four affected legacy WGS DAG tests. Updated
+API/DAG/runtime docs plus CURRENT_STATE/TASKS/this HANDOFF/P0 progress ledger.
+
+Current pipeline/attempt + refreshed AnalysisRun FOR UPDATE precedes external
+cleanup. Shared failure-fence predicate rejects superseded ID, missing identity
+with current recovery history, ambiguous/reserved/unbound action. Queued or
+uncertain exact current target may clean up; WGS manual resume_action_id is
+also required. No new table, policy or graph changes. Transfer must still be
+terminal; current ID does not grant early release. Runtime receipt ingestion,
+lease primitive, activation and Local/SGE launchers unchanged.
+
+Found partial release primitive commits before retained-slot projection. A
+focused forced-interleaving test reproduced stale current_stage overwrite;
+WGS now re-locks/rechecks after that partial commit before further mutation.
+Earlier valid terminal-slot release is not rolled back if later identity
+changed. Separate observer request checks identity again. These tests are not
+PostgreSQL serialization proof. No full-scope completion claim.
+
+Fresh test preflight: ssh BS10610 -> server10610 uid6708, control root
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS; current20260912-opt-4d3d24e6.
+Backend36ff21f87356 image8491604ee01d actual /app readonly from
+releases/20260923-step7-ae416fa/backend/backend; /config current/config readonly.
+scan=false/dispatch=false. Own candidate writable; no permission changes.
+No shared services, databases, live runtime or BS96 accessed/mutated. No active
+run query needed for network-none isolated containers, no shared deployment.
+Candidate C=control-root/candidates/p0-airflow-recovery-20260922.
+
+Backend command: docker run --rm --pull=never --network=none --read-only
+--cpus=1 --memory=1g --tmpfs /tmp:rw,size=64m, readonly C/backend and stage YAML,
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/candidate/backend; cached backend image,
+python -m pytest -q -p no:cacheprovider <selection> --tb=short.
+- test_cce_recovery_cleanup_fence.py --maxfail=1 initial setup ERROR1: synthetic
+  fixture omitted required workdir, corrected fixture only; cleanup-fence-red.log.
+- Same selection RED1 failed1.22s: stale cleanup not rejected;
+  cleanup-fence-red1.log. GREEN23 passed1.67s; cleanup-fence-green.log.
+- Added only test_partial_release_rechecks_identity_before_changing_run_projection:
+  RED1 failed1.27s, GREEN1 passed1.26s; cleanup-partial-{red,green}.log.
+  Only affected case rerun for that fix, not the whole 23-case matrix.
+- Extended the existing manual-identity test for an unbound target: both request
+  and current dag_run_id absent must not compare equal and authorize drain.
+  RED1 failed1.48s; added explicit nonempty ID requirement. Only this case and
+  legacy-no-recovery compatibility rerun: GREEN2 passed,22 deselected0.98s;
+  cleanup-manual-unbound-{red,green}.log. No additional callback semantics changed.
+- test_wgs_only_platform.py -k 'test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease
+  or test_final_lease_cleanup_does_not_release_another_active_run
+  or test_internal_step3_observer_activation_and_drain_are_exposed_in_run_detail'
+  GREEN3 passed,62 deselected2.28s; cleanup-legacy-green.log. Existing anyio
+  BlockingPortal deprecation warning; all docker runs show kernel swap warning.
+
+DAG command: same isolated limits, tmpfs128MiB, C/dags readonly, AIRFLOW_HOME
+and SQLite metadata in tmpfs; cached58195672af68 image entrypoint
+/usr/local/bin/python /candidate/dags/tests/<file>. No live credentials/DB.
+- test_cleanup_dag_identity.py initial ERROR: candidate missing bio_wgs.py;
+  copied unchanged source. Next run incomplete synthetic conf lacked resume_stages
+  (3errors+3failures); corrected fixture, no product workaround. Clean RED:6
+  subcase failures across2 methods,3 methods total2.798s (missing actual run_id).
+  Logs cleanup-dag-red.log, cleanup-dag-red1.log, cleanup-dag-red2.log.
+- GREEN3 methods2.952s, then final lease payload coverage added: GREEN3 methods
+  2.812s (cleanup-dag-green.log / cleanup-dag-green-final.log).
+- test_bio_wgs_dag.py BioWgsDagTests.test_step3_terminal_status_requests_observer_drain
+  BioWgsDagTests.test_release_leases_always_requests_final_observer_drain
+  BioWgsDagTests.test_release_leases_fails_closed_when_backend_retains_a_lease
+  BioWgsDagTests.test_directional_release_task_fails_closed_when_evidence_is_not_terminal:
+  GREEN4 passed (cleanup-dag-legacy-green.log). Fixtures now have actual run_id;
+  old release-before-drain ordering assertion aligned to existing safe ordering.
+
+Unique24 new backend+3 legacy endpoint+7 DAG tests. No full suite, local runtime,
+PostgreSQL concurrency, plugin suite or live recovery: user requests scoped
+minimum verification. No push/merge/deployment. Future approved release must put
+backend API before DAGs. Rollback source commit only; no data/service rollback.
+Next: dispatcher/adapter continuation and observer generation projection under
+existing CR-03, trusted terminal closure/Step4/concurrency/end-to-end still open.
+Automatic recovery stays off. No extra Master audit track added.
+
 ## 2026-09-23 CR-03 old DagRun failure callback protection
 
 User next step; base04a2530, independent CR01 branch. Used executing-plans,

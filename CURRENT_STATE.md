@@ -1,5 +1,20 @@
 # Current state
 
+## 2026-09-23 old DagRun cleanup fence completed (source only)
+
+CR-03 WGS/GATK transfer-release endpoints and WGS observer deactivation now
+check refreshed current attempt/DagRun/recovery identity under the run row lock.
+Old or unbound recovery cleanup cannot release even a terminal transfer or drain
+the replacement observer. Current cleanup retains existing terminal-only lease
+release. Partial WGS release re-locks before retained-slot state projection.
+DAG cleanup callers send actual run_id; no graph/runtime/Step7 changes.
+BS10610:24 new backend cases,3 affected legacy endpoint cases and7 actual DAG
+tests passed (targeted runs only). Source and progress docs on the independent
+CR01 branch; no push/merge/deployment, production or shared-service mutation.
+Remaining: dispatcher/adapter wiring, observer generation projection, trusted
+terminal closure, Step4 reconciliation and PostgreSQL/end-to-end acceptance.
+Automatic recovery remains disabled; P0 is not complete.
+
 ## 2026-09-23 old DagRun failure callback fence completed
 
 WGS/GATK failure projection now refreshes the locked run and refuses stale

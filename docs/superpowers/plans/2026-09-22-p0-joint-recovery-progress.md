@@ -18,6 +18,21 @@ No unrelated regression suite. Preserve the original worktree's dirty files.
 
 ## Current progress
 
+- From3b3e142: CR-03 external lease/observer cleanup fence. Locked current run,
+  attempt, DagRun and pending recovery authority before WGS/GATK release stages
+  and WGS observer deactivate; DAGs send actual run_id. Partial WGS release
+  re-locks before retained-slot projection.24 new backend+3 legacy API+7 actual
+  DAG tests passed in isolated BS10610, with RED evidence for stale release,
+  missing DAG payload and partial-commit race. No shared service/production change.
+- Ruling: retain legacy identity-less no-recovery cleanup and trusted runtime
+  terminal ingestion unchanged; guard only external cleanup entry points. Reuse
+  existing failure-fence predicate, not a new state/control system. Cost: old
+  recovery cleanup without identity requires reconciliation. Partial release
+  may finish its already-valid terminal-slot release before a later identity
+  recheck fails; it must not overwrite the new run projection. This does not
+  replace PostgreSQL concurrency testing or complete dispatch/adapter/observer
+  generation/Step4 integration. No extra audit track or automatic enablement.
+
 - From04a2530: CR-03 failure callback fence, both adapters. Stale/identity-less
   recovery callbacks cannot overwrite run/Sample/Rule projections; GATK now
   carries actual DagRun identity. Exact current dispatched replacement can still

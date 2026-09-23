@@ -1,5 +1,17 @@
 # Workflow runtime integration
 
+## P0 Airflow cleanup fence (2026-09-23, source only)
+
+External DagRun release/deactivate requests now use the same current recovery
+authority as failure callbacks, under a refreshed AnalysisRun lock. This does
+not alter runtime receipts, observer ingestion, OBS terminal evidence, slot
+counts or the release primitive. No workflow source/image/plugin change.
+Partial WGS release commits inside the existing primitive, so its follow-on run
+projection obtains a fresh lock and repeats the identity check. Observer drain
+is independently fenced even if release previously succeeded. Synthetic tests
+prove endpoint behavior and forced interleaving, not PostgreSQL concurrency or
+trusted runtime terminal closure; automatic policy remains disabled.
+
 ## bs6 candidate compatibility (2026-09-23, isolated acceptance)
 
 Actual plugin0.6.4+bs6 commit0b19bb605cdff619a7f09b34a6fe774e4b43d357 keeps

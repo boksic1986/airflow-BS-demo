@@ -1,5 +1,14 @@
 # Active test-branch tasks
 
+CR-03 external cleanup fence complete: WGS/GATK three transfer release stages
+and WGS observer deactivate reject stale/missing recovery DagRun identity under
+a refreshed run lock. WGS partial release rechecks after the primitive commits;
+current cleanup still requires terminal transfer evidence. Actual DAG run_id
+propagated, WGS manual recovery identity retained.24 new backend+3 legacy API+7
+DAG checks passed on isolated BS10610. No dispatch or policy enablement.
+Next: existing dispatcher/adapter continuation and observer projection fences;
+trusted terminal, Step4 and PostgreSQL/end-to-end proof remain open.
+
 CR-03 DagRun failure callbacks: WGS/GATK pending-action and exact-current-DagRun
 fences implemented; GATK callback/API identity propagated; WGS failure history
 dedup now includes DagRun identity. BS1061022 new backend +5 legacy +1 actual

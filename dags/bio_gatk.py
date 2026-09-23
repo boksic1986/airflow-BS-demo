@@ -83,10 +83,13 @@ def validate_request(**context: Any) -> dict[str, Any]:
 
 def register_stage(stage: str, **context: Any) -> dict[str, Any]:
     conf = dict(context["dag_run"].conf or {})
+    payload = {"attempt": conf["attempt"], "adapter": "gatk-runtime-200"}
+    if stage in {"release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
+        payload["dag_run_id"] = context["dag_run"].run_id
     return _backend_json(
         f"/api/internal/gatk/runs/{conf['analysis_id']}/stages/{stage}",
         method="POST",
-        payload={"attempt": conf["attempt"], "adapter": "gatk-runtime-200"},
+        payload=payload,
     )
 
 

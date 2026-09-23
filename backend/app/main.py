@@ -338,12 +338,14 @@ class WgsRuntimeStageRequest(BaseModel):
     maintenance_action_id: str | None = Field(default=None, max_length=128)
     force_new_generation: bool = False
     resume_action_id: str | None = Field(default=None, max_length=128)
+    dag_run_id: str | None = Field(default=None, min_length=1, max_length=250)
 
 
 class GatkRuntimeStageRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     attempt: int = Field(ge=1)
     adapter: str = Field(pattern="^gatk-runtime-200$")
+    dag_run_id: str | None = Field(default=None, min_length=1, max_length=250)
 
 
 class GatkDagTerminalRequest(BaseModel):
@@ -356,6 +358,8 @@ class GatkDagTerminalRequest(BaseModel):
 
 class WgsObserverLifecycleRequest(BaseModel):
     attempt: int = Field(ge=1)
+    dag_run_id: str | None = Field(default=None, min_length=1, max_length=250)
+    resume_action_id: str | None = Field(default=None, max_length=128)
 
 
 class WgsDagTerminalRequest(BaseModel):
@@ -2087,7 +2091,13 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
         raise HTTPException(status_code=409, detail={"code": "WGS_RUNTIME_DISABLED", "message": "WGS execution is disabled; Step7 was not registered."})
     try:
         with get_sessionmaker()() as session:
-            run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs"))
+            if stage_name in {"release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
+                from app.cce_recovery_budget import require_current_dag_cleanup
+                run = require_current_dag_cleanup(session=session, analysis_id=analysis_id,
+                    attempt=request.attempt, pipeline='wgs', dag_run_id=request.dag_run_id,
+                    resume_action_id=request.resume_action_id)
+            else:
+                run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs"))
             if run is None or run.attempt != request.attempt:
                 raise ValueError("unknown active WGS attempt")
             if request.resume_action_id:
@@ -2166,6 +2176,12 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                     transfer_kind=transfer_kind,
                 )
                 if release_result["retained"]:
+                    if release_result["released"]:
+                        # Partial release commits in the lease primitive. Re-lock
+                        # before projecting retained-slot state onto the run.
+                        run = require_current_dag_cleanup(session=session, analysis_id=analysis_id,
+                            attempt=request.attempt, pipeline='wgs', dag_run_id=request.dag_run_id,
+                            resume_action_id=request.resume_action_id)
                     mark_execution_needs_recovery(
                         session=session,
                         analysis_id=analysis_id,
@@ -2719,6 +2735,9 @@ def internal_gatk_runtime_stage(
                     "slot": slot,
                 }
             if stage_name in {"release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
+                from app.cce_recovery_budget import require_current_dag_cleanup
+                require_current_dag_cleanup(session=session, analysis_id=analysis_id,
+                    attempt=request.attempt, pipeline='gatk', dag_run_id=request.dag_run_id)
                 transfer_kind = None
                 if stage_name == "release_input_transfer_slot":
                     transfer_kind = "input"
@@ -2840,6 +2859,10 @@ def internal_wgs_observer_deactivate(
 ) -> dict[str, object]:
     try:
         with get_sessionmaker().begin() as session:
+            from app.cce_recovery_budget import require_current_dag_cleanup
+            require_current_dag_cleanup(session=session, analysis_id=analysis_id,
+                attempt=request.attempt, pipeline='wgs', dag_run_id=request.dag_run_id,
+                resume_action_id=request.resume_action_id)
             state = request_observer_drain(
                 session, analysis_id=analysis_id, attempt=request.attempt
             )
