@@ -1,5 +1,67 @@
 # Handoff
 
+## 2026-09-23 P0-2 Task1 Master producer completed, source only
+
+Goal: user said complete Task1 first and briefly explain completion/method.
+Used existing implementation plan, runtime/planning, TDD, focused code review,
+verification and handoff skills. No automatic-policy/Task2 scope expansion.
+
+Producer: cce-pipeline c33740dea3a94e8ee3633592aba1b111948171b3, base83e7adbff9e94b99da34f687903cb4ee9df9f996,
+branch jiucheng/runtime/p02-master-handoff-20260923,
+worktree D:/pipeline/cce-pipeline-worktrees/p02-master-handoff-20260923.
+Remote original source was verified tracked-clean; its two untracked audit
+files preserved, independent branch created and operations owner informed.
+Changes: existing runtime handoff/reader; master manifest identities; Master
+entrypoint confirmation/terminal trap/process claim; Dockerfile helper copy;
+targeted tests, two downward-env fixture assertions and producer contract doc.
+Airflow changes this turn are six documentation files only: STATE/TASKS/HANDOFF,
+docs08, existing P0 progress ledger and P0-2 implementation plan. No API/DB/DAG.
+
+Handoff schema2 binds frozen run/attempt/generation, exact Job/Pod UID and
+request/config/metadata/manifest digests. START_SENT persists before send;
+Master verifies inputs and confirms before Snakemake. No ack means structured
+handoff_timeout, not rule failure or permission to restart. Lost-response replay
+does not resend; original timely ack is usable after controller restart/deadline.
+Completed Pod reads use existing persistent reader. Same-Pod O_EXCL claim runs
+before setup/failure trap. Native success checks preserved; trusted catchable
+setup/analysis failures recorded, pre-trust/hard-kill cases remain unknown.
+Terminal process evidence_complete=false; it is not a Worker-finality seal.
+
+Environment: ssh BS10610, hostname server10610, uid6708/gid520. Control root
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS; current release
+releases/20260912-opt-4d3d24e6. Actual backend36ff21f87356 /app read-only mount
+releases/20260923-step7-ae416fa/backend/backend; /config current/config read-only.
+Scanner=false, auto_dispatch=false. Task candidate and evidence writable.
+No services changed; no release switch, rollback release change or DB access.
+Cached image sha256:8491604ee01d9b3a84d74e7edf233a9d5dd20ddbf14f8a646c25c05f8729efed
+ran isolated --network=none --read-only, uid6708:520, source/candidate read-only,
+task tmp as /evidence with TMPDIR there,1CPU/1GiB, no image pull.
+
+Evidence root /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/p02-master-handoff-20260923.
+Final commands/results (full invocation also in producer HANDOFF):
+- pytest -q -p no:cacheprovider tests/test_master_handoff.py --tb=short:
+  24 passed16.76s, task1-final-green.log.
+- Targeted test_batch_runtime_boundaries, test_analysis_complete_contract and
+  test_prepare_bundle schema3 case, -k step2/handoff/wait_pod/AnalysisComplete/
+  schema_three/reader_job/pod_evidence/mirror/evidence_is_persisted:
+  18 passed32 deselected0.92s, task1-compat-final-green.log.
+Behavioral RED captured before each narrow implementation; fixture CRLF issue
+corrected before counting Master behavior RED. Focused review's3 findings got
+RED/GREEN: expired control restart, terminal-Pod reader and atomic process claim.
+Later intermittent scp/SSH attempts failed exit1 at jump172.17.61.18 handshake
+(reset/aborted), no remote execution; after static/doc work bounded attempts
+succeeded, final exact sources recopied and tested. No local-test substitution.
+
+Not run: full suites, image/wheel build/install, real Kubernetes or biology,
+shared test service deployment, production. These remain future compatibility/
+artifact/authorized operational gates, not required Task1 source tests.
+Next planned Task2 verifies plugin25297f9 ownership, implements Worker terminal
+and logical-run lock handoff. Tasks3–4 adapters/manual recovery, Task5 artifacts/
+TTL and Task6 automatic remainder stay open. Old bundles untouched, TTL unchanged.
+Risks: source requires paired controller/new Master image before promotion;
+unknown CREATE/missing Job still fail closed. Rollback isolated commits only;
+no live resources/data need rollback. Both branches committed locally, no push.
+
 ## 2026-09-23 P0-2 plan and lock-contract integration; blocked before code
 
 Goal: user requested development steps and execution of latest P0 changes.

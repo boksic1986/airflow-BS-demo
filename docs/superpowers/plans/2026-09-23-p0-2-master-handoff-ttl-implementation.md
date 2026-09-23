@@ -27,10 +27,10 @@
 - [x] Verify clean isolated Airflow e921e3a and remote test design729564c.
 - [x] Bring only new P0-2 priority section and TTL companion into CR01; preserve existing September23 quota/RPC coverage and implementation ledger.
 - [x] Integrate781877e P0-2E: logical-run ownership, conditional generation takeover/release, TTL-independent lock lifetime and legacy lock-domain compatibility.
-- [ ] Verify authoritative cce-pipeline source before editing it. Local `D:/pipeline/cce-pipeline-worktrees/gatk-master-logger-20260917` is1462e9e from an old bundle, NOT an established new development baseline.
-- [ ] Read remote source AGENTS/HANDOFF, branch/status/remotes and relevant prototype diff. Reported remote prototype path: `/mnt/biodevrwbi/33.chenjiucheng/project/worktrees/huawei-cloud-runtime-master-errors-20260923`, earlier83e7adb with uncommitted work. Preserve it; do not overwrite or claim ownership.
+- [x] Verify authoritative cce-pipeline source before editing it. BS10610 remote source and local object both resolve83e7adbff9e94b99da34f687903cb4ee9df9f996; created independent `D:/pipeline/cce-pipeline-worktrees/p02-master-handoff-20260923`, branch `jiucheng/runtime/p02-master-handoff-20260923`. Earlier1462e9e snapshot superseded by this fresh check.
+- [x] Read remote source instructions/HANDOFF, branch/status/remotes and prototype scope. `/mnt/biodevrwbi/33.chenjiucheng/project/worktrees/huawei-cloud-runtime-master-errors-20260923` has no AGENTS, clean tracked83e7adb, two untracked audit files (`scripts/cce_master_error_audit.py`, `tests/test_master_error_audit.py`). Preserved the source/prototype; informed operations owner of isolated scope.
 - [ ] Verify plugin25297f9 source status and establish a separate successor artifact; never replace accepted bs7 bytes under the same version.
-- [ ] Fresh BS10610 hostname/control/current/mount/gates/permissions preflight. Latest attempt failed at jump172.17.61.18 handshake; no command reached the host.
+- [x] Fresh BS10610 preflight succeeded: server10610, control/current/mount fingerprint recorded in HANDOFF; scanner and auto-dispatch false, task-specific candidate/evidence writable. Intermittent later SSH handshake failures did not trigger local-test fallback or service changes.
 
 One writer owns each source worktree. This plan's coordinator owns Airflow changes; cross-repo ownership must be resolved before touching dirty producer code. No implicit delegation to another task.
 
@@ -51,8 +51,8 @@ One writer owns each source worktree. This plan's coordinator owns Airflow chang
 
 **Interfaces:** Reuse `_write_master_handoff`, `_read_master_handoff`, `_wait_pod`, `step2`, existing MASTER_HANDOFF and RUN_COMPLETE/RUN_FAILED records. Map existing names to run/attempt, execution generation, request/config digests, Master Job/Pod UID and original handoff deadline once. Do not create a second competing identity source. A Master record is process evidence; runtime still independently proves Kubernetes finality/Worker quiescence before recovery authorization.
 
-- [ ] Pin producer source and write a field mapping against its actual latest version; unsupported legacy capability remains explicit, not inferred from file presence.
-- [ ] Add failing cases for START_SENT without confirmation, foreign UID/config/generation, partial metadata, lost START response and control restart retaining original deadline.
+- [x] Pin producer source and field mapping in cce-pipeline `docs/architecture/master-handoff-v2.md`. Schema2 declared by Master manifest/env; old bundles stay legacy. Compatible image/controller release remains Task5.
+- [x] Add failing cases for START_SENT without confirmation, foreign UID/config/generation, partial metadata, lost START response and control restart retaining original deadline.
 
 ```python
 # Add to the existing runtime fixture tests using the real step2/handoff path.
@@ -63,10 +63,16 @@ assert restarted_handoff_deadline == first_handoff_deadline
 assert state_without_confirmation != "START_CONFIRMED"
 ```
 
-- [ ] Run only these new cases in the pinned source's BS10610 isolated container; expect RED from current START-only behavior, not import/fixture failures.
-- [ ] Persist START intent before transmission. Master validates complete metadata and identity, writes atomic persistent START_CONFIRMED before Snakemake. Controller queries original UID and confirmation, retains original deadline, and records structured handoff_timeout without converting it to rule failure.
-- [ ] Extend existing terminal writer for normal success and catchable startup/execution failures. Install the writer only after trusted identity is available; earlier failures and SIGKILL/OOM remain unknown. Retain native success requirements (including final dry run); do not manufacture wrapper completeness flags.
-- [ ] Run affected cases once GREEN; commit producer source and provenance. No image build/install is required to claim source-level tests only; artifact acceptance remains Task5.
+- [x] Targeted behavioral RED recorded in the pinned BS10610 isolated container, followed by implementation. Synthetic shell fixture normalizes the baseline classifier CRLF before execution; fixture errors were not treated as behavioral RED.
+- [x] Persist START intent before transmission. Master validates complete metadata and identity, writes atomic persistent START_CONFIRMED before Snakemake. Controller queries original UID and confirmation, retains original deadline, and records structured handoff_timeout without converting it to rule failure.
+- [x] Extend existing terminal writer for normal success and catchable startup/execution failures. Install the writer only after trusted identity and atomic same-Pod process claim; earlier failures and SIGKILL/OOM remain unknown. Retain native success criteria, mark process evidence_complete=false; no Worker-finality seal invented.
+- [x] BS10610 Task1 final GREEN:24 targeted cases. Includes review corrections: accept original on-time confirmation after controller restart/deadline, read durable evidence after Pod completion, and reject overlapping same-Pod entrypoint before config mutation/failure trap. Source/provenance committed on independent branches only; no image build/install or full recovery claim. Artifact acceptance remains Task5.
+
+Task1 does not implement cross-Master lock takeover, Worker finality, missing-Job
+recovery, unknown CREATE reconciliation or the Airflow Resume consumer. Those
+remain Tasks2–4; TTL and automatic recovery are not activated.
+Producer commit: `c33740dea3a94e8ee3633592aba1b111948171b3`.
+Final affected legacy checks:18 passed /32 deselected; no full-suite rerun.
 
 ## Task2 — Worker terminal persistence, bounded query scope and directory ownership
 

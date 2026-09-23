@@ -1,5 +1,22 @@
 # Current state
 
+## 2026-09-23 P0-2 Task1 source acceptance complete
+
+User requested Task1 only. cce-pipeline source c33740d on independent branch
+`jiucheng/runtime/p02-master-handoff-20260923`, verified base83e7adb.
+Existing handoff now requires identity-bound persistent Master confirmation;
+lost START response/restart reconciles without another START or deadline reset.
+Trusted native setup/execution terminal records retain original success checks;
+same-Pod atomic claim prevents duplicate entrypoint/config/terminal writes.
+BS10610 final24 targeted +18 affected legacy tests passed, synthetic only.
+Fresh server10610/current/mount/gates/permissions verified; initial connection
+blocker is resolved, though intermittent jump SSH failures were observed.
+No product deployment, image build/install, BS96/main/production or frozen-project
+changes. Process terminal evidence is not a Worker-finality/recovery seal.
+Docs and field mapping updated. Task1 done at source level; Tasks2–6 remain open.
+Next planned Task2: Worker terminal persistence and logical-run lock ownership.
+TTL remains unchanged; automatic recovery stays disabled.
+
 ## 2026-09-23 P0-2 implementation plan integrated; execution blocked
 
 User requested planning and implementation of the latest P0 revision. Integrated

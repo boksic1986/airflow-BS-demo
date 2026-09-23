@@ -1,5 +1,29 @@
 # Workflow runtime integration
 
+## P0-2 Task1 Master producer (2026-09-23, source only)
+
+Pinned cce-pipeline83e7adb successor source on
+`jiucheng/runtime/p02-master-handoff-20260923` extends existing MASTER_HANDOFF
+and native terminal files. Mapping is documented in that source's
+`docs/architecture/master-handoff-v2.md`; manifest handoff-version2 is explicit.
+Binding: frozen project/batch/run_id, attempt, generation, exact Job/Pod UID,
+request/config/manifest/metadata digests, and one persistent600-second deadline.
+START_SENT is possible execution, not acknowledged start. The Master validates
+input, atomically excludes a second same-Pod process and writes START_CONFIRMED
+before Snakemake. Lost response/control restart reads evidence without another
+START or metadata transmission; on-time ack remains valid after the deadline.
+Completed Pods use the existing persistent reader. Missing confirmation is
+handoff_timeout, not biological rule failure or permission to replace a Master.
+
+Trusted catchable setup/analysis failure and native success use the original
+terminal writer and success criteria, now with UID/generation/hash/root-cause
+binding and per-Master archive. Process evidence_complete=false intentionally;
+Worker quiescence, Kubernetes finality and directory ownership are not proven.
+Failures before trusted identity, hard kill/OOM and missing evidence remain
+unknown. No Airflow API/DB/DAG change in this task; authenticated Resume consumers
+remain Tasks3–4. Old bundles are not rewritten. Paired image/controller artifact
+validation and TTL remain Task5; no shared install or automatic activation.
+
 ## P0 runtime receipt projection fence (2026-09-23, source only)
 
 WGS stage-status ingestion holds a refreshed AnalysisRun FOR UPDATE lock from

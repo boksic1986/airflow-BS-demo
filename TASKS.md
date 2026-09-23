@@ -1,12 +1,19 @@
 # Active test-branch tasks
 
+P0-2 Task1 SOURCE COMPLETE (2026-09-23): cce-pipeline c33740d from verified
+83e7adb, independent `jiucheng/runtime/p02-master-handoff-20260923` branch.
+Master confirmation, same-Pod atomic process claim and bound native terminal
+records;24 new +18 affected legacy BS10610 tests passed. Producer contract and
+plan updated; no deployment/artifact acceptance. Prior SSH/source-pin blockers
+below are historical and resolved for this task. Tasks2–6 remain open; next is
+Worker terminal and logical-run lock ownership, not TTL/policy activation.
+
 P0-2 revised implementation sequence recorded in
 docs/superpowers/plans/2026-09-23-p0-2-master-handoff-ttl-implementation.md.
 Design revisions through781877e integrated; P0-2E lock handoff and TTL must ship
-together. Planning complete, implementation Tasks1–6 open (not P0 completion).
-Current blockers: BS10610 SSH handshake reset at jump172.17.61.18; authoritative
-cce-pipeline source/prototype ownership unverified. Next: fresh preflight and
-source pin, then targeted Task1 RED/GREEN. No local test fallback or production.
+together. Planning complete; Task1 source acceptance complete, Tasks2–6 open
+(not P0 completion). No local test fallback or production. Task2 still requires
+fresh plugin source/ownership verification before its edits.
 
 CR-03 receipt projection subtask complete: WGS stage-status and GATK sync hold
 the refreshed current-run lock through execution validation/state projection;

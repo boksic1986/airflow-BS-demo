@@ -18,6 +18,24 @@ No unrelated regression suite. Preserve the original worktree's dirty files.
 
 ## Current progress
 
+- P0-2 Task1 SOURCE COMPLETE: producer c33740d, isolated cce-pipeline branch
+  jiucheng/runtime/p02-master-handoff-20260923, pinned remote/local83e7adb.
+  Verified server10610 mounts/gates; remote prototype untracked audit files kept.
+  Schema2 START confirmation, unchanged original deadline, idempotent control
+  replay, atomic same-Pod exclusion and native identity-bound terminal records.
+  Final24 focused +18 affected legacy synthetic tests passed on BS10610.
+  Runtime field mapping: producer docs/architecture/master-handoff-v2.md;
+  integration: docs08 and 2026-09-23-p0-2-master-handoff-ttl-implementation.md.
+- Review rulings: late controller restart accepts only an originally on-time
+  ack; completed Pod uses existing persistent reader; overlapping same-Pod
+  invocation must fail before config writes or terminal trap. All3 regressions
+  first RED then GREEN. These fixes do not implement Task2 cross-Master locks.
+  Native terminal evidence_complete=false is intentional until independent
+  Worker/Kubernetes finality is proven. Missing Job/unknown CREATE reconciliation
+  remains Task3; no artifact/TTL/automatic recovery completion implied.
+  No BS96/services/main/production change, no push or shared installation.
+  Earlier blocked planning checkpoint below is historical, now superseded.
+
 - P0-2 revision through781877e integrated from e921e3a. Detailed implementation
   sequence: 2026-09-23-p0-2-master-handoff-ttl-implementation.md. Documentation
   only this turn; Tasks1–6 remain open. Two BS10610 preflights failed SSH exit1
