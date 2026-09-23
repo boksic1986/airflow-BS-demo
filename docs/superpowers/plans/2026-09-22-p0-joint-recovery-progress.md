@@ -18,6 +18,20 @@ No unrelated regression suite. Preserve the original worktree's dirty files.
 
 ## Current progress
 
+- From04a2530: CR-03 failure callback fence, both adapters. Stale/identity-less
+  recovery callbacks cannot overwrite run/Sample/Rule projections; GATK now
+  carries actual DagRun identity. Exact current dispatched replacement can still
+  fail. WGS failure history dedup includes DagRun, preserving old end time only
+  for replay of the same failure.22 new backend +5 legacy +1 actual DAG case
+  passed on BS10610; RED reproduced state overwrite and old timestamp reuse.
+- Ruling: legacy identity-less callbacks remain compatible only without current
+  automatic-recovery history (existing WGS manual fence still applies). Future
+  trusted dispatch must persist target dag_run_id before external submission;
+  reserved actions never authorize a failure projection. Cost: missing/malformed
+  recovery lineage stays ignored pending reconciliation, not guessed. This is
+  callback protection only, not runtime-failure classification or auto-dispatch.
+  No extra audit track, production changes or unrelated full-suite rerun.
+
 - Fromddda74e: closed the existing WGS legacy Resume/Rerun failed bypass of
   pending automatic recovery. Shared the resume_stage check, refreshed run row
   lock before decisions; cancel remains outside the retry fence. RED1 failure

@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.cce_recovery_budget import dag_failure_fence_reason
 from app.gatk_stage_contract import gatk_stage_definition
 from app.diagnostics_service import sync_sample_statuses
 from app.models import (
@@ -473,6 +474,7 @@ def mark_gatk_dag_failed(
     analysis_id: str,
     attempt: int,
     failed_task_ids: list[str],
+    dag_run_id: str | None = None,
     timestamp: datetime | None = None,
 ) -> dict[str, Any]:
     """Close GATK projections when Airflow reaches a terminal failure."""
@@ -483,10 +485,15 @@ def mark_gatk_dag_failed(
             AnalysisRun.pipeline_name == "gatk",
         )
         .with_for_update()
+        .execution_options(populate_existing=True)
     )
     if run is None or run.attempt != attempt:
         raise ValueError("unknown active GATK attempt")
 
+    reason = dag_failure_fence_reason(session=session, run=run, dag_run_id=dag_run_id)
+    if reason:
+        return {'analysis_id': analysis_id, 'attempt': attempt, 'status': run.status,
+                'ignored': True, 'reason': reason}
     failures = sorted(
         {str(task_id).strip() for task_id in failed_task_ids if str(task_id).strip()}
     )

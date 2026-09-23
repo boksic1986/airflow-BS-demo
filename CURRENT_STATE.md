@@ -1,5 +1,19 @@
 # Current state
 
+## 2026-09-23 old DagRun failure callback fence completed
+
+WGS/GATK failure projection now refreshes the locked run and refuses stale
+DagRun identity or an unresolved automatic-recovery reservation. GATK callback
+passes actual dag_run.run_id through its existing internal API. Exact current
+queued/uncertain replacement may report failure; terminal behavior is retained.
+WGS failure deduplication includes DagRun identity so a new failure cannot reuse
+the old end time. No history rewritten, no new table, dispatch or policy enable.
+BS10610:22 new backend cases,5 affected legacy cases and1 actual Airflow DAG
+callback check passed; two observed RED failures. Only affected cases rerun for
+the small dedup fix. No shared services/main/production change or deployment.
+Remaining CR-03: dispatch/adapter/lease and observer fences, trusted terminal
+closure, PostgreSQL concurrency and end-to-end acceptance; P0 is not complete.
+
 ## 2026-09-23 existing WGS manual-retry fence completed
 
 Legacy Resume/Rerun failed now take/refresh the AnalysisRun row lock and reject

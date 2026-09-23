@@ -1,5 +1,19 @@
 # API contract
 
+## P0 failed DagRun callback identity (2026-09-23, source only)
+
+Existing internal GATK dag-terminal accepts optional dag_run_id (1..250 chars),
+sent from the actual Airflow DagRun, not user conf. WGS already carries it.
+Both services return current status with ignored=true and a safe reason when
+the DagRun is superseded or automatic-recovery lineage is pending/unbound.
+No run, sample, rule, failure history or end time is changed on that response.
+Current recovery requires identity even after its action finishes; legacy calls
+without any current recovery retain prior behavior. Exact current queued/uncertain
+replacement identity preserves existing terminal projection, not blanket silence.
+Existing authentication and WGS resume_action_id checks remain. No public route,
+automatic enablement or clinical data changes. Deploy backend before new GATK DAG
+because the older GATK request model forbids unknown fields.
+
 ## P0 WGS manual retry conflict (2026-09-23, source only)
 
 Existing actions/resume and actions/rerun_failed refuse an unfinished current-

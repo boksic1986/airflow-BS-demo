@@ -351,6 +351,7 @@ class GatkDagTerminalRequest(BaseModel):
     attempt: int = Field(ge=1)
     status: str = Field(pattern="^failed$")
     failed_task_ids: list[str] = Field(default_factory=list, max_length=64)
+    dag_run_id: str | None = Field(default=None, min_length=1, max_length=250)
 
 
 class WgsObserverLifecycleRequest(BaseModel):
@@ -2796,6 +2797,7 @@ def internal_gatk_dag_terminal(
                 analysis_id=analysis_id,
                 attempt=request.attempt,
                 failed_task_ids=request.failed_task_ids,
+                dag_run_id=request.dag_run_id,
             )
     except ValueError as exc:
         raise HTTPException(

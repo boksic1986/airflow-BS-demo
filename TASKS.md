@@ -1,5 +1,12 @@
 # Active test-branch tasks
 
+CR-03 DagRun failure callbacks: WGS/GATK pending-action and exact-current-DagRun
+fences implemented; GATK callback/API identity propagated; WGS failure history
+dedup now includes DagRun identity. BS1061022 new backend +5 legacy +1 actual
+DAG callback checks passed after two scoped RED reproductions. No automatic
+dispatch/enablement or service change. Remaining: adapter/dispatch/lease and
+observer fences, complete runtime evidence, PostgreSQL concurrency/integration.
+
 CR-02/03 WGS manual service entries: legacy Resume/Rerun failed joined the
 existing resume_stage pending-recovery fence under a refreshed run row lock.
 22 focused BS10610 checks passed after observed RED bypass; user cancel priority

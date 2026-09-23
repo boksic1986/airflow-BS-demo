@@ -1,5 +1,14 @@
 # Airflow DAG specification
 
+## P0 old failure callback protection (2026-09-23, source only)
+
+GATK report_dag_failure now sends actual dag_run.run_id with its existing attempt
+and failed task list; WGS already does. Backend rejects superseded/pending/unbound
+recovery callbacks before projection while allowing the exact current dispatched
+recovery DagRun's failure. No DAG graph, retries, pools or task ordering changed.
+This is not yet observer/lease fencing or generic Airflow/runtime failure separation.
+The internal API addition must precede the DAG update in a future approved deploy.
+
 ## R2-3 isolated native monitoring candidate (2026-09-15)
 
 New bio_wgs_native_monitor deliberately leaves the existing bio_wgs CCE graph

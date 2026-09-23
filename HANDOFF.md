@@ -1,5 +1,71 @@
 # Handoff
 
+## 2026-09-23 CR-03 old DagRun failure callback protection
+
+User next step; base04a2530, independent CR01 branch. Used executing-plans,
+backend/DAG and handoff skills for the already approved callback fence. Coordinator
+confirmed these narrow files unowned and Step7 test window released; no shared
+service change requested/performed. Changes: cce_recovery_budget shared guard,
+wgs_submission_service and gatk_runtime_service terminal entries; main.py only
+GATK request field/forwarding; bio_gatk only callback run_id. Two test files plus
+API/DB/DAG and progress/state docs. No Step7/observer/lease/runtime/clinical code.
+
+Callback takes refreshed AnalysisRun FOR UPDATE. Superseded DagRun, ambiguous
+action attempt, identity-less recovery callback or pending unbound action returns
+ignored without state/history/timestamp mutation. reserved never authorizes a
+new failure; queued/uncertain with exact action target and current DagRun retains
+prior terminal behavior. Completed recovery history still requires callback ID;
+unrelated attempts and legacy callbacks retain behavior. WGS manual recovery
+action check unchanged. This does not classify generic monitor failure or complete
+automatic dispatch. Future dispatcher must freeze target dag_run_id before POST.
+
+Focused review reproduced a related WGS bug: same-attempt/task failure in a new
+DagRun deduplicated against old failure and reused old end time. Added DagRun to
+the existing failure payload/dedup; historical actions stay intact, no backfill.
+
+Fresh BS10610/server10610 uid6708; control root
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS; current20260912-opt-4d3d24e6.
+Backend36ff21f87356 image8491604ee01d, actual /app readonly from
+releases/20260923-step7-ae416fa/backend/backend, /config current/config readonly;
+scan/dispatch=false. Own candidate writable. No active-run query: only isolated
+network-none synthetic tests, no shared DB/config/runtime mounted or mutated.
+Candidate C=control-root/candidates/p0-airflow-recovery-20260922. Backend test
+container --rm --pull=never --network=none --read-only,1CPU/1GiB,/tmp64MiB;
+C/backend and exact stage YAML readonly. No permissions changes or BS96 access.
+
+Commands/evidence (PYTHONPATH=/candidate/backend, python -m pytest -q -p no:cacheprovider):
+- test_cce_recovery_callback_fence.py --maxfail=1 --tb=short:
+  RED1 failed1.04s, missing ignored and real WGS state overwrite; callback-fence-red.log.
+- Same file without maxfail: GREEN21 passed1.64s, callback-fence-green.log.
+- test_wgs_submission_service.py test_gatk_terminal_reconciliation.py
+  test_wgs_resume_stage.py -k dag_failure --tb=short:
+  GREEN5 passed,23 deselected0.87s; callback-fence-regression.log.
+- Added exact test_new_dag_failure_is_not_deduplicated_against_old_dag_end_time:
+  RED1 failed0.60s (old2020 end time reused), GREEN1 passed0.48s;
+  callback-history-red.log / callback-history-green.log.
+- After small dedup fix, only three affected legacy WGS dag_failure cases rerun
+  =>3 passed,14 deselected0.60s (callback-history-regression.log); no full previous
+  matrix/budget/plugin suite. Initial SSH invocation aborted before remote execution
+  at BS172.17.61.18:22 handshake, exit1. Diagnostic ssh BS hostname succeeded
+  (node005); one bounded retry reached BS10610 and produced that GREEN result.
+
+Actual Airflow image58195672af685cfa6551cfc44b37b6218bd2039c44b717163a6e8072f78dfd2b
+from worker641409cf1cf9; standalone network-none/read-only1CPU/1GiB container,
+tmpfs128MiB, own C/dags readonly, isolated AIRFLOW_HOME and SQLite path in /tmp,
+no live service credentials, network or database. First --entrypoint python failed
+ModuleNotFoundError airflow (callback-dag-identity.log), not application RED.
+Read-only worker env showed PATH starts /opt/airflow/snakemake-venv/bin: wrong
+interpreter selected. Changed only test invocation to /usr/local/bin/python;
+actual DAG import/callback test passed1/1 in2.764s (callback-dag-identity-green.log).
+No source workaround or dependency install; kernel swap-limit warning unchanged.
+
+Unique tested cases22 new backend+5 affected legacy+1 real DAG. SQLite does not
+prove PostgreSQL concurrency. No full suite, local runtime tests, deployment,
+push or main/production/shared-test merge. Next remains dispatcher/adapter/lease
+and observer fences plus trusted terminal closure and end-to-end acceptance;
+automatic policy stays off. Rollback this source commit only; no data/runtime
+rollback needed. Any future deploy: backend API before new GATK callback/DAG.
+
 ## 2026-09-23 WGS legacy manual retry fence
 
 User next step; basedddda74e, same isolated P0 branch. Found action_wgs_run legacy

@@ -212,6 +212,7 @@ def report_dag_failure(context: dict[str, Any]) -> None:
                 "attempt": attempt,
                 "status": "failed",
                 "failed_task_ids": failed_task_ids,
+                "dag_run_id": dag_run.run_id,
             },
         )
     except Exception:

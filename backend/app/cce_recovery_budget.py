@@ -24,6 +24,33 @@ CONTROL_ACTIONS = {"resume_stage", "resume", "rerun_failed", "cancel_submission"
                    "pause", "cancel", "delete", "terminate"}
 
 
+def dag_failure_fence_reason(*, session, run, dag_run_id):
+    """Return why a failure callback cannot project; caller holds refreshed run lock.
+
+    A waiting reservation has no replacement DagRun authority. Once dispatch is
+    persisted, only its exact current DagRun may report its own failure. Retain
+    the legacy identity-less callback only where no current recovery exists.
+    This does not validate runtime failure evidence or authorize any dispatch.
+    """
+    if dag_run_id is not None and dag_run_id != run.dag_run_id:
+        return 'superseded_dag_run'
+    actions = session.scalars(select(RunAction).where(
+        RunAction.analysis_id == run.analysis_id, RunAction.action == ACTION)).all()
+    for action in actions:
+        data = action.payload_json
+        if not isinstance(data, dict) or type(data.get('attempt')) is not int:
+            return 'ambiguous_recovery_identity'
+        if data['attempt'] != run.attempt:
+            continue
+        if not dag_run_id:
+            return 'recovery_callback_identity_required'
+        if action.result_status not in FINISHED_ACTIONS:
+            if (action.result_status not in {'queued', 'uncertain'}
+                    or data.get('dag_run_id') != dag_run_id):
+                return 'pending_compute_recovery'
+    return None
+
+
 def require_no_pending_compute_recovery(*, session, run):
     """Manual retry fence; caller holds/refreshed the same AnalysisRun row lock.
 

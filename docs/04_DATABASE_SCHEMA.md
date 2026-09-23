@@ -1,5 +1,18 @@
 # 04 数据库设计
 
+## P0 callback lineage fence (2026-09-23, source only)
+
+No schema/migration. Failure callback services refresh AnalysisRun under the
+same row lock as recovery reservation. Existing cce_compute_recovery action
+payload's future dispatch binding `dag_run_id` identifies its replacement;
+reserved actions cannot authorize terminal projection. queued/uncertain allow
+only an exact current bound DagRun. Finished current-attempt recovery history
+still requires callback DagRun identity; malformed attempt lineage fails closed.
+No dispatcher writes this new binding yet. Recovery budgets/history are unchanged.
+WGS airflow_dag_failed payload records dag_run_id; dedup compares it with attempt
+and failed tasks. Distinct DagRuns retain distinct failure entries/end times;
+legacy identity-less replay still deduplicates. No historical backfill/deletion.
+
 ## P0 recovery lineage journal (2026-09-23, internal source only)
 
 No columns, tables, migration or historical backfill. Future trusted adapters
