@@ -1,5 +1,30 @@
 # Workflow runtime integration
 
+## bs7 control inventory acceptance (2026-09-23, source only)
+
+Control candidates now reconcile against the existing submission journal,
+checkpoint and admitted schema2 manifest. Each referenced Worker must have a
+unique successful CREATED/ADOPTED UID under the same frozen context. A null
+candidate UID does not erase that proven UID; a conflicting UID rejects.
+Missing/unresolved submissions, missing manifest membership or any simultaneous
+FAILED submission reject. No control fault is written as a fake submit event.
+The inventory's executor_failure_count counts candidate faults, not fabricated
+submission failures. This snapshot still proves neither finality nor full history.
+
+Actual plugin0.6.4+bs7 source25297f971dd463176d5fdc07908a60095ade50ea,
+wheel SHA256 2ad4aa737e6f34930b6832e3ce69edd9ee64867cc9c7ce0c1bcb4c455cdbae86,
+generated four WGS/GATK GET Lease/Pod LIST fixture scopes. GET follows successful
+CREATE; LIST follows lost-response ADOPT; each retains one manifest Worker and
+the unchanged real producer submission records. Platform acceptance pins the
+fixture manifest/provenance hashes in test_cce_recovery_bs7_contract.py.
+BS10610:34 targeted inventory checks and4 actual-fixture checks passed. Separate
+actual-wheel build validation passed52 affected plugin checks. bs6 unchanged.
+
+No terminal seal was generated. Candidate-only consumption still rejects;
+positive terminal tests are synthetic scaffolding. Trusted terminal closure,
+binding, dispatch, observation projection and Step4 acceptance remain pending.
+No policy enablement, production deployment or installation into active images.
+
 ## P0 quota-read candidate contract (2026-09-23, isolated source only)
 
 Agreed plugin contract adds executor-control-failure.json with schema
@@ -25,9 +50,9 @@ unknown inventory or mixed fatal sources never authorizes recovery. The bounded
 reader requires exactly one candidate file, checks its filename/schema pairing
 and directory stability as well as existing nofollow/file fingerprints.
 
-This slice has synthetic-only acceptance. Actual new plugin artifact/fixtures,
-control inventory reconciliation, trusted terminal closure, binding and dispatch
-remain unconnected; existing submission inventory still rejects control schema.
+The initial slice had synthetic-only acceptance; actual bs7 artifact/fixtures
+and control inventory compatibility are now covered by the acceptance above.
+Trusted terminal closure, binding and dispatch remain unconnected.
 No adapter/API/DB wiring or policy enablement. bs6 remains immutable. All allowed
 future categories share the existing two60/180-second attempt reservations.
 

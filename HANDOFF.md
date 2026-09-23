@@ -1,5 +1,95 @@
 # Handoff
 
+## 2026-09-23 next step completed: control inventory + bs7 actual fixtures
+
+User requested next step; resumed26d62dd and the10 drafted inventory cases,
+no scope expansion. Used runtime, executing-plans/TDD/verification and handoff
+skills. Original ops workspace untouched. No local runtime tests or production
+commands. Existing independent CR01 branch retained; no merge/push/deployment.
+
+Changed scripts/cce_recovery_inventory.py and its test: recognize agreed control
+candidate separately; all referenced Workers must already be CREATED/ADOPTED
+under bound context, UID from journal matches complete schema2 manifest. A null
+control UID retains the known journal UID; foreign UID or missing Worker cannot
+be inferred away. Reject any mixed FAILED submission and unresolved inventory.
+No fake INTENT/FAILED entries or control-based release. Count cumulative control
+faults as executor_failure_count. Inventory remains snapshot-only, not finality.
+Added backend/tests/test_cce_recovery_bs7_contract.py with immutable hashes for
+four real-wheel-generated fixture scopes; terminal positives synthetic only.
+Updated runtime contract, STATE/TASKS and P0 ledger; design scope unchanged.
+
+Fresh preflight ssh BS10610: server10610 uid6708; control
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS, current20260912-opt-4d3d24e6;
+backend36ff21f87356 image8491604ee01d, /app readonly20260923-step7-ae416fa/backend/backend,
+/config readonlycurrent/config. scan=false/dispatch=false. Own C writable,
+C=control-root/candidates/p0-airflow-recovery-20260922; no permissions changed.
+Only exact source/tests copied to C; isolated cached containers network-none,
+readonly root/mounts,1CPU/1GiB, tmpfs. Shared services/data unchanged.
+
+Test commands use cached backend image python -m pytest -q -p no:cacheprovider,
+PYTHONPATH=/candidate/backend:/candidate, C/backend and C/scripts readonly:
+- scripts/tests/test_cce_recovery_inventory.py -k control_candidate --maxfail=1
+  --tb=short: RED1 failed/26 deselected0.05s, unsupported schema as expected;
+  C/control-inventory-red.log.
+- Same file -k 'not actual_bs5' --tb=short: GREEN34 passed/2 deselected0.05s;
+  C/control-inventory-green.log. Covers10 new plus24 affected existing cases.
+- backend/tests/test_cce_recovery_bs7_contract.py --tb=short with bs7 wheel and
+  fixture root readonly mounted: GREEN4 passed0.08s, no skips;
+  C/bs7-contract-green.log. No redundant plugin full suite or DB tests.
+- git diff --check passed. Expected container kernel swap warning only.
+
+Plugin owner requested help executing its already-reviewed guarded finish/build
+because its SSH handshake failed while ours worked. Read local finish-candidate.sh
+and remote build-candidate.sh completely; executed once after hostname/uid/base/
+branch/dirty whitelist guards. No source edits by this task in plugin repo.
+Finish source: D:/pipeline/task-artifacts/plugin-bs7-control-reconnect-20260923/finish-candidate.sh.
+Remote worktree: /mnt/biodevrwbi/33.chenjiucheng/project/worktrees/snakemake-kubernetes-bs6-heavy-p0-20260923.
+New commit25297f971dd463176d5fdc07908a60095ade50ea (11files); clean
+jiucheng/plugin-bs7-control-reconnect-20260923. bs6 ref remains
+0b19bb605cdff619a7f09b34a6fe774e4b43d357. Owner owns final producer handoff.
+Build ran offline with fixed cached image;52 affected actual-wheel tests passed
+5.60s (test_control_recovery.py,test_heavy_io_quota.py,test_heavy_submission_recovery.py).
+No runtime install, image replacement, registry push, live cluster or bs6 overwrite.
+
+E=/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/plugin-bs7-control-reconnect-20260923.
+Artifact E/build-25297f971dd463176d5fdc07908a60095ade50ea/wheel/snakemake_executor_plugin_kubernetes-0.6.4+bs7-py3-none-any.whl
+SHA256=2ad4aa737e6f34930b6832e3ce69edd9ee64867cc9c7ce0c1bcb4c455cdbae86.
+Fixtures E/consumer-fixtures-v1: wgs-get-lease,wgs-list-pod,gatk-get-lease,gatk-list-pod;
+20 fixture files checksum OK. SHA256SUMS hash
+de1b3ab20d888f9660c38b8dce037333ce3ce3b0b81b66fbf79563832b780296;
+fixture-provenance.json hash74102da1e10cab3728bed6f1caf31eb4bf1a0d08ed42c6002b01d1048041f83f.
+E/build.log, build-<commit>/wheel-tests.log and consumer-fixtures-generation.log
+retain provenance. CREATE/ADOPT fixtures use real plugin paths with synthetic
+external API, no clinical data. No terminal seal generated.
+
+Remaining: D RPC500 source-call confirmation, structured query failure (generic
+kubectl still unknown), complete trusted terminal closure, binding/dispatch,
+observer generation, Step4 and PostgreSQL/end-to-end acceptance. No new audit
+track or weakened proof. Automatic recovery stays disabled; P0 NOT complete.
+Rollback: revert this source slice; no service/data rollback needed. Plugin
+artifact is isolated and uninstalled; keep bs6 unchanged. Next task resumes the
+existing P0 integration from these pinned contracts, not another fixture rebuild.
+
+## 2026-09-23 next control-inventory slice: remote preflight/transfer blocked
+
+Completed first slice is commit26d62dd. Continued existing P0 control-inventory
+integration while owner builds bs7; added10 synthetic cases to
+scripts/tests/test_cce_recovery_inventory.py (known/null candidate UID retains
+admitted journal UID; foreign/missing/unresolved/mixed inventory and broad/write
+query rejection). This next slice has NOT run RED/GREEN and no inventory product
+code changed. Test draft retained in worktree, not counted as accepted.
+
+SCP of this single test to the same isolated BS10610 C/scripts/tests failed at
+jump172.17.61.18:22: kex_exchange_identification/banner Connection aborted,
+exit1. The following already-composed isolated RED command also failed before
+remote execution at the same handshake, exit1; no pytest result or new remote
+log. Stopped further attempts, no local/BS96 substitute or SSH config edits.
+No evidence that source was copied or remote environment changed. Resume with
+fresh BS10610 preflight, copy test then observe RED before inventory implementation.
+Plugin owner reports108 source tests passed (86baseline+22new), but actual bs7
+wheel/fixture handoff remains pending and those results are not our acceptance.
+No change to26d62dd verified claims, no production/service actions or deployment.
+
 ## 2026-09-23 current disconnect types: first bounded implementation slice
 
 User requested adding today's WGS B/C/D/E and WES disconnect gaps, then

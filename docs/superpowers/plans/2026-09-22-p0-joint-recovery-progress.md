@@ -18,6 +18,37 @@ No unrelated regression suite. Preserve the original worktree's dirty files.
 
 ## Current progress
 
+- From26d62dd: resumed at the existing10-case inventory test draft. Fresh test
+  preflight succeeded; RED1 failed unsupported control schema. Added exact
+  admitted-worker/context/UID control binding without inventing submissions;
+  GREEN34 inventory cases0.05s (2 unrelated external fixtures deselected).
+  Candidate null UID retains verified journal UID; foreign/missing/unresolved/
+  mixed FAILED submissions or unsafe read scopes reject.
+- Owner's SSH failed but this task's connection remained available. Reviewed
+  owner-provided base/dirty/branch guarded finish/build scripts, executed once:
+  plugin25297f971dd463176d5fdc07908a60095ade50ea, clean bs7 branch, bs6 still
+  0b19bb605cdff619a7f09b34a6fe774e4b43d357. Offline new wheel SHA256
+  2ad4aa737e6f34930b6832e3ce69edd9ee64867cc9c7ce0c1bcb4c455cdbae86;
+  52 affected actual-wheel tests passed5.60s, not a rerun of108 source tests.
+- Four actual-wheel fixture scopes hash-pinned in new bs7 contract test;
+  WGS/GATK successful CREATE then GET failure, lost-response ADOPT then LIST
+  failure.4 platform cases passed0.08s, no skips. No terminal produced;
+  candidate-only input rejects, positive terminal scaffolding synthetic only.
+- Ruling: reuse complete submission inventory instead of writing control faults
+  into submit events. Nullable candidate UID can be associated only with a
+  unique known admitted UID under the same context and verified manifest;
+  unknown/ambiguous identity remains blocked. Cost: incomplete evidence needs
+  manual resolution. No new history/audit framework or quota relaxation.
+  This closes this source/contract slice, not whole P0. Continue existing query,
+  terminal/binding/dispatch/observer/Step4 integration and final acceptance.
+
+- First coverage slice committed26d62dd. Continued next control-inventory test
+  draft (10cases), no product change yet. SCP then prepared RED command both
+  failed at BS jump172.17.61.18 handshake before remote execution; no remote
+  pytest result. Stop retries, preserve draft; resume with fresh BS10610 gate,
+  RED and actual bs7 artifacts. Owner-reported108 source tests do not replace
+  actual-wheel platform acceptance. No production/local-test fallback.
+
 - From670b50e: user-authorized current-disconnection extension. GATK input/result
   slot gate now retries existing transient backend classifications6 times,
   30s exponential capped5m; request identity/pools/48h timeout preserved. Actual

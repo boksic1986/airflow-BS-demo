@@ -102,6 +102,46 @@ def test_adoption_uses_the_same_uid_and_complete_manifest(inputs):
     assert parse(inputs)["workers"][0] == dict(name="admitted", uid="admitted-uid")
 
 
+@pytest.fixture
+def control_inputs(inputs):
+    context, rows, candidate, manifest = inputs
+    rows[:] = rows[:3]  # Successful CREATE only: control faults are not submit events.
+    candidate["schema"] = "snakemake.kubernetes.executor-control-failure.v1"
+    candidate["failures"] = [dict(category="HEAVY_SLOT_API_UNAVAILABLE",
+        phase="heavy_slot_refresh", operation="list_namespaced_pod", resource_kind="Pod",
+        resource_name=None, label_selector="job-name=admitted", worker_name="admitted",
+        worker_uid="admitted-uid", transient_reason="CONNECTION_REFUSED",
+        operation_attempts=3, retry_scope="same_operation", retryable=True,
+        exhausted=True, creation_state="UNKNOWN")]
+    return inputs
+
+
+@pytest.mark.parametrize("uid", [None, "admitted-uid"])
+def test_control_candidate_keeps_admitted_uid_without_fabricating_submit_failure(control_inputs, uid):
+    control_inputs[2]["failures"][0]["worker_uid"] = uid
+    result = parse(control_inputs)
+    assert result["workers"] == [dict(name="admitted", uid="admitted-uid")]
+    assert result["executor_failure_count"] == 1
+    assert [row["event"] for row in control_inputs[1]] == ["INTENT", "CREATE_REQUESTED", "CREATED"]
+
+
+@pytest.mark.parametrize("change", ["foreign_uid", "unknown_worker", "missing_manifest",
+    "unresolved", "mixed_submit_failure", "namespace_scan", "write", "wrong_kind"])
+def test_control_candidate_cannot_skip_inventory_or_expand_query(control_inputs, change):
+    _, rows, candidate, manifest = control_inputs
+    fault = candidate["failures"][0]
+    if change == "foreign_uid": fault["worker_uid"] = "other-uid"
+    elif change == "unknown_worker": fault["worker_name"] = "untracked"
+    elif change == "missing_manifest": manifest.clear()
+    elif change == "unresolved": rows.pop()
+    elif change == "mixed_submit_failure": rows.append(dict(rows[-1], event="FAILED"))
+    elif change == "namespace_scan": fault["label_selector"] = None
+    elif change == "write": fault["operation"] = "replace_namespaced_lease"
+    else: fault["resource_kind"] = "Lease"
+    with pytest.raises(ValueError):
+        parse(control_inputs)
+
+
 @pytest.mark.parametrize("active", [False, True])
 def test_validated_inventory_drives_every_exact_worker_query(inputs, cluster, active):
     objects, calls, runtime = cluster

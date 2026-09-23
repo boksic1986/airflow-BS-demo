@@ -1,5 +1,27 @@
 # Current state
 
+## 2026-09-23 bs7 inventory and actual producer acceptance completed
+
+BS10610 connectivity restored; fresh host/mount/gates match the prior test
+fingerprint. Control inventory now binds exact existing CREATED/ADOPTED Worker
+UIDs and complete manifest; null control UID never means absent, mixed submit
+failure or incomplete inventory rejects.34 focused tests passed after RED.
+bs7 actual-wheel-generated four WGS/GATK GET/LIST fixtures passed4 platform
+checks; no missing-fixture skips. Plugin25297f9 built offline through owner's
+guarded script,52 actual-wheel checks passed; bs6 remains0b19bb6 unchanged.
+Source/artifact compatibility only, not terminal/automatic recovery acceptance.
+Continue existing trusted runtime/query, dispatcher/adapter/observer/Step4 work.
+No services, production/main changes or automatic recovery enablement.
+
+### Previous paused checkpoint (resolved above)
+
+First current-disconnection slice committed26d62dd. Follow-on control inventory
+test draft added (10cases), unrun: SCP and remote RED command both stopped at
+BS jump172.17.61.18 SSH handshake before remote execution. No inventory code
+changed or local/production testing substituted. Next: fresh BS10610 preflight,
+test RED, inventory adaptation and actual bs7 fixture acceptance. Owner-reported
+108 plugin source tests are not platform artifact acceptance; artifact pending.
+
 ## 2026-09-23 requested disconnection coverage additions (source only)
 
 GATK idempotent input/result transfer-slot sensors now use the existing bounded

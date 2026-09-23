@@ -1,5 +1,19 @@
 # Active test-branch tasks
 
+CR-01/03 control inventory + actual bs7 acceptance complete: immutable source
+25297f9/wheel2ad4aa737e6f;34 inventory cases and4 hash-pinned real producer
+scopes passed on BS10610. Known/null candidate UID retains admitted journal UID,
+missing/mixed/conflicting inventory blocks; no fake FAILED submit events.
+Plugin owner's guarded offline build completed52 affected actual-wheel tests;
+bs6 unchanged. No live terminal evidence/dispatch/policy enablement.
+Next: existing runtime query provenance, trusted terminal and adapter/dispatch/
+observer/Step4 integration. Prior SSH-blocked checkpoint below is resolved.
+
+Next control-inventory integration started after26d62dd;10test cases drafted
+but not run because BS10610 via BS handshake failed on copy and RED invocation.
+No inventory implementation/acceptance yet; retain draft and resume at fresh
+preflight then RED. No local or production fallback, no extra SSH retry loop.
+
 CR-01/03 2026-09-23 coverage extension: user approved adding current disconnect
 types before continuing P0. GATK exact-identity slot acquisition bounded retry
 implemented (7 actual DAG checks;2 backend lease checks). Control-read candidate

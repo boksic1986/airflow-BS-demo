@@ -63,6 +63,34 @@ def _bound(value, schema, expected):
                  for k in IDENTITY))
 
 
+def _control_inventory(failures, workers):
+    """Control observations must refer to admitted work, never invent submissions."""
+    for failure in failures:
+        _require(isinstance(failure, dict))
+        name, uid = failure.get("worker_name"), failure.get("worker_uid")
+        _require(_text(name, DNS) and name in workers and "worker_uid" in failure)
+        worker = workers[name]
+        _require(worker["state"] in {"CREATED", "ADOPTED"} and worker["uid"] is not None
+                 and (uid is None or (type(uid) is str and uid == worker["uid"]))
+                 and failure.get("category") == "HEAVY_SLOT_API_UNAVAILABLE"
+                 and failure.get("phase") == "heavy_slot_refresh"
+                 and failure.get("transient_reason") == "CONNECTION_REFUSED"
+                 and failure.get("retry_scope") == "same_operation"
+                 and failure.get("creation_state") == "UNKNOWN"
+                 and failure.get("retryable") is True and failure.get("exhausted") is True
+                 and type(failure.get("operation_attempts")) is int
+                 and 1 <= failure["operation_attempts"] <= 3)
+        if failure.get("operation") == "read_namespaced_lease":
+            _require(failure.get("resource_kind") == "Lease"
+                     and _text(failure.get("resource_name"), DNS)
+                     and "label_selector" in failure and failure["label_selector"] is None)
+        else:
+            _require(failure.get("operation") == "list_namespaced_pod"
+                     and failure.get("resource_kind") == "Pod"
+                     and "resource_name" in failure and failure["resource_name"] is None
+                     and failure.get("label_selector") == f"job-name={name}")
+
+
 def validate_submission_inventory(*, expected_context, journal_bytes,
                                   checkpoint_bytes, candidate_bytes, manifest_bytes):
     """Derive every intended/admitted Worker from one internally consistent snapshot."""
@@ -126,11 +154,18 @@ def validate_submission_inventory(*, expected_context, journal_bytes,
         worker.update(count=count, uid=uid, state=event)
 
     candidate = _json(candidate_bytes)
-    _bound(candidate, "snakemake.kubernetes.executor-failure.v1", context)
+    control = candidate.get("schema") == "snakemake.kubernetes.executor-control-failure.v1"
+    _bound(candidate, "snakemake.kubernetes.executor-control-failure.v1" if control
+           else "snakemake.kubernetes.executor-failure.v1", context)
     failures = candidate.get("failures")
     _require(candidate.get("automatic_recovery_allowed") is False
              and candidate.get("requires_master_terminal") is True
-             and isinstance(failures, list) and len(failures) == len(failed) and bool(failed))
+             and isinstance(failures, list) and bool(failures))
+    if control:
+        _require(not failed)  # Mixed control/submission failures require manual review.
+        _control_inventory(failures, workers)
+    else:
+        _require(len(failures) == len(failed) and bool(failed))
     for failure, row in zip(failures, failed):
         _require(isinstance(failure, dict))
         _require(all(k in failure and type(failure[k]) is type(row[k]) and failure[k] == row[k]
@@ -152,7 +187,7 @@ def validate_submission_inventory(*, expected_context, journal_bytes,
         seen.add(name)
     _require(seen == set(admitted))
     return dict(workers=[dict(name=n, uid=w["uid"]) for n, w in workers.items()],
-                executor_failure_count=len(failed), journal_sha256=hashlib.sha256(journal_bytes).hexdigest(),
+                executor_failure_count=len(failures), journal_sha256=hashlib.sha256(journal_bytes).hexdigest(),
                 manifest_sha256=hashlib.sha256(manifest_bytes).hexdigest(),
                 candidate_sha256=hashlib.sha256(candidate_bytes).hexdigest())
 
