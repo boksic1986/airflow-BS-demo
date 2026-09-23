@@ -92,7 +92,8 @@ def _control_inventory(failures, workers):
 
 
 def validate_submission_inventory(*, expected_context, journal_bytes,
-                                  checkpoint_bytes, candidate_bytes, manifest_bytes):
+                                  checkpoint_bytes, candidate_bytes, manifest_bytes,
+                                  final_snapshot=False):
     """Derive every intended/admitted Worker from one internally consistent snapshot."""
     context = expected_context
     _require(isinstance(context, dict)
@@ -109,7 +110,7 @@ def validate_submission_inventory(*, expected_context, journal_bytes,
     for raw in (journal_bytes, checkpoint_bytes, candidate_bytes, manifest_bytes):
         _require(type(raw) is bytes and len(raw) <= LIMIT)
     lines = _lines(journal_bytes)
-    _require(bool(lines))
+    _require(bool(lines) or final_snapshot is True)
     digest = hashlib.sha256(b"").hexdigest()
     for line in lines:
         digest = hashlib.sha256(digest.encode() + line).hexdigest()
@@ -153,19 +154,23 @@ def validate_submission_inventory(*, expected_context, journal_bytes,
             raise ValueError("unsupported submission inventory event")
         worker.update(count=count, uid=uid, state=event)
 
-    candidate = _json(candidate_bytes)
+    candidate = _json(candidate_bytes) if candidate_bytes else {}
     control = candidate.get("schema") == "snakemake.kubernetes.executor-control-failure.v1"
-    _bound(candidate, "snakemake.kubernetes.executor-control-failure.v1" if control
-           else "snakemake.kubernetes.executor-failure.v1", context)
-    failures = candidate.get("failures")
-    _require(candidate.get("automatic_recovery_allowed") is False
-             and candidate.get("requires_master_terminal") is True
-             and isinstance(failures, list) and bool(failures))
+    if candidate_bytes:
+        _bound(candidate, "snakemake.kubernetes.executor-control-failure.v1" if control
+               else "snakemake.kubernetes.executor-failure.v1", context)
+        failures = candidate.get("failures")
+        _require(candidate.get("automatic_recovery_allowed") is False
+                 and candidate.get("requires_master_terminal") is True
+                 and isinstance(failures, list) and bool(failures))
+    else:
+        _require(final_snapshot is True and not failed)
+        failures = []
     if control:
         _require(not failed)  # Mixed control/submission failures require manual review.
         _control_inventory(failures, workers)
     else:
-        _require(len(failures) == len(failed) and bool(failed))
+        _require(len(failures) == len(failed) and (bool(failed) or final_snapshot is True))
     for failure, row in zip(failures, failed):
         _require(isinstance(failure, dict))
         _require(all(k in failure and type(failure[k]) is type(row[k]) and failure[k] == row[k]
@@ -190,6 +195,74 @@ def validate_submission_inventory(*, expected_context, journal_bytes,
                 executor_failure_count=len(failures), journal_sha256=hashlib.sha256(journal_bytes).hexdigest(),
                 manifest_sha256=hashlib.sha256(manifest_bytes).hexdigest(),
                 candidate_sha256=hashlib.sha256(candidate_bytes).hexdigest())
+
+
+def validate_final_submission_snapshot(snapshot):
+    """Consume a native hash-bound FINAL snapshot, never an arbitrary journal.
+
+    The caller must first authenticate its native terminal/bundle binding. This
+    validates contents only; live inventories and dispatcher/lock proof remain
+    mandatory before replacement. No automatic recovery authority is emitted.
+    """
+    def encoded(value):
+        return (json.dumps(value, sort_keys=True, separators=(",", ":"))+"\n").encode()
+
+    _require(isinstance(snapshot, dict) and type(snapshot.get('schema_version')) is int
+             and snapshot['schema_version'] == 1 and len(encoded(snapshot)) <= LIMIT)
+    master, phases = snapshot.get('master'), snapshot.get('phases')
+    _require(isinstance(master, dict) and isinstance(phases, dict)
+             and set(phases) == {'preflight', 'analysis'})
+    recovery = master.get('recovery_context')
+    _require(isinstance(recovery, dict) and isinstance(snapshot.get('manifest'), str))
+    manifest = [_json(line) for line in _lines(snapshot['manifest'].encode())]
+    workers, seen = [], set()
+    for phase, value in phases.items():
+        _require(isinstance(value, dict) and type(value.get('started')) is bool)
+        if not value['started']:
+            _require(value == {'started':False})
+            continue
+        context = value.get('context')
+        _require(isinstance(context, dict))
+        expected = {'pipeline':recovery['pipeline'], 'analysis_id':recovery['analysis_id'],
+            'attempt':str(master['attempt']), 'execution_id':recovery['execution_id']+':'+phase,
+            'generation':master['execution_generation'], 'request_hash':master['request_hash'],
+            'run_id':master['run_id'], 'master_job_uid':master['job_uid'], 'master_pod_uid':master['pod_uid']}
+        _require(all(type(context.get(k)) is type(v) and context[k] == v for k,v in expected.items()))
+        _require(type(value.get('exit_code')) is int and 0 <= value['exit_code'] <= 255
+                 and isinstance(value.get('journal'),str) and isinstance(value.get('candidates'),dict)
+                 and isinstance(value.get('terminals'),dict))
+        rows = [_json(line) for line in _lines(value['journal'].encode())]
+        names = {row.get('worker_name') for row in rows}
+        _require(not names & seen)
+        phase_manifest = [row for row in manifest if row.get('external_jobid') in names]
+        candidates = value['candidates']
+        _require(set(candidates) <= {'executor-failure.json','executor-control-failure.json'} and len(candidates) <= 1)
+        result = validate_submission_inventory(expected_context=context, journal_bytes=value['journal'].encode(),
+            checkpoint_bytes=encoded(value['checkpoint']),
+            candidate_bytes=encoded(next(iter(candidates.values()))) if candidates else b'',
+            manifest_bytes=b''.join(encoded(row) for row in phase_manifest), final_snapshot=True)
+        seen.update(names)
+        admitted_uids = {w['uid'] for w in result['workers'] if w['uid'] is not None}
+        _require(set(value['terminals']) <= admitted_uids)
+        for worker in result['workers']:
+            terminal = value['terminals'].get(worker['uid'])
+            if terminal is not None:
+                admitted = next(row for row in rows if row['worker_name']==worker['name'] and row['event'] in {'CREATED','ADOPTED'})
+                bound = {'schema_version':1, 'context_sha256':hashlib.sha256(encoded(context)).hexdigest(),
+                    'run_id':context['run_id'], 'attempt':context['attempt'],
+                    'execution_generation':context['generation'], 'master_uid':context['master_job_uid'],
+                    'namespace':context['namespace'], 'job_name':worker['name'], 'job_uid':worker['uid'],
+                    'job_attempt':admitted['job_attempt'], 'submission_identity':admitted['submission_token']}
+                _require(isinstance(terminal,dict) and set(terminal)==set(bound)|{'terminal_state','reason','observed_at'}
+                         and all(type(terminal.get(k)) is type(v) and terminal[k]==v for k,v in bound.items())
+                         and terminal.get('terminal_state') in {'SUCCEEDED','FAILED'}
+                         and type(terminal.get('observed_at')) is int and terminal['observed_at'] > 0
+                         and _text(terminal.get('reason'),UID))
+            workers.append({**worker, 'namespace':context['namespace'],
+                            'terminal_state':terminal['terminal_state'] if terminal else None})
+    _require(all(row.get('external_jobid') in seen for row in manifest))
+    _require(len(workers) <= 4096 and len({w['uid'] for w in workers if w['uid']}) == sum(bool(w['uid']) for w in workers))
+    return workers
 
 
 def probe_submission_inventory(*, runtime, config, master_job, expected_context,

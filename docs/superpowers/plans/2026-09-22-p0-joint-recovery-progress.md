@@ -1,5 +1,24 @@
 # P0 joint recovery implementation ledger
 
+## 2026-09-24 Task3 approved native dependencies accepted
+
+Final Worker snapshot + independent next-generation view accepted in isolated
+native source; original bundle/config/history preserved. Exact native reader,
+actual plugin inventory/terminal consumer and complete live reconciliation:
+BS10610 view6 + final18 + live10 new cases,5 affected checks passed. Approval
+is no longer pending. Task3 still needs existing Resume/lock/action-journal
+side-effect wiring and final adapter matrix; Task4/all-writer closure separate.
+No artifacts, install, deployment, production or real rerun. See HANDOFF.
+
+## 2026-09-23 Task3 compatible confirmation and native success
+
+27 new synthetic cases RED/GREEN accepted: classified exact query, complete-list
+guard, WGS real Task1 handoff composition, GATK active v2 reuse, bound native
+success and ambiguous-terminal rejection. Scope confirmation was pending for final
+Worker ledger production and next-generation derived view. Full Task3 inventory,
+lock callbacks/recycled Master replacement remain open. Failed v2 Master blocks
+before deletion, not after destructive handoff. No Task4/5 or production advance.
+
 ## 2026-09-23 Task3 first Resume guard checkpoint
 
 Continued existing branch after Task2; production historical reruns remain

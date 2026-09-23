@@ -1,5 +1,43 @@
 # Workflow runtime integration
 
+## P0-2 Task3 final-inventory/view contracts (2026-09-24, source only)
+
+Approved native `_prepare_recovery_view` derives a separate manifest with next
+generation and request-hashed recovery_context; original payload/config/bundle
+bytes are unchanged. View receipt verifies input/derived hashes and action on
+replay; its MASTER_HANDOFF owns a separate UID/deadline. Not launch authority.
+Master wraps preflight and analysis with distinct plugin execution contexts;
+post-child snapshot `recovery-final.json` includes both phase journals/checkpoints,
+exact Worker terminal records/candidates and final jobs.ndjson. RUN terminal binds
+submission_snapshot_sha256 and submission_inventory_complete; evidence_complete
+remains false (process evidence cannot prove live Pods/other dispatchers inactive).
+`_recovery_final_evidence` validates current handoff, confirmation, terminal,
+snapshot hash and native phase exit agreement from an existing mirror; no helper
+Job. `validate_final_submission_snapshot` consumes actual producer records and
+allows zero submissions only inside this final scope, rejecting malformed present
+candidates. `probe_final_workloads` checks full run-label lists plus exact names;
+missing Workers need exact persisted terminal, surviving/unbound work and partial
+pages block. These read-only helpers do not authorize dispatch or replace Task4
+trusted canonical storage/legacy mapping/all-writer binding. Resume side-effect
+integration remains Task3 work; no production/default CLI activation.
+
+## P0-2 Task3 compatible readers (2026-09-23, development only)
+
+Resume may use `_recovery_query(config, *arguments)` from compatible runtime:
+successful exact-name empty GET means absent; failed GET raises a privacy-safe
+classification; incomplete lists never mean empty. Frozen bundles stay intact.
+WGS v2 uses `_finish_master_handoff` and the original confirmation deadline.
+GATK reuses its own validated active v2 Master through the same native primitive.
+Live Complete alone is insufficient: `_recovery_native_success(bundle, contract,
+job_uid)` reads an existing hash-checked mirror, matches handoff/digests/UID,
+START_CONFIRMED, RUN_COMPLETE, native stage exits and workflow completion.
+It creates no helper Job and does not prove complete Worker/dispatcher finality.
+
+Failed v2 replacement blocks before mutation pending final submission inventory
+and a next-generation derived recovery view. Directory-lock-v2 is not connected;
+full inventory/storage/legacy mapping and Task4 authenticated/all-writer closure
+remain required. No TTL, automatic policy or production activation.
+
 ## P0-2 Task3 guard checkpoint (2026-09-23; consumer closure pending)
 
 WGS existing recovery journal no longer grants a second CREATE after

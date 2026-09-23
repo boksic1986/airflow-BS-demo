@@ -183,3 +183,48 @@ def test_lost_create_delayed_failed_replacement_does_not_reopen_same_action(froz
     with pytest.raises(RuntimeError):
         m.resume_master(payload=payload,binding=binding,runtime=runtime)
     assert len(state['submits'])==1 and not state['deletes']
+
+
+@pytest.mark.parametrize('verified', [True, False])
+def test_complete_job_requires_native_success_before_resume_advances(frozen, verified):
+    m=module(); _,binding,_,state,runtime,payload,_=frozen
+    state['job']['status']={'conditions':[{'type':'Complete','status':'True'}]}
+    calls=[]
+    def success(*args):
+        calls.append(args[-1])
+        if not verified:
+            raise RuntimeError('native success unavailable')
+        return {'state':'SUCCEEDED','job_uid':'old-uid'}
+    runtime._recovery_native_success=success
+    if verified:
+        assert m.resume_master(payload=payload,binding=binding,runtime=runtime)['mode']=='reused'
+    else:
+        with pytest.raises(RuntimeError):
+            m.resume_master(payload=payload,binding=binding,runtime=runtime)
+    assert calls==['old-uid'] and not state['submits'] and not state['deletes']
+
+
+@pytest.mark.parametrize('change', ['active', 'contradictory'])
+def test_ambiguous_master_terminal_never_advances_or_replaces(frozen, change):
+    m=module(); _,binding,_,state,runtime,payload,_=frozen
+    state['job']['status']={'conditions':[{'type':'Complete','status':'True'}]}
+    if change=='active':state['job']['status']['active']=1
+    else:state['job']['status']['conditions'].append({'type':'Failed','status':'True'})
+    runtime._recovery_native_success=lambda *a:{'state':'SUCCEEDED','job_uid':'old-uid'}
+    with pytest.raises(RuntimeError):m.resume_master(payload=payload,binding=binding,runtime=runtime)
+    assert not state['submits'] and not state['deletes']
+
+
+def test_v2_missing_master_with_old_deletion_journal_cannot_create(frozen, monkeypatch):
+    m=module(); bundle,binding,manifest,state,runtime,payload,replace=frozen
+    manifest['metadata']['annotations']={'cce-pipeline/handoff-version':'2'}
+    (bundle/'master-job.yaml').write_text(yaml.safe_dump(manifest))
+    state['job']=None
+    path=Path(payload['control_workdir'])/('recovery-'+payload['resume_action_id']+'.json')
+    path.parent.mkdir(); path.write_text(json.dumps({'state':'deleted','old_uid':'old-uid'}))
+    before=path.read_bytes()
+    monkeypatch.setattr(m,'_submit_frozen_master',replace)
+    monkeypatch.setattr(m,'_finish_handoff',lambda *a:None)
+    with pytest.raises(RuntimeError,match='recovery view'):
+        m.resume_master(payload=payload,binding=binding,runtime=runtime)
+    assert not state['submits'] and not state['deletes'] and path.read_bytes()==before

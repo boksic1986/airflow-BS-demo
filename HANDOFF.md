@@ -1,5 +1,61 @@
 # Handoff
 
+## 2026-09-24 Task3 native dependency acceptance; side-effect closure still open
+
+User approved final Worker snapshot and independent replacement-generation view
+in isolated cce-pipeline, only BS10610 synthetic. Platform branch base707533b,
+producer branch base7926496, pinned Worker source5b5d7ee. Original dirty worktree
+untouched. Query/confirmation/native-success guards connected to current Resume;
+v2 failed/missing replacement still safely blocks until verified view/lock wiring.
+New final submission content validator consumes actual plugin bytes, including
+empty completed phases, exact terminals and candidates; full run-label + exact
+Job/Pod probe rejects unknown/active/reclaimed-without-proof/partial inventories.
+Native producer captures final phase snapshot, independent hash-checked view and
+current-bound reader. No public API, DB, DAG, installation, image or service changes.
+
+Fresh BS10610 preflight same as previous entry: server10610 uid6708, control
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS,current releases/20260912-opt-4d3d24e6;
+backend36ff21f87356 /app RO releases/20260923-step7-ae416fa/backend/backend,
+/config RO current/config, scanner=false,auto_dispatch=false; candidate writable.
+Intermittent jump172.17.61.18 SSH handshake failures ran no remote commands;
+bounded later retries succeeded. No BS96/production, DB or real reruns.
+
+Evidence WGS_test/cce-evidence/p02-resume-20260923 under /mnt/biodevrwsg2/33.chenjiucheng.
+Docker --rm --pull=never --network none --read-only --user6708:520 --cpus1 --memory1g,
+source mounts RO, synthetic evidence/tmp RW, no secrets/live data. Cached image
+8491604ee01d9b3a84d74e7edf233a9d5dd20ddbf14f8a646c25c05f8729efed for lightweight checks;
+a0112f0b8ef003dd488c6c6ee2f13ca760c116d703e9ff7a83083e2857ce143e for actual plugin source
+composition with existing pytest pure deps RO. CCE_PIPELINE_SOURCE=/producer,
+CCE_PLUGIN_SOURCE=/plugin; PYTHONDONTWRITEBYTECODE=1; pytest -q -p no:cacheprovider.
+
+Accepted targeted evidence (not full-suite):
+- resume-confirmation-red/green:15 new; resume-native-success-red/green:9 new;
+  resume-ambiguous-terminal-red/green:3 new. Combined affected run31 passed.
+- resume-v2-replay-red:2 failed; resume-review-red:2 failed. Replay guards,
+  GATK ownership-before-START and malformed RUN_FAILED presence fixed;
+  resume-review-green:5 passed including1 affected positive.
+- recovery-view-red/green:6 new.
+- recovery-final-red-implementation:5 missing helper errors; final producer GREEN5
+  after correcting fixture namespace. Initial fixture-only failures not acceptance.
+- recovery-final-consumer-red:10 new failures; missing decode field found during
+  first attempted green; recovery-final-consumer-shell-green:17 passed including
+  original5 +reader/content10 +shipped shell2. Shell uses actual plugin manager,
+  not a full real Snakemake CLI no-op acceptance. Cached source read establishes
+  Executor initialization before no-op return (snakemake-noop-*-source.log).
+- recovery-live-inventory-red/green:10 new.
+- review empty candidate RED1, fixed presence-based validation; review-affected
+  GREEN6 =1 new +5 affected (legacy inventory/control +native shell success/failure).
+Focused same reviewer found only that Important for new dependency code; fixed.
+Changed files: wgs_resume/gatk_resume and tests, cce_recovery_inventory/workloads,
+new p02_resume_handoff/p02_final_inventory tests, current/task/runtime/plan/handoff docs.
+No full suite/local runtime test, artifact build, real cluster or deployment.
+
+Remaining Task3: verified internal canonical-storage/dispatcher/lock capability,
+existing Resume next-view/submit/START journal integration and WGS/GATK matrix.
+Task4 authenticated all-writer entry points remain separate; Task5 TTL disabled.
+Do not turn process-only evidence or caller-provided JSON into launch authority.
+Rollback isolated commits only; nothing deployed, no data rollback needed.
+
 ## 2026-09-23 Task3 Resume guard checkpoint; consumer closure still pending
 
 Goal: continue P0 after Task2 without operating the five failed production runs.

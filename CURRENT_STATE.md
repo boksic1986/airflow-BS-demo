@@ -1,5 +1,41 @@
 # Current state
 
+## 2026-09-24 Task3 approved snapshot/view dependencies accepted
+
+User approved isolated native final Worker snapshot + independent next-generation
+view. Implemented without changing original bundle/config/history. Master seals
+completed plugin phase journals/checkpoints/Worker terminals/manifest; this is
+NOT an all-writer recovery seal. Current-bound native reader and complete live
+run-label/exact Job/Pod reconciliation reject incomplete, unknown or contradictory
+evidence. BS10610 synthetic: view6 + final18 + live10 new cases passed;5 affected
+checks. Prior query/confirmation/native success checkpoint27 + replay/review4 also
+passed. See HANDOFF for individual logs, not a full-suite claim.
+Task3 still OPEN: trusted lock capability and existing WGS/GATK Resume side-effect
+journal wiring/final matrix. Task4 authenticated all-writer closure stays separate.
+No local runtime tests, installs, images, services, production or real reruns.
+
+## 2026-09-23 Task3 confirmation/native success consumers; producer gap identified
+
+Compatible Resume queries use a bounded, classified producer reader; errors are
+never absence and incomplete pages block. WGS v2 handoff consumes actual Task1
+START_CONFIRMED (original deadline, no repeated START); GATK can reconcile its
+same active v2 Master. Native success requires matching handoff, confirmation,
+RUN_COMPLETE, three zero stage exit codes and workflow completion, not just a
+Job Complete condition. Contradictory/active terminals block continuation.
+
+Task3 is NOT complete. Failed v2 Master replacement blocks BEFORE mutation:
+Task1 cannot accept another UID in its frozen generation. Final submission
+inventory is not sealed by the Master (evidence_complete=false; submit-context
+injection absent at that historical checkpoint). Approval and implementation
+above supersede the then-pending scope question for final inventory and
+explicit next-generation recovery view in isolated producer source. Do not
+rewrite frozen bundles or treat process-only evidence as a full seal. Complete
+live inventories/canonical lock callbacks remain open, then Task4.
+
+BS10610 synthetic: RED15 -> GREEN15 query/confirmation; RED9 -> GREEN9 native
+success; RED3 -> GREEN3 terminal ambiguity. No local tests, production actions,
+install, artifact build, TTL or automatic activation. HANDOFF records provenance.
+
 ## 2026-09-23 P0-2 Task3 first guard checkpoint (Task3 still in progress)
 
 Existing WGS Resume no longer submits again after unknown CREATE followed by404,

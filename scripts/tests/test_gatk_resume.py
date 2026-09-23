@@ -176,5 +176,68 @@ class ResumeTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):self.invoke(True)
         self.assertEqual(self.calls.count('step2'),1)
 
+    def v2_master(self):
+        annotations={'cce-pipeline/handoff-version':'2'}
+        self.manifest['metadata']['annotations']=annotations
+        self.job['metadata']['annotations']=annotations.copy()
+        (self.bundle/'master-job.yaml').write_text(yaml.safe_dump(self.manifest))
+        self.runtime._finish_master_handoff=lambda *a:self.calls.append('confirmed')
+
+    def test_v2_active_master_reconciles_confirmation_without_replacement(self):
+        self.v2_master()
+        self.job['status']={'active':1}
+        self.assertEqual(self.invoke(True)['status'],'reused')
+        self.assertEqual(self.calls,['claim','confirmed'])
+
+    def test_v2_prestart_master_checks_ownership_before_sending_start(self):
+        self.v2_master()
+        self.job['status']={'active':1}
+        def denied(*a):
+            raise RuntimeError('another owner')
+        self.runtime._claim_batch_lock=denied
+        with self.assertRaises(RuntimeError):self.invoke(True)
+        self.assertEqual(self.calls,[])
+
+    def test_v2_failed_master_requires_new_generation_view_before_delete(self):
+        self.v2_master()
+        with patch.object(self.module.subprocess,'run',side_effect=self.delete):
+            with self.assertRaisesRegex(RuntimeError,'recovery view'):
+                self.invoke(True)
+        self.assertEqual(self.calls,[])
+        self.assertFalse((self.request_dir/'resume-old-uid.json').exists())
+
+    def test_v2_complete_master_requires_native_success_before_resume_advances(self):
+        self.v2_master()
+        self.job['status']={'conditions':[{'type':'Complete','status':'True'}]}
+        self.runtime._recovery_native_success=lambda *a:{'state':'SUCCEEDED','job_uid':'old-uid'}
+        self.assertEqual(self.invoke(True)['status'],'succeeded')
+        self.assertEqual(self.calls,[])
+        self.runtime._recovery_native_success=lambda *a:(_ for _ in ()).throw(RuntimeError('unverified'))
+        with self.assertRaises(RuntimeError):self.invoke(True)
+        self.assertEqual(self.calls,[])
+
+    def test_v2_success_with_active_or_deleting_master_never_advances(self):
+        self.v2_master()
+        self.runtime._recovery_native_success=lambda *a:{'state':'SUCCEEDED','job_uid':'old-uid'}
+        for change in ('active','deleting'):
+            with self.subTest(change=change):
+                self.job['status']={'conditions':[{'type':'Complete','status':'True'}]}
+                if change=='active':self.job['status']['active']=1
+                else:self.job['metadata']['deletionTimestamp']='synthetic'
+                with self.assertRaises(RuntimeError):self.invoke(True)
+                self.assertEqual(self.calls,[])
+
+    def test_v2_completed_journal_does_not_bypass_new_uid_confirmation(self):
+        self.v2_master()
+        self.job['metadata']['uid']='new-uid'
+        value={'analysis_id':self.aid,'attempt':1,'run_id':self.aid+'-a1',
+               'expected_job_uid':'old-uid','binding_sha256':self.params['expected_binding_sha256'],
+               'contract_sha256':self.params['expected_contract_sha256'],
+               'manifest_sha256':hashlib.sha256((self.bundle/'master-job.yaml').read_bytes()).hexdigest(),
+               'status':'completed','replacement_job_uid':'new-uid'}
+        (self.request_dir/'resume-old-uid.json').write_text(json.dumps(value))
+        with self.assertRaises(RuntimeError):self.invoke(True)
+        self.assertEqual(self.calls,[])
+
 
 if __name__=='__main__':unittest.main()

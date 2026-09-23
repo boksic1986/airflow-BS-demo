@@ -89,7 +89,9 @@ def _terminated_pods(value, namespace, job_uid, *, diagnostics=None):
     if (not isinstance(value, dict) or value.get("kind") not in {"List", "PodList"}
             or not isinstance(value.get("items"), list)
             or not isinstance(value.get("metadata"), dict)
-            or value["metadata"].get("continue")):
+            or value["metadata"].get("continue")
+            or type(value['metadata'].get('remainingItemCount',0)) is not int
+            or value['metadata'].get('remainingItemCount',0) != 0):
         raise ValueError("complete Pod inventory is unavailable")
     observed = {}
     for pod in value["items"]:
@@ -146,6 +148,83 @@ def _terminated_pods(value, namespace, job_uid, *, diagnostics=None):
             diagnostics[metadata["uid"]] = dict(name=metadata["name"], phase=status["phase"],
                 reason=_reason(status.get("reason")), containers=containers_observed)
     return observed
+
+
+def probe_final_workloads(*, runtime, config, namespace, run_label, master_job,
+                          master_job_uid, master_state, workers, timeout_seconds=120):
+    """Reconcile FINAL native inventory against full live lists and exact names.
+
+    Absence only counts after a successful GET and requires a persisted exact
+    Worker terminal. This read-only observation is not dispatch authorization.
+    """
+    for name in (namespace,run_label,master_job):_identity(name,DNS)
+    _identity(master_job_uid,UID)
+    if (master_state not in {'FAILED','SUCCEEDED'} or config.get('kubernetes',{}).get('namespace') != namespace
+            or not isinstance(workers,list) or len(workers)>4096
+            or type(timeout_seconds) is not int or not 0 < timeout_seconds <= 300):
+        raise ValueError('invalid final workload binding')
+    bound={master_job:{'uid':master_job_uid,'terminal_state':master_state}}
+    for worker in workers:
+        worker=_object(worker)
+        _identity(worker.get('name'),DNS)
+        if worker.get('uid') is not None:_identity(worker['uid'],UID)
+        if (worker['name'] in bound or 'uid' not in worker or worker.get('namespace') != namespace
+                or worker.get('terminal_state') not in {None,'SUCCEEDED','FAILED'}):
+            raise ValueError('inconsistent final Worker inventory')
+        bound[worker['name']]=worker
+    deadline=time.monotonic()+timeout_seconds
+    def query(*args):
+        if time.monotonic() >= deadline:raise ValueError('workload query budget exhausted')
+        return runtime._recovery_query(config,*args)
+    def full_list(value,kind):
+        if (not isinstance(value,dict) or value.get('kind') not in {'List',kind+'List'}
+                or not isinstance(value.get('items'),list) or not isinstance(value.get('metadata'),dict)
+                or value['metadata'].get('continue')
+                or type(value['metadata'].get('remainingItemCount',0)) is not int
+                or value['metadata'].get('remainingItemCount',0)!=0):
+            raise ValueError('complete live inventory is unavailable')
+        return value['items']
+    listed={}
+    for item in full_list(query('jobs','-l','cce.biosan.cn/run-id='+run_label,'--chunk-size=0'),'Job'):
+        metadata=_metadata(_object(item),namespace)
+        name=metadata['name']
+        if (item.get('kind')!='Job' or name not in bound or name in listed
+                or metadata['uid']!=bound[name]['uid']
+                or metadata.get('labels',{}).get('cce.biosan.cn/run-id')!=run_label):
+            raise ValueError('unbound live Job exists')
+        listed[name]=metadata['uid']
+    grouped={name:[] for name in bound}
+    for item in full_list(query('pods','-l','cce.biosan.cn/run-id='+run_label,'--chunk-size=0'),'Pod'):
+        metadata=_metadata(_object(item),namespace)
+        owners=metadata.get('ownerReferences')
+        if not isinstance(owners,list) or any(not isinstance(o,dict) for o in owners):
+            raise ValueError('unbound live Pod exists')
+        owners=[o for o in owners if o.get('controller') is True]
+        if (len(owners)!=1 or owners[0].get('kind')!='Job' or owners[0].get('name') not in bound
+                or owners[0].get('uid')!=bound[owners[0]['name']]['uid']):
+            raise ValueError('unbound live Pod exists')
+        grouped[owners[0]['name']].append(item)
+    observations=[]
+    master=None
+    for name,worker in bound.items():
+        job=query('job',name)
+        state=_job_state(job,namespace,name,worker['uid'])
+        if (job is not None and (name not in listed
+                or job['metadata'].get('labels',{}).get('cce.biosan.cn/run-id')!=run_label)):
+            raise ValueError('Job differs from complete live inventory; recheck required')
+        if job is None and name in listed:raise ValueError('Job inventory changed; recheck required')
+        listed_pods=_terminated_pods({'kind':'PodList','metadata':{},'items':grouped[name]},namespace,worker['uid'])
+        pods=_terminated_pods(query('pods','-l','job-name='+name,'--chunk-size=0'),namespace,worker['uid'])
+        if set(listed_pods) != set(pods):raise ValueError('Pod inventory changed or run label differs')
+        expected=worker.get('terminal_state')
+        if state=='absent':
+            if pods or (worker['uid'] is not None and expected is None):
+                raise ValueError('reclaimed workload lacks terminal proof or still owns Pods')
+        elif expected is not None and state != ('Complete' if expected=='SUCCEEDED' else 'Failed'):
+            raise ValueError('live and persisted terminal states conflict')
+        if name==master_job:master=job
+        else:observations.append({'name':name,'uid':worker['uid'],'job_state':state,'pods':len(pods)})
+    return {'master':master,'master_state':master_state,'workers':observations,'workers_inactive':True}
 
 
 def probe_bound_workloads(*, runtime, config, namespace, master_job,

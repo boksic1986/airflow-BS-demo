@@ -1,5 +1,19 @@
 # Active test-branch tasks
 
+Task3 DEPENDENCIES ACCEPTED (2026-09-24, explicitly approved): native final
+Worker snapshot + independent generation view, current-bound reader, complete
+journal/terminal/live inventory validation. BS10610 view6 + final18 + live10 new
+cases passed;5 affected checks. Remaining: trusted canonical lock capability,
+existing WGS/GATK Resume replacement/journal integration and final composition.
+Not Task3 complete; no Task4/TTL/automatic activation or production operation.
+
+Task3 CONFIRMATION/NATIVE SUCCESS CHECKPOINT (2026-09-23): bounded classified
+queries, START_CONFIRMED consumer, active GATK v2 reuse and bound native success
+reader connected to existing Resume.27 new remote synthetic cases passed with
+RED/GREEN. Task3 remains OPEN: final Worker inventory and next-generation view
+were missing producer dependencies at that checkpoint; resolved above. Failed v2
+replacement blocks before mutation. No lock-v2 activation or Task4/TTL advance.
+
 Task3 IN PROGRESS, first guard checkpoint (2026-09-23): WGS ambiguous CREATE
 replay/disappeared replacement cannot create again; pre-delete UID/RV recheck
 and durable journal, both adapters reject incomplete Pod pages, GATK missing

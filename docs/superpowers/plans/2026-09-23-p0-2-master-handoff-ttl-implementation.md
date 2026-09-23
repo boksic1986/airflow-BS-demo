@@ -121,6 +121,26 @@ or artifacts before this legacy/all-writer matrix passes.
 
 ## Task3 — TTL-safe runtime reconciliation through existing Resume
 
+2026-09-23 follow-up:27 new cases accepted on BS10610 (15 query/confirmation,
+9 native success,3 terminal ambiguity), each RED then GREEN. Compatible query
+and Task1 confirmation/native success connect to existing WGS/GATK entry points.
+Full Task3 matrix below remains OPEN, not a completed Resume capability.
+
+2026-09-24 approved dependencies accepted in isolated source: independent view6,
+final plugin inventory/native reader/shell/review18, full live inventory10 new
+BS10610 cases;5 affected checks. Producer/read-only consumer acceptance only;
+existing Resume/lock side-effect wiring and final matrix still open.
+
+Dependency found: `_bind_master_terminal` sets evidence_complete=false and does
+not bind final submit journal/manifest; Master wrapper lacks plugin submit
+context injection. V2 MASTER_HANDOFF refuses another UID in the frozen generation.
+Blind consumption would delete the failed Master then fail handoff, or trust
+non-final inventory. Guard now blocks that path BEFORE mutation. User approved
+on2026-09-24 final inventory production and explicit derived next-generation
+recovery view outside the original bundle, preserving history/config/input.
+Complete live inventories + trusted storage/lock callbacks must consume those
+records; this does not replace Task4 authenticated binding/all-writer closure.
+
 2026-09-23 first safety checkpoint complete, Task3 remains open: unknown WGS
 CREATE/404 replay and missing acknowledged replacement cannot POST again;
 pre-delete exact UID/RV recheck, durable preserving journal; both adapters reject
