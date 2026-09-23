@@ -15,6 +15,41 @@ IDENTITY = ("pipeline", "analysis_id", "attempt", "execution_id", "generation",
             "request_hash", "run_id", "namespace", "master_job_uid", "master_pod_uid")
 CATEGORIES = {"WORKER_CREATE_TRANSPORT": "worker_create_transport_interrupted",
               "WORKER_CREATE_ADMISSION_TIMEOUT": "worker_create_admission_timeout"}
+CONTROL_SCHEMA = "snakemake.kubernetes.executor-control-failure.v1"
+
+
+def _control_failure(failure):
+    name = failure.get("worker_name")
+    uid = failure.get("worker_uid")
+    if (failure.get("category") != "HEAVY_SLOT_API_UNAVAILABLE"
+            or failure.get("phase") != "heavy_slot_refresh"
+            or failure.get("transient_reason") != "CONNECTION_REFUSED"
+            or failure.get("retry_scope") != "same_operation"
+            or failure.get("creation_state") != "UNKNOWN"
+            or failure.get("retryable") is not True or failure.get("exhausted") is not True
+            or type(failure.get("operation_attempts")) is not int
+            or not 1 <= failure["operation_attempts"] <= 3
+            or not isinstance(name, str) or len(name) > 63
+            or not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", name)
+            or "worker_uid" not in failure
+            or (uid is not None and (not isinstance(uid, str) or not uid.strip()
+                                    or uid != uid.strip() or len(uid) > 256))):
+        raise ValueError("control failure is not an allowlisted read candidate")
+    operation = failure.get("operation")
+    resource = failure.get("resource_name")
+    if operation == "read_namespaced_lease":
+        valid = (failure.get("resource_kind") == "Lease"
+                 and isinstance(resource, str) and len(resource) <= 253
+                 and re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?", resource)
+                 and "label_selector" in failure and failure["label_selector"] is None)
+    elif operation == "list_namespaced_pod":
+        valid = (failure.get("resource_kind") == "Pod"
+                 and "resource_name" in failure and resource is None
+                 and failure.get("label_selector") == f"job-name={name}")
+    else:
+        valid = False
+    if not valid:
+        raise ValueError("control failure requires an exact Lease GET or Worker Pod LIST")
 
 
 def _digest(value):
@@ -58,7 +93,8 @@ Job failed/Pod exited and fully reconciling all submitted/possibly-created work.
 Each assertion is mandatory. Dispatch must independently recheck current state.
 """
     _context(expected_context)
-    _bound(candidate, "snakemake.kubernetes.executor-failure.v1", expected_context)
+    control = isinstance(candidate, dict) and candidate.get("schema") == CONTROL_SCHEMA
+    _bound(candidate, CONTROL_SCHEMA if control else "snakemake.kubernetes.executor-failure.v1", expected_context)
     _bound(terminal, "cce.master-terminal.v1", expected_context)
     if candidate.get("automatic_recovery_allowed") is not False or candidate.get("requires_master_terminal") is not True:
         raise ValueError("plugin candidate cannot authorize recovery")
@@ -70,7 +106,7 @@ Each assertion is mandatory. Dispatch must independently recheck current state.
             raise ValueError("incomplete terminal/worker evidence")
     if (terminal.get("master_state") != "failed" or terminal.get("master_pod_state") != "terminated"
             or type(terminal.get("exit_code")) is not int or terminal["exit_code"] <= 0
-            or terminal.get("fatal_source") != "executor_submission"):
+            or terminal.get("fatal_source") != ("executor_control" if control else "executor_submission")):
         raise ValueError("Master termination is not a classified executor failure")
     for key in ("rule_failure_count", "other_failure_count", "active_worker_jobs",
                 "active_worker_pods", "unresolved_submissions"):
@@ -85,6 +121,10 @@ Each assertion is mandatory. Dispatch must independently recheck current state.
     for failure in failures:
         if not isinstance(failure, dict):
             raise ValueError("invalid executor failure")
+        if control:
+            _control_failure(failure)
+            categories.add("HEAVY_SLOT_API_UNAVAILABLE")
+            continue
         category = failure.get("category")
         if (not isinstance(category, str) or category not in CATEGORIES
                 or failure.get("creation_state") != "ABSENT"
@@ -99,4 +139,5 @@ Each assertion is mandatory. Dispatch must independently recheck current state.
     return dict(pipeline=expected_context["pipeline"], analysis_id=expected_context["analysis_id"],
                 attempt=int(expected_context["attempt"]), source_execution_id=expected_context["execution_id"],
                 source_master_uid=expected_context["master_job_uid"],
-                category=CATEGORIES[next(iter(categories))], evidence_sha256=_digest(terminal))
+                category="heavy_slot_api_unavailable" if control else CATEGORIES[next(iter(categories))],
+                evidence_sha256=_digest(terminal))

@@ -1,5 +1,15 @@
 # Active test-branch tasks
 
+CR-01/03 2026-09-23 coverage extension: user approved adding current disconnect
+types before continuing P0. GATK exact-identity slot acquisition bounded retry
+implemented (7 actual DAG checks;2 backend lease checks). Control-read candidate
+consumer and single-source stable reader implemented; BS10610 synthetic green.
+New plugin artifact and actual fixture/inventory integration pending; preserve
+bs6, quota behavior and existing two-recovery budget. D CREATE RPC500 needs
+source-call confirmation; generic C/E/WES kubectl errors remain unclassified.
+No new audit track, runtime deployment or automatic enablement. Next is actual
+contract integration then existing dispatcher/adapter/observer/Step4 work.
+
 CR-03 external cleanup fence complete: WGS/GATK three transfer release stages
 and WGS observer deactivate reject stale/missing recovery DagRun identity under
 a refreshed run lock. WGS partial release rechecks after the primitive commits;

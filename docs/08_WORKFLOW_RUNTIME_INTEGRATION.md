@@ -1,5 +1,36 @@
 # Workflow runtime integration
 
+## P0 quota-read candidate contract (2026-09-23, isolated source only)
+
+Agreed plugin contract adds executor-control-failure.json with schema
+snakemake.kubernetes.executor-control-failure.v1, the same ten frozen identity
+fields, observed_epoch, automatic_recovery_allowed=false,
+requires_master_terminal=true and cumulative nonempty failures. This is a
+candidate, not an audit/footer, finality seal or permission to restart.
+
+Each failure uses HEAVY_SLOT_API_UNAVAILABLE, phase=heavy_slot_refresh,
+transient_reason=CONNECTION_REFUSED, retry_scope=same_operation,
+operation_attempts integer1..3, retryable/exhausted=true, creation_state=UNKNOWN,
+exact worker_name and explicitly nullable worker_uid. Supported reads only:
+read_namespaced_lease with kind Lease, exact resource_name and null selector;
+list_namespaced_pod with kind Pod, null resource_name and exact
+job-name=<worker_name> selector. No writes, broad namespace list or generic500.
+UNKNOWN is not a submission failure or evidence that the Worker is absent.
+
+The internal consumer validates these fields separately from CREATE failures.
+Its still-draft terminal contract requires fatal_source=executor_control and
+the same cumulative executor_failure_count, bound candidate digest, complete
+failure/Worker accounting and zero active/unresolved work. A candidate alone,
+unknown inventory or mixed fatal sources never authorizes recovery. The bounded
+reader requires exactly one candidate file, checks its filename/schema pairing
+and directory stability as well as existing nofollow/file fingerprints.
+
+This slice has synthetic-only acceptance. Actual new plugin artifact/fixtures,
+control inventory reconciliation, trusted terminal closure, binding and dispatch
+remain unconnected; existing submission inventory still rejects control schema.
+No adapter/API/DB wiring or policy enablement. bs6 remains immutable. All allowed
+future categories share the existing two60/180-second attempt reservations.
+
 ## P0 Airflow cleanup fence (2026-09-23, source only)
 
 External DagRun release/deactivate requests now use the same current recovery

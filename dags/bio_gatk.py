@@ -274,6 +274,12 @@ with DAG(
         poke_interval=30,
         timeout=48 * 3600,
         pool="wgs_obs_upload",
+        # Same analysis/attempt/transfer identity reclaims its existing slot;
+        # retry this gate only, never the upload or SSH stage itself.
+        retries=6,
+        retry_delay=timedelta(seconds=30),
+        retry_exponential_backoff=True,
+        max_retry_delay=timedelta(minutes=5),
     )
     step1 = _runner_task("start_step1_upload", "step1_upload")
     wait_step1 = _stage_sensor("wait_step1_upload", "step1_upload")
@@ -297,6 +303,10 @@ with DAG(
         poke_interval=30,
         timeout=48 * 3600,
         pool="wgs_obs_download",
+        retries=6,
+        retry_delay=timedelta(seconds=30),
+        retry_exponential_backoff=True,
+        max_retry_delay=timedelta(minutes=5),
     )
     step5 = _runner_task("start_step5_download", "step5_download")
     wait_step5 = _stage_sensor("wait_step5_download", "step5_download")

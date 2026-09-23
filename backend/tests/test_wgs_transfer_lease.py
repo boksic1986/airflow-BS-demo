@@ -128,6 +128,23 @@ def test_same_attempt_cannot_replace_directional_transfer_identity() -> None:
         assert lease.transfer_id == UPLOAD_ID
 
 
+def test_lost_acquire_response_replays_same_identity_without_stealing() -> None:
+    sessions = _sessions()
+    with sessions() as session:
+        session.add(ObsTransferLease(slot_name="wgs-obs-upload-01"))
+        session.commit()
+        request = dict(session=session, analysis_id=ANALYSIS_ID, attempt=1,
+                       transfer_id=UPLOAD_ID, transfer_kind="input")
+        assert acquire_obs_transfer_slot(**request) == "wgs-obs-upload-01"
+        lease = session.scalar(select(ObsTransferLease))
+        acquired_at = lease.leased_at
+        assert acquire_obs_transfer_slot(**request) == "wgs-obs-upload-01"
+        assert acquire_obs_transfer_slot(**dict(request, analysis_id="another-run")) is None
+        session.refresh(lease)
+        assert (lease.analysis_id, lease.attempt, lease.transfer_id, lease.leased_at) == (
+            ANALYSIS_ID, 1, UPLOAD_ID, acquired_at)
+
+
 @pytest.mark.parametrize("terminal_status", ["success", "failed", "canceled"])
 def test_exact_terminal_evidence_releases_only_matching_direction(
     terminal_status: str,

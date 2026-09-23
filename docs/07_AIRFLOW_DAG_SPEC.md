@@ -113,7 +113,8 @@ Terminal Airflow failures must be projected into the business database. An obser
 
 ## Bounded GATK observation retries (2026-09-14)
 
-Only the `stage_ready` GET sensors retry transient backend failures: connection
+The `stage_ready` GET sensors and idempotent input/result slot-acquisition
+sensors retry transient backend failures: connection
 refusal/reset, read timeout/disconnect/incomplete response, or HTTP408/429/500/
 502/503/504. Airflow allows six retries, starting at30 seconds with exponential
 backoff and a five-minute maximum delay. Existing reschedule mode and stage
@@ -124,7 +125,13 @@ orchestration failure; it is not permission to terminate or delete cloud work.
 Non-transient HTTP responses, malformed JSON/non-object payloads and explicit
 terminal failed stage receipts use `AirflowFailException` and bypass remaining
 retries. HTTP error bodies and transport details are not copied into task logs.
-Stage registration, SSH dispatch, transfer acquire/release and finalization
+Slot acquisition replays the exact analysis/attempt/directional transfer identity;
+the existing lease primitive returns its already-owned slot, never steals another
+identity or dispatches transfer work. Response loss after commit is safe to replay.
+The48-hour acquisition timeout and directional pools are unchanged. This addition
+was verified on BS10610 with synthetic requests, not deployed to current runs.
+
+Other stage registration, SSH dispatch, transfer release and finalization
 retain zero automatic task retries: they cannot be blindly replayed after an
 ambiguous POST/SSH response. This patch does not rebuild Masters, change frozen
 attempt identity, release a live transfer lease or rerun biological computation.

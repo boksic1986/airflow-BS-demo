@@ -1,5 +1,86 @@
 # Handoff
 
+## 2026-09-23 current disconnect types: first bounded implementation slice
+
+User requested adding today's WGS B/C/D/E and WES disconnect gaps, then
+continuing P0. Base670b50e, independent CR01 worktree/branch. Runtime, scoped
+planning, TDD/verification and handoff practices used; no production authority
+inferred. Original airflow-demo dirty ops workspace preserved.
+
+Completed: bio_gatk input/result slot sensors retry only the existing transient
+backend classifications, six retries30s exponential capped5m. Original48h
+timeout and exact analysis/attempt/transfer request retained. The existing
+backend acquisition primitive is already idempotent; no primitive change.
+Other stage POST/SSH/upload/CREATE/publish/release/finalize retries unchanged.
+Tests cover actual DAG settings/request bytes/permanent401/403/409 rejection,
+and same-identity lost-response reacquire/no other-owner slot takeover.
+
+Added separate agreed executor-control-failure.v1 validation in existing
+cce_recovery_evidence.py and fixed-path reader. HEAVY_SLOT_API_UNAVAILABLE
+accepts only exact Lease GET or Worker Pod LIST, phase heavy_slot_refresh,
+typed CONNECTION_REFUSED enum, integer1..3 original-operation attempts,
+retry_scope same_operation, retryable/exhausted true, creation_state UNKNOWN.
+UNKNOWN never means absent. Existing complete terminal/UID/zero-active-work
+requirements remain; control fatal_source is executor_control. Mixed candidate
+files, filename/schema mismatch and directory changes during read reject.
+No route, binding, dispatcher or automatic enablement added. New test file
+backend/tests/test_cce_recovery_control_evidence.py uses explicitly synthetic
+terminal scaffolding, not evidence of an actual producer terminal.
+
+Failure evidence clarification from existing authorized ops owners only (no
+production queries by this task): B/C were quota GET Lease errno111; one E
+failure was quota release -> _finished -> exact Worker Pod LIST errno111.
+Other E generations had old-active-Worker guard, Ready wait and unclassified
+kubectl failures; C later generation and WES also have swallowed query reasons.
+D archived HTTP500 Status.message is a string containing RPC Unavailable and
+peer reset; exact CREATE source chain still needs verification. Do not convert
+all failures in one batch or generic500 into one automatic category.
+
+Plugin owner WGS-cloud-plugins task019f9d79-be3f-7701-af33-3595d72bbfac received
+confirmed control schema and is implementing a distinct bs7 source/artifact.
+bs6/wheel/86-test results remain immutable. Requested actual producer-generated
+GET/LIST fixtures with admitted Worker journal/checkpoint/manifest. No fake
+control INTENT/FAILED submission events. Existing inventory helper STILL rejects
+control schema; actual artifact and inventory integration are the next slice.
+WES gate generic kubectl error still cannot classify transient vs permanent;
+cce-pipeline structured-query producer ownership/baseline remains to be resolved.
+No extra Master audit framework, no frozen runtime edits or relaxed quota.
+
+Test environment: fresh ssh BS10610 hostname server10610 uid6708; control
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS, current release
+20260912-opt-4d3d24e6. Backend36ff21f87356 image8491604ee01d mounts readonly
+/app from20260923-step7-ae416fa/backend/backend and /config from current/config;
+scan=false, auto_dispatch=false. Own candidate writable; unchanged permissions.
+C=control-root/candidates/p0-airflow-recovery-20260922. Only changed source/tests
+copied there; Docker network=none, readonly mounts/rootfs,1CPU/1GiB, tmpfs.
+No shared DB/service/restart, production access or live analysis mutation.
+
+Commands/results (logs in C; counts overlap, not an aggregate unique total):
+- Cached Airflow58195672af68 image, /usr/local/bin/python
+  /candidate/dags/tests/test_gatk_network_retry.py: RED7 methods/1failure0.878s
+  (gate retries0), GREEN7 passed0.869s; gatk-slot-{red,green}.log.
+- Cached backend8491604ee01d, python -m pytest -q -p no:cacheprovider
+  backend/tests/test_cce_recovery_control_evidence.py --tb=short --maxfail=1:
+  RED1 failed0.07s (unsupported schema), control-evidence-red.log.
+- Control file plus test_cce_recovery_reader.py and test_wgs_transfer_lease.py,
+  -k 'control or fixed_bound_pair or lost_acquire_response or cannot_replace_directional':
+  GREEN26 passed/31 deselected0.58s; control-evidence-green.log.
+- New -k masquerade --maxfail=1: RED1 failed/22 deselected0.12s,
+  control-schema-red.log; filename/schema mismatch was not rejected.
+- After fix, control + reader files -k 'masquerade or single_stable or symlink
+  or nonregular or traversal': GREEN26 passed/24 deselected0.07s,
+  control-reader-green.log. Expected container kernel swap-limit warning only.
+- git diff --check passed. No local runtime tests, full regression, real cluster
+  canary, PostgreSQL concurrency or actual new-plugin acceptance run: excluded
+  to keep scope bounded; new artifact is not yet delivered.
+
+Docs changed: design, DAG/runtime contracts, P0 ledger, STATE/TASKS/HANDOFF.
+Next: actual bs7 evidence+inventory integration; existing query/dispatch/adapter/
+observer-generation/Step4 work and focused remote acceptance. P0 NOT complete.
+Automatic policy stays disabled until complete trusted runtime proof and wiring.
+Rollback: revert this isolated source commit; no deployed release or data rollback
+needed. No main/production merge/push/deploy in this slice.
+
 ## 2026-09-23 CR-03 old DagRun cleanup protection
 
 User next step; base3b3e142, independent jiucheng/runtime/CR01-cce-recovery-20260922.

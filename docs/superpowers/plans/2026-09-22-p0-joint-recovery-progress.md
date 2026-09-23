@@ -18,6 +18,27 @@ No unrelated regression suite. Preserve the original worktree's dirty files.
 
 ## Current progress
 
+- From670b50e: user-authorized current-disconnection extension. GATK input/result
+  slot gate now retries existing transient backend classifications6 times,
+  30s exponential capped5m; request identity/pools/48h timeout preserved. Actual
+  DAG7 checks passed on BS10610 after RED;2 lease identity checks confirm lost
+  response replay and no other identity takeover. No transfer/SSH stage retry.
+- Agreed HEAVY_SLOT_API_UNAVAILABLE candidate is separate from CREATE evidence:
+  GET Lease / exact Worker Pod LIST, typed errno111 only. Consumer and reader
+  accept only complete matching synthetic terminal scaffolding, never candidate
+  alone; mixed files, directory races and schema/file mismatch reject.26 focused
+  backend checks passed0.58s; then26 affected reader/security checks passed0.07s
+  after a separate filename mismatch RED. Counts overlap; not52 distinct tests.
+- Owner implements new bs7 source/artifact; bs6 frozen. Actual plugin acceptance,
+  inventory support and trusted terminal integration pending. D archived HTTP500
+  Status.message shape obtained but source CREATE chain still needs confirmation.
+  E has multiple generations/failure types; known quota Pod LIST is in scope,
+  active-old-Worker/Ready timeout/generic kubectl errors are not recategorized.
+  WES generic query-error provenance is still lost; no text-based retry bypass.
+- Continue the original P0 runtime/query and adapter/dispatch/observer/Step4
+  work. No production/main/shared-service mutation or automatic policy enablement;
+  this slice does not complete P0 or make current frozen runs recover themselves.
+
 - From3b3e142: CR-03 external lease/observer cleanup fence. Locked current run,
   attempt, DagRun and pending recovery authority before WGS/GATK release stages
   and WGS observer deactivate; DAGs send actual run_id. Partial WGS release

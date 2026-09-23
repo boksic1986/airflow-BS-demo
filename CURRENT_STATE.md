@@ -1,5 +1,22 @@
 # Current state
 
+## 2026-09-23 requested disconnection coverage additions (source only)
+
+GATK idempotent input/result transfer-slot sensors now use the existing bounded
+backend transient retry rules. Same identity reacquisition cannot steal a slot;
+transfer/SSH/CREATE/publish/release tasks are not newly retried. BS10610 actual
+DAG7 checks passed after RED; two backend lease identity checks passed.
+
+Agreed separate HEAVY_SLOT_API_UNAVAILABLE control candidate supports exact
+GET Lease / Worker Pod LIST errno111 failures. Internal consumer and controlled
+reader implemented and synthetic tests passed; generic500/writes/mixed files/
+active Workers/incomplete terminal refuse. Plugin owner is implementing a new
+bs7 artifact; actual-source fixture and inventory integration remain pending.
+D RPC500 source classification and WES generic kubectl query failure remain open,
+not falsely classified from summary text. No production/main/service changes.
+P0 is still incomplete and automatic recovery remains disabled. Continue existing
+runtime contract, dispatcher/adapter/observer/Step4 and remote acceptance work.
+
 ## 2026-09-23 old DagRun cleanup fence completed (source only)
 
 CR-03 WGS/GATK transfer-release endpoints and WGS observer deactivation now

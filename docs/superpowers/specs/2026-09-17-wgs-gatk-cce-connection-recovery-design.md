@@ -1,10 +1,10 @@
 # WGS / GATK CCE Step1–6 连接恢复与受限自动续跑设计
 
 - 任务：CCE-CONNECTION-RECOVERY-20260917。
-- 状态：原设计已确认、尚未实现；2026-09-22 按用户确认的故障范围修订研发设计，具体策略待审阅，不启动开发。
+- 状态：已按用户批准进入独立分支开发；2026-09-23 用户授权补齐当日断线类型后继续 P0。实现/验收进度见同目录 plans 下的 P0 progress，不代表生产已启用。
 - 设计基线：测试分支 `jiucheng/test/wgs-local-main-sync-20260917`，`e17c2ac`。
 - 修订基线：上述测试分支的本地远端跟踪引用 `9333160`；隔离文档分支 `jiucheng/docs/cce-recovery-design-20260922`。
-- 本次交付不包含实现、运行时测试、部署或真实任务恢复。
+- 2026-09-22 原文档交付不包含实现；后续授权仅含独立开发与 BS10610 隔离验收，不含生产部署或真实任务恢复。
 
 ## 1. 目标与边界
 
@@ -23,9 +23,10 @@ Step1–6 是 runtime 语义，不要求修改页面或 DAG 现有编号、名�
 复用现有 Registry/adapter、操作认证、执行记录、generation、checkpoint、
 发布记录、交付记录及 lease，不新增服务、锁体系、数据库表或业务状态枚举。
 
-2026-09-22 新增：对第 3.1 节两类已确认的临时基础设施故障，允许设计
+对第 3.1 节明确白名单的临时基础设施故障，允许设计
 有界自动断点续跑，必要时由既有受控 Resume 原语替换已失败的 Master。
-这是对原版“排除自动 Master 替换”的唯一范围扩展，不是通用失败重跑。
+2026-09-22 首批两类、2026-09-23 新增 Lease/RPC 类型共用原有安全门禁，
+不是通用失败重跑，也不增加自动恢复次数。
 
 不包含 prepare、pending、生信参数、Local/SGE、Step7 清理、任意失败的自动
 业务重跑、失败后自动日志打包、日志下载功能推广、镜像升级。
@@ -55,7 +56,7 @@ Step1–6 是 runtime 语义，不要求修改页面或 DAG 现有编号、名�
 不合并两套 DAG，不建立新的连接恢复守护服务。
 
 本轮比较的三种做法：仅加强查询重连无法恢复已退出的 Master；整个 DAG
-自动重试可能重复 prepare/上传/发布；采用“查询重连 + 两类故障白名单 +
+自动重试可能重复 prepare/上传/发布；采用“查询重连 + 精确故障白名单 +
 既有阶段 Resume”可复用身份与产物，因此选择第三种。失败批次号仅是需求
 来源，不能作为代码判断条件；不通过本设计直接恢复任何历史真实批次。
 
@@ -66,7 +67,7 @@ Step1–6 是 runtime 语义，不要求修改页面或 DAG 现有编号、名�
 | 明确连接超时、重置、临时不可达，HTTP 408/429/5xx | 对只读查询有限重试 |
 | 认证、权限、参数错误 | 不自动重试；记录控制/监控错误，不据此判定远端分析失败 |
 | 身份、request hash、generation、Master UID 不匹配 | 阻止恢复；不切换对象 |
-| 创建 Worker 时连接中断或 Gatekeeper 超时，导致 Master 退出 | 仅满足第 3.1–3.3 节全部条件才自动断点续跑 |
+| 创建 Worker 的连接中断、Gatekeeper 超时、确切存储 RPC 故障，或配额 Lease 读取断连导致 Master 退出 | 仅满足第 3.1–3.3 节全部条件才自动断点续跑 |
 | 其他权威执行失败、业务失败或执行进程异常退出 | 真实步骤失败；不自动重跑、不降级成成功 |
 | 查询失败、对象消失但无可靠终态、模糊的通用报错 | 执行状态待确认；禁止推断成功/失败或重发有副作用的操作 |
 
@@ -92,14 +93,35 @@ Step1–6 是 runtime 语义，不要求修改页面或 DAG 现有编号、名�
 源代码修复，再按原发布流程交付；不能靠上层字符串猜测，也不能改写已冻结
 bundle。旧通用错误归为“未分类、待确认”，不无条件自动重试。
 
-### 3.1 本轮新增的两类自动续跑候选
+### 3.1 精确自动续跑候选
 
 | 类别（拟定内部代码） | 必须同时具备的源头证据 | 不足以触发的证据 |
 | --- | --- | --- |
 | `worker_create_transport_interrupted`（0918A 类） | 精确属于当前 Master 的 Worker Job 创建调用；RemoteDisconnected/Connection reset/ProtocolError 中明确的传输中断；该异常是导致本次 Master 退出的原因 | 任意日志含 timeout/ProtocolError、只读查询失败、只有 BackoffLimitExceeded |
 | `worker_create_admission_timeout`（0919B 类） | 同一创建调用收到 HTTP500，结构化原因指向 `mutation.gatekeeper.sh` 的 `context deadline exceeded`，并导致当前 Master 退出 | 任意 HTTP500、Gatekeeper 策略拒绝、403、配额/参数/权限错误 |
+| Worker 创建存储 RPC 临时故障（0921D 类，最终类别由 producer 合同固定） | 精确创建调用的 Kubernetes Status HTTP500/InternalError，内层明确存储 RPC Unavailable/peer reset；创建结果先按确定性名称/归属核对；确为 Master 退出根因 | 普通500、任意日志含 rpc/reset、无法确认已创建与否 |
+| `HEAVY_SLOT_API_UNAVAILABLE`（0921B/C/E 中已定位的配额只读调用） | 精确 GET Lease 或按 job-name 查询当前 Worker Pod；typed errno111 ConnectionRefused 异常链；同一操作有界重连耗尽并导致 Master 退出 | 泛化 WORKER_SUBMIT_GUARD_FAILED、配额不足、403、owner/RV冲突、Lease写入响应不明、普通500 |
 
-两类均须有权威 Master 失败/退出证据，且没有冲突的生信 rule 失败证据。
+全部类别均须有权威 Master 失败/退出证据，且没有冲突的生信 rule 失败证据。
+Lease 异常不能冒充 Worker 创建失败：必须保留操作种类、终止来源及既有
+已提交 Worker 清单。保留完整 HeavySlotQuota；不跳过占用、续约或归属检查。
+读取重连成功即接回；Lease 写操作不盲重放，先核对 owner/resourceVersion。
+Worker 创建 RPC 响应不明确时先核对原 Job，存在则接回，UNKNOWN 不准重发。
+已归档的0921E配额故障定位到 release -> _finished -> list_namespaced_pod，
+与B/C的 GET Lease 分别保存操作类型，不按批次特判。E后续代次还出现过旧
+Worker活跃保护、Ready等待超时和原因已丢失的 kubectl 查询失败，不能把整个
+批次及所有代次概括成同一种可恢复故障。
+配额只读调用本地总调用最多3次，退避30/60秒，同一操作300秒总截止；关闭
+该只读客户端隐式重试以保证计数。此处是插件本地预算，不叠加上面的6次
+Airflow/backend sensor重试；也不新增attempt级续跑次数。写操作不盲重放。
+新 executor-control-failure.json / executor-control-failure.v1 候选累计记录
+配额故障；creation_state=UNKNOWN仅表示此控制观测不证明创建或终态，不准
+据此认定Worker不存在。与executor-failure.json共存拒绝自动恢复。bs6制品
+保持冻结；后续插件修复使用独立新提交/制品，不能复用bs6的验收结果。
+0921D已归档500的Kubernetes Status.message为字符串，明确包含存储RPC
+Unavailable和peer reset；仍须源头确认CREATE调用，不能仅匹配日志文本。
+WES 的 Master 仍活跃而 kubectl 查询失败只恢复监控；backend 短暂不可用时
+仅幂等传输名额等待可重试，不重放上传、Master创建或发布任务。
 `BackoffLimitExceeded` 已纳入错误记录范围，但只表示 Job 失败达到重试限制，
 不是第三类自动续跑根因。记录该条件时同时保留已观测 Master Pod 的退出码、
 容器原因和重启信息；仅有这一条件而缺少源头证据仍转人工，不能推断为0918A
@@ -121,7 +143,7 @@ attempt、execution_id、generation、request hash、Master UID、调用类型�
 
 - 查询重连仍按原规则：额外 6 次，30 秒起指数退避、单次上限 300 秒。
 - 自动计算恢复：同一 `pipeline + analysis_id + attempt` 最多 **2 次**，
-  第一/第二次分别等待 **60 秒 / 180 秒**；两种根因共享该上限，不按新 UID、
+  第一/第二次分别等待 **60 秒 / 180 秒**；所有白名单根因共享该上限，不按新 UID、
   generation、DagRun、错误文本或服务重启重新计数。
 - 第一次原始执行不计入这 2 次；续跑完成一部分 rule 后再次出现白名单故障，
   仍消耗同一 attempt 的剩余额度，不因出现新进度清零。
@@ -175,7 +197,7 @@ auto_recovery_count、next_retry_at、original_deadline、action_id、来源执�
 | --- | --- |
 | Step1 上传 | 原执行活跃则接回监控；确认进程退出后，用户续跑才复用 checkpoint 和成功对象补传 |
 | Step2 创建 Master | 丢失响应先按原请求查询；已有 Master 则接回。只有明确原提交未发生且不存在在途创建，才允许同一请求重发 |
-| Step3 分析监控 | 活跃 Master 仅重连；真实失败保留历史，两类白名单且全部门禁通过才按第 3.3 节自动断点续跑；其他失败转人工 |
+| Step3 分析监控 | 活跃 Master 仅重连；真实失败保留历史，精确白名单且全部门禁通过才按第 3.3 节自动断点续跑；其他失败转人工 |
 | Step4 发布 | SSH 超时/响应丢失先查询原执行及发布记录；仍进行则接回、完成则确认成功；仅证明未启动且无在途派发时按同一动作安全再派发，否则待确认 |
 | Step5 下载 | 原下载仍活跃则接回；确认退出后，用户续跑复用 checkpoint 和已验证文件 |
 | Step6 整理交付 | 接回原进程，或依据已有 journal/交付记录续做未完成部分；不重新下载，不覆盖已交付结果 |
@@ -246,7 +268,7 @@ generation/retry 记录留痕，明确绑定原远端执行。原执行的可信
 清除的是新执行的旧终止时间，历史记录不删除。
 
 重开范围限当前步骤/监控和必要下游，已成功前置步骤不变。保留原生信
-Master 失败后的人工续跑机制；新增自动入口仅适用第 3.1 节两类根因，且与
+Master 失败后的人工续跑机制；新增自动入口仅适用第 3.1 节白名单根因，且与
 人工入口共享预算记录、身份校验及动作互斥，不提供无条件的自动 Master 替换。
 界面复用现有控件，按情况显示“恢复监控”或“续跑”，不新增独立恢复页面。
 
@@ -286,7 +308,9 @@ Master 失败后的人工续跑机制；新增自动入口仅适用第 3.1 节�
 | 重复点击/旧回执到达 | 同一恢复操作，无重复执行、时间回退或旧状态覆盖 |
 | 0918A 类 Worker 创建传输断连 | Master 已失败且旧 Worker 全退出时，同 attempt 自动 Resume；活跃/未知 Worker 阻止替换 |
 | 0919B 类 Gatekeeper 创建超时 | 绑定的 HTTP500 + webhook deadline 原因允许恢复；普通500、策略拒绝及混合 rule 错误不允许 |
-| 两次恢复后再失败、进程重启、根因切换 | 两类共享上限2，不重置次数/原截止时间，第三次不派发 |
+| Lease GET断连、创建RPC500 | 精确源头分类和原操作核对；普通500/写入不明/配额权限错误拒绝；Master活跃不替换 |
+| WES等待传输名额时backend中断 | 同attempt/transfer_id重连，响应丢失后接回原名额；不新增传输，不抢占他人名额 |
+| 两次恢复后再失败、进程重启、根因切换 | 全部白名单共享上限2，不重置次数/原截止时间，第三次不派发 |
 | 自动与人工 Resume/暂停/删除并发 | 同一事务/动作栅栏只产生一个派发；用户停止优先 |
 | 替换创建成功但响应丢失、旧终态迟到 | 按既有动作接回唯一新 Master，保留 UID lineage，旧执行不覆盖新执行 |
 | 0919C 类12个输入仅8个 | 非重试候选；不补文件、不修改清单/完成凭据、不自动开始分析 |
@@ -308,7 +332,7 @@ GATK 任一路径未验收不得因另一路径通过而开放。关闭策略阻
 
 | 任务 | 责任及依赖 | 最小交付/验收 |
 | --- | --- | --- |
-| CR-01 错误证据合同 | Runtime；先核对 WGS/GATK 当前冻结版本 | 分类只读故障与两类 Worker 创建终止根因；synthetic 正/反例，缺失或冲突证据拒绝；必要制品适配另行确认 |
+| CR-01 错误证据合同 | Runtime；先核对 WGS/GATK 当前冻结版本 | 分类只读故障与第3.1节精确终止根因；synthetic 正/反例，缺失或冲突证据拒绝；必要制品适配另行确认 |
 | CR-02 自动决策与预算 | Backend；依赖 CR-01 | 复用 recovery/action JSON、事务和身份；同 attempt 两次预算、同动作去重、截止时间及用户停止优先；并发/重启一次参数化测试 |
 | CR-03 安全续跑及 DAG 接回 | Runtime + Airflow；依赖 CR-02 和可用的旧 Worker/UID 安全原语 | 对齐两个 adapter 的 Resume、旧工作负载静止检查、创建结果核对、回调/lease栅栏、Step4派发核对和后续阶段自动推进；只测受影响路径 |
 | CR-04 统一展示 | Backend + Frontend；依赖 CR-02/03 合同 | 原有 Tracker/详情显示等待、续跑、耗尽/待确认；旧回执不覆盖新执行，不添加页面 |
@@ -320,7 +344,7 @@ runtime gate 测试、`backend/tests/test_wgs_resume_stage.py` 及既有 DAG/UI
 旧 Worker 已静止或无法与 RUN-CONTROL 共用栅栏，先补齐该必要依赖并复核，
 不能绕过安全检查，也不顺带实施整个暂停/删除功能。
 
-实施前审阅本修订稿，再细化代码级执行计划；本任务卡不授权开始开发。
+本任务卡自身不授权发布；2026-09-22/23 用户后续授权的实现记录见 P0 progress。
 
 ## 9. 本次文档交付记录
 
