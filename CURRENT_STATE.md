@@ -1,5 +1,10 @@
 # Current state
 
+## 2026-09-23 P0-2E lock contract supplement (design only)
+Added owner/generation CAS handoff, TTL-independent directory protection and
+conditional release to both P0 documents. Airflow submission control does not
+replace CLI/runtime mutual exclusion. No lock or production state was changed.
+
 ## 2026-09-23 Huawei incident recommendations: P0-2 documentation revision
 P0-2 explicitly includes automatic Job TTL, not only recovery after deletion.
 Worker/Master/reader generators propose TTL=100 seconds (project choice using

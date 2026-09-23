@@ -1,5 +1,15 @@
 # Handoff
 
+## 2026-09-23 — P0-2E batch lock documentation gap
+Reviewed native _claim_batch_lock call and runtime ConfigMap/process/status locks.
+Previous design stated preservation but omitted owner handoff/release acceptance.
+Updated both P0 designs and state/tasks: logical-run ownership, conditional CAS,
+no Master-TTL lock GC, crash reconnect, old-owner rejection and release after writers.
+Scope is docs only; implementation and live lock behavior remain unverified.
+Checks: diff whitespace and documentation contract consistency; no runtime tests.
+Next: integrate into existing CR01, paired with TTL; no new lock/retry service.
+Rollback: revert this documentation commit; no cloud, database or lock mutation.
+
 ## 2026-09-23 — P0-2 / P0 docs aligned to Huawei incident recommendations
 Scope: docs only on server test branch; no production or cloud authorization inferred.
 Changed original P0 spec, TTL companion, CURRENT_STATE, TASKS and this handoff.

@@ -1,5 +1,12 @@
 # Active test-branch tasks
 
+## P0-2E batch lock handoff (paired with P0-2C TTL)
+- [x] Document submission vs directory/process/status lock responsibilities.
+- [ ] Adapt native claim/release and WGS/GATK consumers for logical-run ownership,
+  conditional generation handoff, crash reconnect and TTL-independent lifecycle.
+- [ ] One affected mock suite: racing claims, old release, missing evidence,
+  active writers, CLI collision, same-name isolation and downstream protection.
+
 ## P0-2 Huawei recommendation gates (2026-09-23; supersedes cleanup-only wording)
 - [x] Align original P0 and TTL companion with all four vendor recommendations.
 - [ ] P0-2C: Worker/Master/reader TTL generation, WGS/GATK and resume coverage.
