@@ -189,7 +189,7 @@ def test_start_is_idempotent_for_same_generation(tmp_path: Path, monkeypatch) ->
         encoding="utf-8",
     )
     request.with_suffix(".status.json").write_text(
-        json.dumps({"status": "success", "generation": 1}), encoding="utf-8"
+        json.dumps({**json.loads(request.read_text()), "status": "success"}), encoding="utf-8"
     )
 
     assert gate.start(analysis_id, 1, "step1_upload")["status"] == "success"

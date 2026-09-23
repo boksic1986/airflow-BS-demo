@@ -1,5 +1,8 @@
 # Active test-branch tasks
 
+- [x] Task4 GATK Step1–6 dispatcher launch/worker fence and late-receipt protection;
+  BS10610 focused15 passed. This is not the full Task4 manual mock acceptance.
+
 ## 2026-09-24 Task4 GATK dispatch checkpoint
 
 - [x] GATK own service registers frozen v2 requests/history in PipelineStageExecution;

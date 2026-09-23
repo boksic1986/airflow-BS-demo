@@ -1,5 +1,30 @@
 # Handoff
 
+## 2026-09-24 Task4 GATK dispatcher fence
+
+Continue remaining Tasks4→5→6 without production changes. Added launch and worker
+flocks, durable launch intent/process identity, full receipt identity and late-write
+guard in scripts/gatk_runtime_gate.py. Step1–6 only; no Prepare/Step7 rewrite.
+Unknown launch outcome, dead parent without terminal evidence and identity-incomplete
+legacy status fail closed. A completed generation permits a registered successor;
+same-generation terminal receipts never execute again.
+
+BS10610 fingerprint: server10610 uid6708; control current remains20260912-opt-4d3d24e6,
+backend36ff21f87356 mounts20260923-step7-ae416fa/backend/backend read-only, scan/auto
+dispatch false. Cached image8491604ee01d, network none/read-only, synthetic scratch.
+New test_dispatcher cases first failed5; then15 focused checks passed in2.77s.
+Evidence: WGS_test/cce-evidence/p02-task4-20260924/gatk-dispatcher-{red,affected}.log.
+One intermediate fork test hung because its fake spawn inherited the launch FD;
+fixed fixture to match real Popen(close_fds=True), after inspecting/stopping only
+our test container ec2f88a8e757. No data removed; live service containers untouched.
+Initial SSH preflight reset once; subsequent verified connection succeeded.
+
+Files: gate, scripts/tests/test_gatk_dispatcher_fence.py, existing terminal fixture,
+runtime contract and progress documents. No full suite/local tests/production calls.
+Still open: trusted native binding writer, canonical storage/paired all-writer
+activation and selected-view downstream before Task4 acceptance; then Tasks5/6.
+Rollback by reverting source checkpoint only; no deployment to undo.
+
 ## 2026-09-24 Task4 authorized initial Master binding source checkpoint
 
 User explicitly confirmed adding initial Master platform execution binding, without

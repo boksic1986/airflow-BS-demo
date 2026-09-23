@@ -211,6 +211,11 @@ closure below remains unchecked; this checkpoint is not that acceptance.
 
 **Interfaces:** Existing authenticated recovery request -> same RunAction/idempotency key -> frozen stage execution/generation -> restricted runtime Resume -> normal stage receipt. Preserve `cce_master_binding` and `cce_master_submit_execution_id` semantics, populate only from validated runtime evidence, never arbitrary receipt JSON.
 
+2026-09-24 checkpoint: GATK restricted Step1–6 launcher/worker now has durable
+intent and flock/PID identity fencing, including late receipt protection. BS10610
+five RED then15 focused GREEN checks. No gate activation; storage/all-writer and
+selected-view binding/downstream integration below remain open.
+
 - [ ] Add failing parameterized adapter tests using the actual service and existing DAG path. Cover repeat request, old terminal, success->downstream, current-attempt preservation, explicit legacy rejection and pending automatic/manual control exclusion.
 
 ```python

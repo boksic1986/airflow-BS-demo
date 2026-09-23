@@ -1,5 +1,15 @@
 # Current state
 
+## 2026-09-24 Task4 GATK dispatcher fencing checkpoint
+
+GATK Step1–6 now serialize launch/worker ownership, persist a pre-spawn intent
+and PID/boot/start identity, and reject unknown or superseded execution writers.
+Terminal receipts require full execution identity; ambiguous/dead legacy dispatchers
+are not automatically replaced. Prepare and Step7 retain their existing mechanisms.
+BS10610 offline synthetic: five behavioral RED cases, then15 affected checks GREEN,
+including real fork/lock handoff. No live service or gate changes. Task4 remains
+OPEN for trusted storage/all-writer activation, binding and selected-view downstream.
+
 ## 2026-09-24 Task4 initial Master binding source checkpoint
 
 User approved initial Master platform identity binding. Native isolated source now

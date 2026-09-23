@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from contextlib import contextmanager
 import fcntl
 import csv
 import io
@@ -119,6 +120,9 @@ def _write_status(
     message: str,
     **progress: Any,
 ) -> dict[str, Any]:
+    if payload.get("stage") in STAGE_SCRIPTS and payload.get("stage") != "step7_cleanup":
+        if request_path.with_suffix(".worker.state.json").exists():
+            _assert_current_dispatch(request_path, payload)
     value = {
         "schema_version": "gatk-runtime.status.v1",
         "analysis_id": payload["analysis_id"],
@@ -890,7 +894,7 @@ def _failure_message(error: Exception) -> str:
     return str(error)
 
 
-def _execute(
+def _execute_stage(
     analysis_id: str,
     attempt: int,
     stage: str,
@@ -1015,7 +1019,7 @@ def _execute(
         raise
 
 
-def start(
+def _start_legacy(
     analysis_id: str,
     attempt: int,
     stage: str,
@@ -1059,6 +1063,145 @@ def start(
             close_fds=True,
         )
     return {"status": "accepted", "stage": stage, "generation": int(payload.get("generation") or 1)}
+
+
+_DISPATCH_KEYS = ("analysis_id", "attempt", "stage", "generation", "execution_id", "request_hash")
+
+
+def _dispatch_identity(payload: dict[str, Any]) -> dict[str, Any]:
+    return {key: payload.get(key) for key in _DISPATCH_KEYS}
+
+
+def _assert_current_dispatch(path: Path, payload: dict[str, Any]) -> None:
+    current = json.loads(path.read_text(encoding="utf-8"))
+    if _dispatch_identity(current) != _dispatch_identity(payload):
+        raise RuntimeError("GATK dispatcher superseded by another execution")
+
+
+@contextmanager
+def _dispatch_lock(path: Path, *, blocking: bool = False):
+    fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
+        except BlockingIOError as exc:
+            raise RuntimeError("GATK dispatcher is still active") from exc
+        yield
+    finally:
+        os.close(fd)
+
+
+def _process_identity(pid: int) -> dict[str, Any] | None:
+    try:
+        # comm can contain spaces: starttime is field 22, after the closing ')'.
+        stat = Path(f"/proc/{pid}/stat").read_text().rpartition(")")[2].split()
+        return {"pid": pid, "starttime": stat[19],
+                "boot_id": Path("/proc/sys/kernel/random/boot_id").read_text().strip()}
+    except FileNotFoundError:
+        return None
+
+
+def _dispatch_state(path: Path) -> dict[str, Any] | None:
+    state_path = path.with_suffix(".worker.state.json")
+    try:
+        fd = os.open(state_path, os.O_RDONLY | os.O_NOFOLLOW)
+    except FileNotFoundError:
+        return None
+    with os.fdopen(fd, "r", encoding="utf-8") as stream:
+        value = json.load(stream)
+    if not isinstance(value, dict) or value.get("schema_version") != "gatk-runtime.dispatcher.v1":
+        raise RuntimeError("GATK dispatcher evidence is invalid")
+    return value
+
+
+def _save_dispatch(path: Path, payload: dict[str, Any], state: str,
+                   process: dict[str, Any] | None = None) -> None:
+    target = path.with_suffix(".worker.state.json")
+    temporary = target.with_suffix(".partial")
+    value = {"schema_version": "gatk-runtime.dispatcher.v1",
+             **_dispatch_identity(payload), "state": state, "process": process}
+    fd = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as stream:
+        json.dump(value, stream, sort_keys=True)
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, target)
+    fd = os.open(target.parent, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def _dispatch_receipt(path: Path, payload: dict[str, Any]) -> dict[str, Any] | None:
+    status_path = _status_path(path)
+    if not status_path.exists():
+        return None
+    value = json.loads(status_path.read_text(encoding="utf-8"))
+    return value if _dispatch_identity(value) == _dispatch_identity(payload) else None
+
+
+def _execute(analysis_id: str, attempt: int, stage: str, generation: int | None = None) -> None:
+    if stage in {"prepare", "step7_cleanup"}:
+        return _execute_stage(analysis_id, attempt, stage, generation)
+    path = _request_path(analysis_id, attempt, stage)
+    with _dispatch_lock(path.with_suffix(".worker.lock")):
+        path, payload = _load(analysis_id, attempt, stage, generation)
+        with _dispatch_lock(path.with_suffix(".launch.lock"), blocking=True):
+            existing = _dispatch_receipt(path, payload)
+            if existing and existing.get("status") in TERMINAL:
+                return
+            previous = _dispatch_state(path)
+            if previous and _dispatch_identity(previous) != _dispatch_identity(payload):
+                raise RuntimeError("GATK dispatcher superseded; launch authorization required")
+            _save_dispatch(path, payload, "running", _process_identity(os.getpid()))
+        try:
+            _execute_stage(analysis_id, attempt, stage, generation)
+        finally:
+            # Hold the worker lock through the durable completion record. A new
+            # generation cannot mistake a stopped parent for a finished writer.
+            with _dispatch_lock(path.with_suffix(".launch.lock"), blocking=True):
+                receipt = _dispatch_receipt(path, payload)
+                state = "finished" if receipt and receipt.get("status") in TERMINAL else "uncertain"
+                _save_dispatch(path, payload, state, _process_identity(os.getpid()))
+
+
+def start(analysis_id: str, attempt: int, stage: str,
+          generation: int | None = None) -> dict[str, Any]:
+    if stage in {"prepare", "step7_cleanup"}:
+        return _start_legacy(analysis_id, attempt, stage, generation)
+    path = _request_path(analysis_id, attempt, stage)
+    with _dispatch_lock(path.with_suffix(".launch.lock")):
+        path, payload = _load(analysis_id, attempt, stage, generation)
+        previous = _dispatch_state(path)
+        same = previous is not None and _dispatch_identity(previous) == _dispatch_identity(payload)
+        receipt = _dispatch_receipt(path, payload)
+        if receipt and receipt.get("status") in TERMINAL:
+            return {"status": receipt["status"], "stage": stage}
+        if previous and previous.get("state") != "finished":
+            process = previous.get("process")
+            if not process:
+                raise RuntimeError("GATK dispatcher launch outcome is uncertain")
+            if _process_identity(int(process["pid"])) == process:
+                if same:
+                    return {"status": "accepted", "stage": stage,
+                            "generation": payload["generation"]}
+                raise RuntimeError("GATK dispatcher from previous generation is still active")
+            # An interrupted dispatcher can leave subprocesses behind. A dead
+            # parent alone is not evidence authorizing another protected writer.
+            raise RuntimeError("GATK dispatcher stopped without final quiescence evidence")
+        if previous is None and _status_path(path).exists():
+            raise RuntimeError("GATK dispatcher legacy execution needs quiescence evidence")
+        with _dispatch_lock(path.with_suffix(".worker.lock")):
+            pass
+        _save_dispatch(path, payload, "launching")
+        command = [sys.executable, str(Path(__file__).resolve()), "_worker",
+                   analysis_id, str(attempt), stage, str(payload["generation"])]
+        with path.with_suffix(".worker.log").open("a", encoding="utf-8") as log:
+            process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=log,
+                stderr=subprocess.STDOUT, start_new_session=True, close_fds=True)
+        _save_dispatch(path, payload, "launching", _process_identity(process.pid))
+        return {"status": "accepted", "stage": stage, "generation": payload["generation"]}
 
 
 def main() -> None:

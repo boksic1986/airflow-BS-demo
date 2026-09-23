@@ -1,5 +1,17 @@
 # Workflow runtime integration
 
+## Task4 GATK dispatcher fence (isolated source, 2026-09-24)
+
+Step1–6 use request-adjacent .launch.lock, .worker.lock and .worker.state.json.
+The existing restricted start/worker entry persists an intent before Popen and
+serializes worker execution; same identity reattaches or returns its terminal.
+Dispatcher identity includes analysis/attempt/stage/generation/execution/hash;
+process identity includes PID, boot ID and start time. Stale generation cannot
+publish success/failure over a changed request. Unknown spawn, stopped parent
+without final receipt, and incomplete legacy identity require reconciliation;
+none authorizes a new writer. No public API/schema or Prepare/Step7 changes.
+This supplies process exclusion only, not storage/all-writer activation proof.
+
 ## Task4 initial Master identity binding (isolated source, 2026-09-24)
 
 User-approved native Step2 addition accepts an internal platform_execution and an
