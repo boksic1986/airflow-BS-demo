@@ -1,5 +1,12 @@
 # Active test-branch tasks
 
+Task2 IN PROGRESS: verified bs7 source25297f9 and fresh test environment;
+13 new Worker terminal regressions RED on BS10610 (no implementation yet).
+Worktree D:/pipeline/snakemake-executor-plugin-kubernetes/.worktrees/p02-worker-terminal-20260923.
+Pending user legacy-CLI/lock compatibility decision; user instead requested
+handling advice for the five failed production runs. No production actions or
+runtime upgrade authorized by this development checkpoint. Task1 stays complete.
+
 P0-2 Task1 SOURCE COMPLETE (2026-09-23): cce-pipeline c33740d from verified
 83e7adb, independent `jiucheng/runtime/p02-master-handoff-20260923` branch.
 Master confirmation, same-Pod atomic process claim and bound native terminal

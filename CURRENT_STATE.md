@@ -1,5 +1,19 @@
 # Current state
 
+## 2026-09-23 P0-2 Task2 started; legacy-run handling awaiting decision
+
+Fresh BS10610 preflight matches Task1 fingerprint. Verified plugin25297f9 clean;
+imported exact Git bundle into canonical Windows repo and created isolated
+`.worktrees/p02-worker-terminal-20260923`, branch
+`jiucheng/runtime/p02-worker-terminal-20260923`. No accepted bs7 bytes changed.
+Wrote13 synthetic Worker terminal/status-coroutine regressions; all13 fail for
+the intended missing behavior on BS10610. No implementation/GREEN/commit yet.
+Legacy lock compatibility question prompted user to ask how to handle five
+failed runs. Operations docs identify WGS0921B/C/D/E and WES0921B; last read-only
+snapshot is2026-09-23 12:04UTC, not a fresh live diagnosis. Preserve frozen runs,
+prior successful stages and history; do not upgrade/delete locks or rerun blindly.
+Task2 remains in progress; lock activation/legacy strategy needs confirmation.
+
 ## 2026-09-23 P0-2 Task1 source acceptance complete
 
 User requested Task1 only. cce-pipeline source c33740d on independent branch

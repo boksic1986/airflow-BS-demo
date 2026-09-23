@@ -1,5 +1,55 @@
 # Handoff
 
+## 2026-09-23 Task2 RED checkpoint; five legacy failed-run question
+
+User requested next step. Read current plan/spec/runtime and canonical plugin
+AGENTS/skill; isolated source edits, synthetic BS10610 only. Fresh preflight:
+server10610 uid6708, current releases/20260912-opt-4d3d24e6, backend36ff21f87356
+image8491604ee01d and /app releases/20260923-step7-ae416fa/backend/backend ro;
+/config current/config ro; scanner=false and auto_dispatch=false. Candidate
+writable. No services changed; no production/cloud/DB/real-data action.
+
+Remote plugin worktree snakemake-kubernetes-bs6-heavy-p0-20260923 is clean
+25297f971dd463176d5fdc07908a60095ade50ea, branch bs7-control-reconnect.
+Read source HANDOFF (no AGENTS there); exported exact HEAD bundle, fetched into
+canonical D:/pipeline/snakemake-executor-plugin-kubernetes without checkout changes,
+then created its .worktrees/p02-worker-terminal-20260923 on independent
+jiucheng/runtime/p02-worker-terminal-20260923. Native worktree tool cannot target
+the other repository, so Git fallback used after ignored-directory check.
+Original canonical detached8a6187d and other worktrees remain untouched.
+
+New tests/test_worker_terminal.py only,13 tests exercising real submission journal
+and status coroutine with synthetic Kubernetes transport. BS10610 command:
+python -m pytest -q -p no:cacheprovider tests/test_worker_terminal.py --tb=short,
+inside cached Master a0112f0b8ef003dd488c6c6ee2f13ca760c116d703e9ff7a83083e2857ce143e,
+--rm --pull=never --network none --read-only --user6708:520 --cpus1 --memory1g,
+read-only source and existing pytest deps mounts, TMPDIR task evidence.
+Result13 expected behavioral failures2.53s (worker-red.log); missing durable
+terminal before callbacks, false success without final Job condition,404 failure
+instead of unknown, no restart reuse/identity/conflict/write-failure safeguards.
+No implementation or GREEN yet; do not mark Worker half or Task2 complete.
+Evidence /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/smk-k8s-group/p02-worker-terminal-20260923.
+No full suite, wheel/image build/install or live CCE tests (plan forbids them now).
+
+Asked user: enable new directory/generation-aware locks only with CLI/platform
+co-upgrade and keep unknown legacy locks, versus retain legacy same-name mutex.
+User replied with five failed runs requiring rerun, not a choice or authorization
+to modify them. Read original workspace HANDOFF/OPS_P0_1_PREFLIGHT_20260923.md
+and OPS_RECOVERY_AUDIT_20260923.md without editing their dirty files. Thread
+read tool returned empty items, so it supplied no current operational facts.
+Latest documented snapshot12:04UTC: WGS0921D Master Complete, four others absent;
+B/E journal/handoff mismatch; C/WES no current final evidence; native manifests
+empty. This is historical, not this turn's live cloud state or rerun approval.
+Advice: prioritize D final-result/downstream reconciliation, then resolve exact
+legacy identity/Worker evidence for B/E/C/WES; keep attempts/inputs/successful
+stages, no forceall/frozen-bundle rewriting/fabricated evidence. New lock rollout
+must not be a prerequisite or silent migration of these historical tasks.
+
+Next: answer user's legacy-run question and obtain the needed operational/lock
+choice; continue from the13 RED tests, do not redo Task1/bs7 suites. Runtime
+lock source unchanged. Rollback draft: remove only own test through normal Git
+editing if abandoned; no live rollback needed. No main/production merge or push.
+
 ## 2026-09-23 P0-2 Task1 Master producer completed, source only
 
 Goal: user said complete Task1 first and briefly explain completion/method.
