@@ -287,12 +287,13 @@ class RecoveryCapability:
     callbacks. This consumer independently verifies native bytes and live work;
     callbacks cannot assert Worker finality in place of those checks.
     """
-    def __init__(self, *, bundle, expected_job_uid, context, authorize, verify_lock):
+    def __init__(self, *, bundle, expected_job_uid, context, authorize, verify_lock, platform_execution=None):
         _require(callable(authorize) and callable(verify_lock) and _text(expected_job_uid,UID))
         self.bundle=Path(bundle)
         _require(self.bundle.is_absolute() and self.bundle.resolve(strict=True)==self.bundle)
         self.expected_job_uid=expected_job_uid
         self.context=_json(json.dumps(context))
+        self.platform_execution=_json(json.dumps(platform_execution)) if platform_execution is not None else None
         self.authorize=authorize
         self.verify_lock=verify_lock
         self._scope=None
@@ -303,6 +304,10 @@ class RecoveryCapability:
         runtime._validate_recovery_context(self.context,contract,attempt,original['execution_generation']+1)
         _require(original['attempt']==attempt and self.context['pipeline']==pipeline
                  and self.context['analysis_id']==analysis_id and self.context['action']==action)
+        if self.platform_execution is not None:
+            runtime._validate_platform_execution(self.platform_execution,contract,attempt,self.context)
+        else:
+            _require('platform_execution' not in original)
         self.runtime,self.contract,self.config,self.run_label=runtime,contract,config,run_label
         self.original=original
 

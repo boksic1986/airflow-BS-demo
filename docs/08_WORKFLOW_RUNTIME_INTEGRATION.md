@@ -1,5 +1,23 @@
 # Workflow runtime integration
 
+## Task4 initial Master identity binding (isolated source, 2026-09-24)
+
+User-approved native Step2 addition accepts an internal platform_execution and an
+independent submission_view. It neither mutates frozen bundles nor grants launch
+authority. Platform identity contains pipeline, analysis_id, attempt, execution_id,
+stage, generation and request_hash; initial stage must be step2_master. The native
+generation remains1 even if the platform stage generation differs. Its native
+request_hash includes the platform identity, but is NOT the platform request hash.
+Validated startup/terminal evidence carries both; Worker phase context continues
+using the native digest and phase-suffixed execution_id.
+
+Existing WGS/GATK Resume capabilities now forward an optional explicit new platform
+identity into the native replacement view and action journal. A platform-bound
+source requires it; replay with another identity is rejected. Unbound old evidence
+is never retroactively attributed. No public API, default CLI, image or production
+gate is changed. Trusted writer/storage/all-writer/downstream activation remains
+Task4 work, so this is not full manual/automatic recovery acceptance.
+
 ## Task3 internal Resume capability (source accepted, 2026-09-24)
 
 Optional internal RecoveryCapability validates native final bytes, both full

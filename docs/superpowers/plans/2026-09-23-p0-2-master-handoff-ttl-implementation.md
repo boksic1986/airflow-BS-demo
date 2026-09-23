@@ -185,10 +185,14 @@ adapter endpoint and DAG selection implemented; shared module contains only the
 accepted durable dispatch/action fences.39 affected backend cases plus two new
 HTTP/finalize cases passed, and one real-Airflow GATK DAG case passed. Shipped GATK
 registry still lacks resume capability. Native end-to-end acceptance remains open.
-Initial native Master has no platform recovery_context yet; adding it at initial
-submission (not modifying old bundles) was submitted for user confirmation. Do not
+User approved initial Master platform binding in isolated source, using an
+independent submission view without modifying old bundles. Do not
 equate native bundle request_hash with the platform stage request_hash. This is
 not permission to advance TTL or automatic activation before the remaining gates.
+Native initial-view/Step2 source now binds both identities through confirmation
+and terminal evidence; existing WGS/GATK Resume propagates new platform identity
+into the view/journal. BS10610 native41 and new adapter composition2 passed.
+Trusted writer/storage/all-writer/downstream activation remains open.
 
 2026-09-24 source checkpoint accepted: WGS authenticated dispatch/DagRun boundary.
 Existing Resume now journals POST intent and reconciles exact DagRun identity;

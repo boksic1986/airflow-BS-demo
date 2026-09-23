@@ -158,7 +158,7 @@ def resume_master(*, payload, binding, runtime=None, recovery=None):
             return runtime._advance_recovery_view(bundle,contract,config,context=recovery.context,
                 expected_job_uid=recovery.expected_job_uid,destination=journal_path.with_suffix('')/'view',
                 journal=journal,save_journal=lambda value:_save(journal_path,value),check=recovery.inspect,
-                claim=recovery.claim,authorize=recovery._authorized)
+                claim=recovery.claim,authorize=recovery._authorized,platform_execution=recovery.platform_execution)
     journal = json.loads(_regular(journal_path).read_text()) if journal_path.exists() else {}
     job = _query(runtime, config, 'job', names['master_job'])
     if job and not _subset(manifest, job):

@@ -1,5 +1,34 @@
 # Handoff
 
+## 2026-09-24 Task4 authorized initial Master binding source checkpoint
+
+User explicitly confirmed adding initial Master platform execution binding, without
+old bundle edits or production CLI/image changes. Native isolated worktree provides
+generation-one submission view and optional internal Step2 arguments; existing
+native locking/START confirmation remains. Platform and native hashes/generations
+are distinct. Startup and terminal evidence bind platform identity; a bound-source
+replacement requires a fresh identity, and the existing action journal pins it.
+
+Platform changes: cce_recovery_inventory.py capability plus wgs_resume.py and
+gatk_resume.py forward the new identity; test_p02_resume_final.py covers both actual
+adapters/native producer, lost CREATE and unchanged one-START replay. Runtime
+contract, state/task/plan/ledger notes updated. No public interface or gate enabled.
+
+Preflight BS10610 server10610 uid6708, current20260912-opt-4d3d24e6, backend36ff21f87356
+RO app20260923-step7-ae416fa/backend/backend, scan/dispatch false. No live services,
+database, CCE calls or production operations. Tests in --network none/read-only
+cached8491604 backend and a0112f0b Master images, synthetic scratch only.
+Native new10 RED missing function and Step2 case RED missing argument; final
+affected native41 passed20.59s. Two setup issues (scratch/import path) corrected
+before behavioral RED. Adapter new2 RED missing propagated identity, GREEN2 in3.40s.
+Evidence approved WGS_test/cce-evidence/p02-master-handoff-20260923/submission-native-final.log
+and p02-resume-20260923/resume-platform-green.log. No redundant full suites/local tests.
+
+Remaining Task4: trusted writer/canonical storage and paired-all-writer proof,
+dispatcher quiescence and selected-view normal downstream receipts. Do not claim
+full Task4/TTL/automatic recovery acceptance. Rollback isolated source commits only;
+frozen projects, successful outputs, histories and evidence remain protected.
+
 ## 2026-09-24 Task4 GATK own service/DAG/HTTP source checkpoint
 
 Goal: sequential remaining Tasks4–6 with minimum affected tests. Same isolated

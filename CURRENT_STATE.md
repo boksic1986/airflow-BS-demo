@@ -1,5 +1,17 @@
 # Current state
 
+## 2026-09-24 Task4 initial Master binding source checkpoint
+
+User approved initial Master platform identity binding. Native isolated source now
+provides an independent initial submission view and internal Step2 opt-in; frozen
+inputs/default CLI are unchanged. Platform and native generation/request hashes
+remain separate and bound through Master confirmation and terminal evidence.
+WGS/GATK Resume forward a fresh platform identity into existing replacement journals.
+BS10610 affected native41 passed; actual adapter/producer composition2 passed.
+No deployment, image/CLI install or automatic activation. Task4 still requires
+trusted binding writer/storage mapping, paired writers/dispatcher proof and normal
+downstream selected-view acceptance; Tasks5/6 remain gated by that closure.
+
 ## 2026-09-24 Task4 GATK service/DAG checkpoint; native activation still blocked
 
 GATK now has its own frozen-request Resume registration using

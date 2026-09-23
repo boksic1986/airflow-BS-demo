@@ -129,6 +129,28 @@ def adapter(mirrored_final,tmp_path,monkeypatch):
 
 @pytest.mark.parametrize('view_inputs',[{'pipeline':'wgs','analysis_id':'WGS_20260924_000000_AAAAAA'},
     {'pipeline':'gatk','analysis_id':'GATK_20260924_000000_AAAAAA'}],indirect=True)
+def test_resume_propagates_new_platform_execution_without_hash_substitution(adapter):
+    state,invoke,bundle,cap,h=adapter
+    platform={k:cap.context[k] for k in ('pipeline','analysis_id','execution_id')}
+    platform.update(attempt=1,stage='step3_monitor',generation=8,request_hash='b'*64)
+    cap.platform_execution=platform
+    state.lose=True  # The existing journal reconciles uncertain CREATE.
+    result=invoke()
+    selected=Path(result['bundle'])
+    binding=runtime._handoff_binding(selected,h.contract)
+    assert binding['platform_execution']==platform
+    assert binding['request_hash']!=platform['request_hash']
+    assert binding['execution_generation']==3
+    invoke()
+    assert (state.creates,state.starts)==(1,1)
+    cap.platform_execution={**platform,'request_hash':'c'*64}
+    with pytest.raises((RuntimeError,ValueError)):
+        invoke()
+    assert (state.creates,state.starts)==(1,1)
+
+
+@pytest.mark.parametrize('view_inputs',[{'pipeline':'wgs','analysis_id':'WGS_20260924_000000_AAAAAA'},
+    {'pipeline':'gatk','analysis_id':'GATK_20260924_000000_AAAAAA'}],indirect=True)
 @pytest.mark.parametrize('scenario',['live_failed','reclaimed','lost_response','unknown_create','denied',
     'unknown_worker','page','surviving_pod','foreign_uid','missing_terminal','native_success',
     'handoff_lost','handoff_regressed','ambiguous_complete'])

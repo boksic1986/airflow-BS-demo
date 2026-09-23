@@ -7,8 +7,10 @@
 - [x] Existing authenticated endpoint routes by registered adapter; actual
   DagRun/action scope fences registration/acquire/finalize. GATK capability stays off.
 - [x] GATK DAG skips prepare/upload/completed stages on Resume; affected isolated tests.
-- [ ] Confirm initial Master platform-identity bootstrap source addition, then
-  implement trusted binding writer, all-writer/dispatcher proof and selected-view
+- [x] User confirmed initial Master platform-identity bootstrap source addition.
+- [x] Native initial view/Step2 source and separate platform/native binding;
+  WGS/GATK Resume identity propagation. BS10610 native41 plus composition2 passed.
+- [ ] Implement trusted binding writer, all-writer/dispatcher proof and selected-view
   downstream integration. No native/platform request-hash substitution.
 - [ ] Complete Task4 manual native mock acceptance before Task5, then Task6.
 
