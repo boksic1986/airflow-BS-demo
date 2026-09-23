@@ -9,8 +9,9 @@ This module neither emits a terminal seal nor authorizes automatic recovery.
 import hashlib
 import json
 import re
+from pathlib import Path
 
-from scripts.cce_recovery_workloads import DNS, UID, probe_bound_workloads
+from scripts.cce_recovery_workloads import DNS, UID, probe_bound_workloads, probe_final_workloads
 
 
 IDENTITY = ("pipeline", "analysis_id", "attempt", "execution_id", "generation",
@@ -277,3 +278,96 @@ def probe_submission_inventory(*, runtime, config, master_job, expected_context,
         master_job_uid=expected_context["master_job_uid"], master_pod_uid=expected_context["master_pod_uid"],
         workers=inventory["workers"], timeout_seconds=timeout_seconds)
     return dict(inventory=inventory, observation=observation)
+
+
+class RecoveryCapability:
+    """Internal adapter capability, NOT JSON/API input or recovery policy.
+
+    Task4 supplies authenticated storage/dispatcher and exact lock-owner mapping
+    callbacks. This consumer independently verifies native bytes and live work;
+    callbacks cannot assert Worker finality in place of those checks.
+    """
+    def __init__(self, *, bundle, expected_job_uid, context, authorize, verify_lock):
+        _require(callable(authorize) and callable(verify_lock) and _text(expected_job_uid,UID))
+        self.bundle=Path(bundle)
+        _require(self.bundle.is_absolute() and self.bundle.resolve(strict=True)==self.bundle)
+        self.expected_job_uid=expected_job_uid
+        self.context=_json(json.dumps(context))
+        self.authorize=authorize
+        self.verify_lock=verify_lock
+        self._scope=None
+
+    def bind(self,runtime,contract,config,*,run_label,pipeline,analysis_id,attempt,action):
+        _require(type(attempt) is int and attempt>0 and _text(run_label,DNS))
+        original=runtime._handoff_binding(self.bundle,contract)
+        runtime._validate_recovery_context(self.context,contract,attempt,original['execution_generation']+1)
+        _require(original['attempt']==attempt and self.context['pipeline']==pipeline
+                 and self.context['analysis_id']==analysis_id and self.context['action']==action)
+        self.runtime,self.contract,self.config,self.run_label=runtime,contract,config,run_label
+        self.original=original
+
+    def _authorized(self):
+        value=self.runtime._recovery_final_evidence(self.bundle,self.contract,self.expected_job_uid)
+        terminal=value['terminal']
+        _require(terminal['recovery_context']['pipeline']==self.context['pipeline']
+                 and terminal['recovery_context']['analysis_id']==self.context['analysis_id']
+                 and terminal['execution_generation']+1==self.context['generation'])
+        facts={'context':dict(self.context),'old_job_uid':self.expected_job_uid,
+            'old_request_hash':terminal['request_hash'],'config_digest':terminal['config_sha256'],
+            'native_directory':value['snapshot']['canonical_directory'],'run_id':terminal['run_id']}
+        proof=self.authorize(facts)
+        _require(isinstance(proof,dict) and type(proof.get('writers_protocol')) is int and proof['writers_protocol']==2
+                 and proof.get('dispatcher_inactive') is True
+                 and proof.get('native_directory')==facts['native_directory']
+                 and (terminal['state']=='SUCCEEDED' or proof.get('recovery_allowed') is True))
+        scope={k:proof.get(k) for k in ('native_directory','canonical_directory','writers_protocol')}
+        _require(self._scope is None or self._scope==scope)
+        context={'writers_protocol':2,'canonical_directory':scope['canonical_directory'],
+            'pipeline':self.context['pipeline'],'analysis_id':self.context['analysis_id'],
+            'attempt':str(terminal['attempt']),'run_id':terminal['run_id'],
+            'config_digest':terminal['config_sha256'],'generation':self.context['generation'],
+            'action':self.context['action'],'master_uid':''}
+        self.runtime._directory_lock_identity(self.contract,context)  # Validates canonical storage form.
+        self._scope,self._lock_context=scope,context
+        return value
+
+    def inspect(self):
+        value=self._authorized()
+        workers=validate_final_submission_snapshot(value['snapshot'])
+        observation=probe_final_workloads(runtime=self.runtime,config=self.config,
+            namespace=self.contract['kubernetes']['namespace'],run_label=self.run_label,
+            master_job=self.contract['kubernetes']['master_job'],master_job_uid=self.expected_job_uid,
+            master_state=value['terminal']['state'],workers=workers)
+        return {**value,'observation':observation}
+
+    def lock_context(self,master_uid=''):
+        self._authorized()
+        return {**self._lock_context,'master_uid':master_uid}
+
+    def claim(self,journal,save_journal,*,master_uid=''):
+        def proof(current,operation):
+            # Native CAS invokes this immediately before changing an existing owner.
+            value=self._authorized() if master_uid else self.inspect()
+            mapped=self.verify_lock(current,operation,{'context':dict(self.context),
+                'terminal':value['terminal'],'lock_context':self.lock_context(master_uid)})
+            _require(isinstance(mapped,dict))
+            if master_uid:
+                job=self.runtime._recovery_query(self.config,'job',self.contract['kubernetes']['master_job'])
+                _require(isinstance(job,dict) and job.get('kind')=='Job'
+                         and job.get('metadata',{}).get('uid')==master_uid
+                         and not job['metadata'].get('deletionTimestamp'))
+                annotations=job['metadata'].get('annotations',{})
+                _require(annotations.get('cce-pipeline/recovery-context')==json.dumps(self.context,sort_keys=True)
+                         and annotations.get('cce-pipeline/execution-generation')==str(self.context['generation']))
+                states={c.get('type') for c in job.get('status',{}).get('conditions',[]) if c.get('status')=='True'}
+                _require(len(states & {'Complete','Failed'})<=1)
+                return {**mapped,'bound_master_uid':master_uid,
+                    'master_state':'FAILED' if 'Failed' in states else 'SUCCEEDED' if 'Complete' in states else 'ACTIVE',
+                    'evidence_sha256':value['terminal']['submission_snapshot_sha256']}
+            return {**mapped,'inventory_complete':True,'workers_inactive':True,'dispatcher_inactive':True,
+                'master_state':value['terminal']['state'],'recovery_allowed':value['terminal']['state']=='FAILED',
+                'evidence_sha256':value['terminal']['submission_snapshot_sha256']}
+        if master_uid:self._authorized()
+        else:self.inspect()
+        self.runtime._claim_batch_lock(self.contract,self.config,lock_context=self.lock_context(master_uid),
+            journal=journal,save_journal=save_journal,verify=proof)

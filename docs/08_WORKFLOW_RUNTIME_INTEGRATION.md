@@ -1,5 +1,21 @@
 # Workflow runtime integration
 
+## Task3 internal Resume capability (source accepted, 2026-09-24)
+
+Optional internal RecoveryCapability validates native final bytes, both full
+inventories and an authenticated caller-supplied canonical-directory mapping;
+writers_protocol=2 and inactive dispatcher are required. It feeds original
+directory-lock CAS and adapter journals, not a public request or new CLI flag.
+Native _advance_recovery_view preserves original bundle and CREATE intent,
+returns the derived bundle for the caller, and retains the original deadline.
+Started journal requires START_CONFIRMED; missing created/started handoff or
+regressed started evidence blocks. GATK rechecks maintenance/OBS before handoff.
+Task4 must supply authenticated callbacks and propagate the selected view through
+the service/stage paths. No production/default CLI caller is enabled here.
+Source wiring passed29 BS10610 synthetic composition cases and5 affected
+checks; capability6 passed separately. Task3 source acceptance does not enable
+production or replace the remaining Task4 authenticated integration gate.
+
 ## P0-2 Task3 final-inventory/view contracts (2026-09-24, source only)
 
 Approved native `_prepare_recovery_view` derives a separate manifest with next

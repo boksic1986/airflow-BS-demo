@@ -1,5 +1,54 @@
 # Handoff
 
+## 2026-09-24 Task3 source acceptance: existing Resume + native view/lock
+
+Native handoff/Resume primitive committed32aa7fb on its isolated source branch;
+use that source together with this platform checkpoint (not installed CLI).
+
+Verified dependency commits: platform321b0a1, producerfa1ac44, Worker5b5d7ee.
+Existing WGS/GATK Resume now consumes verified final inventory, trusted lock
+capability, native generation view and original adapter journals. BS10610:
+capability6 GREEN; initial composition10 RED; expanded composition29 GREEN;
+5 affected legacy checks GREEN. Scoped review: no open Important/Critical.
+SSH recovered; latest source synced and validated, see HANDOFF for evidence.
+Task3 source complete; Task4 authenticated service/DAG/all-writer construction
+and selected-view propagation remain next. No automatic/TTL activation, images,
+CLI install, production changes, real reruns, main/production merge or push.
+
+Files: scripts/cce_recovery_inventory.py, wgs_resume.py, gatk_resume.py;
+tests/test_p02_final_inventory.py and new test_p02_resume_final.py; runtime
+contract, implementation/progress plan and state/handoff docs. Producer changes:
+cce_batch_runtime.py and test_recovery_view.py, native HANDOFF. Original dirty
+worktree and frozen project bundles/config/history unchanged.
+
+BS10610 handshake initially reset at jump172.17.61.18:22 (ssh/scp exit1, no
+remote action); later hostname succeeded. Fresh preflight server10610 uid6708,
+control current releases/20260912-opt-4d3d24e6, backend36ff21f87356 /app RO
+release20260923-step7-ae416fa, /config RO current/config, both scan/dispatch false.
+Latest selected source synchronized into existing isolated cce-evidence sources.
+Pinned no-network/read-only cached Docker image a0112f0b8ef0, actual producer
+and plugin source, synthetic temporary files only. No service or real-data mounts.
+
+Evidence root /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/p02-resume-20260923:
+- recovery-capability-green.log:6 passed (earlier RED6).
+- recovery-resume-final-red.log: initial10 failed before implementation.
+- recovery-resume-composition-attempt1.log: expanded29 passed in28.30s.
+- resume-final-affected-green.log:5 passed,47 deselected in0.66s.
+No full-suite or repeated GREEN run. Review-found cases authored before fixes;
+SSH outage prevented their separate RED execution, disclosed rather than claimed.
+Final scoped reviewer found no open Important/Critical. Static diff check passed.
+
+Coverage includes both adapters' failed/reclaimed Master, native success create0,
+unknown404 no newCREATE, foreignUID, survivingPod, unknownWorker, partialpage,
+missingterminal, lostCREATE replay exactlyoneCREATE/START, actual directory CAS,
+frozenbytes unchanged, missing/regressed handoff, ambiguousComplete, GATK replay
+maintenance. Started journal stays monotonic and cannot reconstruct confirmation.
+No production/default CLI capability construction; authenticated callbacks,
+all-writer exclusion and downstream selected-view routing belong to Task4.
+Rollback: revert this isolated source commit only; no runtime rollback needed.
+Next: Task4 under the existing plan; Task5 TTL and real five-batch reruns remain
+gated and unauthorized by this development acceptance.
+
 ## 2026-09-24 Task3 native dependency acceptance; side-effect closure still open
 
 User approved final Worker snapshot and independent replacement-generation view

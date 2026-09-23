@@ -121,6 +121,14 @@ or artifacts before this legacy/all-writer matrix passes.
 
 ## Task3 — TTL-safe runtime reconciliation through existing Resume
 
+2026-09-24 SOURCE ACCEPTED: capability6 GREEN; first adapter composition10 RED,
+expanded29 GREEN;5 affected legacy checks GREEN. Prior guard/reader matrices
+remain accepted below. Existing Resume journals now consume full final evidence,
+Task2 lock CAS and separate next-generation handoff without mutating old inputs.
+Scoped review closed all Important/Critical; HANDOFF lists exact logs and SSH
+interruption. No service/DAG activation: authenticated callback construction and
+propagation of returned view through stage monitoring/receipts are Task4.
+
 2026-09-23 follow-up:27 new cases accepted on BS10610 (15 query/confirmation,
 9 native success,3 terminal ambiguity), each RED then GREEN. Compatible query
 and Task1 confirmation/native success connect to existing WGS/GATK entry points.
@@ -155,7 +163,7 @@ consumers remain outstanding. No full-suite rerun or production action.
 
 **Interfaces:** Preserve `resume_master`, `fence_master_status`, GATK `resume` and recovery journal identity. Add optional verified evidence capability only for compatible runtime; no raw browser-provided terminal acceptance. Existing exact-name query, submit journal and UID/RV delete preconditions remain authoritative.
 
-- [ ] Test both adapters for live active Master, native successful terminal, allowed failed terminal, recycled Master with valid evidence,404 without evidence, foreign UID, surviving Pod, unknown Worker, incomplete page and lost CREATE response.
+- [x] Test both adapters for live active Master, native successful terminal, allowed failed terminal, recycled Master with valid evidence,404 without evidence, foreign UID, surviving Pod, unknown Worker, incomplete page and lost CREATE response.
 
 ```python
 assert active_master_result["mode"] == "reused"
@@ -165,10 +173,10 @@ assert create_count_after_replayed_action == 1
 assert delete_options["preconditions"] == {"uid": old_uid, "resourceVersion": old_rv}
 ```
 
-- [ ] Run new cases RED. Distinguish query transport/service errors,403,404 and invalid responses in source, retaining safe summaries; never map query failure to absent object.
-- [ ] Read full submission and live Job/Pod inventories, including pagination. For reclaimed Workers require exact persisted terminal evidence. Probe failure or incomplete inventory blocks replacement. Recheck immediately before side effects.
-- [ ] Reconcile existing journal states before creating/retransmitting. Unknown CREATE outcome must not turn a subsequent404 into permission to issue a new random request. Resume existing handoff using Task1 confirmation, never bare START existence.
-- [ ] Only a verified native success moves downstream; failed evidence remains history. GREEN parameterized WGS/GATK cases, commit code/runtime contract.
+- [x] Run initial new cases RED (review expansion separate RED blocked by SSH, disclosed). Distinguish query transport/service errors,403,404 and invalid responses in source, retaining safe summaries; never map query failure to absent object.
+- [x] Read full submission and live Job/Pod inventories, including pagination. For reclaimed Workers require exact persisted terminal evidence. Probe failure or incomplete inventory blocks replacement. Recheck immediately before side effects.
+- [x] Reconcile existing journal states before creating/retransmitting. Unknown CREATE outcome must not turn a subsequent404 into permission to issue a new random request. Resume existing handoff using Task1 confirmation, never bare START existence.
+- [x] Only a verified native success returns succeeded to downstream caller; failed evidence remains history. GREEN parameterized WGS/GATK cases, code/runtime contract. Authenticated stage routing remains Task4.
 
 ## Task4 — Authenticated manual adapter closure before automatic dispatch
 

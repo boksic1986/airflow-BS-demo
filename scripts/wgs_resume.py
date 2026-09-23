@@ -122,7 +122,7 @@ def _finish_handoff(runtime, bundle, contract, config, job):
     runtime._write_master_handoff(bundle, contract, job_name=contract['kubernetes']['master_job'], job_uid=uid, state='START_SENT')
 
 
-def resume_master(*, payload, binding, runtime=None):
+def resume_master(*, payload, binding, runtime=None, recovery=None):
     if not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', str(payload.get('resume_action_id') or '')):
         raise RuntimeError('invalid recovery action identity')
     bundle = Path(binding['cce_bundle'])
@@ -143,6 +143,22 @@ def resume_master(*, payload, binding, runtime=None):
     if manifest.get('kind') != 'Job' or metadata.get('name') != names['master_job'] or metadata.get('namespace', names['namespace']) != names['namespace'] or metadata.get('labels', {}).get('cce.biosan.cn/run-id') != binding.get('run_label'):
         raise RuntimeError('frozen Master manifest differs from binding')
     journal_path = Path(payload['control_workdir']) / ('recovery-' + payload['resume_action_id'] + '.json')
+    if recovery is not None:
+        import fcntl
+        from scripts.cce_recovery_inventory import RecoveryCapability
+        if not isinstance(recovery,RecoveryCapability) or recovery.bundle != bundle:
+            raise RuntimeError('internal verified recovery capability required')
+        recovery.bind(runtime,contract,config,run_label=binding['run_label'],pipeline='wgs',
+            analysis_id=payload['analysis_id'],attempt=payload['attempt'],action=payload['resume_action_id'])
+        journal_path.parent.mkdir(parents=True,exist_ok=True)
+        descriptor=os.open(journal_path.parent/'.maintenance.lock',os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600)
+        with os.fdopen(descriptor,'a') as lock:
+            fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            journal=json.loads(_regular(journal_path).read_text()) if journal_path.exists() else {}
+            return runtime._advance_recovery_view(bundle,contract,config,context=recovery.context,
+                expected_job_uid=recovery.expected_job_uid,destination=journal_path.with_suffix('')/'view',
+                journal=journal,save_journal=lambda value:_save(journal_path,value),check=recovery.inspect,
+                claim=recovery.claim,authorize=recovery._authorized)
     journal = json.loads(_regular(journal_path).read_text()) if journal_path.exists() else {}
     job = _query(runtime, config, 'job', names['master_job'])
     if job and not _subset(manifest, job):

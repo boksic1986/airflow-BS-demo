@@ -1,5 +1,18 @@
 # P0 joint recovery implementation ledger
 
+## 2026-09-24 Task3 source completed; Task4 next
+
+Existing WGS/GATK Resume consumes approved native final inventory, full live
+workload reconciliation, trusted directory-lock capability and separate generation
+view through existing action journals. No repeated CREATE on uncertain response;
+no repeated START after confirmed or lost/regressed handoff; native success
+creates nothing. BS10610 capability6, composition29 and affected5 passed;
+initial composition10 RED; exact logs and review limitations in latest HANDOFF.
+Scoped review has no open Important/Critical. Dependencies platform321b0a1,
+producerfa1ac44, Worker5b5d7ee. Task4 authenticated service/DAG/all-writer callback
+construction and propagation of returned view remains next; no TTL, production,
+images, installed CLI, real reruns, merge or push authorized by this checkpoint.
+
 ## 2026-09-24 Task3 approved native dependencies accepted
 
 Final Worker snapshot + independent next-generation view accepted in isolated

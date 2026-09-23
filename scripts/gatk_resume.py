@@ -113,16 +113,6 @@ def _guard(runtime, bundle, contract, config, modules, job, archived_workers=Non
            p.get('status', {}).get('phase') not in {'Succeeded', 'Failed'}
            for p in pods['items']):
         raise ResumeGuardError('Master Pod is active or terminating')
-    for key in ('cleanup_job', 'reset_job', 'repair_job'):
-        if not names.get(key):
-            raise ResumeGuardError('frozen maintenance Job identity missing')
-        other = _query(runtime, config, 'job', names[key])
-        if other:
-            status = other.get('status') or {}
-            terminal = any(c.get('type') in {'Complete', 'Failed'} and c.get('status') == 'True'
-                           for c in status.get('conditions') or [])
-            if not terminal or int(status.get('active') or 0) or other.get('metadata', {}).get('deletionTimestamp'):
-                raise ResumeGuardError('maintenance Job is active or uncertain')
     # Native guard includes historical workers; it refreshes retained evidence.
     runtime._require_no_active_workers(bundle, contract, config, job, include_history=True)
     if archived_workers is not None:
@@ -132,6 +122,22 @@ def _guard(runtime, bundle, contract, config, modules, job, archived_workers=Non
         # terminal evidence before the compatible recovery consumer can allow it.
         if any(item.get('state') not in {'SUCCEEDED', 'FAILED'} for item in states):
             raise ResumeGuardError('archived Worker Job is active or uncertain')
+    _guard_maintenance_and_obs(runtime,contract,config,modules)
+
+
+def _guard_maintenance_and_obs(runtime,contract,config,modules):
+    names=contract['kubernetes']
+    for key in ('cleanup_job', 'reset_job', 'repair_job'):
+        if not names.get(key):
+            raise ResumeGuardError('frozen maintenance Job identity missing')
+        other = _query(runtime, config, 'job', names[key])
+        if other:
+            status = other.get('status') or {}
+            terminal = {c.get('type') for c in status.get('conditions') or []
+                        if c.get('type') in {'Complete','Failed'} and c.get('status')=='True'}
+            if (len(terminal)!=1 or any(type(status.get(k,0)) is not int or status.get(k,0)!=0
+                                       for k in ('active','terminating')) or other.get('metadata',{}).get('deletionTimestamp')):
+                raise ResumeGuardError('maintenance Job is active or uncertain')
     identity = contract['identity']
     observed = modules[0].inspect_reset_obs(
         obsutil=config['obs']['obsutil_bin'], obsutil_config=config['obs']['config_file'],
@@ -143,7 +149,7 @@ def _guard(runtime, bundle, contract, config, modules, job, archived_workers=Non
 
 
 def resume(*, analysis_id, attempt, expected_job_uid, expected_binding_sha256,
-           expected_contract_sha256, execute=False, runtime=None):
+           expected_contract_sha256, execute=False, runtime=None, recovery=None):
     if not re.fullmatch(r'GATK_[0-9]{8}_[0-9]{6}_[A-F0-9]{6}', analysis_id):
         raise ResumeGuardError('invalid analysis identity')
     if type(attempt) is not int or attempt < 1:
@@ -201,6 +207,26 @@ def resume(*, analysis_id, attempt, expected_job_uid, expected_binding_sha256,
         if journal and any(journal.get(k) != v for k, v in identity.items()):
             raise ResumeGuardError('resume journal identity mismatch')
         v2 = manifest['metadata'].get('annotations', {}).get('cce-pipeline/handoff-version') == '2'
+        if recovery is not None:
+            from scripts.cce_recovery_inventory import RecoveryCapability
+            if (not isinstance(recovery,RecoveryCapability) or recovery.bundle!=bundle
+                    or recovery.expected_job_uid!=expected_job_uid):
+                raise ResumeGuardError('internal verified recovery capability required')
+            recovery.bind(runtime,contract,config,run_label=binding['run_label'],pipeline='gatk',
+                analysis_id=analysis_id,attempt=attempt,action=recovery.context['action'])
+            def check():
+                observed=recovery.inspect()
+                if observed['terminal']['state']=='FAILED':
+                    _guard_maintenance_and_obs(runtime,contract,config,modules)
+                return observed
+            journal=journal or dict(identity)
+            result=runtime._advance_recovery_view(bundle,contract,config,context=recovery.context,
+                expected_job_uid=expected_job_uid,destination=request_dir/('resume-'+expected_job_uid+'-view'),
+                journal=journal,save_journal=lambda value:_save(journal_path,value),check=check,
+                claim=recovery.claim,authorize=recovery._authorized,
+                before_handoff=lambda:_guard_maintenance_and_obs(runtime,contract,config,modules),execute=execute)
+            return {**identity,**result,'replacement_job_uid':result['master_uid'],
+                    'status':'succeeded' if result['mode']=='succeeded' else 'ready' if result['mode']=='ready' else 'completed'}
         job = _query(runtime, config, 'job', names['master_job'])
         if job and job['metadata']['uid'] != expected_job_uid:
             if not v2 and journal and journal.get('status') == 'completed' and journal.get('replacement_job_uid') == job['metadata']['uid'] and _subset(manifest, job):

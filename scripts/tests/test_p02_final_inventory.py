@@ -67,3 +67,41 @@ def test_final_inventory_blocks_incomplete_or_unbound_cluster(final_cluster,chan
     elif change=='conflicting_terminal':workers[0]['terminal_state']='FAILED'
     else:worker['metadata']['namespace']='foreign'
     with pytest.raises(ValueError):workloads.probe_final_workloads(**kwargs)
+
+
+@pytest.fixture
+def capability_inputs(final_cluster,mirrored_final):
+    from scripts import cce_recovery_inventory as inventory
+    kwargs,objects,lists,workers=final_cluster
+    h,view,record,evidence=mirrored_final
+    runtime._write_mirror_evidence(view,record['run_id'],evidence,project=record['project'],batch=record['batch'])
+    context={**record['recovery_context'],'generation':3,'action':'new-action','execution_id':'new-exec'}
+    proof={'writers_protocol':2,'dispatcher_inactive':True,'recovery_allowed':True,
+        'native_directory':evidence['recovery-final.json']['canonical_directory'],
+        'canonical_directory':'/storage/synthetic/project'}
+    calls=[]
+    def authorize(identity):
+        calls.append(identity)
+        return dict(proof)
+    cap=inventory.RecoveryCapability(bundle=view,expected_job_uid=record['job_uid'],
+        context=context,authorize=authorize,verify_lock=lambda *a:{})
+    cap.bind(runtime,h.contract,h.config,run_label=kwargs['run_label'],
+        pipeline='wgs',analysis_id=context['analysis_id'],attempt=1,action=context['action'])
+    return cap,h,proof,calls,kwargs,objects,lists
+
+
+def test_capability_uses_native_snapshot_and_trusted_storage_mapping(capability_inputs):
+    cap,h,proof,calls,*_=capability_inputs
+    checked=cap.inspect()
+    assert checked['terminal']['state']=='FAILED' and calls
+    assert cap.lock_context()['canonical_directory']==proof['canonical_directory']
+    assert cap.lock_context()['generation']==3
+    assert cap.lock_context()['master_uid']==''
+
+
+@pytest.mark.parametrize('field,value',[('writers_protocol',1),('dispatcher_inactive',False),
+    ('recovery_allowed',False),('native_directory','/different'),('canonical_directory','/x/../y')])
+def test_capability_rejects_untrusted_or_changed_owner_scope(capability_inputs,field,value):
+    cap,h,proof,*_=capability_inputs
+    proof[field]=value
+    with pytest.raises((ValueError,RuntimeError)):cap.inspect()

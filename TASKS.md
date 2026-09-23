@@ -1,5 +1,17 @@
 # Active test-branch tasks
 
+## 2026-09-24 Task3 source implementation accepted
+
+Verified dependency commits: platform321b0a1, producerfa1ac44, Worker5b5d7ee.
+Existing WGS/GATK Resume now consumes verified final inventory, trusted lock
+capability, native generation view and original adapter journals. BS10610:
+capability6 GREEN; initial composition10 RED; expanded composition29 GREEN;
+5 affected legacy checks GREEN. Scoped review: no open Important/Critical.
+SSH recovered; latest source synced and validated, see HANDOFF for evidence.
+Task3 source complete; Task4 authenticated service/DAG/all-writer construction
+and selected-view propagation remain next. No automatic/TTL activation, images,
+CLI install, production changes, real reruns, main/production merge or push.
+
 Task3 DEPENDENCIES ACCEPTED (2026-09-24, explicitly approved): native final
 Worker snapshot + independent generation view, current-bound reader, complete
 journal/terminal/live inventory validation. BS10610 view6 + final18 + live10 new
