@@ -1,5 +1,32 @@
 # API contract
 
+## P0-2 Task4 WGS dispatch checkpoint (2026-09-24, source only)
+
+Existing authenticated `POST /api/runs/{analysis_id}/actions/resume-stage`
+keeps operator/CSRF checks and the same attempt, frozen request and RunAction.
+RunAction.payload_json now journals `dispatch_state=not_started` before dispatch,
+`post_intent` durably before POST, and `confirmed` only after the exact DagRun ID
+AND conf are observed. An uncertain transmitted POST is GET-only on replay,
+including subsequent 404s. Legacy actions without this journal are also GET-only;
+do not backfill `not_started` or mint a fresh action to bypass uncertainty.
+An initial lookup failure before any POST leaves `not_started` eligible for its
+first submission. Late responses must not regress current control/progress.
+
+All WGS recovery stage registrations require the actual current `dag_run_id`
+together with `resume_action_id`, not just cleanup calls. Stage/slot selection
+is constrained by persisted resume_stages; prepare is denied.
+Finalization is allowed for the current action while still requiring the existing
+Step6 success receipt, including when successful Step6 is reused rather than run.
+Slot acquisition commits internally; re-lock/recheck before projecting acquired.
+If superseded after that commit, retain the committed lease, do not blindly release.
+Before POST confirmation, only a persisted post_intent permits the already
+started DagRun to register. Existing validation errors remain HTTP400 for the
+internal stage endpoint; the public Resume endpoint remains HTTP409.
+No public endpoint, schema migration, automatic policy or GATK activation added.
+Pair the DAG payload update with this backend tightening; old recovery DAG code
+omitting its ID now fails closed. This checkpoint is NOT trusted native binding,
+all-writer lock activation or end-to-end Task4 completion.
+
 ## P0 DagRun cleanup identity (2026-09-23, source only)
 
 Existing WGS/GATK stage requests accept optional dag_run_id (1..250 chars).

@@ -180,6 +180,19 @@ assert delete_options["preconditions"] == {"uid": old_uid, "resourceVersion": ol
 
 ## Task4 — Authenticated manual adapter closure before automatic dispatch
 
+2026-09-24 source checkpoint accepted: WGS authenticated dispatch/DagRun boundary.
+Existing Resume now journals POST intent and reconciles exact DagRun identity;
+all recovery registrations carry and validate actual DagRun ID and stage scope.
+No new recovery engine or public endpoint. This is the first Task4 slice only:
+GATK own-service/DAG routing, trusted native binding writer/canonical mapping,
+paired all-writer activation/quiescence and selected-view downstream receipts
+remain OPEN. Do not mark Task4 complete or advance Task5 TTL based on this slice.
+BS10610 selected tests covered31 backend cases and3 real-Airflow DAG methods,
+without full-suite repetition. Review found3 Important edges;5 new regression
+cases RED, then those5 plus2 affected service checks GREEN. Scoped re-review
+has no remaining Important/Critical. Full authenticated WGS/GATK/native mock
+closure below remains unchecked; this checkpoint is not that acceptance.
+
 **Files:** `backend/app/wgs_resume_service.py`, `backend/app/gatk_runtime_service.py`, existing adapter/route registrations in `backend/app/main.py`, `dags/bio_wgs.py`, `dags/bio_gatk.py`; `backend/app/cce_recovery_service.py` for trusted binding writer consumption. Update docs05/07/08 if behavior/contracts change; no new public API/table.
 
 **Interfaces:** Existing authenticated recovery request -> same RunAction/idempotency key -> frozen stage execution/generation -> restricted runtime Resume -> normal stage receipt. Preserve `cce_master_binding` and `cce_master_submit_execution_id` semantics, populate only from validated runtime evidence, never arbitrary receipt JSON.

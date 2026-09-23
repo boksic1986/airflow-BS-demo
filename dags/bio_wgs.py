@@ -241,7 +241,7 @@ def register_stage(stage: str, **context: Any) -> dict[str, Any]:
         "maintenance_action_id": conf.get("maintenance_action_id"),
         "resume_action_id": conf.get("resume_action_id"),
     }
-    if stage in {"release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
+    if conf.get('resume_action_id') or stage in {"release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
         request_payload["dag_run_id"] = context["dag_run"].run_id
     task_instance = context.get("ti") or context.get("task_instance")
     if int(getattr(task_instance, "try_number", 1) or 1) > 1:

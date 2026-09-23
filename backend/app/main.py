@@ -2097,12 +2097,14 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                     attempt=request.attempt, pipeline='wgs', dag_run_id=request.dag_run_id,
                     resume_action_id=request.resume_action_id)
             else:
-                run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs"))
+                run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs")
+                    .with_for_update().execution_options(populate_existing=True))
             if run is None or run.attempt != request.attempt:
                 raise ValueError("unknown active WGS attempt")
             if request.resume_action_id:
-                from app.wgs_resume_service import STAGES, recovery_action, register_recovery_stage
-                action = recovery_action(session, run, request.resume_action_id)
+                from app.wgs_resume_service import STAGES, authorize_recovery_stage, register_recovery_stage
+                action = authorize_recovery_stage(session=session, run=run, action_id=request.resume_action_id,
+                    dag_run_id=request.dag_run_id, stage=stage_name)
                 if stage_name in STAGES:
                     if request.command != f'wgs-runtime {analysis_id} {request.attempt} {stage_name}':
                         raise ValueError('runtime command differs from recovery stage')
@@ -2158,6 +2160,15 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 )
                 if slot is None:
                     return {"analysis_id": analysis_id, "attempt": request.attempt, "stage": stage_name, "status": "waiting", "acquired": False}
+                if request.resume_action_id:
+                    # The lease helper commits. Re-acquire the run lock before
+                    # projecting success; newer controls/actions may now exist.
+                    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id,
+                        AnalysisRun.pipeline_name == "wgs").with_for_update().execution_options(populate_existing=True))
+                    if run is None or run.attempt != request.attempt:
+                        raise ValueError('unknown current recovery attempt')
+                    authorize_recovery_stage(session=session, run=run, action_id=request.resume_action_id,
+                        dag_run_id=request.dag_run_id, stage=stage_name)
                 run.current_stage = stage_name
                 session.commit()
                 return {"analysis_id": analysis_id, "attempt": request.attempt, "stage": stage_name, "status": "acquired", "acquired": True, "slot": slot}

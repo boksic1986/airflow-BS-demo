@@ -11,6 +11,17 @@ No automatic dispatch enabled. Backend API must precede DAG rollout.
 Remaining observer generation projection and recovery dispatch are not covered
 by this external-cleanup fence; PostgreSQL concurrency remains unverified.
 
+## P0-2 WGS manual recovery identity (2026-09-24, source only)
+
+For resume_action_id runs, register_stage sends actual dag_run.run_id on EVERY
+registration, including acquire/finalize, never conf.dag_run_id. Existing stage
+selection still skips prepare/upload/completed stages for Step3 Resume.
+The backend validates current action, attempt, DagRun and selected stage before
+mutating generation/leases/run. Ordinary non-recovery registration is unchanged.
+No new DAG/task/order/pool/retry policy or automatic activation. Roll out this DAG
+payload and the matching backend together; no deployment is part of Task4 work.
+GATK authenticated Resume and native selected-view propagation remain open.
+
 ## P0 old failure callback protection (2026-09-23, source only)
 
 GATK report_dag_failure now sends actual dag_run.run_id with its existing attempt

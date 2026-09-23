@@ -1,5 +1,22 @@
 # Active test-branch tasks
 
+## 2026-09-24 Task4 WGS dispatch checkpoint accepted; Task4 remains OPEN
+
+- [x] Existing authenticated WGS Resume: durable POST intent, exact DagRun
+  reconciliation, no second POST after uncertain response/404; preserve attempt.
+- [x] Actual DagRun identity for recovery stages/acquire/finalize; deny stale
+  action/DAG and out-of-scope prepare. Recheck after slot-helper commit.
+- [x] Preserve newer running/stop/failure state on late reply; permit finalizing
+  already-successful Step6 without rerunning it. BS10610 affected checks/review.
+- [ ] GATK own authenticated service/DAG/Resume integration.
+- [ ] Trusted native Master binding writer + canonical/legacy lock mapping,
+  paired all-writer compatibility and old dispatcher quiescence proof.
+- [ ] Selected recovery view carried into monitor and downstream receipt paths;
+  parameterized WGS/GATK manual closure before any Task5 TTL activation.
+
+No production, automatic recovery, image/CLI release, main/production merge or
+push. This is a Task4 source checkpoint, not whole-task/P0 completion.
+
 ## 2026-09-24 Task3 source implementation accepted
 
 Verified dependency commits: platform321b0a1, producerfa1ac44, Worker5b5d7ee.

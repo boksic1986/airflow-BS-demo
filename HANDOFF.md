@@ -1,5 +1,85 @@
 # Handoff
 
+## 2026-09-24 Task4 checkpoint: authenticated WGS Resume/DagRun dispatch
+
+Goal: continue approved P0-2 Task4, starting with actual WGS service/DAG dispatch
+identity, not another recovery engine. Worktree cce-recovery-impl-20260922,
+branch jiucheng/runtime/CR01-cce-recovery-20260922, base f93ba00. Producer32aa7fb
+and Worker5b5d7ee unchanged. Original dirty worktree/frozen projects untouched.
+
+Completed: RunAction not_started/post_intent/confirmed journal, commit before
+POST; uncertain transmitted POST or legacy missing journal uses GET only even
+after404. Exact DagRun ID AND conf confirmation. Fresh run/action lock checks;
+late responses cannot erase running/stop state or current-DAG failure audit.
+Recovery stage/acquire/finalize calls carry actual DagRun ID and require current
+action/attempt/scope/control. Slot helper commits, so handler re-locks/rechecks
+before projecting acquired; already committed lease remains on refusal. Finalize
+may reuse successful Step6 and retains existing receipt validation. Auth/CSRF/
+role checks tested through actual FastAPI middleware with synthetic session auth.
+
+Changed: backend/app/wgs_resume_service.py, main.py; dags/bio_wgs.py; their two
+test_wgs_resume_stage.py files; docs04/05/07, implementation plan and state docs.
+No new public API, DB migration, runtime capability writer or activation flag.
+
+Environment: fresh BS10610 server10610 uid6708. Control root
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS, current symlink remains
+releases/20260912-opt-4d3d24e6. backend36ff21f87356 running; /app RO from
+release20260923-step7-ae416fa/backend/backend, /config RO current/config;
+scan=false/auto_dispatch=false. No service mounts/data/credentials used for tests.
+Test sources/results only under
+/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/p02-task4-20260924.
+HEAD tracked backend/config/dags archived, extracted to own source, changed files
+overlaid byte-for-byte. Docker --rm --pull never --network none --read-only,
+1CPU/1GiB, user6708, source RO and own scratch RW. No /tmp task writes.
+
+Commands/results, all in that evidence root (counts overlap; no full suite):
+- backend cached8491604ee01d: python -m pytest -q -p no:cacheprovider --tb=short
+  backend/tests/test_wgs_resume_stage.py. Initial dispatch-red.log:16 failed,
+  8 passed. Five failures reached missing catalog fixture rather than the
+  expected rejection; do not count those as clean product RED evidence.
+- dispatch-green-attempt1.log:19 passed,7 failed only because tests expected409
+  instead of existing internal400. Corrected assertions, no API workaround.
+- same file -k 'old_dag or stage_handler': stage-fence-green.log,7 passed,
+  19 deselected. All original26 cases thereby passed across affected groups.
+- Scoped review found newer DAG failure erased, post-commit acquire race,
+  reused-Step6 finalization rejection. Added5 cases before fixes; same file
+  -k 'reconciliation_preserves or slot_commit or finalize_reused':
+  review-boundaries-red.log,5 failed/26 deselected, then implemented fixes.
+- -k 'reconciliation_preserves or slot_commit or finalize_reused or
+  same_attempt_action or lost_airflow_post': review-boundaries-green.log,
+  7 passed/24 deselected in2.05s. Includes5 new plus2 affected existing cases.
+- Real cached Airflow58195672af68: /usr/local/bin/python -m unittest -q
+  test_wgs_resume_stage. Final dag-identity-green-deps.log:3 passed; same new
+  method against baseline f93ba00: dag-identity-red-deps.log,1 expected failure
+  (actual DagRun ID missing). Covers actual DAG registration and existing skip
+  preparation/upload behavior. No Airflow service or metadata connection.
+- Initial DAG commands failed import (not application RED): image PATH picks
+  Snakemake venv; /usr/local/bin/python also needs explicit
+  /home/airflow/.local/lib/python3.11/site-packages in PYTHONPATH under uid6708
+  and isolated HOME=/scratch. Read-only image inspection confirmed dependency
+  path. Corrected test environment only; failure logs retained.
+
+SSH intermittently reset at jump172.17.61.18:22 (mkdir/scp exit1 before action);
+one initial PowerShell quote error also did not execute source sync. Switched
+to literal script/base64 JSON stdin for bounded sync+test; recovered. Kernel
+swap-limit warning and existing anyio deprecation only. No local runtime tests,
+full regression suite, actual PostgreSQL contention, service restart, production
+access, real analysis, image build, CLI installation, automatic/TTL enablement,
+main/production merge or push. Scoped reviewer rechecked3 fixes with no open
+Important/Critical. git diff --check passed before documentation closure.
+
+Task4 remains OPEN: GATK own authenticated service/DAG path; trusted native
+binding writer/canonical mapping and all-writer/dispatcher exclusion; propagation
+of selected recovery view into monitor/downstream receipts. Do not reuse mocked
+proof callbacks as a production capability or advance Task5 TTL. Next continue
+these integration items under the existing plan. PostgreSQL contention remains
+later acceptance; SQLite checks are deterministic boundary tests, not lock proof.
+
+Rollback: revert this source checkpoint only. No deployed release changed, no
+data/history/evidence deleted. Existing running recovery DAG code omitting ID
+would be rejected after future backend rollout; backend+DAG must be paired and
+old dispatchers quiesced under Task4 activation gates, not deployed separately.
+
 ## 2026-09-24 Task3 source acceptance: existing Resume + native view/lock
 
 Native handoff/Resume primitive committed32aa7fb on its isolated source branch;

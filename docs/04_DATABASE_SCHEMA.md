@@ -1,5 +1,19 @@
 # 04 数据库设计
 
+## P0-2 manual dispatch journal (2026-09-24, source only)
+
+No schema migration. Existing WGS resume_stage RunAction.payload_json adds
+dispatch_state: not_started -> post_intent -> confirmed. Commit post_intent
+before the external POST; result_status uncertain never grants another POST
+unless the explicit journal still proves not_started. Legacy missing journal
+is GET-only. Current attempt/action/DagRun are reloaded under the AnalysisRun
+then RunAction lock order before dispatch/reconciliation projection.
+Existing airflow_dag_failed audit for the same attempt/DagRun prevents a late
+confirmation from clearing a newer failure, even with a stale queued GET.
+No mutation of automatic policy/budget or native cce_master_binding semantics.
+PostgreSQL contention acceptance remains a later gate; SQLite tests do not
+prove database lock concurrency.
+
 ## P0 callback lineage fence (2026-09-23, source only)
 
 No schema/migration. Failure callback services refresh AnalysisRun under the

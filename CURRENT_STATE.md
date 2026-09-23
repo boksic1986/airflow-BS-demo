@@ -1,5 +1,23 @@
 # Current state
 
+## 2026-09-24 Task4 checkpoint: WGS authenticated dispatch fence accepted
+
+Task4 STARTED, not complete. Existing WGS Resume journals POST intent before
+Airflow, reconciles exact DagRun ID/conf by GET after uncertain POST, and keeps
+late replies from clearing newer controls/current-DAG failure. Recovery DAG
+registrations now carry actual DagRun ID; scope/control checks cover stages,
+slot acquire (recheck after helper commit) and finalize with reused Step6.
+No new endpoint/table or recovery engine. BS10610 isolated synthetic acceptance:
+31 backend cases covered across affected groups;3 real-Airflow DAG tests passed.
+One scoped review,3 Important fixed and rechecked; no open Important/Critical.
+No full suite, local runtime tests, production/service/CLI/image changes or push.
+
+Platform base f93ba00; producer32aa7fb and Worker5b5d7ee unchanged. Remaining
+Task4: GATK own-service/DAG routing; trusted native binding/canonical lock mapping;
+paired all-writer/dispatcher exclusion; selected-view propagation into monitoring
+and downstream receipts. Do not advance Task5 TTL or automatic recovery yet.
+See HANDOFF for commands, source boundaries and isolated evidence path.
+
 ## 2026-09-24 Task3 source implementation accepted
 
 Verified dependency commits: platform321b0a1, producerfa1ac44, Worker5b5d7ee.
