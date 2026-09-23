@@ -1,5 +1,31 @@
 # P0 joint recovery implementation ledger
 
+## 2026-09-23 Task3 first Resume guard checkpoint
+
+Continued existing branch after Task2; production historical reruns remain
+discussion only. Implemented guards in existing WGS/GATK Resume, not a second
+recovery framework: uncertain CREATE+404 and disappeared replacement do not
+reopen submission; exact UID/RV is rechecked before delete; WGS existing journal
+is owner-only/exclusive/fsynced and retains intent fields; incomplete Pod pages
+and archived GATK Worker NOT_FOUND without terminal evidence block replacement.
+BS10610 RED6 failed/1 passed, then7 new and13 affected legacy passed separately.
+Review found an unknown submitted Job can appear already Failed: RED1 reproduced;
+guard now blocks before deletion/reopening submission. That regression and the
+normal failed replacement/replay path GREEN2;8 new accepted cases total.
+No local/runtime full suite, shared services, producer install or cloud actions.
+
+Task3 remains in progress: confirmed handoff/native success, durable terminal
+readers+complete live/admitted inventories, canonical-directory/legacy lock
+callbacks remain. Task4 authenticated adapter/DAG/all-writer closure and Task5
+TTL/artifact gates are unchanged. Source hardening must not be presented as
+complete cross-Master recovery or readiness of the five old production batches.
+
+Scope ruling: Step7+manual local deletion does not complete same-batch platform
+recreation. Existing project/batch registration, frozen snapshot uniqueness and
+history reuse still need a separately scoped lifecycle change; no such schema,
+registration or deletion change added to this checkpoint. Retain this open
+boundary rather than infer success from the directory-lock design.
+
 Baseline: airflow test `1da45f3`; isolated branch
 `jiucheng/runtime/CR01-cce-recovery-20260922`.
 Authority: user-approved two-stage implementation in the current conversation.

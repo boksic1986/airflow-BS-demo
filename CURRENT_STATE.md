@@ -1,5 +1,26 @@
 # Current state
 
+## 2026-09-23 P0-2 Task3 first guard checkpoint (Task3 still in progress)
+
+Existing WGS Resume no longer submits again after unknown CREATE followed by404,
+or after an acknowledged replacement disappears. Recheck exact Master UID/RV
+before DELETE; journal writes are exclusive/owner-only, file+directory fsynced,
+and preserve existing fields. WGS/GATK reject incomplete Pod inventories;
+GATK archived Worker NOT_FOUND without terminal proof now blocks before claim.
+BS10610 synthetic RED6 failed/1 passed, GREEN7 new +13 directly affected legacy
+passed. Review added delayed-visible failed replacement RED1; fixed guard and
+that case + affected normal replacement GREEN2. Eight new cases accepted total.
+No full suite, local tests, image/install, service or production changes.
+
+This is a bounded safety checkpoint, NOT Task3/Resume consumer completion.
+Next: compatible START_CONFIRMED/native terminal consumption, complete admitted
+Worker/live inventories and trusted directory-lock callbacks through existing
+Resume; then Task4 authenticated adapter/all-writer closure. No TTL/automatic
+enablement. Old frozen bundles remain unchanged; unknown outcomes stay blocked.
+Step7 plus manual local deletion does not yet permit platform same-batch
+recreation: batch/snapshot uniqueness and old record reuse remain a separate
+unimplemented boundary, not fixed by directory lock primitives alone.
+
 ## 2026-09-23 P0-2 Task2 source primitives accepted; no production rerun
 
 User clarified the five historical reruns are a lock-compatibility discussion,

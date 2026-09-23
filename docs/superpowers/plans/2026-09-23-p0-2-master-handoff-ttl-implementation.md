@@ -121,6 +121,16 @@ or artifacts before this legacy/all-writer matrix passes.
 
 ## Task3 — TTL-safe runtime reconciliation through existing Resume
 
+2026-09-23 first safety checkpoint complete, Task3 remains open: unknown WGS
+CREATE/404 replay and missing acknowledged replacement cannot POST again;
+pre-delete exact UID/RV recheck, durable preserving journal; both adapters reject
+incomplete Pod pages; archived GATK Worker NOT_FOUND without evidence blocks.
+BS10610 RED6 failed/1 passed then GREEN7 new +13 affected legacy cases. Focused
+review added delayed failed replacement RED1; fix and affected normal path GREEN2,
+bringing new accepted cases to8. No important checkpoint review findings remain. This
+does not cover the full matrix below; handoff/native terminal/evidence/lock
+consumers remain outstanding. No full-suite rerun or production action.
+
 **Files:** `scripts/wgs_resume.py`, `scripts/gatk_resume.py`, `scripts/cce_recovery_workloads.py`, `scripts/cce_recovery_inventory.py`, `scripts/wgs_runtime_gate.py`, `scripts/gatk_runtime_gate.py`; corresponding `scripts/tests/test_*` files. cce-pipeline structured query/terminal readers remain in their original runtime module.
 
 **Interfaces:** Preserve `resume_master`, `fence_master_status`, GATK `resume` and recovery journal identity. Add optional verified evidence capability only for compatible runtime; no raw browser-provided terminal acceptance. Existing exact-name query, submit journal and UID/RV delete preconditions remain authoritative.

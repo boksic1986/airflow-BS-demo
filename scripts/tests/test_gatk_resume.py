@@ -139,7 +139,7 @@ class ResumeTests(unittest.TestCase):
         with patch.object(self.module.subprocess,'run',side_effect=inventory):
             self.assertEqual(self.invoke()['status'],'ready')
         self.assertTrue(requests)
-        self.assertEqual(requests[0],['kubectl','get','pods','-l','job-name=master-mock','-o','json'])
+        self.assertEqual(requests[0],['kubectl','get','pods','-l','job-name=master-mock','--chunk-size=0','-o','json'])
 
     def test_empty_invalid_or_failed_pod_inventory_never_authorizes_resume(self):
         import subprocess
@@ -151,6 +151,30 @@ class ResumeTests(unittest.TestCase):
         with patch.object(self.module.subprocess,'run',side_effect=subprocess.CalledProcessError(1,['kubectl'])):
             with self.assertRaises(RuntimeError):self.invoke(True)
         self.assertEqual(self.calls,[])
+
+    def test_paginated_empty_master_pods_do_not_authorize_replacement(self):
+        response=b'{"kind":"PodList","metadata":{"continue":"next-page"},"items":[]}'
+        with patch.object(self.module.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout=response)):
+            with self.assertRaises(RuntimeError):self.invoke()
+        self.assertEqual(self.calls,[])
+
+    def test_reclaimed_historical_worker_without_terminal_evidence_blocks_resume(self):
+        archive=self.request_dir/'resume-old-uid-jobs.ndjson'
+        archive.write_text('{"external_jobid":"historical-worker"}\n')
+        self.runtime._parse_jobs_ndjson=lambda text,**kw:[json.loads(text)]
+        self.runtime._query_worker_states=lambda cfg,records:[{'state':'NOT_FOUND'}]
+        with self.assertRaises(RuntimeError):self.invoke(True)
+        self.assertEqual(self.calls,[])
+
+    def test_lost_create_then_absent_master_never_posts_a_second_create(self):
+        def uncertain_create(*args):
+            self.calls.append('step2')
+            raise self.module.subprocess.TimeoutExpired('synthetic-create',1)
+        self.runtime.step2=uncertain_create
+        with patch.object(self.module.subprocess,'run',side_effect=self.delete):
+            with self.assertRaises(self.module.subprocess.TimeoutExpired):self.invoke(True)
+            with self.assertRaises(RuntimeError):self.invoke(True)
+        self.assertEqual(self.calls.count('step2'),1)
 
 
 if __name__=='__main__':unittest.main()

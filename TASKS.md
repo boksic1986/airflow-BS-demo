@@ -1,5 +1,17 @@
 # Active test-branch tasks
 
+Task3 IN PROGRESS, first guard checkpoint (2026-09-23): WGS ambiguous CREATE
+replay/disappeared replacement cannot create again; pre-delete UID/RV recheck
+and durable journal, both adapters reject incomplete Pod pages, GATK missing
+archived Worker is unknown not terminal. BS10610:8 new +13 affected tests pass;
+includes review-found delayed failed replacement under unresolved submission.
+Remaining Task3: verified handoff/native success, persisted terminal+full inventory
+reconciliation, trusted canonical-directory/legacy-lock consumers. Task4 remains
+authenticated adapter/DAG/all-writer closure; Task5 TTL stays gated.
+Deferred separately: same-batch new analysis after Step7/local deletion still
+needs platform registration/snapshot lifecycle work. Do not delete history,
+change batch uniqueness or claim this behavior is delivered by the new locks.
+
 Task2 SOURCE PRIMITIVES COMPLETE: plugin5b5d7ee (successor source0.6.4+bs8.dev1),
 cce-pipeline7926496. Exact Worker terminal publication/query pruning; opt-in
 directory owner/generation CAS, legacy guard/snapshot, fenced release.

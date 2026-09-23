@@ -35,22 +35,33 @@ def _subset(expected, actual):
 def _save(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
     partial = path.with_suffix('.partial')
-    with partial.open('w', encoding='utf-8') as handle:
+    fd = os.open(partial, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, 'w', encoding='utf-8') as handle:
         json.dump(value, handle, sort_keys=True)
         handle.flush()
         os.fsync(handle.fileno())
     os.replace(partial, path)
+    parent = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(parent)
+    finally:
+        os.close(parent)
 
 
 def _delete_master(runtime, config, names, options):
     url = f"/apis/batch/v1/namespaces/{names['namespace']}/jobs/{names['master_job']}"
     subprocess.run(runtime._kubectl(config, 'delete', '--raw', url, '-f', '-'),
-        input=json.dumps(options).encode(), check=True, capture_output=True)
+        input=json.dumps(options).encode(), check=True, capture_output=True, timeout=60)
 
 
 def _require_inactive_master_pods(runtime, config, names, uid):
-    pods = runtime._kubectl_json(config, 'pods', '-l', 'job-name=' + names['master_job'])
-    if not isinstance(pods, dict) or not isinstance(pods.get('items'), list):
+    pods = runtime._kubectl_json(config, 'pods', '-l', 'job-name=' + names['master_job'], '--chunk-size=0')
+    if (not isinstance(pods, dict) or pods.get('kind') not in {'List', 'PodList'}
+            or not isinstance(pods.get('items'), list)
+            or not isinstance(pods.get('metadata', {}), dict)
+            or pods.get('metadata', {}).get('continue')
+            or pods.get('metadata', {}).get('remainingItemCount', 0) != 0
+            or any(not isinstance(pod, dict) for pod in pods['items'])):
         raise RuntimeError('Master Pod inventory is unavailable')
     for pod in pods['items']:
         metadata = pod.get('metadata') or {}
@@ -132,6 +143,10 @@ def resume_master(*, payload, binding, runtime=None):
         if status == 'SUCCEEDED':
             return {'mode': 'reused', 'master_uid': job['metadata']['uid']}
         if status == 'FAILED':
+            # CREATE may have succeeded while its response and first GET were
+            # lost. A delayed failed Job is not permission to restart this action.
+            if journal.get('state') == 'submitting':
+                raise RuntimeError('submitted Master outcome requires reconciliation; no replacement submitted')
             if int((job.get('status') or {}).get('active') or 0):
                 raise RuntimeError('failed Master still has active Pods')
             uid = job['metadata']['uid']
@@ -149,7 +164,13 @@ def resume_master(*, payload, binding, runtime=None):
                         if source.is_file() and not source.is_symlink() and not (archive / source.name).exists():
                             shutil.copy2(source, archive / source.name)
             runtime._require_no_active_workers(bundle, contract, config, job, allow_prestart_manifest_absence=True)
-            journal = {'old_uid': uid, 'state': 'deleting'}
+            rechecked = runtime._kubectl_json(config, 'job', names['master_job'])
+            if (not rechecked or rechecked.get('metadata', {}).get('uid') != uid
+                    or rechecked['metadata'].get('resourceVersion') != job['metadata']['resourceVersion']
+                    or rechecked['metadata'].get('deletionTimestamp')
+                    or not _subset(manifest, rechecked)):
+                raise RuntimeError('Master UID/resourceVersion changed before deletion')
+            journal.update(old_uid=uid, state='deleting')
             _save(journal_path, journal)
             options = {'apiVersion': 'v1', 'kind': 'DeleteOptions', 'propagationPolicy': 'Foreground',
                 'preconditions': {'uid': uid, 'resourceVersion': job['metadata']['resourceVersion']}}
@@ -171,7 +192,11 @@ def resume_master(*, payload, binding, runtime=None):
             journal['state'] = 'deleted'
             _save(journal_path, journal)
     if job is None:
-        if payload['stage'] != 'step2_master' and journal.get('state') not in {'deleting', 'deleted', 'submitting'}:
+        # Once CREATE may have been transmitted, even a later successful 404
+        # cannot establish that no Master ran. Reconcile evidence, never POST again.
+        if journal and journal.get('state') not in {'deleting', 'deleted'}:
+            raise RuntimeError('missing submitted Master requires evidence reconciliation; no replacement submitted')
+        if payload['stage'] != 'step2_master' and journal.get('state') not in {'deleting', 'deleted'}:
             raise RuntimeError('missing Master without a recorded recovery deletion')
         if not journal and callable(getattr(runtime, '_read_master_handoff', None)) and runtime._read_master_handoff(bundle, contract):
             raise RuntimeError('previously submitted Master is missing; its outcome must be reconciled')

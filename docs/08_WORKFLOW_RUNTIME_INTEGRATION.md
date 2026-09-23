@@ -1,5 +1,33 @@
 # Workflow runtime integration
 
+## P0-2 Task3 guard checkpoint (2026-09-23; consumer closure pending)
+
+WGS existing recovery journal no longer grants a second CREATE after
+`submitting`, `created` or `started` when the Master is absent. Only fresh Step2
+or the matching pre-submission deletion states retain existing creation behavior;
+unknown transmission+404 requires reconciliation, not a new submission. This
+also blocks deletion/recreation when that unknown submission later appears Failed.
+No new same-action generation is inferred from the delayed failure. This
+does not yet accept durable terminal evidence for reclaimed Masters. A fresh
+exact Master UID/resourceVersion read precedes UID/RV-conditional DELETE.
+Journal updates preserve existing fields and fsync the owner-only exclusive
+partial file, replacement and parent directory; stale partial files fail closed.
+
+Both existing Resume helpers request unchunked Master Pod lists and reject
+continuation tokens/nonzero remainingItemCount or malformed lists rather than
+treat an incomplete empty page as no active Pods. GATK archived Worker queries
+accept only explicit SUCCEEDED/FAILED, no longer NOT_FOUND. Task2 persisted
+Worker terminals are not consumed here yet, so absent archived Workers remain
+blocked until the compatible identity-bound evidence reader is connected.
+These are source guard fixes, not a complete inventory/finality proof.
+
+No API/DB/DAG changes, automatic enablement, bundle edits or deployment. The
+remaining Task3/4 work must connect START_CONFIRMED, trusted native success,
+complete Worker/live inventories and directory-lock callbacks. Step7 cleanup
+and local directory removal alone still do not implement platform same-batch
+recreation; registration/snapshot uniqueness and history reuse need separate
+scoped work. Do not remove audit history or infer unlocked state from absence.
+
 ## P0-2 Task2 source primitives (2026-09-23; consumers not yet enabled)
 
 Plugin5b5d7ee/0.6.4+bs8.dev1 extends accepted bs7 journal admission with atomic

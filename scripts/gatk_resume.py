@@ -76,7 +76,7 @@ def _master_pods(runtime, config, master_job):
     # Query a List explicitly: only a successful, valid items=[] proves empty.
     try:
         completed = subprocess.run(
-            runtime._kubectl(config, 'get', 'pods', '-l', 'job-name='+master_job, '-o', 'json'),
+            runtime._kubectl(config, 'get', 'pods', '-l', 'job-name='+master_job, '--chunk-size=0', '-o', 'json'),
             check=True, capture_output=True, timeout=30)
         if completed.returncode:
             raise ResumeGuardError('Master Pod inventory command failed')
@@ -85,6 +85,9 @@ def _master_pods(runtime, config, master_job):
         raise ResumeGuardError('Master Pod inventory unavailable or invalid') from None
     if (not isinstance(value, dict) or value.get('kind') not in {'List', 'PodList'}
             or not isinstance(value.get('items'), list)
+            or not isinstance(value.get('metadata', {}), dict)
+            or value.get('metadata', {}).get('continue')
+            or value.get('metadata', {}).get('remainingItemCount', 0) != 0
             or any(not isinstance(item, dict) for item in value['items'])):
         raise ResumeGuardError('Master Pod inventory is not a valid List')
     return value
@@ -118,7 +121,9 @@ def _guard(runtime, bundle, contract, config, modules, job, archived_workers=Non
     if archived_workers is not None:
         records = runtime._parse_jobs_ndjson(archived_workers, since_epoch=None, strict=True)
         states = runtime._query_worker_states(config, records)
-        if any(item.get('state') not in {'SUCCEEDED', 'FAILED', 'NOT_FOUND'} for item in states):
+        # Absence is not terminal proof: a reclaimed Job needs exact persisted
+        # terminal evidence before the compatible recovery consumer can allow it.
+        if any(item.get('state') not in {'SUCCEEDED', 'FAILED'} for item in states):
             raise ResumeGuardError('archived Worker Job is active or uncertain')
     identity = contract['identity']
     observed = modules[0].inspect_reset_obs(

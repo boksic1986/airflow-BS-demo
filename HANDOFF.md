@@ -1,5 +1,72 @@
 # Handoff
 
+## 2026-09-23 Task3 Resume guard checkpoint; consumer closure still pending
+
+Goal: continue P0 after Task2 without operating the five failed production runs.
+Existing isolated branch jiucheng/runtime/CR01-cce-recovery-20260922, base bfff46c;
+original dirty D:/pipeline/airflow-demo and both producer worktrees untouched.
+
+Implemented in scripts/wgs_resume.py, scripts/gatk_resume.py and their existing
+test files: WGS unknown CREATE outcome followed by404 never issues a second
+CREATE; acknowledged replacement disappearance blocks instead of recreating;
+recheck exact UID/resourceVersion and frozen manifest immediately before DELETE;
+owner-only O_EXCL/O_NOFOLLOW journal, file+directory fsync, preserve prior fields;
+bounded delete timeout. Both adapters request unchunked Master Pod lists and
+reject incomplete pages/malformed lists. GATK archived Worker NOT_FOUND no
+longer grants replacement permission; compatible persisted terminal consumption
+is still required later. No new API, DB, DAG, service or producer source change.
+
+Remote validation only. Initial ssh BS10610 full preflight exit1:
+kex_exchange_identification reset at jump172.17.61.18; no remote command ran.
+After local test authoring, hostname retry succeeded. Fresh full preflight:
+server10610 uid6708, control /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS,
+current releases/20260912-opt-4d3d24e6; backend36ff21f87356 image8491604ee01d,
+actual /app releases/20260923-step7-ae416fa/backend/backend ro, /config current
+config ro; scanner=false/auto_dispatch=false; candidate writable. Intermittent
+later test/scp SSH invocations also failed at handshake before remote execution;
+bounded retries succeeded. Required source sync succeeded before each test.
+No repeated cloud side effects, production fallback or local tests.
+
+Evidence /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/p02-resume-20260923.
+Archived HEAD scripts to new source directory then copied only this task's
+modified files. Docker --rm --pull=never --network none --read-only --user
+6708:520 --cpus1 --memory1g, source ro, evidence/tmp rw, no credentials or live
+data mounts. Cached sha256:8491604ee01d9b3a84d74e7edf233a9d5dd20ddbf14f8a646c25c05f8729efed.
+Command python -m pytest -q -p no:cacheprovider scripts/tests/test_wgs_resume.py
+scripts/tests/test_gatk_resume.py -k 'lost_create or missing_started or
+resource_version_change_during or paginated_empty or reclaimed_historical'
+--tb=short: RED6 failed/1 passed, then GREEN7 passed/13 deselected0.70s.
+Same two modules with negated selection:13 passed/7 deselected1.53s. Logs:
+resume-guards-red.log, resume-guards-green.log, resume-guards-compat.log.
+Focused reviewer found delayed-visible Failed replacement could reopen a
+submitting journal. Added test RED1 then block before archival/delete. Regression
+plus normal replacement/replay path GREEN2/19 deselected0.28s in
+resume-delayed-red.log / resume-delayed-green.log. Total8 new +13 affected cases
+accepted across these runs. Reviewer rechecked fix: no remaining important
+findings for checkpoint, not Task3/production acceptance. Minor journal crash
+fault injection not added; no such fault-injection acceptance claimed. Remaining
+full inventory/hand-off/lock/adapter work deliberately remains open below.
+No full suite or other accepted Task1/2 tests rerun. Local git diff --check only.
+
+Remaining / next: Task3 not complete. Connect trusted START_CONFIRMED/native
+terminal success, exact persisted terminals with complete submission/live
+Job+Pod inventories, safe unknown-CREATE adoption, and canonical directory/legacy
+lock callbacks. Task4 then covers authenticated WGS/GATK adapter/DAG/all-writer
+closure. Keep frozen bundles intact. Task1 v2 writer intentionally rejects a
+different Job UID in an existing handoff record: the recovery wrapper must
+preserve old evidence and bind the next owner explicitly, not overwrite the
+record or silently reuse old generation/digests. TTL/automatic gates stay off.
+
+Separately recorded prior user question: Step7+local project deletion alone does
+not implement platform same-batch recreation; existing project/batch dispatch and
+snapshot uniqueness/reuse are still a blocker. Do not mutate DB/history or add
+that lifecycle feature silently to Task3. User has not asked to execute deletion.
+
+Risk: reclaimed Workers with no exact terminal evidence now explicitly block,
+by design; no extra acceptance implied for current production. Rollback is source
+revert of this checkpoint, not lock/evidence/data deletion. No push, merge main/
+production, BS96 access, cloud writes, deployment or real analysis performed.
+
 ## 2026-09-23 Task2 source acceptance; five reruns are compatibility only
 
 User corrected the previous detour: discuss how new locks support five frozen
