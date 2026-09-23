@@ -1,5 +1,43 @@
 # Workflow runtime integration
 
+## P0-2 Task2 source primitives (2026-09-23; consumers not yet enabled)
+
+Plugin5b5d7ee/0.6.4+bs8.dev1 extends accepted bs7 journal admission with atomic
+`worker-terminal/<job_uid>.json` before Snakemake terminal callbacks. Schema1
+binds context_sha256, run_id, attempt, execution_generation, master_uid,
+namespace, job_name/job_uid/job_attempt, existing submission_identity,
+terminal_state, safe reason and observed_at epoch. Exact Complete/Failed Job
+condition required; bare counters/Pod exit/404 cannot prove terminal. Foreign,
+conflicting or partially published records block. One validated journal view
+per poll; cached terminals are reported before quota/control queries. Quota
+claims are not released from this evidence alone; existing quota checks remain.
+This does not seal orphan-Pod/whole-run quiescence or enable another Executor.
+
+cce-pipeline7926496 adds optional internal lock_context/journal/save_journal/
+verify arguments to original claim/release helpers. V2 directory key protects
+same-path writers regardless of batch/entry; logical identity includes pipeline,
+analysis_id/attempt/run_id/config digest. Generation/action/Master UID is current
+ownership, including pending UID and its one confirmed binding. Existing journal
+stores immutable CAS intent before writes, carrying UID/resourceVersion. Release
+sets a fenced RELEASED record, not delete/recreate; same logical run requires
+next generation, and no Master ownerReference can trigger GC unlocking.
+
+For historical reruns, preserve frozen config/project/history. Trusted recovery
+code must map the old lock to the original directory/owner and prove stopped
+dispatch/Master/Workers, then CAS its legacy key into a snapshot-preserving guard
+before acquiring the v2 directory key. Unmodified CLI sees a foreign guard owner
+and cannot inherit/release it. Unknown mapping remains blocked. This is not a
+complete mixed-version solution: **all** writers for the directory must use
+compatible entry and release paths, including downstream stages. The internal
+writers_protocol2 capability is not a browser override or rollout authorization.
+Actual mounted storage alias resolution, verifier, fsynced existing journal
+callbacks and frozen-runtime wrappers remain Tasks3/4. No current caller opts
+in; artifacts/TTL remain Task5. No API/DB/DAG or clinical workflow change here.
+
+Producer details: plugin docs/P02_WORKER_TERMINAL.md and cce-pipeline
+docs/architecture/directory-lock-v2.md. BS10610:15 Worker +17 lock tests and
+5 +3 affected legacy cases passed; no production rerun/lock migration performed.
+
 ## P0-2 Task1 Master producer (2026-09-23, source only)
 
 Pinned cce-pipeline83e7adb successor source on

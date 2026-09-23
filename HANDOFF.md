@@ -1,5 +1,77 @@
 # Handoff
 
+## 2026-09-23 Task2 source acceptance; five reruns are compatibility only
+
+User corrected the previous detour: discuss how new locks support five frozen
+reruns, do NOT rerun/inspect production now; continue approved P0 development.
+This supersedes the prior checkpoint's request for an operational choice.
+No BS96, DB, cloud Job/lock, frozen project, main/production or service mutation.
+
+Source commits (local isolated branches, not pushed):
+- Plugin5b5d7ee631cb45bf4e14877e483ec24adedd6de4,
+  jiucheng/runtime/p02-worker-terminal-20260923 at canonical plugin/.worktrees/
+  p02-worker-terminal-20260923. Distinct successor0.6.4+bs8.dev1, no built artifact.
+- cce-pipeline7926496ea80dab9371885215bdaca81b8ccaddc2,
+  jiucheng/runtime/p02-master-handoff-20260923 in its existing isolated worktree.
+
+Worker: journal-derived exact UID/context terminal publication before callbacks;
+explicit Job conditions only, unknown404 preserved; exact replay skips status
+queries. Single validated journal view per poll. Cached callbacks precede quota
+reads; claims remain for existing conservative reconciliation, not fake release.
+Lock: optional internal extension of existing helpers, directory/logical identity,
+generation/action/Master owner, journal intent before UID/RV CAS, response-loss
+reconciliation, pending UID bind, conditional RELEASED record, stale-generation
+fence, positively mapped legacy-key snapshot/guard before directory acquisition.
+Frozen/v1 callers remain unchanged; no consumer currently opts into new locks.
+
+Compatibility answer: keep old analysis_id/attempt/config/workdir/history and
+success outputs. Future upgraded recovery entry verifies old mapping and full
+quiescence then performs audited conditional handoff, not lock deletion/prepare.
+Unknown mapping stops for verification. All writers for the directory must
+upgrade together, including downstream stages; a legacy guard is not enough
+against an old CLI using a different batch key. Actual canonical storage alias
+validation, evidence verifier, existing durable journal callbacks and compatible
+frozen-runtime wrappers remain Tasks3/4. No operational eligibility of any of
+the five runs was determined this turn; no recent production snapshot relied on.
+
+Preflight ssh BS10610 confirmed server10610 uid6708/gid520, control
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS current
+releases/20260912-opt-4d3d24e6, backend36ff21f87356 image8491604ee01d,
+actual /app releases/20260923-step7-ae416fa/backend/backend ro; /config
+current/config ro; scanner=false/auto_dispatch=false. Candidate and evidence
+writable. No services changed, current/rollback release untouched.
+
+Remote synthetic tests only, task source mounted ro, evidence rw, user6708:520,
+--pull=never --network none --read-only --cpus1 --memory1g, no /tmp evidence:
+- Plugin evidence /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/
+  smk-k8s-group/p02-worker-terminal-20260923; cached imagea0112f0b8ef0,
+  Python3.11 and existing pytest deps ro. `pytest -q -p no:cacheprovider
+  tests/test_worker_terminal.py --tb=short`:15 passed2.20s worker-final-green.log.
+  `tests/test_heavy_io_quota.py tests/test_heavy_submission_recovery.py -k
+  'real_status_coroutine or container_exit_before_job_terminal or completed_p0_worker_preserves or repeated_adoption'`:
+  5 passed/25 deselected1.09s worker-compat-green.log.
+- Runtime evidence same WGS_test/cce-evidence/p02-master-handoff-20260923,
+  cached backend image8491604ee01d. `pytest -q -p no:cacheprovider
+  tests/test_directory_lock.py --tb=short`:17 passed0.29s lock-final-green.log.
+  `tests/test_batch_runtime_boundaries.py -k 'batch_lock or release_lock_requires_matching'`:
+  3 passed/38 deselected0.14s lock-compat-green.log.
+Initial13 Worker and13 lock RED; review regressions1 Worker +2 lock RED then
+GREEN. Initial namespace error was an incomplete synthetic API object, fixed
+fixture without relaxing real identity. SSH/scp twice failed handshake exit1 at
+jump172.17.61.18 before remote execution; after local work bounded retry succeeded,
+source synced before GREEN. No local test fallback. One focused read-only reviewer
+confirmed corrected cached quota callback, uncertain-write journal retention and
+retired-generation fence; no remaining important findings in this bounded scope.
+
+Changed Airflow docs only: CURRENT_STATE, TASKS, HANDOFF, docs08, docs46,
+P0-2 implementation plan and existing progress ledger. No API/DB/DAG change.
+Not run: full suites, minikube/live CCE, build/install, real batch reruns. These
+are outside source-level Task2; artifact/TTL acceptance remains Task5. State and
+runtime documents updated with source IDs and remaining activation gates.
+Next Task3 trusted runtime Resume/inventory/legacy mapping, then Task4 all manual
+adapter paths. Task2 SOURCE PRIMITIVES complete, not P0/production-ready rerun.
+Rollback: revert isolated commits only; no service rollback or data restore.
+
 ## 2026-09-23 Task2 RED checkpoint; five legacy failed-run question
 
 User requested next step. Read current plan/spec/runtime and canonical plugin

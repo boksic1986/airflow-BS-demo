@@ -1,18 +1,27 @@
 # Current state
 
-## 2026-09-23 P0-2 Task2 started; legacy-run handling awaiting decision
+## 2026-09-23 P0-2 Task2 source primitives accepted; no production rerun
 
-Fresh BS10610 preflight matches Task1 fingerprint. Verified plugin25297f9 clean;
-imported exact Git bundle into canonical Windows repo and created isolated
-`.worktrees/p02-worker-terminal-20260923`, branch
-`jiucheng/runtime/p02-worker-terminal-20260923`. No accepted bs7 bytes changed.
-Wrote13 synthetic Worker terminal/status-coroutine regressions; all13 fail for
-the intended missing behavior on BS10610. No implementation/GREEN/commit yet.
-Legacy lock compatibility question prompted user to ask how to handle five
-failed runs. Operations docs identify WGS0921B/C/D/E and WES0921B; last read-only
-snapshot is2026-09-23 12:04UTC, not a fresh live diagnosis. Preserve frozen runs,
-prior successful stages and history; do not upgrade/delete locks or rerun blindly.
-Task2 remains in progress; lock activation/legacy strategy needs confirmation.
+User clarified the five historical reruns are a lock-compatibility discussion,
+not an operational request. Continue the approved P0 plan, no BS96 actions.
+Plugin5b5d7ee (0.6.4+bs8.dev1 successor source) persists exact admitted Worker
+terminal evidence before callbacks; known terminals avoid status queries,
+unknown404 stays unknown. Quota claims remain conservatively managed.
+cce-pipeline7926496 adds opt-in directory ownership, journal-before-CAS handoff,
+conditional release, stale-generation protection and explicit legacy guard.
+Existing two-argument/frozen callers unchanged; no current consumer opts in.
+BS10610:15 Worker +17 lock cases;5 +3 affected legacy cases passed. Focused
+review issues fixed and rechecked. No full suite, image/wheel or installation.
+
+Five legacy runs will retain analysis_id/attempt/config/workdir/history. The
+upgraded recovery entry must verify exact legacy mapping/quiescence, preserve
+the old lock snapshot, then conditionally reserve/bind the new generation.
+Unknown mappings stop for verification, not automatic lock deletion. Canonical
+storage resolution and paired CLI/platform/stage writers are mandatory before
+activation; frozen bundles must not be rewritten. These trusted consumers and
+end-to-end manual recovery are Tasks3/4, not complete yet. Next: Task3.
+All changes on isolated development branches only; no main/production merge,
+push, deployment, real batch action, TTL activation or automatic enablement.
 
 ## 2026-09-23 P0-2 Task1 source acceptance complete
 

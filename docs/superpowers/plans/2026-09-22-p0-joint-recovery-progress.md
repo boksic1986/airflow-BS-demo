@@ -18,6 +18,22 @@ No unrelated regression suite. Preserve the original worktree's dirty files.
 
 ## Current progress
 
+- P0-2 Task2 SOURCE PRIMITIVES COMPLETE: plugin5b5d7ee/0.6.4+bs8.dev1 from
+  accepted25297f9; cce-pipeline7926496 after Task1c33740d. Exact Worker terminal
+  persistence/cache/query scope and opt-in directory owner/generation CAS,
+  legacy lock guard/snapshot, fenced release.15 +17 focused BS10610 tests,
+  5 +3 affected legacy checks passed. Review fixes: terminal callbacks before
+  quota reads without fabricated release; journal intent retained after unknown
+  write; released generation cannot be reopened by old action. One journal
+  validation per poll. No full suite/artifacts or producer installation.
+- User clarification: five failed runs are a compatibility discussion, not
+  permission to inspect/rerun. Preserve immutable inputs/attempt/history;
+  legacy mapping + verified quiescence + conditional lock handoff via upgraded
+  recovery entry. No bulk migration/delete/prepare. New source primitives are
+  not currently called; Task3/4 must provide trusted full inventory, canonical
+  directory and paired CLI/platform/downstream wrappers and durable journal.
+  Next Task3, no production/main/TTL/automatic enablement.
+
 - P0-2 Task1 SOURCE COMPLETE: producer c33740d, isolated cce-pipeline branch
   jiucheng/runtime/p02-master-handoff-20260923, pinned remote/local83e7adb.
   Verified server10610 mounts/gates; remote prototype untracked audit files kept.

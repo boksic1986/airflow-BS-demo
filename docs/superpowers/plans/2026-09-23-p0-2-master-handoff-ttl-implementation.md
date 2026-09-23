@@ -29,7 +29,7 @@
 - [x] Integrate781877e P0-2E: logical-run ownership, conditional generation takeover/release, TTL-independent lock lifetime and legacy lock-domain compatibility.
 - [x] Verify authoritative cce-pipeline source before editing it. BS10610 remote source and local object both resolve83e7adbff9e94b99da34f687903cb4ee9df9f996; created independent `D:/pipeline/cce-pipeline-worktrees/p02-master-handoff-20260923`, branch `jiucheng/runtime/p02-master-handoff-20260923`. Earlier1462e9e snapshot superseded by this fresh check.
 - [x] Read remote source instructions/HANDOFF, branch/status/remotes and prototype scope. `/mnt/biodevrwbi/33.chenjiucheng/project/worktrees/huawei-cloud-runtime-master-errors-20260923` has no AGENTS, clean tracked83e7adb, two untracked audit files (`scripts/cce_master_error_audit.py`, `tests/test_master_error_audit.py`). Preserved the source/prototype; informed operations owner of isolated scope.
-- [ ] Verify plugin25297f9 source status and establish a separate successor artifact; never replace accepted bs7 bytes under the same version.
+- [x] Verify plugin25297f9 source status and establish isolated successor source5b5d7ee/0.6.4+bs8.dev1. No accepted bs7 bytes replaced. Wheel/image build and artifact provenance remain Task5, not yet performed.
 - [x] Fresh BS10610 preflight succeeded: server10610, control/current/mount fingerprint recorded in HANDOFF; scanner and auto-dispatch false, task-specific candidate/evidence writable. Intermittent later SSH handshake failures did not trigger local-test fallback or service changes.
 
 One writer owns each source worktree. This plan's coordinator owns Airflow changes; cross-repo ownership must be resolved before touching dirty producer code. No implicit delegation to another task.
@@ -80,7 +80,7 @@ Final affected legacy checks:18 passed /32 deselected; no full-suite rerun.
 
 **Interfaces:** `worker-terminal/<job_uid>.json`, schema_version1; run_id, attempt, execution_generation, master_uid, job_name, job_uid, submission_identity, terminal_state SUCCEEDED|FAILED, reason, observed_at. Submission identity must derive from the existing bs7 journal, not another random identifier. Existing ConfigMap lock identity binds canonical directory/pipeline/analysis_id/attempt; owner fields include generation/action/Master UID/config digest. Use resourceVersion-conditional updates with a durable handoff intent; never delete then recreate to take ownership. Map legacy keys before enabling so CLI and platform cannot acquire independent locks for one directory.
 
-- [ ] Write failing tests around actual executor terminal handling: persistence before success/failure callback, duplicate identical record, conflicting record, write failure,404 with/without exact record, restart retaining the admitted inventory.
+- [x] Write failing tests around actual executor terminal handling: persistence before success/failure callback, duplicate identical record, conflicting record, write failure,404 with/without exact record, restart retaining the admitted inventory.
 
 ```python
 assert callback_before_atomic_terminal_write is False
@@ -89,10 +89,35 @@ assert confirmed_terminal_uid not in next_poll_uids
 assert old_owner_release_removed_current_lock is False
 ```
 
-- [ ] RED remotely, then use same-directory temporary files, flush/fsync and atomic publication; matching terminal is reusable, conflicts reject. Stop repeated queries for proven terminal Jobs, without treating missing files as absent Workers.
-- [ ] Extend existing lock ownership for same logical run takeover only after old dispatcher/Master/Workers are inactive. Conditional old-owner release must not remove replacement ownership; Job TTL must not release the directory lock.
-- [ ] Test conditional-update lost response/restart through the same journal, competing requests with one winner, same-name/different-directory independence, CLI/platform same-directory exclusion, missing legacy identity refusing takeover, and success retaining ownership while downstream writers remain. Inspect ownerReferences so Master GC cannot release the lock; only current owner releases after its protected write lifecycle finishes. Do not alter transfer/heavy-slot budgets or delete real locks.
-- [ ] GREEN only changed plugin/lock cases; retain existing bs7 create/quota tests unless their behavior changed. Commit successor source, not a replacement bs7 wheel.
+- [x] RED remotely, then same-directory atomic/fsynced Worker publication and exact record replay.15 final cases GREEN. Verified per-poll journal view; cached callbacks before quota/control queries, retained conservative quota claims. Missing file/404 is unknown.
+- [x] Extend original lock primitives with opt-in logical identity, generation/action owner, pending UID binding and verified quiescence callback; stale release rejects, no GC ownerReference. Actual trusted callback/consumer integration is Task3/4 and not enabled by these source helpers.
+- [x] Synthetic CAS tests cover lost response/replay, one-winner contention, same-name/different-directory, shared-directory exclusion, unknown legacy mapping rejection, guard before directory key and downstream hold. Review added retained-intent and released-old-generation RED/GREEN. Final17 lock cases GREEN. No transfer/heavy budget or real-lock change.
+- [x] Commit source5b5d7ee (plugin) /7926496 (cce-pipeline), plus5 +3 affected legacy tests. No full suite, new wheel/image, deployment or replacement bs7 bytes.
+
+### Historical-run compatibility and activation boundary
+
+User explicitly clarified that the five pending reruns are a compatibility
+discussion, not operational authorization. Their frozen analysis_id/attempt,
+release/config/workdir/history are retained. The future authenticated recovery
+adapter maps old owner/directory using existing immutable inputs and journals,
+proves old dispatcher/Master/Workers inactive, and conditionally fences the old
+project/batch key with its original snapshot retained before acquiring a v2 key.
+Then reserve generation+1 and bind the confirmed Master; do not prepare again,
+rewrite bundles, forceall or delete old locks. Unknown/conflicting evidence blocks
+only that recovery until verified, not automatic adoption of arbitrary history.
+
+Old CLI cannot safely coexist with a directory-aware lock under arbitrary batch
+keys. Activation therefore requires all same-directory CLI/platform and downstream
+writers to use compatible wrappers. Guard markers reject old CLI same-key reuse,
+but do not replace this paired-entry gate. Canonical storage mapping must be
+verified on actual mounted storage, not guessed by the control host. Existing
+v1 callers stay unchanged until that gate passes; no live migration performed.
+
+Task2 accepts source primitives, not operational rerun closure. Task3 must wire
+trusted mapping/inventory and existing serialized/fsynced recovery journal;
+Task4 must exercise authenticated WGS/GATK plus protected downstream stage
+claim/release paths without rewriting frozen files. Task5 cannot activate TTL
+or artifacts before this legacy/all-writer matrix passes.
 
 ## Task3 — TTL-safe runtime reconciliation through existing Resume
 

@@ -201,6 +201,15 @@ Master 的 GC 释放目录保护。仅当该锁保护的写入阶段结束、无
 TTL 后缺证据、API 不可达、空 Worker 清单、SSH 断开或锁龄过长均不是解锁理由。
 历史任务缺少身份时返回待人工确认，不补造回执、不自动删除旧锁。
 
+2026-09-23 Task2 源码落点：已加入可选目录锁原语、旧锁快照保留的 CAS guard、
+交接 intent 和条件 RELEASED 记录。用户提到的 5 个失败批次仅用于讨论兼容，
+未授权本轮运行操作。升级后的恢复入口必须保留其冻结输入与 attempt，完成旧
+运行到目录/owner 的可信映射及完整静止检查，再交接新 generation。guard 能阻止
+旧 CLI 继承同一旧键，但不能解决旧 CLI 改用另一批次键写同目录，因此必须先统一
+该目录所有 CLI/平台/后续阶段写入入口。实际映射、验证器、journal 持久化及
+冻结 runtime 外部兼容调用仍由 Task3/4 接入；未通过前不启用新锁/TTL，旧冻结
+文件不修改。详见现有 P0-2 implementation plan 的 historical-run compatibility。
+
 ## 5. Airflow 对接与查询负载
 
 复用认证恢复 API、resume_stage、操作记录及事务注册 generation，禁止用直接
