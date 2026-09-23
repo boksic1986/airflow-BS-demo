@@ -1,5 +1,21 @@
 # Handoff
 
+## 2026-09-24 WES recovery launched (23:42 UTC September 23)
+7077e588 helper deployed to node200 /home/ctapa/.config/airflow-gatk/gatk_resume.py,
+SHA256 cbf7b6352fbc300bbe5abf8f9a21b5c4e4a9aff221b651df1a1cb8a537f3c917.
+Backup suffix .pre-external-master-7077e588; no services restarted or bundle edited.
+Exact GATK_20260922_160936_F730F0 attempt1 journal
+resume-306e562b-a6bf-4c3c-b3f3-58cd7ae43eb8.json completed; new Master
+cce-master-fee15f9051c646290ac3 UID95c044ad-21e4-4ac5-87f2-d92348b58da6,
+Pod xx2d4. Native START sent and live logs show new Worker dispatch.
+Airflow REST dry-run scoped 12 tasks, then cleared only Step3 monitor and downstream
+including result lease release/finalize. All successful prerequisites preserved.
+DagRun running, start_step3_monitor success, wait_step3_analysis up_for_reschedule;
+runtime monitor gen3 running but first message evidence bridge exit1 (not resolved).
+Heartbeat wes-20260921b-completion-and-scoped-cleanup every15min: no automatic reruns,
+confirm full completion/log retention before UID-scoped authorized Job/Pod cleanup.
+No cloud deletion performed in this recovery; analysis is running, not complete.
+
 ## 2026-09-24 authorized WES external-Master manual recovery
 User approved minimal repair and one WES/GATK 20260921B resume after external
 Master removal. Only GATK_20260922_160936_F730F0 attempt1 is authorized; WGS excluded.

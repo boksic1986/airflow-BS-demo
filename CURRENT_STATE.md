@@ -1,5 +1,9 @@
 # Current state
 
+## WES recovery live outcome 2026-09-24
+Authorized attempt1 Master rebuilt, START sent, new Workers dispatched; Step3gen3
+and original Airflow DagRun running. Completion and evidence-bridge health pending.
+
 ## 2026-09-24 GATK explicit external-Master recovery
 Candidate manual helper passes 15 scoped BS10610 tests and production preflight.
 Default behavior unchanged; actual resume/deployment outcome recorded separately.
