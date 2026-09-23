@@ -211,6 +211,14 @@ closure below remains unchecked; this checkpoint is not that acceptance.
 
 **Interfaces:** Existing authenticated recovery request -> same RunAction/idempotency key -> frozen stage execution/generation -> restricted runtime Resume -> normal stage receipt. Preserve `cce_master_binding` and `cce_master_submit_execution_id` semantics, populate only from validated runtime evidence, never arbitrary receipt JSON.
 
+2026-09-24 additional checkpoints: native08c6cda selected-Master Step4/5/log export
+keeps original output roots;10 focused checks passed. Actual WGS/GATK Resume
+exports v2 binding from validated handoff with separate native/platform hashes;
+6 affected checks passed. Backend/gate receipt forwarding is NOT yet closed.
+CLI Step1–6 protected-entry compatibility and actual-storage/all-writer proof need
+completion; user scope confirmation requested before that native entry change.
+Tasks5/6 remain gated, no TTL/default CLI behavior enabled by these checkpoints.
+
 2026-09-24 checkpoint: GATK restricted Step1–6 launcher/worker now has durable
 intent and flock/PID identity fencing, including late receipt protection. BS10610
 five RED then15 focused GREEN checks. No gate activation; storage/all-writer and

@@ -1,5 +1,23 @@
 # Workflow runtime integration
 
+## Task4 selected Master downstream and binding export (source only, 2026-09-24)
+
+Native08c6cda internal Step4/Step5/download_snakemake_logs accept the selected
+Master bundle and expected UID together. Original input hashes must match, native
+success must validate, and any live Master must be the same inactive successful
+UID. Missing Job alone is never success. Log export rechecks after reading.
+Publication, cloud_delivery and log archives retain the original bundle root;
+Step6 keeps its original result location. Defaults and CLI flags are unchanged.
+
+WGS/GATK Resume internal return metadata now includes cce_master_binding schema2
+only after validated native handoff. It contains platform_execution separately
+from native fields (native request_hash/execution_generation, Job/Pod UID, run and
+input hashes), plus source_bundle/selected_bundle. cce_master_submit_execution_id
+comes from that validated platform identity. It is not copied from browser JSON,
+is not an inactivity seal, and does not activate the older draft automatic reader.
+Normal gate persistence/forwarding and trusted all-writer/storage closure remain
+required before manual acceptance and TTL artifacts. No public API/schema change.
+
 ## Task4 GATK dispatcher fence (isolated source, 2026-09-24)
 
 Step1–6 use request-adjacent .launch.lock, .worker.lock and .worker.state.json.

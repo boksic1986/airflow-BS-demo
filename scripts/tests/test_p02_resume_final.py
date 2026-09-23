@@ -139,10 +139,27 @@ def test_resume_propagates_new_platform_execution_without_hash_substitution(adap
     selected=Path(result['bundle'])
     binding=runtime._handoff_binding(selected,h.contract)
     assert binding['platform_execution']==platform
+    exported=result['cce_master_binding']
+    assert exported['schema_version']==2
+    assert exported['platform_execution']==platform
+    assert exported['selected_bundle']==str(selected)
+    assert exported['source_bundle']==str(bundle)
+    assert exported['native']['execution_generation']==3
+    assert exported['native']['request_hash']==binding['request_hash']
+    assert exported['native']['job_uid']=='new-uid'
+    assert result['cce_master_submit_execution_id']==platform['execution_id']
     assert binding['request_hash']!=platform['request_hash']
     assert binding['execution_generation']==3
     invoke()
     assert (state.creates,state.starts)==(1,1)
+    handoff_path=runtime._master_handoff_path(selected,h.contract)
+    confirmed=handoff_path.read_bytes()
+    changed=json.loads(confirmed);changed['state']='START_SENT'
+    handoff_path.write_text(json.dumps(changed))
+    with pytest.raises(ValueError):cap.export_result(result)
+    handoff_path.write_bytes(confirmed)
+    exported['platform_execution']['request_hash']='e'*64
+    assert cap.platform_execution['request_hash']=='b'*64
     cap.platform_execution={**platform,'request_hash':'c'*64}
     with pytest.raises((RuntimeError,ValueError)):
         invoke()

@@ -1,5 +1,20 @@
 # Current state
 
+## 2026-09-24 Task4 downstream/binding checkpoints; CLI entry scope confirmation
+
+Native isolated commit08c6cda accepts selected-Master evidence for Step4/5/log
+export while keeping delivery/log/output roots under the original bundle. Missing
+TTL-reclaimed Job needs validated native success; active/foreign Job blocks.
+WGS/GATK Resume now export v2 Master bindings from validated handoff bytes, with
+platform identity separate from native generation/hash and no legacy relabelling.
+BS10610 offline downstream10 and adapter binding6 affected checks passed.
+
+Task4 is NOT complete: restricted entry selected-view persistence/forwarding,
+canonical storage mapping and paired all-writer activation remain open. The CLI
+still has legacy Step1/2 lock calls and no v2 downstream entry protection. Asked
+user to confirm the necessary CLI Step1–6 entry compatibility source scope before
+adding that gate. No production changes; Task5/6 have not been started.
+
 ## 2026-09-24 Task4 GATK dispatcher fencing checkpoint
 
 GATK Step1–6 now serialize launch/worker ownership, persist a pre-spawn intent

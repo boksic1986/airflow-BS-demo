@@ -1,5 +1,38 @@
 # Handoff
 
+## 2026-09-24 Task4 selected downstream and validated binding export
+
+Native08c6cda adds optional selected-Master bundle/UID to Step4/5/log export.
+Real native completion readers validate immutable inputs and selected UID even
+when TTL removed the Job; conflicting active/foreign Job blocks. All result/log
+paths stay under the ORIGINAL bundle, not the independently derived Master view.
+Step6 path semantics/default CLI unchanged. Native tests: five RED, then10 focused
+GREEN in5.09s. Scope/details in native HANDOFF; no new templates/TTL enabled.
+
+Platform RecoveryCapability.export_result validates native handoff and exact
+platform execution before returning cce_master_binding (schema_version2) and
+cce_master_submit_execution_id. Native hash/generation/UIDs and platform hash/
+generation are separate fields. WGS/GATK actual Resume functions call this writer.
+Dry-run readiness and unbound historical results gain no fabricated binding.
+This is NOT yet connected to backend reservation or the normal restricted gate;
+the older draft automatic reader still expects a different terminal schema.
+
+BS10610 preflight unchanged server10610/current20260912-opt-4d3d24e6/backend36ff21f87356,
+scan/auto disabled. Cached imagea0112f0b8ef0 offline, sources/plugin/testdeps RO,
+synthetic scratch only. Binding export2 behavioral RED, then6 affected GREEN
+in7.11s (24 unrelated parameter cases deselected). Initial import collection error
+used an incomplete fresh source root; corrected to existing p02-resume-20260923
+source, not a runtime/code fix. Evidence in WGS_test/cce-evidence/p02-task4-20260924/
+binding-export-{red,affected}.log and downstream-{red,affected}.log.
+
+Remaining Task4 boundary: actual CLI Step1/2 still call old two-argument batch lock;
+Step4–6 lack v2 entry protection. Trusted actual-storage alias mapping/all-writer
+version enforcement plus selected-view/receipt forwarding are required, not a
+boolean from an API request. Asked user to confirm extending those CLI protected
+entry points in isolated source. Do NOT activate recovery/TTL or advance Task5/6
+on the strength of helper tests alone. No production data/services touched.
+Rollback source commits only; preserve all original bundles and evidence.
+
 ## 2026-09-24 Task4 GATK dispatcher fence
 
 Continue remaining Tasks4→5→6 without production changes. Added launch and worker

@@ -311,6 +311,44 @@ class RecoveryCapability:
         self.runtime,self.contract,self.config,self.run_label=runtime,contract,config,run_label
         self.original=original
 
+    def export_result(self, result):
+        """Export confirmed native/platform identity, never arbitrary receipt JSON.
+
+        Native and platform generations/hashes are intentionally separate. This
+        metadata does not grant storage ownership or automatic recovery authority.
+        Historical unbound results and dry-run readiness are not relabelled.
+        """
+        if result.get('mode') == 'ready':
+            return result
+        selected = Path(result['bundle'])
+        _require(selected.is_absolute() and selected.resolve(strict=True) == selected)
+        binding = self.runtime._handoff_binding(selected, self.contract)
+        platform = binding.get('platform_execution')
+        expected = self.original.get('platform_execution') if selected == self.bundle else self.platform_execution
+        if platform is None:
+            _require(expected is None)
+            return result
+        _require(platform == expected and all(binding.get(k) == self.original.get(k)
+            for k in ('attempt', 'files_sha256', 'config_sha256')))
+        record = self.runtime._read_master_handoff(selected, self.contract)
+        _require(isinstance(record, dict) and record.get('schema_version') == 2
+            and record.get('job_uid') == result['master_uid'] and _text(record.get('pod_uid'), UID)
+            and all(record.get(k) == v for k, v in binding.items()))
+        if result.get('mode') == 'succeeded':
+            self.runtime._recovery_native_success(selected, self.contract, result['master_uid'])
+        else:
+            _require(record.get('state') == 'START_CONFIRMED')
+        native = {k: record[k] for k in ('project', 'batch', 'run_id', 'job_name',
+            'job_uid', 'pod_uid', 'attempt', 'execution_generation', 'request_hash',
+            'config_sha256', 'manifest_sha256', 'files_sha256', 'deadline_epoch', 'recovery_context')}
+        native['namespace'] = self.contract['kubernetes']['namespace']
+        exported = dict(schema_version=2, platform_execution=platform, native=native,
+            source_bundle=str(self.bundle), selected_bundle=str(selected))
+        # Deep copy: a caller must not mutate the validated capability by editing
+        # the receipt envelope it is about to persist.
+        return {**result, 'cce_master_binding': _json(json.dumps(exported)),
+            'cce_master_submit_execution_id': platform['execution_id']}
+
     def _authorized(self):
         value=self.runtime._recovery_final_evidence(self.bundle,self.contract,self.expected_job_uid)
         terminal=value['terminal']

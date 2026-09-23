@@ -1,5 +1,13 @@
 # Active test-branch tasks
 
+- [x] Task4 native selected-Master Step4/5/log-export reader with original delivery
+  roots (native08c6cda); BS10610 affected10 passed.
+- [x] Task4 WGS/GATK Resume exports validated v2 platform/native binding metadata;
+  source identities are not substituted, ready/legacy results not relabelled;6 passed.
+- [ ] Confirm necessary CLI Step1–6 protected-entry compatibility scope; complete
+  trusted storage/all-writer and actual restricted-gate receipt forwarding before
+  Task4 acceptance. Tasks5/6 remain unstarted, not skipped or marked complete.
+
 - [x] Task4 GATK Step1–6 dispatcher launch/worker fence and late-receipt protection;
   BS10610 focused15 passed. This is not the full Task4 manual mock acceptance.
 
