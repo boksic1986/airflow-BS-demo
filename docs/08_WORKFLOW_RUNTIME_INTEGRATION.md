@@ -1,5 +1,19 @@
 # Workflow runtime integration
 
+## P0 runtime receipt projection fence (2026-09-23, source only)
+
+WGS stage-status ingestion holds a refreshed AnalysisRun FOR UPDATE lock from
+active-attempt validation through stage transition and projection. It refreshes
+the matched execution before applying the existing terminal transition rules.
+GATK stage-status sync takes the same refreshed run lock after its separate
+evidence ingestion sessions, refuses a non-current attempt, and refreshes the
+latest execution. A caller's cached running object cannot replace a durable
+success with a late failure. Older-generation receipts still do not project.
+No schema, API shape, generation allocation, lease policy or retry change.
+BS10610 synthetic tests cover stale identity-map state, old attempt/generation
+and current failure. PostgreSQL concurrency, other observer evidence paths and
+automatic adapter/dispatch integration remain unaccepted; policy stays off.
+
 ## bs7 control inventory acceptance (2026-09-23, source only)
 
 Control candidates now reconcile against the existing submission journal,

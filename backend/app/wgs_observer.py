@@ -587,6 +587,7 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
     with session_factory() as session:
         analysis = session.scalar(
             select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+            .with_for_update().execution_options(populate_existing=True)
         )
         if analysis is None or analysis.attempt != attempt:
             raise ValueError("runtime stage status references an unknown active attempt")
@@ -601,6 +602,9 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
             )
             if execution is None:
                 return False
+            # Serialize receipt projection with recovery registration. A caller
+            # may still hold an execution cached before another terminal receipt.
+            session.refresh(execution)
             if not transition_stage_execution(
                 session=session,
                 execution_id=execution.execution_id,

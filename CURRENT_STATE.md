@@ -1,5 +1,17 @@
 # Current state
 
+## 2026-09-23 current-attempt receipt projection refreshed (source only)
+
+WGS runtime stage-status ingestion and GATK stage-status sync now lock and
+refresh AnalysisRun before validating/projecting a receipt. GATK refuses old
+attempts; both refresh cached execution state so a late failure cannot replace
+a durable terminal success. Existing generation rejection remains intact.
+BS10610 isolated checks:8 focused cases after4 expected failures, plus5 affected
+legacy cases passed. No PostgreSQL concurrency or end-to-end recovery claimed.
+Committed on the independent CR01 branch only; no services/BS96/main changes.
+Trusted terminal/binding writers, dispatch/adapters, other observer evidence
+paths and Step4 reconciliation remain; automatic recovery stays disabled.
+
 ## 2026-09-23 bs7 inventory and actual producer acceptance completed
 
 BS10610 connectivity restored; fresh host/mount/gates match the prior test

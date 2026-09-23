@@ -1,5 +1,12 @@
 # Active test-branch tasks
 
+CR-03 receipt projection subtask complete: WGS stage-status and GATK sync hold
+the refreshed current-run lock through execution validation/state projection;
+old attempts reject, cached active execution cannot overwrite durable success.
+BS10610:8 focused +5 affected legacy cases passed, not a full observer/concurrency
+acceptance. Continue existing trusted terminal/binding, dispatch/adapter, other
+evidence projection and Step4 work. No production or automatic enablement.
+
 CR-01/03 control inventory + actual bs7 acceptance complete: immutable source
 25297f9/wheel2ad4aa737e6f;34 inventory cases and4 hash-pinned real producer
 scopes passed on BS10610. Known/null candidate UID retains admitted journal UID,

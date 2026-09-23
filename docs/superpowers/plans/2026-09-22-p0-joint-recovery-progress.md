@@ -18,6 +18,19 @@ No unrelated regression suite. Preserve the original worktree's dirty files.
 
 ## Current progress
 
+- Fromfdef310: CR-03 runtime receipt projection slice, not a new recovery layer.
+  WGS stage-status and GATK sync lock/refresh the current run and refresh stage
+  execution state before terminal projection. GATK rejects stale attempts;
+  existing generation fences remain. No request/receipt schema or retry change.
+  Focused RED4 failures (stale attempt and cached-success overwrite, WGS/GATK),
+  GREEN8 passed0.79s;5 affected legacy cases passed0.73s. Initial fixture setup
+  omitted required workdir and was corrected before behavioral RED.
+- Ruling: this slice covers stage-status receipts only, not all rule/workload/
+  transfer projections or trusted-terminal production. SQLite verifies cached
+  state behavior, not PostgreSQL lock contention. Cost: full observer/concurrency
+  acceptance remains pending with adapter/dispatch and Step4 work.
+  Test-only candidate; automatic recovery disabled, no deployment/main/push.
+
 - From26d62dd: resumed at the existing10-case inventory test draft. Fresh test
   preflight succeeded; RED1 failed unsupported control schema. Added exact
   admitted-worker/context/UID control binding without inventing submissions;

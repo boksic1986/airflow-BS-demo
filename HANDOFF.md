@@ -1,5 +1,48 @@
 # Handoff
 
+## 2026-09-23 next step: current-attempt stage receipt projection
+
+Goal: continue existing CR-03 observer/receipt fences fromfdef310. Used backend,
+runtime, executing-plans/TDD/verification and handoff skills. No scope expansion,
+local runtime testing, deployment, shared service/DB access or production action.
+Changed backend/app/{wgs_observer,gatk_runtime_service}.py and new
+backend/tests/test_cce_recovery_receipt_projection.py. Updated STATE/TASKS,
+runtime contract and existing P0 ledger. API/DB schema unchanged.
+
+Both stage-status paths now hold refreshed AnalysisRun lock through validation
+and projection, refresh execution state and reject old attempt/generation.
+GATK obtains lock after its separate evidence sessions to avoid nesting those
+sessions under this new lock. Existing current terminal transitions preserved.
+Scope is receipt projection only: rule/workload/transfer paths, trusted terminal
+writers, binding/dispatch/adapters, Step4 and real concurrency remain pending.
+
+Fresh test preflight: ssh BS10610 ->server10610 uid6708; control
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS; current20260912-opt-4d3d24e6;
+backend36ff21f87356 image8491604ee01d; actual /app readonly
+releases/20260923-step7-ae416fa/backend/backend and /config readonlycurrent/config.
+scan=false/auto_dispatch=false; own candidate writable, no permission changes.
+C=control/candidates/p0-airflow-recovery-20260922. Only exact changed source/test
+files copied. Tests run cached backend image network-none/read-only1CPU1GiB
+with64MiB tmpfs and C/backend plus stage YAML readonly. All services preserved.
+
+Commands/results (python -m pytest -q -p no:cacheprovider ... --tb=short):
+- backend/tests/test_cce_recovery_receipt_projection.py: first fixture attempt
+  failed setup because required synthetic workdir was omitted; fixed fixture.
+  Behavioral RED4 failed/4 passed0.70s; C/receipt-projection-red.log.
+  GREEN8 passed0.79s; C/receipt-projection-green.log.
+- backend/tests/test_gatk_runtime_service.py plus
+  test_wgs_observer.py::test_step3_terminal_execution_freezes_dry_run_master_identity
+  and ::test_step3_retry_generation_replaces_prior_failed_projection:
+  GREEN5 passed0.73s; C/receipt-projection-compat.log.
+- git diff --check passed. Only expected kernel swap-limit warning.
+
+No full suite (user requests targeted tests); no PostgreSQL concurrency test or
+end-to-end recovery claimed. This does not enable recovery or complete P0.
+Next: existing trusted runtime terminal/binding and automatic dispatch/adapter
+integration; retain remaining evidence-projection/Step4 checks. Independent
+CR01 branch only, no push/main/production merge. Rollback is source revert;
+no runtime rollback, data restore or service restart needed.
+
 ## 2026-09-23 next step completed: control inventory + bs7 actual fixtures
 
 User requested next step; resumed26d62dd and the10 drafted inventory cases,

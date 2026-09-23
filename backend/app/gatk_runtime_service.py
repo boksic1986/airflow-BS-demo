@@ -243,6 +243,16 @@ def sync_gatk_stage_status(
 ) -> dict[str, Any]:
     if stage in {"step1_upload", "step3_monitor", "step5_download", "step6_materialize"}:
         _ingest_gatk_evidence(session=session, settings=settings, analysis_id=analysis_id, attempt=attempt)
+    # Evidence ingestion above owns separate sessions. Take the shared run lock
+    # afterwards and retain it through execution validation and state projection.
+    run = session.scalar(
+        select(AnalysisRun).where(
+            AnalysisRun.analysis_id == analysis_id,
+            AnalysisRun.pipeline_name == "gatk",
+        ).with_for_update().execution_options(populate_existing=True)
+    )
+    if run is None or run.attempt != attempt:
+        raise ValueError("unknown active GATK attempt")
     row = session.scalar(
         select(PipelineStageExecution)
         .where(
@@ -253,6 +263,7 @@ def sync_gatk_stage_status(
         )
         .order_by(PipelineStageExecution.generation.desc())
         .limit(1)
+        .execution_options(populate_existing=True)
     )
     if row is None:
         return {"status": "pending", "ready": False, "failed": False}
@@ -322,19 +333,12 @@ def sync_gatk_stage_status(
                 progress_source="gatk-runtime",
             )
             if state in {"failed", "canceled"}:
-                run = session.scalar(
-                    select(AnalysisRun).where(
-                        AnalysisRun.analysis_id == analysis_id,
-                        AnalysisRun.pipeline_name == "gatk",
-                    )
-                )
-                if run is not None and run.attempt == attempt:
-                    run.status = "failed" if state == "failed" else "terminated"
-                    run.current_stage = stage
-                    run.error_summary = row.message
-                    run.pipeline_finished_at = run.pipeline_finished_at or now
-                    run.ended_at = run.ended_at or now
-                    run.progress_updated_at = now
+                run.status = "failed" if state == "failed" else "terminated"
+                run.current_stage = stage
+                run.error_summary = row.message
+                run.pipeline_finished_at = run.pipeline_finished_at or now
+                run.ended_at = run.ended_at or now
+                run.progress_updated_at = now
             session.commit()
     _reconcile_terminal_transfer(session=session, row=row)
     failed = row.status in {"failed", "canceled"}
