@@ -1,5 +1,17 @@
 # Workflow runtime integration
 
+## Explicit external-Master GATK recovery (2026-09-24)
+gatk_resume.py --externally-removed-master is operator-only and defaults off.
+It requires frozen binding/contract hashes and the previous UID-bound handoff,
+both complete empty run-label Job/Pod inventories, and exclusive original
+step2/step3 launch/worker fences. Native Worker manifest, OBS result and batch
+lock checks remain mandatory. Unknown observations block; no fabricated UID
+or deletion receipt is accepted. The journal records external-removal origin.
+Replacement reuses native Step2 with existing SFS results and original attempt;
+no Step0, prepare, upload or forceall. Ambiguous submission requires journal
+reconciliation, never a second create. Monitoring resumes through existing
+Airflow stage registration; this does not enable P0 automatic recovery.
+
 ## Step7 restricted reconciliation (2026-09-22 test candidate)
 
 The existing runner accepts wgs-step7-status and wgs-step7-start followed by

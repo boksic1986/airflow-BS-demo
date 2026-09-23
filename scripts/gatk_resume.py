@@ -6,6 +6,7 @@ outputs; the replacement Master resumes its original workdir. It does not
 change Airflow state. Invoke under the approved runtime identity/environment.
 """
 import argparse
+from contextlib import ExitStack
 import fcntl
 import hashlib
 import importlib.util
@@ -130,8 +131,59 @@ def _guard(runtime, bundle, contract, config, modules, job, archived_workers=Non
         raise ResumeGuardError('OBS results exist or their absence is unverified')
 
 
-def resume(*, analysis_id, attempt, expected_job_uid, expected_binding_sha256,
-           expected_contract_sha256, execute=False, runtime=None):
+def _external_guard(runtime, bundle, contract, config, binding, expected_uid):
+    """Manual absence is an observation, never a fabricated deletion receipt."""
+    handoff_path = runtime._mirror_dir(bundle, binding['run_id']).parent/'MASTER_HANDOFF.json'
+    handoff = json.loads(_regular(handoff_path).read_text())
+    expected = {'run_id':binding['run_id'], 'job_name':binding['master_job'],
+                'job_uid':expected_uid, 'project':contract['identity']['project'],
+                'batch':contract['identity']['batch']}
+    if any(handoff.get(key) != value for key,value in expected.items()):
+        raise ResumeGuardError('external removal handoff identity mismatch')
+    selectors = ('cce.biosan.cn/run-id='+binding['run_label'],
+                 'cce-pipeline/run-id='+binding['run_id'])
+    for selector in selectors:
+        try:
+            result = subprocess.run(runtime._kubectl(config,'get','jobs,pods','-l',selector,'-o','json'),
+                                    check=True,capture_output=True,timeout=30)
+            value = json.loads(result.stdout)
+        except (OSError, subprocess.SubprocessError, ValueError, TypeError):
+            raise ResumeGuardError('external removal inventory unavailable') from None
+        if (result.returncode or not isinstance(value,dict) or value.get('kind') != 'List'
+                or not isinstance(value.get('items'),list)
+                or value.get('metadata',{}).get('continue') or value['items']):
+            raise ResumeGuardError('external removal requires complete empty run inventories')
+
+
+def resume(*, externally_removed_master=False, **kwargs):
+    # Hold the same dispatcher fences while checking and replacing an absent Master.
+    # Ordinary recovery remains unchanged. An active producer must be reattached.
+    with ExitStack() as stack:
+        if externally_removed_master:
+            aid = kwargs.get('analysis_id','')
+            attempt = kwargs.get('attempt')
+            root = os.environ.get('GATK_RUNTIME_REQUEST_ROOT','')
+            if (not re.fullmatch(r'GATK_[0-9]{8}_[0-9]{6}_[A-F0-9]{6}',aid)
+                    or type(attempt) is not int or attempt < 1 or not Path(root).is_absolute()):
+                raise ResumeGuardError('invalid external recovery identity')
+            directory = Path(root)/aid/f'attempt-{attempt}'
+            if not directory.is_dir() or directory.resolve() != directory:
+                raise ResumeGuardError('external recovery directory missing or symlinked')
+            for stage in ('step2_master','step3_monitor'):
+                for suffix in ('launch.lock','worker.lock'):
+                    path = directory/f'{stage}.request.{suffix}'
+                    fd = os.open(path,os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW,0o600)
+                    handle = stack.enter_context(os.fdopen(fd,'a'))
+                    try:
+                        fcntl.flock(handle,fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    except BlockingIOError:
+                        raise ResumeGuardError('original dispatch or monitor is still active') from None
+        return _resume(externally_removed_master=externally_removed_master,**kwargs)
+
+
+def _resume(*, analysis_id, attempt, expected_job_uid, expected_binding_sha256,
+            expected_contract_sha256, execute=False, runtime=None,
+            externally_removed_master=False):
     if not re.fullmatch(r'GATK_[0-9]{8}_[0-9]{6}_[A-F0-9]{6}', analysis_id):
         raise ResumeGuardError('invalid analysis identity')
     if type(attempt) is not int or attempt < 1:
@@ -195,7 +247,14 @@ def resume(*, analysis_id, attempt, expected_job_uid, expected_binding_sha256,
             raise ResumeGuardError('different Master UID; ambiguous replacement must not be deleted')
         if job and not _subset(manifest, job):
             raise ResumeGuardError('live Master does not match frozen manifest/image')
-        if not job and (not journal or journal.get('status') not in {'deleting', 'deleted'}):
+        external = externally_removed_master and not job
+        if externally_removed_master and job:
+            raise ResumeGuardError('external removal requires absent original Master')
+        if external:
+            if journal and journal.get('status') != 'externally_removed':
+                raise ResumeGuardError('external recovery already in flight; reconcile original journal')
+            _external_guard(runtime,bundle,contract,config,binding,expected_job_uid)
+        if not job and not external and (not journal or journal.get('status') not in {'deleting', 'deleted'}):
             raise ResumeGuardError('Master absent without a matching deletion journal')
         # Archive old worker evidence before native refresh overwrites snapshots.
         archived = {}
@@ -220,10 +279,15 @@ def resume(*, analysis_id, attempt, expected_job_uid, expected_binding_sha256,
         archived_workers = _regular(worker_archive).read_text() if worker_archive.exists() else None
         _guard(runtime, bundle, contract, config, modules, job, archived_workers)
         if not execute:
-            return {**identity, 'status':'ready', 'expected_resource_version':job['metadata']['resourceVersion'] if job else journal['expected_resource_version']}
+            return {**identity, 'status':'ready', 'expected_resource_version':job['metadata']['resourceVersion'] if job else (journal or {}).get('expected_resource_version')}
         if not journal:
-            journal = {**identity, 'status':'prepared', 'expected_resource_version':job['metadata']['resourceVersion'],
-                       'old_job_status':job.get('status', {}), 'archived_evidence':archived}
+            if external:
+                journal = {**identity, 'status':'externally_removed',
+                           'origin':'operator_confirmed_external_removal',
+                           'observed_at':time.time(), 'archived_evidence':archived}
+            else:
+                journal = {**identity, 'status':'prepared', 'expected_resource_version':job['metadata']['resourceVersion'],
+                           'old_job_status':job.get('status', {}), 'archived_evidence':archived}
             _save(journal_path, journal, create=True)
         runtime._claim_batch_lock(contract, config)
         if job:
@@ -242,10 +306,12 @@ def resume(*, analysis_id, attempt, expected_job_uid, expected_binding_sha256,
             time.sleep(1)
         else:
             raise ResumeGuardError('Master deletion not confirmed; no replacement submitted')
-        journal['status'] = 'deleted'; _save(journal_path, journal)
+        journal['status'] = 'externally_removed' if external else 'deleted'; _save(journal_path, journal)
         _guard(runtime, bundle, contract, config, modules, None, archived_workers)
         if any(_hash(path) != digest for path, digest in ((binding_path, hashes['binding_sha256']), (contract_path, hashes['contract_sha256']), (manifest_path, hashes['manifest_sha256']))):
             raise ResumeGuardError('frozen files changed before replacement')
+        if external:
+            _external_guard(runtime,bundle,contract,config,binding,expected_job_uid)
         journal['status'] = 'submitting'; _save(journal_path, journal)
         runtime.step2(bundle, contract, config, modules)
         replacement = runtime._kubectl_json(config, 'job', names['master_job'])
@@ -264,6 +330,8 @@ def main():
     parser.add_argument('--expected-binding-sha256', required=True)
     parser.add_argument('--expected-contract-sha256', required=True)
     parser.add_argument('--execute', action='store_true')
+    parser.add_argument('--externally-removed-master', action='store_true',
+                        help='Explicit operator approval for externally removed Master; all guards remain')
     arguments = vars(parser.parse_args())
     try:
         result = resume(**arguments)

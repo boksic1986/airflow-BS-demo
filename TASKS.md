@@ -1,5 +1,11 @@
 # Active test-branch tasks
 
+## GATK external-Master recovery 20260924
+- [x] Add opt-in identity/inventory/dispatch-fenced manual recovery and focused tests.
+- [x] Verify candidate preflight for authorized WES run without creating Master.
+- [ ] Deploy helper and perform one same-attempt recovery, verify START and monitoring.
+- [ ] After completion preserve logs/terminal evidence before exact Job/Pod cleanup.
+
 ## P0-2E batch lock handoff (paired with P0-2C TTL)
 - [x] Document submission vs directory/process/status lock responsibilities.
 - [ ] Adapt native claim/release and WGS/GATK consumers for logical-run ownership,

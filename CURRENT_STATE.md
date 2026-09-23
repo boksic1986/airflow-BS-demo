@@ -1,5 +1,9 @@
 # Current state
 
+## 2026-09-24 GATK explicit external-Master recovery
+Candidate manual helper passes 15 scoped BS10610 tests and production preflight.
+Default behavior unchanged; actual resume/deployment outcome recorded separately.
+
 ## 2026-09-23 P0-2E lock contract supplement (design only)
 Added owner/generation CAS handoff, TTL-independent directory protection and
 conditional release to both P0 documents. Airflow submission control does not

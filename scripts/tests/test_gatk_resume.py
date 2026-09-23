@@ -153,4 +153,61 @@ class ResumeTests(unittest.TestCase):
         self.assertEqual(self.calls,[])
 
 
+class ExternalResumeTests(ResumeTests):
+    def external_setup(self):
+        self.job = None
+        self.params['externally_removed_master'] = True
+        mirror = self.bundle/'evidence'/('mock')/'mirror'
+        mirror.mkdir(parents=True)
+        self.runtime._mirror_dir = lambda *a: mirror
+        (mirror.parent/'MASTER_HANDOFF.json').write_text(json.dumps({
+            'run_id': self.aid+'-a1', 'job_name': 'master-mock',
+            'job_uid': 'old-uid', 'project': 'synthetic', 'batch': 'mock'}))
+        return mirror
+
+    def test_absent_master_default_still_rejected(self):
+        self.job = None
+        with self.assertRaises(self.module.ResumeGuardError): self.invoke(True)
+        self.assertEqual(self.calls, [])
+
+    def test_external_removal_recreates_without_delete_and_replays(self):
+        self.external_setup()
+        result = self.invoke(True)
+        self.assertEqual(result['replacement_job_uid'], 'new-uid')
+        self.assertEqual(result['origin'], 'operator_confirmed_external_removal')
+        self.assertNotIn('expected_resource_version', result)
+        self.assertEqual(self.calls, ['claim','step2'])
+        self.invoke(True)
+        self.assertEqual(self.calls, ['claim','step2'])
+
+    def test_external_removal_wrong_binding_blocked(self):
+        mirror = self.external_setup()
+        path = mirror.parent/'MASTER_HANDOFF.json'
+        d=json.loads(path.read_text());d['job_uid']='foreign';path.write_text(json.dumps(d))
+        with self.assertRaises(self.module.ResumeGuardError): self.invoke(True)
+        self.assertEqual(self.calls, [])
+
+    def test_external_removal_inventory_unknown_or_active_blocks(self):
+        self.external_setup()
+        for response in (b'{"kind":"List","metadata":{"continue":"next"},"items":[]}',
+                         b'{"kind":"List","items":[{"kind":"Pod","status":{"phase":"Running"}}]}',
+                         b'{"kind":"List","items":[{"kind":"Job","status":{"active":1}}]}'):
+            with self.subTest(response=response), patch.object(self.module.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout=response)):
+                with self.assertRaises(self.module.ResumeGuardError): self.invoke(True)
+                self.assertEqual(self.calls, [])
+
+    def test_external_removal_native_guard_retained(self):
+        self.external_setup();self.workers_active=True
+        with self.assertRaises(RuntimeError): self.invoke(True)
+        self.assertEqual(self.calls, [])
+
+    def test_external_removal_live_dispatch_lock_blocks(self):
+        import fcntl
+        self.external_setup()
+        with (self.request_dir/'step3_monitor.request.worker.lock').open('a+') as handle:
+            fcntl.flock(handle,fcntl.LOCK_EX | fcntl.LOCK_NB)
+            with self.assertRaises((RuntimeError,BlockingIOError)): self.invoke(True)
+        self.assertEqual(self.calls, [])
+
+
 if __name__=='__main__':unittest.main()

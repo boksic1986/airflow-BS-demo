@@ -1,5 +1,16 @@
 # Handoff
 
+## 2026-09-24 authorized WES external-Master manual recovery
+User approved minimal repair and one WES/GATK 20260921B resume after external
+Master removal. Only GATK_20260922_160936_F730F0 attempt1 is authorized; WGS excluded.
+Native helper and source initially match bf6b82a7. Added explicit manual flag,
+UID-bound handoff checks, full empty run inventories and launch/worker fences.
+Retained frozen hash, native Worker/OBS and batch-lock guards. No fake deletion.
+BS10610: expected missing-parameter red, then 15 focused tests passed once.
+Candidate production preflight returned ready; no replacement launched at this entry.
+Permission: deploy only helper, then guarded same-attempt replacement/monitoring.
+No SFS/OBS/local deletion. Revert helper only if needed; never erase journal/results.
+
 ## 2026-09-23 — P0-2E batch lock documentation gap
 Reviewed native _claim_batch_lock call and runtime ConfigMap/process/status locks.
 Previous design stated preservation but omitted owner handoff/release acceptance.
