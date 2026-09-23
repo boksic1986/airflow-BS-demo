@@ -1,5 +1,21 @@
 # Handoff
 
+## 2026-09-23 P0-2 original recovery spec revision
+
+User asked to revise the pending-development original plan before P0-2 work.
+Updated original CCE recovery spec, CURRENT_STATE, TASKS and this handoff only.
+P0-1 is cluster health, P0-2 is existing P0's Master/runtime priority slice.
+Documented START_CONFIRMED, immutable identity/deadline, trusted terminal writer,
+missing-object fail-closed behavior, historical evidence limits and release order.
+Independent CR01 e921e3a/plugin25297f9 accepted slices are reused, not merged or
+declared fully complete here. Automatic policy and production remain unchanged.
+Target BS10610 Git worktree only; no service/runtime/cloud/database access or
+mutations needed. Validation: doc diff, links and exact four-file commit scope.
+No runtime tests because no executable code changed. Preserve other worktrees.
+Next: implement the priority slice on existing CR01 development, not a new retry
+service. Production publication/real batch recovery require separate approval.
+Rollback this documentation commit only; no task/result state is changed.
+
 ## 2026-09-23 Job TTL/cross-Master recovery documentation
 
 User approved completing the technical design, not implementing or deploying it.

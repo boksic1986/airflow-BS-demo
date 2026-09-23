@@ -1,12 +1,105 @@
 # WGS / GATK CCE Step1–6 连接恢复与受限自动续跑设计
 
 - 任务：CCE-CONNECTION-RECOVERY-20260917。
-- 状态：原设计已确认、尚未实现；2026-09-22 按用户确认的故障范围修订研发设计，具体策略待审阅，不启动开发。
+- 状态：P0 已在独立 CR01 分支分片实现，尚未闭环/启用；2026-09-23 本次仅修订原设计中的 P0-2 优先交付，不宣称功能完成。
 - 设计基线：测试分支 `jiucheng/test/wgs-local-main-sync-20260917`，`e17c2ac`。
 - 修订基线：上述测试分支的本地远端跟踪引用 `9333160`；隔离文档分支 `jiucheng/docs/cce-recovery-design-20260922`。
 - 本次交付不包含实现、运行时测试、部署或真实任务恢复。
 
 ## 1. 目标与边界
+
+### 1.0 2026-09-23 优先级修订：先交付 P0-2 底层能力
+
+本节是原 CR-01/CR-03 的实施顺序修订，不新增第二套重试机制；与下文早期
+“尚未实现/不含镜像”的表述冲突时，以本节当前状态和限定制品范围为准。
+
+**P0-1 仅指集群只读健康检查**，不是批次恢复。2026-09-23 12:03 UTC
+观测 API readyz 正常、查询可用、控制器租约持续更新且持有者稳定；未验证
+新建 Job→Pod 或负载能力。后续执行仍须重新检查，不把该快照永久当成门禁。
+
+**P0-2 指 Master 启动/交接与 cce-pipeline 安全接回能力**。先完成可由既有
+认证人工入口调用的底层闭环；完整自动决策、计次、派发和下游联调继续属于
+同一个 P0 后续验收，不等待全部 UI 开发，也不绕过原安全检查直接操作 helper。
+
+#### 已有成果必须复用
+
+2026-09-23 核对的独立分支为 `jiucheng/runtime/CR01-cce-recovery-20260922`，
+HEAD `e921e3a`；插件 bs7 源提交 `25297f9`。这是研发分支/制品检查，不代表
+已合入本测试分支或部署生产。已有内容包括 Worker 创建去重/接回、源头错误
+候选、提交清单与 UID 探测、证据读取、预算预约、旧回调/清理及部分回执投影
+保护。沿用已完成的针对性验收，不重写、不重新跑未变动用例。
+
+尚缺可信 Master 终态与绑定生产端、实际 runtime caller、完整 adapter/派发
+链和整体验收。当前 evidence-to-reservation 桥接不是可用的自动恢复入口。
+实现时在独立 CR01 分支整合本修订，不能从测试分支重新复制实现一套。
+
+#### P0-2A：Master 配置与交接合同
+
+- 在 cce-pipeline 源码生成端检查并固定 Master manifest：digest 钉住的镜像、
+  明确启动脚本、serviceAccount、挂载、工作目录；保持 backoffLimit=0 和
+  restartPolicy=Never。保留既有资源与总 deadline，不以增大资源/无限延时
+  代替错误处理。不升级 Snakemake 核心；插件及 Master 制品只做必要适配。
+- 复用现有 MASTER_HANDOFF、recovery journal 和步骤记录，追加并绑定
+  request_hash、execution_generation、Master UID、配置摘要及首次交接截止时间。
+  实际字段复用已有同义字段，不平行生成第二份身份来源。
+- 状态顺序为 JOB_CREATED→POD_READY→START_SENT→START_CONFIRMED。发送前
+  原子保存交接意图；START_SENT 不是分析已经开始。Master 读取并校验完整
+  metadata 后，在持久证据目录写入 UID/代际绑定的 START_CONFIRMED，再进入
+  Snakemake；重复 START 文件不会创建第二个执行进程。
+- 控制端断连后先查原 Job UID、Pod、持久确认与原 journal。已确认则进入监控；
+  同一活跃 Master 等待输入则完成原交接；Pod 尚未就绪则在原截止时间内等待。
+  控制端重启不重置截止时间，不因已有 Job 暂无 Pod 就另建 Master。
+- 输入通过既有暂存/原子发布机制完整校验后才发送 START。START 响应丢失
+  先读确认；未知状态停止重复写入，不在可能已开始后覆盖运行配置。
+- 交接超时记录结构化 handoff_timeout，注明是否已确认 START；它不等于
+  生信 rule 失败，也不自动加入可替换 Master 的白名单。
+
+#### P0-2B：可信终态及原对象接回
+
+- Master 正常成功、可捕获的启动/执行失败写入现有持久终态记录，绑定
+  UID、代际、request/config 摘要、退出码、阶段、P0 根因候选与证据完整性。
+  原子落盘后由 runtime 读取；SIGKILL/OOM/缺记录继续为未知，不能伪造 seal。
+- runtime 查询保留结构化原因，区分网络/服务临时错误、403、404、解析失败。
+  复用原有有界只读重连和总截止时间；查询错误不得被转换成对象缺失或执行失败。
+- 活跃 Master 只接回；成功必须满足现有分析成功契约并校验当前 UID，单独的
+  Job succeeded 或旧 RUN_FAILED 都不覆盖原生结果。确认成功后经正常回执
+  路径推进下游，不手工改数据库、不把监控 task 无条件设为 success。
+- 真实失败只有完整终态、身份一致、所有旧 Worker/派发进程停止后才能进入
+  原 Resume 原语。创建响应丢失沿用同一 action 和确定性对象查询，不能多层
+  创建重试。目录互斥保留，generation 只隔离回写，不能替代活跃执行检查。
+
+#### P0-2C：对象已回收及历史任务边界
+
+- 配套设计见 [TTL 与跨 Master 续跑](../../46_JOB_TTL_CROSS_MASTER_RECOVERY_DESIGN.md)。
+  不能只缩短 TTL 后继续使用“必须查到旧 Master”的 consumer。
+- 新契约中，Job 缺失但有可信当前终态/完整 Worker 证据时按终态分支处理；
+  证据缺失、UID 冲突、Worker 清单为空或无法确认完整性时返回待确认，禁止重建。
+- 旧 bundle 不原地修改；受控兼容 consumer 只使用旧格式实际能证明的内容。
+  不能给历史 RUN_FAILED 补写 UID，也不能把新提交代际套到旧日志。
+- 当前批次快照：D 云端 Master Complete 但平台监控失败，应优先核对当前
+  原生终态后接续下游；B/E journal 与 handoff UID 不一致；C/WES B 缺当前
+  终态；五批次本地 Worker 清单为空。均不是自动重建授权，也不写批次号特判。
+- 需要 reader Job 刷新 SFS 证据时，使用原受控采集入口并另行授权；只读预检
+  不自动创建 reader。无法补齐的历史任务保留人工决策，不降低新契约门禁。
+
+#### 交付门禁与最小验收
+
+1. 先补终态/binding 生产端和 Master 交接确认，再接到已有 runtime/adapters；
+   与现有 P0 开发协同，禁止并行维护另一套 Master retry helper。
+2. BS10610 隔离 synthetic/mock：创建响应丢失不重复创建；Pod 延迟沿用原
+   截止时间；START 响应丢失/重启后接回；成功只推进下游；缺失对象有证据可
+   判定、无证据停止；旧 Worker 活跃/旧 UID/部分写入均阻止替换。
+3. 复用插件 bs7 及未变化 consumer 验收；新增路径一次集中验证，失败只重验
+   失败用例。不新建真实 CCE canary、不测试真实批次，不跑全量回归。
+4. 交付 source commit、插件 wheel hash、Master digest、cce-pipeline 和
+   consumer 对应关系。P0-2 完成不等于自动恢复已完成；自动策略保持关闭。
+5. 生产发布和真实恢复另行授权。先发布兼容 consumer/证据能力，再启用新
+   模板 TTL；不覆盖原冻结制品。回滚不删除记录、不停止正常批次，已回收
+   对象不可恢复，不能回滚到依赖这些对象存在的旧 consumer。
+
+本次修订仅文档；后文 CR-01–05 的完整目标继续有效。取消此前“一律尚未
+实现”的进度说法，但不把分片测试升级为端到端通过，也不重新开放已完成工作。
+
 
 连接中断不等于分析失败；恢复连接不等于重新执行。
 

@@ -1,5 +1,17 @@
 # Active test-branch tasks
 
+## P0-2 priority slice within existing CR-01/CR-03 (2026-09-23)
+
+- [x] Revise original CCE recovery spec section1.0 using current incident and code evidence.
+- [ ] P0-2A: Master manifest/UID-bound START confirmation with original handoff deadline.
+- [ ] P0-2B: trusted terminal/binding producer and existing runtime/adapter reconnect wiring.
+- [ ] P0-2C: missing-object evidence decisions and focused BS10610 mock acceptance.
+Reuse independent CR01 e921e3a and plugin25297f9; do not reimplement or retest
+unchanged accepted slices. Keep automatic policy off; full CR-02/03 dispatch,
+Step4 and final acceptance remain separate gates in the same P0 effort.
+P0-1 cluster checks are not permission to rerun batches. Main/production excluded.
+Earlier blanket not-started wording below is historical; this is the current priority.
+
 ## JOB-TTL-CROSS-MASTER-20260923
 
 - [x] Document technical design and isolated acceptance criteria in docs/46_JOB_TTL_CROSS_MASTER_RECOVERY_DESIGN.md.

@@ -1,5 +1,13 @@
 # Current state
 
+## 2026-09-23 P0-2 original design reprioritized (documentation only)
+
+Revised the existing CCE recovery spec section1.0, not a second retry design.
+P0-1 means cluster health only. P0-2 prioritizes Master handoff confirmation,
+trusted terminal/binding production and cce-pipeline reconnect using existing
+CR01 e921e3a / plugin25297f9 work. Full dispatch/automatic acceptance still open.
+No application code, tests, deployment or historical recovery in this revision.
+
 ## 2026-09-23 Job TTL and cross-Master recovery design (not implemented)
 
 Design: docs/46_JOB_TTL_CROSS_MASTER_RECOVERY_DESIGN.md.
