@@ -1,5 +1,13 @@
 # Current state
 
+## 2026-09-23 Huawei incident recommendations: P0-2 documentation revision
+P0-2 explicitly includes automatic Job TTL, not only recovery after deletion.
+Worker/Master/reader generators propose TTL=100 seconds (project choice using
+the vendor example); evidence/consumer compatibility must precede activation.
+Pod capacity, AOM reporting and alert notification evidence are production gates.
+Only documentation updated; no implementation, runtime test, cloud change or
+production release. Existing CR01 progress is unchanged; automatic recovery stays off.
+
 ## 2026-09-23 P0-2 original design reprioritized (documentation only)
 
 Revised the existing CCE recovery spec section1.0, not a second retry design.

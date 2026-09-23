@@ -1,5 +1,15 @@
 # Active test-branch tasks
 
+## P0-2 Huawei recommendation gates (2026-09-23; supersedes cleanup-only wording)
+- [x] Align original P0 and TTL companion with all four vendor recommendations.
+- [ ] P0-2C: Worker/Master/reader TTL generation, WGS/GATK and resume coverage.
+- [ ] P0-2C: durable evidence and missing-object/expired-TTL consumer safety tests.
+- [ ] P0-2D: aggregate Pod capacity and retained Job inventory release review.
+- [ ] P0-2D: authorized AOM reporting and common alert/notification evidence.
+- [ ] Authorized synthetic Complete/Failed Job and Pod reclamation verification.
+TTL=100 is a proposed project default, not a vendor mandate or an applied setting.
+Reuse CR01 implementation; no parallel retry service. P0-1 remains health-only.
+
 ## P0-2 priority slice within existing CR-01/CR-03 (2026-09-23)
 
 - [x] Revise original CCE recovery spec section1.0 using current incident and code evidence.

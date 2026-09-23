@@ -1,5 +1,20 @@
 # Handoff
 
+## 2026-09-23 — P0-2 / P0 docs aligned to Huawei incident recommendations
+Scope: docs only on server test branch; no production or cloud authorization inferred.
+Changed original P0 spec, TTL companion, CURRENT_STATE, TASKS and this handoff.
+Made automatic reclamation mandatory; proposed TTL=100 for Worker/Master/reader,
+with durable evidence/consumer rollout first and UNKNOWN safety after evidence loss.
+Added aggregate Pod capacity, AOM reporting, common alerts and notification gates.
+Official 1000 is default Pod quota; 100 seconds is an example adopted as a project
+proposal, not a vendor requirement. Removed previous 3600/86400 proposed defaults.
+Validation: documentation diff/links and cross-document requirements only; no runtime
+tests appropriate for this docs-only change. Actual TTL/AOM/alerts remain unverified.
+Next: reuse independent CR01 code, implement generators/evidence/consumers and run
+affected BS10610 mocks; real TTL check and cloud operations require separate approval.
+Risk: TTL can delete evidence before collection; absent trusted evidence blocks retry.
+Rollback: revert this docs commit only; no resources or analysis records changed.
+
 ## 2026-09-23 P0-2 original recovery spec revision
 
 User asked to revise the pending-development original plan before P0-2 work.
