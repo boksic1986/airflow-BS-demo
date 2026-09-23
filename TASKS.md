@@ -1,5 +1,13 @@
 # Active test-branch tasks
 
+P0-2 revised implementation sequence recorded in
+docs/superpowers/plans/2026-09-23-p0-2-master-handoff-ttl-implementation.md.
+Design revisions through781877e integrated; P0-2E lock handoff and TTL must ship
+together. Planning complete, implementation Tasks1–6 open (not P0 completion).
+Current blockers: BS10610 SSH handshake reset at jump172.17.61.18; authoritative
+cce-pipeline source/prototype ownership unverified. Next: fresh preflight and
+source pin, then targeted Task1 RED/GREEN. No local test fallback or production.
+
 CR-03 receipt projection subtask complete: WGS stage-status and GATK sync hold
 the refreshed current-run lock through execution validation/state projection;
 old attempts reject, cached active execution cannot overwrite durable success.

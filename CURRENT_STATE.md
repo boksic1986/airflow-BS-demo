@@ -1,5 +1,20 @@
 # Current state
 
+## 2026-09-23 P0-2 implementation plan integrated; execution blocked
+
+User requested planning and implementation of the latest P0 revision. Integrated
+a1af96a/729564c/781877e into the existing CR01 design, retaining prior quota/RPC
+coverage and accepted work. Plan: docs/superpowers/plans/2026-09-23-p0-2-master-handoff-ttl-implementation.md.
+Order: Master handoff/terminal producer; Worker terminal and P0-2E logical-run
+lock handoff; TTL-safe runtime Resume; authenticated manual adapters; compatible
+TTL generators/artifact checks; remaining automatic P0 and operational gates.
+No product code changed this turn. BS10610 preflight failed twice at BS jump
+172.17.61.18 SSH handshake (exit1); host/mounts/permissions not freshly verified.
+Producer source ownership also requires verification: reported83e7adb prototype
+has uncommitted work, not a verified authoritative baseline. No local tests,
+deployment, BS96/main/production writes or policy activation. Tasks1–6 remain
+open; resume with fresh test preflight and producer provenance, then Task1 RED.
+
 ## 2026-09-23 current-attempt receipt projection refreshed (source only)
 
 WGS runtime stage-status ingestion and GATK stage-status sync now lock and

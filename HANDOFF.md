@@ -1,5 +1,41 @@
 # Handoff
 
+## 2026-09-23 P0-2 plan and lock-contract integration; blocked before code
+
+Goal: user requested development steps and execution of latest P0 changes.
+Used writing-plans/executing-plans and runtime/planning/handoff skills. Existing
+CR01 worktree at e921e3a retained; original dirty operations worktree untouched.
+Integrated design revisions a1af96a/729564c/781877e selectively, preserving this
+branch's existing quota/RPC coverage. Added docs46 TTL companion and P0-2 plan;
+updated original spec, STATE/TASKS and existing progress ledger (seven docs).
+Plan explicitly requires producer-first manual closure, P0-2E conditional lock
+handoff and compatible consumers before TTL; automatic P0 remains subsequent.
+
+Target test only, ssh BS10610. Both bounded read-only preflights failed exit1:
+first Python stdin preflight and later `ssh -o BatchMode=yes -o
+ConnectionAttempts=1 -o ConnectTimeout=10 BS10610 hostname` returned
+`kex_exchange_identification: read: Connection reset`, jump172.17.61.18:22.
+No remote command executed; no fresh hostname/current/mount/permission evidence.
+Do not reuse earlier successful fingerprints as this turn's verification.
+Operations task supplied prior runtime path
+/mnt/biodevrwbi/33.chenjiucheng/project/worktrees/huawei-cloud-runtime-master-errors-20260923,
+HEAD83e7adb with uncommitted prototype, and plugin25297f9 path. These snapshots
+are not current ownership/provenance acceptance. Preserve all existing work.
+
+No product code or new tests written/run. Task1 targeted runtime tests and all
+later implementation checks NOT RUN: remote gate unavailable and producer
+baseline unverified. No local runtime fallback, production connection, real data,
+cloud resource mutation, service change, image install or policy activation.
+Planning/static document checks do not establish functional acceptance.
+Static checks: `git diff --check` passed; relative Markdown links in the new
+plan, updated spec and docs46 resolved; changed-path review contains only the
+seven intended Markdown documents. No implementation acceptance claimed.
+Next: restore BS10610 access, inspect exact source status/remotes/HANDOFF and
+prototype ownership, pin source, run Task1 RED then implement in that scope.
+Risk: short TTL before evidence/lock consumers would destroy recovery inputs;
+do not activate it. Rollback: revert this documentation commit only; no runtime
+rollback/data recovery required. Independent branch commit only, no shared push.
+
 ## 2026-09-23 next step: current-attempt stage receipt projection
 
 Goal: continue existing CR-03 observer/receipt fences fromfdef310. Used backend,

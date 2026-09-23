@@ -18,6 +18,24 @@ No unrelated regression suite. Preserve the original worktree's dirty files.
 
 ## Current progress
 
+- P0-2 revision through781877e integrated from e921e3a. Detailed implementation
+  sequence: 2026-09-23-p0-2-master-handoff-ttl-implementation.md. Documentation
+  only this turn; Tasks1–6 remain open. Two BS10610 preflights failed SSH exit1
+  at jump172.17.61.18 before any remote command. Runtime producer provenance
+  and dirty prototype ownership unverified; no local test substitution.
+- Pre-flight interfaces: Task1->3 START_CONFIRMED and bound native terminal;
+  Task2->3 exact Worker terminal plus inventory and logical-run lock;
+  Task3->4 original action/journal and normal stage receipt; Tasks1–4->5
+  compatible evidence readers before TTL; Task4->6 existing action/budget/fences.
+  Ruling: source field names must be mapped to pinned actual producers before
+  edits, not guessed from older1462e9e; cost is deferred implementation until
+  source access, avoiding an incompatible duplicate contract.
+- Ruling:781877e P0-2E supersedes any older “lock unchanged” ownership wording;
+  retain the primitive, add conditional takeover/release and GC independence.
+  Task2 must close legacy/CLI lock-domain compatibility before Task5 activation.
+  Cost if missed: same-directory double writers or stale-owner unlock; fail
+  closed meanwhile. Preserve all earlier accepted evidence; no re-test claimed.
+
 - Fromfdef310: CR-03 runtime receipt projection slice, not a new recovery layer.
   WGS stage-status and GATK sync lock/refresh the current run and refresh stage
   execution state before terminal projection. GATK rejects stale attempts;
