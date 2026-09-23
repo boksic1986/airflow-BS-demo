@@ -1,5 +1,13 @@
 # Current state
 
+## 2026-09-23 Job TTL and cross-Master recovery design (not implemented)
+
+Design: docs/46_JOB_TTL_CROSS_MASTER_RECOVERY_DESIGN.md.
+Defines durable Worker/Master terminal evidence, TTL defaults, recovery journal
+reconciliation, directory exclusion and existing P0/Airflow integration.
+Documentation only; no code, deployment, cloud operations or runtime tests.
+Production adoption and historical recovery require separate authorization.
+
 ## 2026-09-23 Step7 integrated into the primary test branch
 
 The accepted Step7 source, BS10610 publication evidence and final safe-entry

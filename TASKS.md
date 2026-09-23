@@ -1,5 +1,14 @@
 # Active test-branch tasks
 
+## JOB-TTL-CROSS-MASTER-20260923
+
+- [x] Document technical design and isolated acceptance criteria in docs/46_JOB_TTL_CROSS_MASTER_RECOVERY_DESIGN.md.
+- [ ] Implement plugin/Master terminal evidence and TTL templates on development artifacts.
+- [ ] Integrate runtime reconciliation and existing P0 generation/budget handling.
+- [ ] Run affected mock tests and one isolated BS10610 integration; WGS/GATK gated separately.
+- [ ] Obtain separate production rollout and historical-task recovery authorization.
+No implementation or deployment is claimed by this documentation task.
+
 ## 2026-09-23 BS10610 integration gate
 
 - [x] Reconcile stale test GATK `GATK_20260922_112207_23AD29-a1` as a

@@ -1,5 +1,22 @@
 # Handoff
 
+## 2026-09-23 Job TTL/cross-Master recovery documentation
+
+User approved completing the technical design, not implementing or deploying it.
+Added docs/46_JOB_TTL_CROSS_MASTER_RECOVERY_DESIGN.md and task/state entries.
+Spec covers terminal evidence fields, Worker3600s/Master86400s proposed TTL,
+missing-object reconciliation, exact identity/journal fencing, directory mutual
+exclusion, P0 integration, query scope and minimal isolated acceptance cases.
+Defaults require capacity review before production activation; historical bundles
+are not rewritten and absent evidence never becomes a fabricated success.
+Target: BS10610/server10610 source-only test branch. No service, database,
+container mount, runtime gate, scanner, dispatch setting or cloud object changed.
+Validation: documentation diff/links/scope checks only; runtime tests intentionally
+not run because no executable code changed. Existing unrelated work preserved.
+SSH gateway intermittently reset and first GitHub fetch failed with GnuTLS -110;
+bounded reconnect/fetch used, no authentication or environment changes.
+Next: implement in dependency order described in the spec after separate approval.
+
 ## 2026-09-23 Step7 primary test-branch integration
 
 Coordinator integrated Step7 commits `ae416fa`, `08696d6` and `8697a8b` into the primary
