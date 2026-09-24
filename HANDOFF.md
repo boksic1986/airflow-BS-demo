@@ -1,5 +1,61 @@
 # Handoff
 
+## 2026-09-24 Task6 preflight / failure-summary scope confirmation
+
+Goal: continue the approved Task6 after Task5, without repeating accepted tests
+or expanding operational scope. Inspected platform83528cf/native770934c/plugin
+b6d1fb8 source. Only planning/state documents changed in this checkpoint.
+
+Verified interface gaps:
+
+1. `backend/app/cce_recovery_service.py:reserve_monitored_recovery` expects
+   `{workdir, context, evidence_scope}` and equates the candidate context to the
+   platform submit execution. Actual Task4 `cce_master_binding` is schema2 with
+   `platform_execution`, `native`, `source_bundle`, `selected_bundle`.
+   `scripts/cce_paired_runtime.py:_exported_master` and
+   `scripts/cce_recovery_inventory.py:RecoveryCapability.export_result` are the
+   actual producers. Native phase execution IDs/hashes/generations must remain
+   distinct from platform submit and monitor identities.
+2. `cce_recovery_reader.py` consumes `master-terminal.json`; the validator demands
+   authoritative fatal_source and cumulative rule/other failure counts. Scoped
+   source search found no current runtime producer of that terminal contract.
+   Native `_bind_master_terminal` binds RUN_FAILED/RUN_COMPLETE to a final
+   submission snapshot, sets evidence_complete=false and records stage/exit code;
+   `_submission_final_snapshot` explicitly does not grant automatic recovery.
+   `_recovery_phase_finished` captures context and exit code, not a cumulative
+   classifier proving a whitelist failure is the sole fatal cause. Worker
+   inventory completeness does not prove absence of mixed local rule/other errors.
+3. The existing automatic service remains an internal reservation bridge, not a
+   caller/dispatcher. Policy/budget freeze, due dispatch, Step4 reconciliation,
+   UI projection and PostgreSQL contention remain pending as already planned.
+
+Ruling: preserve fail-closed behavior. Do not manufacture a terminal seal,
+infer zero failures from absent events, relabel native identity, or wire generic
+manual Resume as automatic authorization. Cost: automatic dispatch remains off
+until the producer/consumer contract is complete; manual Task4 acceptance stands.
+
+Proposed necessary addition, awaiting user scope confirmation: in the existing
+isolated Master wrapper/logger path, capture a complete bound fatal-cause summary
+that distinguishes allowlisted executor faults from mixed rule/other failures;
+consume it through the existing trusted reader/monitor/reservation path. No new
+service/table, biological rule change or broader retry category. Missing/incomplete
+or conflicting evidence stays ineligible. New source changes would require new
+artifact pins; do not overwrite or reuse Task5 accepted artifact evidence.
+
+Checks: git status/log and scoped rg/Get-Content inspection only. No pytest,
+Docker/build, SSH or remote runtime commands executed in this checkpoint, hence
+no fresh hostname/current/mount/permission validation or remote test claim.
+Target for eventual minimal RED/GREEN verification remains BS10610 test only;
+fresh environment gate first. No local runtime substitute. No services, production,
+CLI/operator policy, frozen bundles, samples or recovery budgets changed.
+
+Files: CURRENT_STATE.md, TASKS.md, HANDOFF.md and the existing P0-2 implementation
+plan; ignored plan ledger records the same finding. No unresolved command/test
+failure: PowerShell rg wildcard arguments were rejected locally and replaced by
+directory searches with -g; no remote retry attempted. Next: obtain bounded
+producer-scope confirmation, then add targeted real-producer/consumer tests before
+implementation. Rollback is a docs-only revert; preserve all source/evidence.
+
 ## 2026-09-24 Task5 closed / Task6 next
 
 Source commits platform074dc55/native7232f57/pluginfdf1520 on the existing three

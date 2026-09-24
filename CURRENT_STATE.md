@@ -1,5 +1,20 @@
 # Current state
 
+## 2026-09-24 Task6 preflight — automatic evidence producer gap
+
+Task6 started with source/interface inspection at platform83528cf,
+native770934c and pluginb6d1fb8. No implementation, runtime test or activation
+in this checkpoint. Tasks1–5 acceptance is unchanged.
+
+The automatic reservation bridge still expects the earlier flat Master binding
+and `master-terminal.json` contract. Task4 exports schema2 with separate platform
+and native identities; native FINAL proves process exit and submission inventory,
+not the complete fatal-cause classification required for automatic recovery.
+Do not relabel native IDs as platform IDs or synthesize zero rule/other failures.
+Proposed next scope confirmation: complete the existing Master wrapper/logger
+failure summary and adapt the existing reader/reservation bridge, then dispatch.
+See latest HANDOFF for exact producers/consumers and remaining Task6 gates.
+
 ## 2026-09-24 Task5 source and offline artifacts accepted
 
 Task5 only: Worker/Master/evidence-reader TTL100. Generators6 RED then6 GREEN;

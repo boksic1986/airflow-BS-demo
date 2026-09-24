@@ -320,6 +320,14 @@ assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
 
 ## Task6 — Remaining P0 and separately authorized operational gates
 
+- [x] Source preflight (2026-09-24): verify Task4 schema2 Master binding against
+  the old flat automatic-reservation contract. Native FINAL seals submission
+  inventory, not complete fatal-cause classification; the old
+  `master-terminal.json` consumer has no corresponding runtime producer.
+- [ ] Confirm and complete the necessary existing Master wrapper/logger fatal
+  summary plus schema2 trusted-reader adaptation before actual automatic dispatch.
+  Never invent zero mixed-rule/other failures or conflate platform/native identity.
+  This is an identified prerequisite, not a reason to repeat Task4/5 acceptance.
 - [ ] Continue CR-02/03 actual automatic dispatch using existing reservations, two shared slots60/180s, original deadline, control fences and Step4 uncertain-dispatch reconciliation. Do not count manual P0-2 closure as automatic completion.
 - [ ] CR-04 reuses existing Tracker/detail waiting/recovering/exhausted/stale fields; no new page.
 - [ ] CR-05 focused PostgreSQL contention and final integration tests, no real biological analysis. Respect WGS/GATK per-adapter enablement.
@@ -329,7 +337,8 @@ assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
 
 2026-09-24: Tasks1–5 accepted in isolated source with bounded BS10610 synthetic
 and offline artifact evidence. Current acceptance supersedes prior interrupted/
-partial entries. Task6 remains unstarted. No production activation; retain all
+partial entries. Task6 source preflight is complete; implementation awaits the
+bounded producer-scope confirmation recorded in HANDOFF. No production activation; retain all
 branches/evidence. Next is Task6, not a repeat of Task4/5 or a full P0 claim.
 
 ### Historical initial interruption

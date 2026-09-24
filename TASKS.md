@@ -1,5 +1,19 @@
 # Active test-branch tasks
 
+## Task6 preflight — 2026-09-24
+
+- [x] Inspect Task4/5 producer versus existing automatic-recovery consumer.
+- [ ] Confirm necessary wrapper/logger failure-summary addition before extending
+  runtime source; preserve existing biological workflow and accepted artifacts.
+- [ ] Bind automatic evidence to schema2 platform/native identities without
+  conflating their execution IDs, generations or request hashes.
+- [ ] Complete automatic dispatch, policy/budget freeze, Step4 reconciliation,
+  existing UI projections and focused PostgreSQL/integration acceptance.
+- [ ] Separately authorized live TTL/capacity/AOM/alerts gates remain closed.
+
+This is a preflight finding, not Task6 implementation or automatic recovery
+acceptance. No new test run, production access, deployment or rerun.
+
 ## Task5 accepted — 2026-09-24
 
 - TTL source and targeted BS10610 matrix accepted; distinct offline wheels and
