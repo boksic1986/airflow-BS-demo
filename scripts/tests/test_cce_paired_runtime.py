@@ -99,3 +99,26 @@ def test_gatk_custom_materialization_cannot_bypass_paired_guard(paired,tmp_path,
     monkeypatch.setattr(gate,'_bundle',lambda payload:tmp_path)
     with pytest.raises(RuntimeError,match='paired writer denied'):
         gate._materialize({})
+
+
+@pytest.mark.parametrize('adapter',['wgs','gatk'])
+def test_activated_resume_cannot_enter_legacy_unprotected_path(paired,tmp_path,monkeypatch,adapter):
+    import importlib
+    gate=importlib.import_module(adapter+'_resume')
+    if adapter=='wgs':
+        with pytest.raises(RuntimeError,match='verified recovery capability'):
+            gate.resume_master(payload={'resume_action_id':'action-1'},binding={'cce_bundle':str(tmp_path)})
+    else:
+        analysis='GATK_20260924_120000_A1B2C3'
+        root=tmp_path/'requests';(root/analysis/'attempt-1').mkdir(parents=True)
+        bundle=tmp_path/'runs'/analysis/'attempt-1'/'cce';bundle.mkdir(parents=True)
+        binding=bundle.parent/'batch-binding.json'
+        binding.write_text(json.dumps({'schema_version':'gatk-runtime.batch-binding.v1',
+            'analysis_id':analysis,'attempt':1,'run_id':analysis+'-a1','cce_bundle':str(bundle)}))
+        contract=bundle/'BATCH_RUNTIME.yaml';contract.write_text('{}')
+        (bundle/'master-job.yaml').write_text('{}')
+        monkeypatch.setenv('GATK_RUNTIME_REQUEST_ROOT',str(root))
+        digest=lambda path:hashlib.sha256(path.read_bytes()).hexdigest()
+        with pytest.raises(RuntimeError,match='verified recovery capability'):
+            gate.resume(analysis_id=analysis,attempt=1,expected_job_uid='old-uid',
+                expected_binding_sha256=digest(binding),expected_contract_sha256=digest(contract))

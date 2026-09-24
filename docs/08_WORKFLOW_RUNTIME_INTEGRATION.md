@@ -2,6 +2,10 @@
 
 ## Task4 approved cloud identity and paired entry source (2026-09-24)
 
+An operator-selected paired runtime may not enter legacy Resume locking without
+an internal verified RecoveryCapability. The incomplete factory cannot silently
+fall back to an old lock; operator activation remains gated until Task4 closure.
+
 Operator storage mode `cloud-reader` uses native_root/canonical_root and exact
 pvc_name/pvc_uid/pv_name/pv_uid. Resolve native run_dir inside the existing reader
 generator with only that PVC mounted read-only. Remove other volumes, env and

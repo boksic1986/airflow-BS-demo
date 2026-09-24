@@ -190,6 +190,8 @@ def resume(*, analysis_id, attempt, expected_job_uid, expected_binding_sha256,
             'attempt':attempt, 'run_id':run_id, 'cce_bundle':str(bundle)}.items()):
             raise ResumeGuardError('binding identity mismatch')
         runtime = runtime or _runtime(bundle)
+        if getattr(runtime, '_operator_paired_activation', False) and recovery is None:
+            raise ResumeGuardError('paired runtime requires a verified recovery capability')
         contract, config, modules = runtime._load(bundle, None)
         names = contract['kubernetes']
         if contract['identity']['run_id'] != run_id or any(names.get(k) != binding.get(k) for k in ('namespace', 'master_job')):

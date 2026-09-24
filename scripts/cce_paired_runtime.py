@@ -96,4 +96,5 @@ def load_runtime():
     except BaseException:
         sys.modules.pop(name, None)
         raise
+    module._operator_paired_activation = True
     return module

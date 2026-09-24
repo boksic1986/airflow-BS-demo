@@ -134,6 +134,8 @@ def resume_master(*, payload, binding, runtime=None, recovery=None):
         raise RuntimeError('invalid recovery action identity')
     bundle = Path(binding['cce_bundle'])
     runtime = runtime or _runtime(bundle)
+    if getattr(runtime, '_operator_paired_activation', False) and recovery is None:
+        raise RuntimeError('paired runtime requires a verified recovery capability')
     required = ('_load', '_kubectl_json', '_claim_batch_lock', '_require_no_active_workers',
         '_create_job_from_path', '_wait_pod', '_run', '_kubectl', '_write_master_handoff', '_prepare_worker_manifest')
     if any(not callable(getattr(runtime, name, None)) for name in required):

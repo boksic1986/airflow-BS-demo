@@ -2,6 +2,10 @@
 
 ## 2026-09-24 Task4 cloud identity and paired entry checkpoints
 
+Source commits: native7026528, platformc3cf3c2. Follow-up closes a fallback edge:
+activated Resume without verified RecoveryCapability rejects before entering the
+legacy lock path. Two adapter cases RED; final12 new +3 affected GREEN0.99s.
+
 User approved the existing cloud read-only reader, not a new SFS host mount.
 Native source now validates PVC/PV/Job/Pod identities and resolves directory
 aliases in that reader, with durable one-create/reconciled cleanup and no foreign

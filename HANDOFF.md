@@ -2,6 +2,14 @@
 
 ## 2026-09-24 Task4 cloud identity and actual entry selection checkpoint
 
+Committed source: native7026528 and platformc3cf3c2. Post-checkpoint scope check
+found activated Resume could still fall through to the legacy two-argument lock
+when no RecoveryCapability was constructed. Both adapter entries now reject that
+path before runtime effects; the operator loader tags its validated module only
+internally (not a payload field). Two adapter cases RED, final12 paired cases +3
+existing result-root cases GREEN0.99s, paired-resume-denied-{red,green}.log. This
+is a fail-closed checkpoint, not a completed capability factory or full Task4.
+
 Goal: implement the approved read-only cloud directory identity source and wire
 paired runtime selection without changing frozen projects or production.
 Native guard/source checkpoint: readonly PVC-only reader from existing generator,

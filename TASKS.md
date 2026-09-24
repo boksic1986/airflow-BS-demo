@@ -1,5 +1,8 @@
 # Active test-branch tasks
 
+- [x] Activated WGS/GATK Resume without verified capability cannot use legacy
+  locking. Follow-up2 RED; final paired-entry12 + existing3 GREEN on BS10610.
+
 - [x] Task4 user-approved cloud reader identity source: read-only workspace only,
   PVC/PV and Job/Pod fences, actual directory resolution, durable one-create and
   safe cleanup replay. BS10610 cloud10 + protected-entry13 GREEN.
