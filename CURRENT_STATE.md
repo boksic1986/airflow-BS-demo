@@ -1,5 +1,12 @@
 # Current state
 
+## 2026-09-24 Task5 source accepted; offline artifacts in progress
+
+Task5 only: Worker/Master/evidence-reader TTL100. Generators6 RED then6 GREEN;
+affected missing-object/lost-response/deadline15 GREEN; image sibling1 RED then
+1 GREEN. All BS10610 offline. Distinct artifacts/provenance remain before closure.
+No Task6, production, installed CLI/policy, old-bundle or service changes.
+
 ## 2026-09-24 Task4 manual source acceptance complete
 
 Authoritative current status: P0-2 Tasks1–4 source acceptance complete; Task5

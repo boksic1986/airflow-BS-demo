@@ -1,5 +1,25 @@
 # Handoff
 
+## 2026-09-24 Task5 source checkpoint / offline artifacts next
+
+Existing isolated baselines platformde3b5a5/nativebd41f87/plugin5b5d7ee.
+New Worker/Master/evidence readers TTL100, no Pod TTL, frozen-bundle, deadline,
+restart/resource, cleanup, Step7/maintenance changes. Native test0.8.5+p02.dev1;
+Master Dockerfile now includes existing sibling guard, after packaging RED.
+
+BS10610 server10610 current20260912-opt-4d3d24e6; backend36ff21f87356 /app
+20260923-step7-ae416fa/backend/backend RO, /config20260912-opt-4d3d24e6/config RO;
+intake/auto_dispatch=false, uid6708. Evidence WGS_test/cce-evidence/p02-task5-20260924.
+Ignored task5.ps1 uses cached network-none/read-only containers and own scratch.
+Generators6 RED then6 GREEN; affected matrix15 GREEN19.76s; packaging1 RED then
+1 GREEN0.22s. No unaffected budget/callback/full suite or local runtime tests.
+Slow read-only cache listing stopped by exact own-process match; targeted bs7
+build directory supplied cached poetry-core1.9.1, read-only. No chmod/removal.
+Both cached Master bases have Snakemake9.24.0+biosan1, verified without testdeps
+metadata shadowing. Distinct wheels/images and provenance remain next.
+No real Jobs, service/CLI/policy install, main/production merge/push, database,
+automatic recovery or real rerun. Pre-deploy rollback source revert only.
+
 ## 2026-09-24 Task4 manual closure accepted / latest requirements checked
 
 Goal and scope: inspect existing code, finish only P0-2 Task4, then compare with

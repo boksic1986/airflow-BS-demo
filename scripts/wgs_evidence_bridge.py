@@ -670,6 +670,7 @@ def build_reader_job(master: dict, *, namespace: str, reader_name: str) -> dict:
         "spec": {
             "backoffLimit": 0,
             "activeDeadlineSeconds": 300,
+            "ttlSecondsAfterFinished": 100,
             "template": {
                 "metadata": {"labels": {"wgs.biosan.cn/role": "rule-reader"}},
                 "spec": reader_pod,

@@ -1,5 +1,10 @@
 # Active test-branch tasks
 
+## Task5 checkpoint — 2026-09-24
+
+- TTL source and targeted BS10610 matrix accepted; distinct offline artifacts
+  and provenance in progress. Task6 unstarted; no production activation.
+
 ## Current authoritative status — 2026-09-24
 
 - [x] P0-2 Task4 manual closure: authenticated service and real DAG methods,
