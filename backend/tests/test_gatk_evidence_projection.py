@@ -1,4 +1,5 @@
 import json
+import pytest
 from pathlib import Path
 
 from sqlalchemy import create_engine, select
@@ -82,8 +83,9 @@ def test_gatk_logger_jsonl_projects_rule_and_phase(tmp_path: Path) -> None:
         assert row.phase == "Mapping"
 
 
+@pytest.mark.parametrize('include_rule_evidence', [True, False])
 def test_gatk_transfer_progress_is_fenced_by_generic_stage_execution(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch, include_rule_evidence,
 ) -> None:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -145,6 +147,16 @@ def test_gatk_transfer_progress_is_fenced_by_generic_stage_execution(
     }
     progress.write_text(json.dumps(payload), encoding="utf-8")
 
+    if not include_rule_evidence:
+        def blocked_rule_import(*args, **kwargs):
+            raise TimeoutError('rule projection must not block transfer polling')
+        from app import wgs_observer
+        raw = evidence / 'rule-status' / 'raw'
+        raw.mkdir(parents=True)
+        (raw / 'synthetic.jsonl').write_text('{}\n')
+        monkeypatch.setattr(wgs_observer, '_ingest_rule_file', blocked_rule_import)
+        monkeypatch.setattr(wgs_observer, '_enrich_from_registered_analysis_log', blocked_rule_import)
+
     result = ingest_bound_pipeline_evidence_once(
         session_factory=sessions,
         analysis_id=analysis_id,
@@ -154,6 +166,7 @@ def test_gatk_transfer_progress_is_fenced_by_generic_stage_execution(
         evidence_root=evidence_root,
         evidence_directory=evidence,
         transfer_spool_root=spool,
+        include_rule_evidence=include_rule_evidence,
     )
 
     assert result["events_ingested"] == 1

@@ -1,5 +1,11 @@
 # Workflow runtime integration
 
+GATK live Step1/5/6 polls ingest only generation-fenced transfer progress, not
+rule/Kubernetes evidence or analysis-log enrichment. Step3 live polling retains
+full rule ingestion. No new queue, retry budget or worker service is introduced.
+Raw terminal evidence and downloaded log archives remain authoritative artifacts;
+UI rule projection may lag the terminal receipt and is not the success gate.
+
 ## 2026-09-24 GATK terminal receipt acknowledgement
 
 GATK stage-status validates the latest generation and sidecar identity before

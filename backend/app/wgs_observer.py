@@ -2346,6 +2346,7 @@ def ingest_bound_pipeline_evidence_once(
     evidence_root: Path,
     evidence_directory: Path,
     transfer_spool_root: Path | None = None,
+    include_rule_evidence: bool = True,
 ) -> dict[str, int]:
     """Ingest one already-bound pipeline evidence directory.
 
@@ -2371,7 +2372,8 @@ def ingest_bound_pipeline_evidence_once(
     paths = [
         *((path, _ingest_rule_file) for path in sorted((directory / "rule-status" / "raw").glob("*.jsonl"))),
         *((directory / "raw" / name, _ingest_kubernetes_file) for name in ("pod-events.jsonl", "pod-metrics.jsonl", "job-events.jsonl") if (directory / "raw" / name).is_file()),
-    ]
+    ] if include_rule_evidence else []
+    # Non-analysis polling only needs the small, generation-fenced transfer spool.
     for path, reader in paths:
         result["files"] += 1
         try:
@@ -2380,7 +2382,8 @@ def ingest_bound_pipeline_evidence_once(
             result["errors"] += int(had_error)
         except (OSError, UnicodeError, ValueError):
             result["errors"] += 1
-    _enrich_from_registered_analysis_log(session_factory=session_factory, binding=binding)
+    if include_rule_evidence:
+        _enrich_from_registered_analysis_log(session_factory=session_factory, binding=binding)
     if transfer_spool_root is not None:
         transfer_root = transfer_spool_root.resolve()
         attempt_root = (transfer_root / analysis_id / f"attempt-{attempt}").resolve()

@@ -1,5 +1,15 @@
 # Handoff
 
+## 2026-09-24 GATK transfer polling follow-up
+
+Step5 started once but its first wait call timed out30s while still importing
+all rule evidence. Keep rule/Kubernetes projection for analysis polling only;
+Step1/5/6 live polling reads only existing fenced transfer-progress spool.
+The shared helper defaults to full ingestion, preserving existing callers.
+Focused regression red showed missing option, then17 targeted tests passed.
+Do not restart native download; its Airflow sensor has remaining retry budget.
+Original48 unaffected checks are reused, no full suite or real analysis test.
+
 ## 2026-09-24 01:17 UTC BS96 rollout and WES downstream resumed
 
 Deployed1cdfb0b1 module only to actual server96 mounted backend20260923-gatk-waiting-ui.

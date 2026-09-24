@@ -340,7 +340,10 @@ def sync_gatk_stage_status(
         row.status not in {"success", "failed", "canceled"}
         and stage in {"step1_upload", "step3_monitor", "step5_download", "step6_materialize"}
     ):
-        _ingest_gatk_evidence(session=session, settings=settings, analysis_id=analysis_id, attempt=attempt)
+        _ingest_gatk_evidence(
+            session=session, settings=settings, analysis_id=analysis_id, attempt=attempt,
+            include_rule_evidence=stage == "step3_monitor",
+        )
     _reconcile_terminal_transfer(session=session, row=row)
     failed = row.status in {"failed", "canceled"}
     return {
@@ -407,7 +410,8 @@ def _reconcile_terminal_transfer(*, session: Session, row: PipelineStageExecutio
 
 
 def _ingest_gatk_evidence(
-    *, session: Session, settings, analysis_id: str, attempt: int
+    *, session: Session, settings, analysis_id: str, attempt: int,
+    include_rule_evidence: bool = True,
 ) -> None:
     request_root = Path(settings.gatk_runtime_request_root).resolve()
     runtime_root = request_root.parent
@@ -437,6 +441,7 @@ def _ingest_gatk_evidence(
         evidence_root=evidence_root,
         evidence_directory=evidence_directory,
         transfer_spool_root=Path(settings.gatk_transfer_spool_root),
+        include_rule_evidence=include_rule_evidence,
     )
 
 
