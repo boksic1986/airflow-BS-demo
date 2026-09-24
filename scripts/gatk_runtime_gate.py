@@ -293,7 +293,7 @@ def _prepare(payload: dict[str, Any]) -> list[str]:
 
 def _step(payload: dict[str, Any], stage: str) -> list[str]:
     from cce_paired_runtime import stage_command
-    paired = stage_command(_bundle(payload), stage)
+    paired = stage_command(_bundle(payload), stage, payload=payload, gate=sys.modules[__name__], pipeline='gatk')
     if paired is not None:
         return paired
     script = _bundle(payload) / STAGE_SCRIPTS[stage]
@@ -823,18 +823,13 @@ def _run_step5_with_progress(payload: dict[str, Any], environment: dict[str, str
 
 
 def _materialize(payload: dict[str, Any]) -> Path:
-    from cce_paired_runtime import load_runtime
+    from cce_paired_runtime import load_runtime, downstream_registered
     paired = load_runtime()
     if paired is None:
         return _materialize_to_approved_root(payload)
-    bundle = _bundle(payload)
-    contract, config, _ = paired._load(bundle, None)
-    writer = paired.writer_for_bundle(paired, bundle, contract, config)
-    if writer is None:
-        raise RuntimeError('paired GATK materialization requires a protected writer')
-    writer.validate_call({'bundle':bundle, 'contract':contract, 'config':config})
-    with writer.enter(6):
-        return _materialize_to_approved_root(payload)
+    downstream_registered(payload, binding=_load_binding(payload), gate=sys.modules[__name__], pipeline='gatk',
+        materialize=_materialize_to_approved_root)
+    return _materialize_result_root(payload)
 
 
 def _materialize_to_approved_root(payload: dict[str, Any]) -> Path:
@@ -949,6 +944,16 @@ def _execute_stage(
     if stage in {"step1_upload", "step5_download"}:
         environment.update(_transfer_environment(payload))
     try:
+        if stage == 'step2_master' and not payload.get('resume_action_id'):
+            if __package__:
+                from .cce_paired_runtime import submit_registered
+            else:
+                from cce_paired_runtime import submit_registered
+            result = submit_registered(payload, binding=_load_binding(payload), gate=sys.modules[__name__], pipeline='gatk')
+            if result is not None:
+                payload['_cce_master_result'] = result
+                _write_status(request_path,payload,'success','Verified initial Master handoff completed')
+                return
         if payload.get('resume_action_id') and stage == 'step2_master':
             if __package__:
                 from .cce_paired_runtime import resume_registered
@@ -971,10 +976,11 @@ def _execute_stage(
             return
         if stage == "step3_monitor":
             if __package__:
-                from .cce_paired_runtime import monitor_registered
+                from .cce_paired_runtime import monitor_registered, prepare_monitor_registered
             else:
-                from cce_paired_runtime import monitor_registered
+                from cce_paired_runtime import monitor_registered, prepare_monitor_registered
             binding = _load_binding(payload)
+            prepare_monitor_registered(payload, binding=binding, gate=sys.modules[__name__], pipeline='gatk')
             while True:
                 state = monitor_registered(payload, binding=binding, gate=sys.modules[__name__], pipeline='gatk')
                 paired = state is not None

@@ -1,5 +1,23 @@
 # P0 joint recovery implementation ledger
 
+## 2026-09-24 Task4 manual source acceptance complete; Task5 next
+
+Existing authenticated WGS/GATK service → actual DAG methods → registered native
+recovery → fresh-process monitoring → normal Step4–6 receipts completed in BS10610
+offline synthetic tests. No new engine/API, same attempt/config/workdir, no
+prepare/upload redo. Initial interrupted handoff and bind replay, observer versus
+producer identity, retained historical Workers and final protected release closed.
+Three review findings reproduced and fixed. Final selected41 passed/1
+adapter-inapplicable skip76.91s; full manual flows2 passed41.32s. Native bd41f87,
+plugin5b5d7ee unchanged; platform commit containing this entry completes Task4.
+
+Latest design alignment is recorded in the Task4 implementation-plan checklist.
+Task5 TTL generators/artifacts and Task6 automatic dispatch/production gates
+remain unstarted; no real workload, cloud/service/policy/CLI changes, main or
+production merge/push. Older open-slice entries below are historical, not requests
+to redo accepted work. Full P0, live scheduling and production readiness are NOT
+claimed by manual source acceptance. See latest HANDOFF for exact logs/commands.
+
 ## 2026-09-24 Task3 source completed; Task4 next
 
 Existing WGS/GATK Resume consumes approved native final inventory, full live

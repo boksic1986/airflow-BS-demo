@@ -1,10 +1,28 @@
 # Active test-branch tasks
 
+## Current authoritative status — 2026-09-24
+
+- [x] P0-2 Task4 manual closure: authenticated service and real DAG methods,
+  actual restricted WGS/GATK runtime, fresh-process monitoring and normal Step4–6
+  receipts; same attempt/frozen inputs/workdir and no prepare/upload redo.
+- [x] Initial interrupted handoff, post-bind crash, direct Step3 recovery and
+  original producer identity across new observers; no duplicate CREATE/START.
+- [x] Final protected release with sealed historical Worker lineage, complete
+  live inventory and inactive dispatchers; unknown/active objects block.
+- [x] Final review findings fixed and latest design checked. BS10610 selected41
+  passed/1 adapter-inapplicable skip; authenticated full manual flows2 passed.
+- [ ] Task5: existing three Job generators, compatible pinned artifacts and
+  integrated TTL acceptance. Not started; no release/production activation.
+- [ ] Task6: remaining automatic dispatch/UI/PostgreSQL/operational gates.
+
+The entries below retain checkpoint history; older OPEN wording describes that
+checkpoint only. Do not repeat completed slices or treat Task4 as all P0 complete.
+
 - [x] Task4 Step2-selected Master -> fresh Step3 WGS/GATK monitor and rule bridge.
   Native journal/receipt/current lock revalidated; old completion marker ignored;
   reclaimed success/failure bound to the new Master. BS10610 final18 GREEN30.04s,
   affected Step2 replay2/worker disconnect1/unactivated entry2 GREEN. Native903e1af.
-  No deployment. Direct Step3 replacement/initial-submit paths remain open.
+  No deployment. Direct Step3/initial-submit paths closed by current acceptance.
 
 - [x] Task4 registered Step2 capability factory and actual WGS/GATK Resume routing.
   Request hash/current bytes, operator binding/storage, exact native old lock
@@ -16,9 +34,9 @@
   GATK receipt hash covers it, WGS worker failure retains it, JSON cannot grant
   authority, old submit identity is not relabelled as the observing execution.
   BS10610 two RED -> GREEN; affected7 GREEN; final refined receipt2 GREEN.
-- [ ] Task4 next: complete direct Step3/initial-submit selection, selected Step4-6
+- [x] Task4: complete direct Step3/initial-submit selection, selected Step4-6
   execution across processes, final protected release and full manual synthetic flow.
-  Do not interpret the in-process receipt checkpoint as full Task4 acceptance.
+  Current full manual acceptance supersedes the earlier in-process checkpoint.
 
 - [x] Activated WGS/GATK Resume without verified capability cannot use legacy
   locking. Follow-up2 RED; final paired-entry12 + existing3 GREEN on BS10610.
@@ -37,7 +55,7 @@
 - [x] User confirmed CLI Step1–6 scope; native8ec5415 adds source entry guards and
   operator-owned physical mapping/version/binding checks. New12/affected35/legacy3
   BS10610 checks GREEN; no operator configuration or runtime installed.
-- [ ] Complete
+- [x] Complete
   trusted storage/all-writer and actual restricted-gate receipt forwarding before
   Task4 acceptance. Tasks5/6 remain unstarted, not skipped or marked complete.
 - [x] Canonical SFS identity choice confirmed: existing cloud read-only reader,
@@ -56,11 +74,11 @@
 - [x] User confirmed initial Master platform-identity bootstrap source addition.
 - [x] Native initial view/Step2 source and separate platform/native binding;
   WGS/GATK Resume identity propagation. BS10610 native41 plus composition2 passed.
-- [ ] Implement trusted binding writer, all-writer/dispatcher proof and selected-view
+- [x] Implement trusted binding writer, all-writer/dispatcher proof and selected-view
   downstream integration. No native/platform request-hash substitution.
-- [ ] Complete Task4 manual native mock acceptance before Task5, then Task6.
+- [x] Complete Task4 manual native mock acceptance before Task5, then Task6.
 
-## 2026-09-24 Task4 WGS dispatch checkpoint accepted; Task4 remains OPEN
+## Historical Task4 WGS dispatch checkpoint (then OPEN; now superseded)
 
 - [x] Existing authenticated WGS Resume: durable POST intent, exact DagRun
   reconciliation, no second POST after uncertain response/404; preserve attempt.
@@ -68,10 +86,10 @@
   action/DAG and out-of-scope prepare. Recheck after slot-helper commit.
 - [x] Preserve newer running/stop/failure state on late reply; permit finalizing
   already-successful Step6 without rerunning it. BS10610 affected checks/review.
-- [ ] GATK own authenticated service/DAG/Resume integration.
-- [ ] Trusted native Master binding writer + canonical/legacy lock mapping,
+- [x] GATK own authenticated service/DAG/Resume integration.
+- [x] Trusted native Master binding writer + canonical/legacy lock mapping,
   paired all-writer compatibility and old dispatcher quiescence proof.
-- [ ] Selected recovery view carried into monitor and downstream receipt paths;
+- [x] Selected recovery view carried into monitor and downstream receipt paths;
   parameterized WGS/GATK manual closure before any Task5 TTL activation.
 
 No production, automatic recovery, image/CLI release, main/production merge or

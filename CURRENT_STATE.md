@@ -1,5 +1,32 @@
 # Current state
 
+## 2026-09-24 Task4 manual source acceptance complete
+
+Authoritative current status: P0-2 Tasks1–4 source acceptance complete; Task5
+TTL/artifacts and Task6 automatic/operational gates remain unstarted. Earlier
+dated checkpoints below describe their then-open slices, not current blockers.
+
+Existing authenticated WGS/GATK manual Resume now reaches the original restricted
+adapter/native recovery, fresh-process selected-Master monitoring and normal
+Step4–6 receipts. Same attempt/config/workdir; no prepare/upload redo or forceall.
+Active Master reattaches, native success continues downstream, unknown evidence
+blocks. Initial CREATE/handoff interruption and post-bind crash reconcile the
+same UID/action/deadline without a second CREATE. WGS reattach revalidates receipt
+authority before archival instead of copying raw binding fields.
+
+Final Step6 release requires materialization, native success, registered generation
+lineage, complete live inventories and inactive sibling dispatchers. Retained old
+terminal Workers are verified; unknown/active Workers still prevent release.
+Native bd41f87 projects generation-local final manifest while preserving shared
+history. Plugin5b5d7ee unchanged. Original bundles/output roots remain unchanged.
+
+Latest-requirements cross-check and review: three Important findings reproduced
+RED and fixed; final BS10610 selected41 passed/1 skipped76.91s, authenticated
+manual WGS/GATK2 passed41.32s. The skip is the WGS-only reattach-worker case for
+GATK, not a missing GATK recovery test. See HANDOFF and the Task4 plan checklist.
+No local runtime/full-suite tests, images/CLI/policy installation, automatic
+enablement, main/production merge/push, production DB/data or real rerun changes.
+
 ## 2026-09-24 Task4 selected-Master Step3 checkpoint
 
 BS10610 validation resumed. A fresh WGS/GATK monitor reconstructs the selected

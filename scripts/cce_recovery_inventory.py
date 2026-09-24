@@ -320,12 +320,39 @@ def master_receipt_fields(payload, *, pipeline, details):
              and all(execution[k] == source[k] for k in ('pipeline', 'analysis_id', 'attempt'))
              and payload.get('orchestration_contract_version') == 2)
     stages = ('step2_master', 'step3_monitor', 'step4_publish', 'step5_download', 'step6_materialize')
-    _require(source['stage'] in stages[:2] and execution['stage'] in stages[:2]
+    _require(source['stage'] in stages[:2] and execution['stage'] in stages
              and payload.get('stage') in stages
              and stages.index(payload['stage']) >= stages.index(execution['stage']))
     if payload['stage'] == execution['stage']:
         _require(all(payload.get(k) == execution[k] for k in ('execution_id', 'generation', 'request_hash')))
     return fields
+
+
+def lineage_workers(runtime, contract, bundle, value, ancestors=()):
+    """Reconcile retained historical Workers from sealed native generations.
+
+    Current journals remain generation-local. Historical bindings supplement
+    full live inventory checks; they never excuse an unknown or active workload.
+    """
+    frozen=runtime._handoff_binding(bundle,contract)
+    workers=validate_final_submission_snapshot(value['snapshot'])
+    combined={w['name']:w for w in workers}
+    previous=frozen['execution_generation']
+    for ancestor in ancestors:
+        ancestor=Path(ancestor)
+        _require(ancestor.is_absolute() and ancestor.resolve(strict=True)==ancestor)
+        bound=runtime._handoff_binding(ancestor,contract)
+        _require(bound['execution_generation']<previous
+            and all(bound[k]==frozen[k] for k in ('attempt','files_sha256','config_sha256')))
+        record=runtime._read_master_handoff(ancestor,contract)
+        _require(record and all(record.get(k)==v for k,v in bound.items()))
+        historical=runtime._recovery_final_evidence(ancestor,contract,record['job_uid'])
+        _require(historical['snapshot']['canonical_directory']==value['snapshot']['canonical_directory'])
+        for worker in validate_final_submission_snapshot(historical['snapshot']):
+            _require(worker['name'] not in combined or combined[worker['name']]==worker)
+            combined[worker['name']]=worker
+        previous=bound['execution_generation']
+    return list(combined.values())
 
 
 class RecoveryCapability:
@@ -335,10 +362,12 @@ class RecoveryCapability:
     callbacks. This consumer independently verifies native bytes and live work;
     callbacks cannot assert Worker finality in place of those checks.
     """
-    def __init__(self, *, bundle, expected_job_uid, context, authorize, verify_lock, platform_execution=None):
+    def __init__(self, *, bundle, expected_job_uid, context, authorize, verify_lock, platform_execution=None, origin_bundle=None, history_bundles=()):
         _require(callable(authorize) and callable(verify_lock) and _text(expected_job_uid,UID))
         self.bundle=Path(bundle)
         _require(self.bundle.is_absolute() and self.bundle.resolve(strict=True)==self.bundle)
+        self.origin_bundle=Path(origin_bundle) if origin_bundle is not None else self.bundle
+        self.history_bundles=tuple(Path(p) for p in history_bundles)
         self.expected_job_uid=expected_job_uid
         self.context=_json(json.dumps(context))
         self.platform_execution=_json(json.dumps(platform_execution)) if platform_execution is not None else None
@@ -349,6 +378,8 @@ class RecoveryCapability:
     def bind(self,runtime,contract,config,*,run_label,pipeline,analysis_id,attempt,action):
         _require(type(attempt) is int and attempt>0 and _text(run_label,DNS))
         original=runtime._handoff_binding(self.bundle,contract)
+        frozen=runtime._handoff_binding(self.origin_bundle,contract)
+        _require(all(original[k]==frozen[k] for k in ('attempt','files_sha256','config_sha256')))
         runtime._validate_recovery_context(self.context,contract,attempt,original['execution_generation']+1)
         _require(original['attempt']==attempt and self.context['pipeline']==pipeline
                  and self.context['analysis_id']==analysis_id and self.context['action']==action)
@@ -391,7 +422,7 @@ class RecoveryCapability:
             'config_sha256', 'manifest_sha256', 'files_sha256', 'deadline_epoch', 'recovery_context')}
         native['namespace'] = self.contract['kubernetes']['namespace']
         exported = dict(schema_version=2, platform_execution=platform, native=native,
-            source_bundle=str(self.bundle), selected_bundle=str(selected))
+            source_bundle=str(self.origin_bundle), selected_bundle=str(selected))
         # Deep copy: a caller must not mutate the validated capability by editing
         # the receipt envelope it is about to persist.
         return VerifiedMasterResult(result, exported, self.platform_execution)
@@ -423,7 +454,7 @@ class RecoveryCapability:
 
     def inspect(self):
         value=self._authorized()
-        workers=validate_final_submission_snapshot(value['snapshot'])
+        workers=lineage_workers(self.runtime,self.contract,self.bundle,value,self.history_bundles)
         observation=probe_final_workloads(runtime=self.runtime,config=self.config,
             namespace=self.contract['kubernetes']['namespace'],run_label=self.run_label,
             master_job=self.contract['kubernetes']['master_job'],master_job_uid=self.expected_job_uid,

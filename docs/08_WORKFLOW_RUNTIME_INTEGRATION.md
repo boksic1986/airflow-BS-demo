@@ -1,5 +1,44 @@
 # Workflow runtime integration
 
+## Task4 accepted manual continuation contract (2026-09-24, source only)
+
+This section supersedes the limited-entry/open statements in older checkpoints
+below. It uses existing authenticated services, DAGs, request spool, RunAction
+and receipts; no new public API/table, retry framework or automatic activation.
+
+- Registered Step2 initial submission uses its own derived view and durable
+  submission journal. Uncertain CREATE is queried by exact identity; a subsequent
+  manual observer reconciles the original view and deadline. Confirmed native
+  handoff and pending-to-UID CAS can be replayed after a controller crash.
+- Registered Step2/Step3 Resume resolves the exact current directory owner from
+  native journals, not latest mtime/status. Active Master is observed; failed
+  Master replacement needs native final evidence and full writer exclusion.
+  `registered_source` retains generation lineage; original frozen bundle and
+  delivery roots do not change. Missing legacy identity stays fail-closed.
+- Every new process revalidates current request, adapter-specific digest,
+  original producer registration (including archived generation), native view,
+  frozen hashes and exact directory owner. An observer does not become the
+  submitting producer. `VerifiedMasterResult` is rebuilt only after validation;
+  WGS reattach does this before archiving the old terminal receipt.
+- Step4–6 use the registered predecessor's normal success receipt/hash and
+  selected native success. Child command carries registered IDs, not arbitrary
+  paths or serialized capabilities. GATK retains its approved materialization
+  root. Step6 releases only after materialization and verified all-writer
+  quiescence; an already RELEASED replay rechecks evidence without rewriting.
+- Native bd41f87 seals only this generation's manifest rows plus the unmodified
+  shared-history digest. Platform `lineage_workers` validates registered ancestor
+  terminal snapshots and reconciles all bound Workers against complete live
+  Job/Pod lists for replacement/final release. Retained terminal Workers are not
+  confused with unknown Workers; unknown, active or conflicting objects block.
+
+BS10610 actual-source synthetic checks: selected41 passed/1 WGS-only skip,
+authenticated service/real DAG/native/normal-receipt flows2 passed. Only external
+HTTP/SSH/Kubernetes/OBS transport and temporary SQLite are simulated; this is not
+live Airflow scheduling, PostgreSQL contention or cloud TTL verification.
+Operator-owned policy/source pins, mapped storage and per-run bindings remain
+mandatory and uninstalled. Pair native/platform consumers before Task5 activation;
+no image/wheel/CLI deployment, old bundle migration, TTL or automatic enablement.
+
 ## Task4 fresh-process selected monitor (source only, 2026-09-24)
 
 The internal monitor_registered resolves only the successful

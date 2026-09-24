@@ -1908,7 +1908,8 @@ def _binding_run_label(binding: dict[str, Any]) -> str:
 def _step_command(payload: dict[str, Any], stage: str, *arguments: str) -> list[str]:
     binding = _load_binding(payload)
     from cce_paired_runtime import stage_command
-    paired = stage_command(Path(str(binding['cce_bundle'])), stage, *arguments)
+    paired = stage_command(Path(str(binding['cce_bundle'])), stage, *arguments,
+        payload=payload, gate=sys.modules[__name__], pipeline='wgs')
     if paired is not None:
         return paired
     script = Path(str(binding["cce_bundle"])) / STEP_SCRIPTS[stage]
@@ -2783,6 +2784,13 @@ def run_stage(payload: dict[str, Any]) -> None:
         _run_prepare_analysis(payload)
     elif stage == "step3_monitor":
         _monitor_step3(payload)
+    elif stage == "step2_master":
+        from cce_paired_runtime import submit_registered
+        result = submit_registered(payload, binding=_load_binding(payload), gate=sys.modules[__name__], pipeline='wgs')
+        if result is None:
+            subprocess.run(_step_command(payload, stage), check=True)
+        else:
+            payload['_cce_master_result'] = result
     elif stage == "step4_publish":
         _wait_step4(payload)
     elif stage == "step4_repair_cram":
@@ -3133,12 +3141,18 @@ def _finish_reattached_stage(payload):
         expected = payload.get('resume_previous_execution') or {}
         if any(previous.get(key) != expected.get(key) for key in ('execution_id', 'generation', 'request_hash')):
             raise RuntimeError('reattached receipt does not match the original executor')
+        if 'cce_master_binding' in previous or 'cce_master_submit_execution_id' in previous:
+            if __package__:
+                from .cce_paired_runtime import reattach_registered
+            else:
+                from cce_paired_runtime import reattach_registered
+            reattach_registered(payload,previous,binding=_load_binding(payload),gate=sys.modules[__name__],pipeline='wgs')
         terminal = previous.get('status')
         if terminal not in {'success', 'failed'}:
             terminal = 'failed'
             previous['message'] = 'Original executor ended without a terminal receipt; request recovery again'
         _archive_contract_generation(payload, int(expected['generation']))
-        details = {key: value for key, value in previous.items() if key not in {'schema_version', 'analysis_id', 'attempt', 'stage', 'status', 'message', 'updated_at', 'orchestration_contract_version', 'execution_id', 'generation', 'request_hash', 'retry_no'}}
+        details = {key: value for key, value in previous.items() if key not in {'schema_version', 'analysis_id', 'attempt', 'stage', 'status', 'message', 'updated_at', 'orchestration_contract_version', 'execution_id', 'generation', 'request_hash', 'retry_no', 'cce_master_binding', 'cce_master_submit_execution_id'}}
         _write_status(payload, terminal, previous.get('message', ''), retry_no=int(payload['generation']) - 1, **details)
     return 0
 

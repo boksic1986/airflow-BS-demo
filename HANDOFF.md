@@ -1,5 +1,94 @@
 # Handoff
 
+## 2026-09-24 Task4 manual closure accepted / latest requirements checked
+
+Goal and scope: inspect existing code, finish only P0-2 Task4, then compare with
+the latest approved spec and Task4 plan. No Task5 TTL/artifact or Task6 automatic
+work, no production deployment, real batches, database/data edits, new API/table
+or second retry engine. Existing isolated platform branch
+jiucheng/runtime/CR01-cce-recovery-20260922, baseline42edd35; Task4 basef93ba00.
+Native counterpart bd41f87 on jiucheng/runtime/p02-master-handoff-20260923;
+plugin5b5d7ee unchanged. Commit containing this entry is the platform closure.
+
+Completed:
+- cce_paired_runtime.py: initial registered submission and interrupted original
+  handoff reconciliation; active reconnect, direct Step3 replacement and post-CAS
+  crash replay; authenticated producer/archive selection; actual child-process
+  Step4–6 command/receipt reconstruction and final directory release.
+- cce_recovery_inventory.py + existing WGS/GATK Resume: separate immutable origin
+  and selected source, preserve registered lineage and original producer identity;
+  sealed ancestor Worker snapshots participate in complete live reconciliation.
+- Existing runtime gates: selected initial/monitor/downstream routing and WGS
+  actual reattach revalidation before receipt archival. Generic JSON cannot mint
+  VerifiedMasterResult. GATK approved materialization target is unchanged.
+- Native cce_batch_runtime.py: generation-local final manifest projection and
+  shared-history digest; no shared manifest or original bundle rewrite.
+- tests/test_p02_selected_monitor.py plus new test_p02_manual_flow.py and
+  p02_dag_transport.py: existing authenticated API/service, actual DAG methods in
+  a separate Airflow subprocess, restricted native source, normal receipts and
+  downstream success. Same attempt/action/config/workdir; one lost-response POST;
+  no prepare/upload rerun. This is synthetic transport, not live scheduling.
+- CURRENT_STATE/TASKS/docs08/Task4 implementation plan/P0 progress consolidated;
+  old checkpoint OPEN text is historical, not current unfinished work.
+
+Final independent code review: no Critical, three Important findings (initial
+interrupted handoff, retained old Workers at release, WGS reattach receipt fields).
+Five behavioral cases RED; fixed with the existing journal/evidence contracts.
+First fix run3 passed/1 skipped/2 failed: remaining failure was a synthetic test
+label mismatch (display label overwrote native inventory identity), corrected in
+fixture without relaxing production checks; retained-Worker2 then passed7.32s.
+No repeated reviewer or broad test suite. Earlier recorded service/DAG/lock tests
+are reused, not rerun. Requirement-by-requirement result is in Task4's plan table.
+
+Environment checked before each remote action: ssh BS10610, hostname server10610;
+control root /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS, current points to
+releases/20260912-opt-4d3d24e6; backend36ff21f87356 /app mounted read-only from
+releases/20260923-step7-ae416fa/backend/backend, /config read-only from
+releases/20260912-opt-4d3d24e6/config. scan=false/auto_dispatch=false unchanged.
+Cached containers --network none --read-only --cpus1 --memory1g; candidate/native/
+plugin mounts read-only, only task synthetic scratch writable. No services changed.
+
+Final commands (PowerShell runner under ignored
+.superpowers/sdd/2026-09-23-p0-2-master-handoff-ttl-implementation/selected-test.ps1):
+- -Log task4-selected-final: test_p02_selected_monitor.py **41 passed,1 skipped
+  in76.91s**. Skip = GATK has no separate WGS reattach-worker entry; its own actual
+  recovery path is tested. Includes real forked selected monitor/downstream.
+- -Integration -Test scripts/tests/test_p02_manual_flow.py -Log task4-manual-final:
+  **2 passed41.32s**, dependency-only AnyIO/Starlette deprecation warning.
+- Local git diff --check only (non-runtime); no local pytest or compile substitute.
+
+Evidence root /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/
+p02-task4-20260924/: task4-selected-final.log, task4-manual-final.log,
+review-boundaries-red.log, review-boundaries-green.log,
+review-retained-workers-green.log. Earlier implementation RED/GREEN logs retained,
+including replay-chain-{red,green}, reattach-chain-red and initial-resume-green4.
+Initial manual fixture/environment failures were not acceptance: missing cached
+dependencies/permissions, incomplete registry fixtures, global mock sleep and
+missing normal gate receipt. Corrected only isolated runner/fixtures; no install.
+
+Test provenance: native image a0112f0b8ef003dd488c6c6ee2f13ca760c116d703e9ff7a83083e2857ce143e,
+integration Airflow58195672af685cfa6551cfc44b37b6218bd2039c44b717163a6e8072f78dfd2b.
+Integration uses offline selected dependencies exported from cached backend
+8491604ee01d9b3a84d74e7edf233a9d5dd20ddbf14f8a646c25c05f8729efed and native image;
+export hashes/image IDs in downstream-scratch/backend-deps/{provenance,native-provenance}.json.
+Airflow subprocess retains its SQLAlchemy1.4 environment; backend uses temporary
+SQLite/SQLAlchemy2, no live PostgreSQL or credentials. No wheel/image built.
+
+Not run / remaining gates: full suites (user explicitly asked minimal affected
+tests), live scheduler/SSH/native cloud operations, PostgreSQL contention, actual
+TTL/AOM/capacity/notifications (Tasks5/6 and separately authorized operational work).
+Task4 is manual source accepted, NOT all P0, artifact release or production-ready.
+No open Task4 Important/Critical finding; unknown/legacy evidence remains blocked
+by design. Production five old failed batches are not migrated or restarted.
+
+Next: Task5 existing TTL generators and pinned artifact acceptance, then Task6;
+do not enable installed GATK resume capability or operator policy automatically.
+Branches/worktrees retained, no merge/push. Native commit initially failed because
+its repo lacked author config; retried with per-command identity matching existing
+commits, no global configuration change. Before deployment rollback is paired
+source revert only; preserve records, bindings and data. After future TTL activation,
+never revert to a reader requiring already-reclaimed objects.
+
 ## 2026-09-24 Task4 selected Master -> actual Step3 monitor checkpoint
 
 BS10610 SSH restored; hostname server10610. Each isolated run rechecked current

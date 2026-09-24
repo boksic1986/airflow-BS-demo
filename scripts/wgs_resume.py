@@ -158,7 +158,7 @@ def resume_master(*, payload, binding, runtime=None, recovery=None):
             from .cce_recovery_inventory import RecoveryCapability
         else:
             from cce_recovery_inventory import RecoveryCapability
-        if not isinstance(recovery,RecoveryCapability) or recovery.bundle != bundle:
+        if not isinstance(recovery,RecoveryCapability) or recovery.origin_bundle != bundle:
             raise RuntimeError('internal verified recovery capability required')
         recovery.bind(runtime,contract,config,run_label=binding['run_label'],pipeline='wgs',
             analysis_id=payload['analysis_id'],attempt=payload['attempt'],action=payload['resume_action_id'])
@@ -167,7 +167,10 @@ def resume_master(*, payload, binding, runtime=None, recovery=None):
         with os.fdopen(descriptor,'a') as lock:
             fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
             journal=json.loads(_regular(journal_path).read_text()) if journal_path.exists() else {}
-            result = runtime._advance_recovery_view(bundle,contract,config,context=recovery.context,
+            if journal.get('registered_source', str(recovery.bundle)) != str(recovery.bundle):
+                raise RuntimeError('registered recovery source changed')
+            journal['registered_source'] = str(recovery.bundle)
+            result = runtime._advance_recovery_view(recovery.bundle,contract,config,context=recovery.context,
                 expected_job_uid=recovery.expected_job_uid,destination=journal_path.with_suffix('')/'view',
                 journal=journal,save_journal=lambda value:_save(journal_path,value),check=recovery.inspect,
                 claim=recovery.claim,authorize=recovery._authorized,platform_execution=recovery.platform_execution)
@@ -292,10 +295,11 @@ def run_resume_stage(payload, *, gate):
         subprocess.run(gate._step_command(payload, stage), check=True)
     elif stage in {'step2_master', 'step3_monitor'}:
         if __package__:
-            from .cce_paired_runtime import resume_registered, selected_runtime
+            from .cce_paired_runtime import resume_registered, selected_runtime, prepare_monitor_registered
         else:
-            from cce_paired_runtime import resume_registered, selected_runtime
+            from cce_paired_runtime import resume_registered, selected_runtime, prepare_monitor_registered
         if stage == 'step3_monitor' and selected_runtime() is not None:
+            prepare_monitor_registered(payload, binding=binding, gate=gate, pipeline='wgs')
             gate._monitor_step3(payload)
             return
         result = resume_registered(payload, binding=binding, gate=gate, pipeline='wgs')

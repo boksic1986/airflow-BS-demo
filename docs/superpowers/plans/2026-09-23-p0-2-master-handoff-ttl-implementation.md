@@ -180,6 +180,31 @@ assert delete_options["preconditions"] == {"uid": old_uid, "resourceVersion": ol
 
 ## Task4 — Authenticated manual adapter closure before automatic dispatch
 
+**Accepted 2026-09-24: manual source/synthetic scope complete.** Native bd41f87,
+plugin5b5d7ee (unchanged), platform commit containing this acceptance entry.
+The checkpoints below are historical; their OPEN statements are superseded here.
+Task5/6 remain unstarted and deployment/automatic/TTL gates remain closed.
+
+Latest-design verification (not a new feature plan):
+
+| Requirement | Implemented evidence / acceptance |
+| --- | --- |
+| Existing authenticated manual entry, same RunAction/attempt/config/workdir | Existing WGS/GATK services and real DAG methods; final manual flows2 passed; no prepare/upload rerun or forceall |
+| Active Master reattach; initial interrupted handoff and CAS replay | Exact native journal/view/UID, original deadline, one CREATE/START; focused initial/direct/reconnect cases |
+| Native success only, selected Master through normal downstream | Fresh-process Step3 and Step4–6 reconstruct native authority and normal predecessor receipts; both adapters pass |
+| Old writers stopped and complete evidence before replace/release | Existing shared directory/dispatcher locks, sealed current and historical Worker inventories, full live lists; unknown/active/unbound objects block |
+| Original producer distinct from new observer | Archived authenticated request and native binding revalidation, including actual WGS reattach worker; normal receipt digests retained |
+| No earlier release during downstream / no old bundle mutation | Step6 materialized + native success + final quiescence + CAS release; RELEASED replay does not rewrite; frozen bundle byte assertions |
+| No scope expansion or production activation | No new API/schema/retry engine, no Task5/6 changes, no images/CLI/policy install, main/production merge or real reruns |
+
+One final review found three Important boundaries: interrupted initial handoff,
+retained previous-generation Workers at final release, and WGS reattach receipt
+authority. Five behavioral regressions reproduced RED; repaired. Final BS10610
+selected41 passed/1 skip76.91s (GATK has no WGS-specific reattach worker), manual
+authenticated flows2 passed41.32s. Review fix pass only; no repeated review/full
+suite. Latest logs and limitations are in HANDOFF. This is Task4 acceptance, not
+live scheduler/PostgreSQL/TTL/AOM or full automatic P0 acceptance.
+
 2026-09-24 registered Step2 source checkpoint: trusted factory now reads existing
 authenticated spool, verifies its adapter-specific hash, operator frozen binding,
 physical directory and exact native old owner, excludes sibling dispatchers and
@@ -254,7 +279,7 @@ intent and flock/PID identity fencing, including late receipt protection. BS1061
 five RED then15 focused GREEN checks. No gate activation; storage/all-writer and
 selected-view binding/downstream integration below remain open.
 
-- [ ] Add failing parameterized adapter tests using the actual service and existing DAG path. Cover repeat request, old terminal, success->downstream, current-attempt preservation, explicit legacy rejection and pending automatic/manual control exclusion.
+- [x] Add failing parameterized adapter tests using the actual service and existing DAG path. Cover repeat request, old terminal, success->downstream, current-attempt preservation, explicit legacy rejection and pending automatic/manual control exclusion.
 
 ```python
 assert resumed_run.attempt == original_attempt
@@ -263,19 +288,15 @@ assert airflow_posts_for_replayed_action == 1
 assert persisted_dag_id == confirmed_dag_id
 ```
 
-- [ ] Run RED on BS10610; route GATK via its own existing restricted runtime, not by removing the WGS pipeline guard and applying WGS internals unchanged.
-- [ ] Persist binding/generation/action before external dispatch; exact DagRun lost-response reconciliation. Keep automatic recovery disabled. This task ends at manual Step2/3 handoff/recovery and normal downstream continuation, not complete automatic P0.
-- [ ] GREEN affected service/DAG cases; one focused manual mock flow, no service deployment. Commit contracts and progress.
+- [x] Run RED on BS10610; route GATK via its own existing restricted runtime, not by removing the WGS pipeline guard and applying WGS internals unchanged.
+- [x] Persist binding/generation/action before external dispatch; exact DagRun lost-response reconciliation. Keep automatic recovery disabled. This task ends at manual Step2/3 handoff/recovery and normal downstream continuation, not complete automatic P0.
+- [x] GREEN affected service/DAG cases; one focused parameterized manual mock flow, no service deployment. Commit contracts and progress.
 
 ## Task5 — TTL generators and integrated artifact acceptance
 
-Task4 source checkpoint (2026-09-24): native903e1af + platform selected-monitor
-entry now reconstruct the successful Step2-selected Master across processes and
-use it in both actual Step3 gate loops/rule bridge. New18 focused checks and5
-affected checks GREEN on BS10610; old completion marker and reclaimed failure
-were reproduced RED before fixes. Original bundles unchanged, no activation.
-Direct Step3 replacement/initial-submit paths, Step4-6/final release and full
-manual flow remain OPEN. This checkpoint does NOT open Task5.
+Task4 manual source dependency accepted 2026-09-24 as recorded above. Task5 is
+the next planned task, not implemented or activated by this Task4 closure. The
+separate build-environment/source-ownership and production gates still apply.
 
 **Files:** Plugin existing Worker Job generator; cce-pipeline `src/cce_pipeline/master_job.py` and Master template source used by it; Airflow `scripts/wgs_evidence_bridge.py::build_reader_job`. Preserve Step7/maintenance templates outside this scope.
 
@@ -302,7 +323,14 @@ assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
 - [ ] CR-05 focused PostgreSQL contention and final integration tests, no real biological analysis. Respect WGS/GATK per-adapter enablement.
 - [ ] Separate production authorization: real synthetic Complete/Failed TTL checks, all-entry Pod capacity accounting, AOM data freshness and alert notification record. Missing evidence keeps production gate closed; no invented managed metrics or self-hosted monitoring service.
 
-## Progress / current interruption
+## Progress / current status
+
+2026-09-24: Tasks1–4 accepted in isolated source with bounded BS10610 synthetic
+evidence. Task4 acceptance above supersedes prior interrupted/partial entries.
+Tasks5/6 remain unstarted. No production activation; retain all source branches
+and evidence. Next is Task5, not a repeat of the Task4 helpers or full P0 claim.
+
+### Historical initial interruption
 
 2026-09-23: plan written after user explicitly requested planning and implementation.
 Design integration including781877e completed; executable Tasks1–6 remain open. Two bounded remote preflight attempts

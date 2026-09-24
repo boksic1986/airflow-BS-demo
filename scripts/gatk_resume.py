@@ -221,7 +221,7 @@ def resume(*, analysis_id, attempt, expected_job_uid, expected_binding_sha256,
                 from .cce_recovery_inventory import RecoveryCapability
             else:
                 from cce_recovery_inventory import RecoveryCapability
-            if (not isinstance(recovery,RecoveryCapability) or recovery.bundle!=bundle
+            if (not isinstance(recovery,RecoveryCapability) or recovery.origin_bundle!=bundle
                     or recovery.expected_job_uid!=expected_job_uid):
                 raise ResumeGuardError('internal verified recovery capability required')
             recovery.bind(runtime,contract,config,run_label=binding['run_label'],pipeline='gatk',
@@ -232,7 +232,10 @@ def resume(*, analysis_id, attempt, expected_job_uid, expected_binding_sha256,
                     _guard_maintenance_and_obs(runtime,contract,config,modules)
                 return observed
             journal=journal or dict(identity)
-            result=runtime._advance_recovery_view(bundle,contract,config,context=recovery.context,
+            if journal.get('registered_source', str(recovery.bundle)) != str(recovery.bundle):
+                raise ResumeGuardError('registered recovery source changed')
+            journal['registered_source'] = str(recovery.bundle)
+            result=runtime._advance_recovery_view(recovery.bundle,contract,config,context=recovery.context,
                 expected_job_uid=expected_job_uid,destination=request_dir/('resume-'+expected_job_uid+'-view'),
                 journal=journal,save_journal=lambda value:_save(journal_path,value),check=check,
                 claim=recovery.claim,authorize=recovery._authorized,
