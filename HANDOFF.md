@@ -2,6 +2,19 @@
 
 ## 2026-09-24 Task4 CLI compatibility authorization
 
+Latest: protected stage actual arguments now bind to original bundle/contract/
+config; wrong Step6 output root rejects before side effects. New targeted RED,
+final13 writer cases GREEN0.51s, protected-target-{red,green}.log. Native source
+has a follow-up commit after8ec5415; no production artifacts were built/installed.
+
+Asked user for the one remaining mapping choice before actual gate activation:
+reuse existing cloud read-only reader to obtain canonical SFS identity (preferred,
+no new mount), or provide an existing actual SFS mount on CLI nodes. Current host
+mapping code requires that mount; BS/NFS paths are NOT proof of cloud SFS access.
+No mount, new cloud probe, operator policy or real production query was performed.
+Execution-plan boundary: do not silently add storage infrastructure or treat a
+local NFS path as cloud evidence. Task4 OPEN; Task5/6 must not start prematurely.
+
 User confirmed extending isolated cce-pipeline CLI Step1–Step6 protected entries,
 trusted storage mapping and paired CLI/platform version checks. Authorization is
 source development and BS10610 synthetic validation only. No production CLI,

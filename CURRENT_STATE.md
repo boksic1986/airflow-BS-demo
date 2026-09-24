@@ -2,6 +2,12 @@
 
 ## 2026-09-24 Task4 CLI protected-entry checkpoint (native8ec5415)
 
+Follow-up binds actual stage arguments to the original bundle/contract/config;
+new13 checks passed. Cloud SFS identity source now needs confirmation: reuse the
+existing cloud read-only reader (recommended) vs an already mounted SFS path.
+No verified local SFS mapping exists in this task; do not substitute local NFS or
+create new mounts. Waiting for that choice before the actual gate integration.
+
 User approved CLI Step1–Step6 compatibility scope. Isolated native source now
 guards every stage, preserves v2 locks on early failure, checks operator-owned
 paired source pins/physical storage mapping/exact frozen binding at CLI entry,

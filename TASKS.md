@@ -10,6 +10,9 @@
 - [ ] Complete
   trusted storage/all-writer and actual restricted-gate receipt forwarding before
   Task4 acceptance. Tasks5/6 remain unstarted, not skipped or marked complete.
+- [ ] Confirm canonical SFS identity source: existing cloud read-only reader
+  (recommended; no new mount) vs user-supplied existing actual SFS mount. Never
+  equate local analysis NFS with cloud SFS. No activation without this resolution.
 
 - [x] Task4 GATK Step1–6 dispatcher launch/worker fence and late-receipt protection;
   BS10610 focused15 passed. This is not the full Task4 manual mock acceptance.
