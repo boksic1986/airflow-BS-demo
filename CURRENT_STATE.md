@@ -1,5 +1,28 @@
 # Current state
 
+## 2026-09-25 Task6 prerequisite accepted — bound failure accounting
+
+User approved “补齐，然后继续”. Existing Master rule-status logger now counts
+typed submission/control failures, rule/group failures and unstructured errors;
+private phase summary becomes complete only on normal logger close after exactly
+one workflow start. Real Snakemake9.24 shutdown notices are separately accounted
+for by exact source/function/message, never by text alone. Worker mode is unchanged.
+Native handoff-v2 preflight also enables this logger; FINAL binds the optional
+summary without inventing completeness for old/missing audits.
+
+The restricted selected-Master monitor verifies native FINAL, all phase audits,
+retained Worker lineage and fresh complete Job/Pod inventory before attaching
+`cce_recovery_evidence` to the existing immutable verified receipt. Backend
+reservation consumes schema2 with distinct platform and native identities,
+including a later observer retaining an older Step3 producer. Missing/mixed/
+active/unclassified evidence remains ineligible; no automatic dispatch occurs.
+
+BS10610 offline final focused28 passed35.59s. This closes the approved producer/
+schema2 prerequisite only; Task6 dispatch, policy freeze, Step4 reconciliation,
+UI/PG/final integration and separately authorized operational gates remain open.
+No installed CLI/image/policy, production, main merge, push or real rerun changes.
+Task5 artifacts retain their original bytes and do not contain this new source.
+
 ## 2026-09-24 Task6 preflight — automatic evidence producer gap
 
 Task6 started with source/interface inspection at platform83528cf,

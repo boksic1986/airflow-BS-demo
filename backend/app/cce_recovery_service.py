@@ -12,6 +12,7 @@ from sqlalchemy import select
 
 from app.cce_recovery_budget import ACTION, reserve_compute_recovery
 from app.cce_recovery_reader import read_recovery_evidence
+from app.cce_recovery_evidence import validate_schema2_recovery_evidence
 from app.models import AnalysisRun, PipelineStageExecution, RunAction, WgsStageExecution
 
 
@@ -69,25 +70,49 @@ bindings in historical releases reject; no backfill or invented identity.
     if (source is None or source.stage_code not in {"step2_master", "step3_monitor"}
             or source.status not in {"success", "failed"} or source.release_id != release):
         raise ValueError("invalid Master submit execution binding")
-    if latest(source.stage_code).execution_id != source_id:
-        raise ValueError("Master submit execution was superseded")
     binding = _payload(source).get("cce_master_binding")
-    if not isinstance(binding, dict) or binding.get("workdir") != run.workdir:
+    if not isinstance(binding, dict):
         raise ValueError("missing or changed frozen Master binding")
-    context = binding.get("context")
-    identity = dict(pipeline=run.pipeline_name, analysis_id=analysis_id, attempt=str(attempt),
-                    execution_id=source.execution_id, generation=source.generation,
-                    request_hash=source.request_hash)
-    if not isinstance(context, dict) or any(type(context.get(k)) is not type(v) or context[k] != v
-                                            for k, v in identity.items()):
-        raise ValueError("Master context differs from frozen submit execution")
-    validated = read_recovery_evidence(root=evidence_root,
-        relative_dir=binding.get("evidence_scope"), expected_context=context)
+    schema2 = binding.get('schema_version') == 2
+    current_source = latest(source.stage_code)
+    if current_source.execution_id != source_id:
+        # A new observer does not become a new native producer. Only its verified
+        # receipt can retain an older producer; accepted/running/new-Master rows
+        # remain a superseding fence.
+        if (not schema2 or current_source.status not in {'success','failed'}
+                or current_source.release_id != release
+                or _payload(current_source).get('cce_master_submit_execution_id') != source_id
+                or _payload(current_source).get('cce_master_binding') != binding):
+            raise ValueError('Master submit execution was superseded')
+    if schema2:
+        if _payload(monitor).get('cce_master_binding') != binding:
+            raise ValueError('monitor selected a different native Master')
+        platform = dict(pipeline=run.pipeline_name,analysis_id=analysis_id,attempt=attempt,
+            stage=source.stage_code,execution_id=source.execution_id,generation=source.generation,
+            request_hash=source.request_hash)
+        validated = validate_schema2_recovery_evidence(binding=binding,
+            evidence=_payload(monitor).get('cce_recovery_evidence'),expected_platform=platform)
+    else:
+        # Preserve the earlier fixed-scope internal contract; it cannot fall back
+        # from a missing/mismatched schema2 receipt or invent new legacy evidence.
+        if binding.get('workdir') != run.workdir:
+            raise ValueError('missing or changed frozen Master binding')
+        context = binding.get("context")
+        identity = dict(pipeline=run.pipeline_name, analysis_id=analysis_id, attempt=str(attempt),
+                        execution_id=source.execution_id, generation=source.generation,
+                        request_hash=source.request_hash)
+        if not isinstance(context, dict) or any(type(context.get(k)) is not type(v) or context[k] != v
+                                                for k, v in identity.items()):
+            raise ValueError("Master context differs from frozen submit execution")
+        validated = read_recovery_evidence(root=evidence_root,
+            relative_dir=binding.get("evidence_scope"), expected_context=context)
     evidence_binding = dict(monitor_execution_id=monitor.execution_id,
         monitor_generation=monitor.generation, monitor_request_hash=monitor.request_hash,
         submit_generation=source.generation, submit_request_hash=source.request_hash,
         release_id=release, category=validated["category"],
         evidence_key=validated["evidence_key"], evidence_sha256=validated["evidence_sha256"])
+    if schema2:
+        evidence_binding.update(native_binding_sha256=validated['native_binding_sha256'],workdir=run.workdir)
     prior_actions = session.scalars(select(RunAction).where(
         RunAction.analysis_id == analysis_id, RunAction.action == ACTION)).all()
     for prior in prior_actions:

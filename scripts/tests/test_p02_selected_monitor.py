@@ -244,7 +244,7 @@ def test_direct_step3_replacement_and_observation(registered,monkeypatch):
 @pytest.mark.parametrize('view_inputs',[{'pipeline':'wgs','analysis_id':'WGS_20260924_000000_AAAAAA'},
     {'pipeline':'gatk','analysis_id':'GATK_20260924_000000_AAAAAA'}],indirect=True)
 @pytest.mark.parametrize('fault',[None,'receipt_uid','old_terminal','journal_view','lock_owner','gate',
-    'old_marker','reclaimed_success','reclaimed_failure','downstream','reconnect','reconnect_downstream'])
+    'old_marker','reclaimed_success','reclaimed_failure','recoverable_failure','downstream','reconnect','reconnect_downstream'])
 def test_fresh_monitor_uses_selected_master_and_rejects_stale_authority(registered,monkeypatch,fault):
     state,launch,gate,submit,request,policy,bundle,h=registered
     original={str(p.relative_to(bundle)):p.read_bytes() for p in bundle.rglob('*') if p.is_file()}
@@ -303,19 +303,36 @@ def test_fresh_monitor_uses_selected_master_and_rejects_stale_authority(register
     if fault in ('old_marker','reclaimed_success','downstream','reconnect_downstream'):
         evidence['workflow-completion.json']={'required':[{'path':'ANALYSIS_COMPLETE',
             'content':json.dumps({'schema_version':1,'status':'PASS',**h.contract['identity']})}]}
-    if fault in ('reclaimed_success','reclaimed_failure','downstream','reconnect_downstream'):
+    if fault in ('reclaimed_success','reclaimed_failure','recoverable_failure','downstream','reconnect_downstream'):
         record=runtime._read_master_handoff(selected,h.contract)
         monkeypatch.setattr(runtime,'_master_input_context',lambda:record)
         for phase in ('preflight','analysis'):
             env=runtime._recovery_phase_start(phase)
             root=Path(env['SNAKEMAKE_CCE_SUBMIT_EVIDENCE_DIR'])
             ctx=json.loads(Path(env['SNAKEMAKE_CCE_SUBMIT_CONTEXT_FILE']).read_bytes())
-            SubmissionManager(ctx,root,plugin_tests.API(root,[])).claim_executor()
-            runtime._recovery_phase_finished(phase,0)
+            clock=plugin_tests.Clock()
+            manager=SubmissionManager(ctx,root,plugin_tests.API(root,[plugin_tests.admission()]*3),
+                monotonic=clock.monotonic,sleep=clock.sleep)
+            manager.claim_executor()
+            if fault=='recoverable_failure':
+                import logging
+                from snakemake_logger_plugin_rule_status.failure_summary import FailureSummary
+                from snakemake_interface_logger_plugins.common import LogEvent
+                audit=FailureSummary(root/'submit-context.json',root)
+                event=logging.LogRecord('synthetic',logging.INFO,'synthetic',1,'',(),None)
+                event.event=LogEvent.WORKFLOW_STARTED;audit.emit(event)
+                if phase=='analysis':
+                    requested=plugin_tests.body();requested.metadata.name='snakejob-new-absent'
+                    with pytest.raises(plugin_tests.module().SubmissionFailure):manager.submit(requested,1)
+                    event=logging.LogRecord('synthetic',logging.ERROR,'synthetic',1,'',(),None)
+                    event.event=LogEvent.ERROR;event.exception='SubmissionFailure';audit.emit(event)
+                audit.close()
+            runtime._recovery_phase_finished(phase,1 if fault=='recoverable_failure' and phase=='analysis' else 0)
         success=fault in ('reclaimed_success','downstream','reconnect_downstream')
         terminal=runtime._bind_master_terminal({'schema_version':1,'state':'SUCCEEDED' if success else 'FAILED',
-            'exit_code':0 if success else 1,'failed_stage':'final_dryrun','finished_epoch':h.now+1,
-            'exit_codes':{'preflight':0,'analysis':0,'final_dryrun':0 if success else 1}})
+            'exit_code':0 if success else 1,'failed_stage':'analysis' if fault=='recoverable_failure' else 'final_dryrun','finished_epoch':h.now+1,
+            'exit_codes':{'preflight':0,'analysis':1 if fault=='recoverable_failure' else 0,
+                'final_dryrun':None if fault=='recoverable_failure' else 0 if success else 1}})
         evidence['RUN_COMPLETE.json' if success else 'RUN_FAILED.json']=terminal
         evidence['recovery-final.json']=json.loads((Path(h.contract['paths']['run_dir'])/'evidence'/record['run_id']/'recovery-final.json').read_bytes())
         runtime._write_mirror_evidence(selected,record['run_id'],evidence,
@@ -365,17 +382,23 @@ def test_fresh_monitor_uses_selected_master_and_rejects_stale_authority(register
     os.close(write_fd)
     with os.fdopen(read_fd) as stream:answer=json.load(stream)
     assert os.waitpid(pid,0)[1]==0
-    if fault not in (None,'gate','old_marker','reclaimed_success','reclaimed_failure','downstream','reconnect','reconnect_downstream'):
+    if fault not in (None,'gate','old_marker','reclaimed_success','reclaimed_failure','recoverable_failure','downstream','reconnect','reconnect_downstream'):
         assert 'error' in answer and not answer['error'].startswith('AttributeError'),answer
     else:
         assert 'error' not in answer,answer
         assert answer['pid']!=os.getpid()
-        assert answer['status']['master_state']=={'reclaimed_success':'SUCCEEDED','downstream':'SUCCEEDED','reconnect_downstream':'SUCCEEDED','reclaimed_failure':'FAILED'}.get(fault,'RUNNING')
+        assert answer['status']['master_state']=={'reclaimed_success':'SUCCEEDED','downstream':'SUCCEEDED','reconnect_downstream':'SUCCEEDED','reclaimed_failure':'FAILED','recoverable_failure':'FAILED'}.get(fault,'RUNNING')
         assert answer['status']['completed']==(10 if fault in ('reclaimed_success','downstream','reconnect_downstream') else 2)
         assert answer['receipt']['cce_master_binding']['native']['job_uid']=='new-uid'
         assert answer['receipt']['cce_master_submit_execution_id']==submit['execution_id']
         assert answer['receipt']['execution_id']==current['execution_id']
         assert runtime._mirror_dir(selected,state.record['run_id']).is_dir()
+        if fault=='recoverable_failure':
+            proof=answer['receipt']['cce_recovery_evidence']
+            assert proof['binding']==answer['receipt']['cce_master_binding']
+            assert proof['terminal']['generation']==3
+            assert proof['binding']['platform_execution']['generation']==8
+            assert proof['terminal']['executor_failure_count']==1
     if fault in ('downstream','reconnect_downstream'):
         monkeypatch.setattr(runtime,'_release_batch_lock',REAL_RELEASE)
         calls=[]

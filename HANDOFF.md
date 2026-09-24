@@ -1,5 +1,71 @@
 # Handoff
 
+## 2026-09-25 Task6 approved prerequisite / source acceptance
+
+Authorization: user “补齐，然后继续” approves the prior bounded Master wrapper/
+logger and schema2 bridge prerequisite. No repeat approval needed. BASE platform
+da6626b/native770934c/pluginb6d1fb8; existing three isolated branches unchanged.
+
+Completed: privacy-safe complete Master error accounting and real Snakemake
+lifecycle validation; handoff-v2 preflight logger; optional native FINAL phase
+summary binding; restricted current-Master native FINAL + retained/live Worker
+reconciliation; immutable normal receipt evidence; schema2 backend reservation
+with distinct platform/native identities. Later observer generations may retain
+an older verified producer, not spend another budget or relabel its native hash.
+Missing/unfinished/mixed evidence and active/unknown work stay ineligible. Normal
+manual monitoring still reports failures even when automatic proof is unavailable.
+
+Files: plugin failure_summary.py, logger __init__, two focused tests; native
+run_cce_master_job.sh, cce_batch_runtime.py and two existing fixture/test files;
+platform cce_recovery_failure.py, cce_paired_runtime.py, cce_recovery_inventory.py,
+backend cce_recovery_evidence/service.py, source/monitor tests and state/runtime docs.
+No public API, table, UI, biological rule or installed configuration changed.
+
+Test environment only: ssh BS10610 -> server10610, uid6708/gid520. Each remote
+runner rechecked control `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS`,
+current releases/20260912-opt-4d3d24e6, backend36ff21f87356 /app read-only at
+20260923-step7-ae416fa/backend/backend and /config read-only at current/config;
+WGS_INTAKE_SCAN_ENABLED=false, WGS_AUTO_DISPATCH_ENABLED=false. All preserved.
+New owned evidence root (no /tmp):
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/p02-task6-20260925`.
+Offline non-root read-only cached Master container a0112f0b, network none,
+one CPU/1GiB, own writable scratch; actual Snakemake9.24.0+biosan1. Existing
+Task4 backend dependency cache read-only; temporary synthetic SQLite only.
+
+Commands: ignored task6.ps1 uploads scoped source and runs `python -m pytest -q
+-p no:cacheprovider --tb=short` on the explicit selected files/nodes recorded in
+prerequisite-final.log. RED/GREEN: logger4 RED/1 existing pass ->5 GREEN; native
+summary3 RED->3 GREEN; preflight logger2 RED; actual Snakemake control lifecycle1
+RED (two redundant shutdown ERRORs) with submission/rule2 already GREEN;
+source classifier6 RED->6 GREEN; schema2 receipt/reservation2 RED->2 GREEN;
+older Step3 producer observer2 RED->2 GREEN; genuine fresh monitor2 RED->2 GREEN.
+Final changed-boundary suite **28 passed35.59s**, including normal receipt2 and
+three real Snakemake lifecycle cases. No full Task1–5 suite or local runtime tests.
+
+Diagnostic failures (not acceptance): initial real lifecycle fixture hit read-only
+cache and missing passwd UID; fixed only synthetic XDG_CACHE_HOME/USER/LOGNAME.
+Probe initially imported old testdeps Snakemake, then corrected image site-packages
+precedence; two probe syntax/import mistakes corrected without production effect.
+An incorrect -k selected zero tests (exit5); replaced with exact nodes. Some local
+rg wildcard/nonexistent path guesses were replaced with scoped file discovery.
+No unresolved test failures. git diff --check is the local non-runtime check.
+
+Ruling: use existing verified normal status receipts for schema2 evidence instead
+of adding a backend cloud reader/service or flattening native IDs. The restricted
+reader already owns authenticated source/lock mapping and cloud queries. This
+keeps the original plan's single budget owner; failure cost is fail-closed/manual,
+never automatic authorization from arbitrary receipt JSON.
+
+Next: continue Task6 actual due dispatch through the shared Resume dispatcher,
+frozen new-attempt policy/budget, bounded worker wait, Step4 uncertain dispatch,
+existing UI projection and focused PG/final acceptance. This prerequisite is not
+whole Task6/P0 completion. Exact CREATE transport/storage eligibility must be
+checked against the existing producer contract; no new broad retry classes.
+No merge/push, production, real rerun, CLI/image installation or live cloud
+TTL/capacity/AOM/alerts acceptance. Task5 accepted artifacts remain immutable;
+new source needs distinct version/pins/artifacts before activation. Rollback is
+source revert only; no data/evidence cleanup and no services to roll back.
+
 ## 2026-09-24 Task6 preflight / failure-summary scope confirmation
 
 Goal: continue the approved Task6 after Task5, without repeating accepted tests

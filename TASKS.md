@@ -1,18 +1,23 @@
 # Active test-branch tasks
 
-## Task6 preflight — 2026-09-24
+## Task6 active — 2026-09-25
 
 - [x] Inspect Task4/5 producer versus existing automatic-recovery consumer.
-- [ ] Confirm necessary wrapper/logger failure-summary addition before extending
+- [x] User approved necessary wrapper/logger failure-summary addition before extending
   runtime source; preserve existing biological workflow and accepted artifacts.
-- [ ] Bind automatic evidence to schema2 platform/native identities without
+- [x] Complete phase-bound logger accounting, final snapshot and real Snakemake
+  lifecycle validation; incomplete/mixed failures remain ineligible.
+- [x] Bind automatic evidence to schema2 platform/native identities without
   conflating their execution IDs, generations or request hashes.
 - [ ] Complete automatic dispatch, policy/budget freeze, Step4 reconciliation,
   existing UI projections and focused PostgreSQL/integration acceptance.
 - [ ] Separately authorized live TTL/capacity/AOM/alerts gates remain closed.
 
-This is a preflight finding, not Task6 implementation or automatic recovery
-acceptance. No new test run, production access, deployment or rerun.
+Task6 prerequisite accepted: final focused28 GREEN35.59s on BS10610. The selected
+monitor and normal immutable receipt reach the existing reservation owner;
+source classification/receipt acceptance is not automatic dispatch acceptance.
+Task6 implementation is in progress under the user's “补齐，然后继续”.
+This does not authorize production, installed policy, real reruns or operational gates.
 
 ## Task5 accepted — 2026-09-24
 

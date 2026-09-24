@@ -1161,3 +1161,33 @@ SFS targets. Native Step7 again requires DOWNLOAD_VERIFIED, MATERIALIZED and
 no active historical Workers. Unverified cleanup is never enabled. It deletes
 only frozen SFS run/linkage and their terminal job/batch-lock resources;
 approved local delivery, local evidence, OBS input, release and references remain.
+# Task6 Master failure accounting / schema2 evidence (2026-09-25)
+
+Source-only, default activation unchanged. In an existing handoff-v2 submission
+phase, Master rule-status emits private `failure-summary.json` with schema
+`cce.master-failure-summary.v1`, exact submit-context, closed/complete flags,
+workflow-start count, cumulative submission/control/rule/other counts and separate
+upstream scheduler/workflow shutdown-notice counts. No error message or clinical
+payload is persisted. Missing start, duplicate start, logger write errors or an
+unclosed process cannot prove zero failures. Worker logger ignores this audit.
+Handoff-v2 preflight and analysis both use the logger; legacy preflight is unchanged.
+
+Native FINAL includes each present summary under `phases.<phase>.failure_summary`;
+identity mismatch invalidates the snapshot. Optional absence preserves manual
+historical recovery but is never sufficient for automatic recovery. The restricted
+selected-Master reader authenticates native FINAL and registered producer lineage,
+then verifies every phase and full live Job/Pod inventory including retained
+ancestors. Mixed/unknown failures, active work and incomplete reads remain blocked.
+
+Existing `VerifiedMasterResult` captures optional `cce_recovery_evidence` in its
+immutable receipt bytes. Only the same Step3 observation can forward it; generic
+progress kwargs, a plain deserialized result or another stage cannot supply it.
+Envelope schema2 contains the verified Master binding, failed phase, plugin
+candidate and `cce.master-terminal.v1` classification seal. This is the trusted
+producer of the earlier seal contract, not a frontend endpoint or recovery grant.
+Business reservation checks the original platform producer row and the latest
+monitor separately; native generation/request hash/phase execution ID are derived
+from `binding.native`, never substituted with platform fields. A newer observer
+may retain the older producer only through an identical verified native binding.
+Existing policy/budget/control and subsequent dispatch checks remain mandatory.
+No database table, public API, rule event schema, pipeline logic or live gate changes.

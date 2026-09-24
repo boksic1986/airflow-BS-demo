@@ -141,3 +141,41 @@ Each assertion is mandatory. Dispatch must independently recheck current state.
                 source_master_uid=expected_context["master_job_uid"],
                 category="heavy_slot_api_unavailable" if control else CATEGORIES[next(iter(categories))],
                 evidence_sha256=_digest(terminal))
+
+
+def validate_schema2_recovery_evidence(*, binding, evidence, expected_platform):
+    """Consume only the authenticated monitor receipt, not browser-uploaded data.
+
+    The restricted reader has revalidated native FINAL and complete live work.
+    Native phase identity intentionally differs from the platform producer row.
+    Dispatch must still repeat quiescence and current-control checks.
+    """
+    if (not isinstance(binding,dict) or type(binding.get('schema_version')) is not int
+            or binding['schema_version'] != 2 or not isinstance(evidence,dict)
+            or type(evidence.get('schema_version')) is not int or evidence['schema_version'] != 2
+            or _digest(evidence.get('binding')) != _digest(binding)
+            or _digest(binding.get('platform_execution')) != _digest(expected_platform)):
+        raise ValueError('automatic evidence differs from schema2 Master binding')
+    native = binding.get('native')
+    phase = evidence.get('phase')
+    if (not isinstance(native,dict) or phase not in {'preflight','analysis'}
+            or type(native.get('attempt')) is not int or native['attempt'] != expected_platform['attempt']
+            or not isinstance(native.get('recovery_context'),dict)):
+        raise ValueError('invalid native recovery identity')
+    recovery = native['recovery_context']
+    if (recovery.get('pipeline') != expected_platform['pipeline']
+            or recovery.get('analysis_id') != expected_platform['analysis_id']
+            or not isinstance(recovery.get('execution_id'),str)):
+        raise ValueError('native recovery belongs to another analysis')
+    context = dict(schema='snakemake.kubernetes.submit-context.v1',
+        pipeline=recovery['pipeline'],analysis_id=recovery['analysis_id'],attempt=str(native['attempt']),
+        execution_id=recovery['execution_id']+':'+phase,generation=native.get('execution_generation'),
+        request_hash=native.get('request_hash'),run_id=native.get('run_id'),namespace=native.get('namespace'),
+        master_job_uid=native.get('job_uid'),master_pod_uid=native.get('pod_uid'))
+    terminal = evidence.get('terminal')
+    if (not isinstance(terminal,dict) or not isinstance(terminal.get('submission_snapshot_sha256'),str)
+            or not re.fullmatch(r'[a-f0-9]{64}',terminal['submission_snapshot_sha256'])):
+        raise ValueError('native FINAL snapshot digest is required')
+    result = validate_recovery_evidence(expected_context=context,candidate=evidence.get('candidate'),terminal=terminal)
+    return dict(result,evidence_key=f"native-final/{native['job_uid']}/{phase}",
+        native_binding_sha256=_digest(binding))

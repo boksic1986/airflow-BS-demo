@@ -290,12 +290,16 @@ class VerifiedMasterResult(dict):
     snapshot so mutation of that result cannot replace a verified Master identity.
     A later process must revalidate native evidence before constructing this type.
     """
-    def __init__(self, result, binding, execution):
+    def __init__(self, result, binding, execution, *, failure_evidence=None):
         self._execution_bytes = json.dumps(execution, sort_keys=True).encode()
-        self._receipt_bytes = json.dumps({
+        fields = {
             'cce_master_binding': binding,
             'cce_master_submit_execution_id': binding['platform_execution']['execution_id'],
-        }, sort_keys=True).encode()
+        }
+        if failure_evidence is not None:
+            _require(execution['stage'] == 'step3_monitor' and failure_evidence.get('binding') == binding)
+            fields['cce_recovery_evidence'] = failure_evidence
+        self._receipt_bytes = json.dumps(fields, sort_keys=True).encode()
         super().__init__(result, **_json(self._receipt_bytes))
 
 
@@ -305,7 +309,7 @@ def master_receipt_fields(payload, *, pipeline, details):
     This does not authorize a downstream writer or select its runtime directory.
     Those remain protected by the registered request and directory lock.
     """
-    keys = {'cce_master_binding', 'cce_master_submit_execution_id'}
+    keys = {'cce_master_binding', 'cce_master_submit_execution_id', 'cce_recovery_evidence'}
     _require(not keys.intersection(details))
     result = payload.get('_cce_master_result')
     if result is None:
@@ -325,6 +329,8 @@ def master_receipt_fields(payload, *, pipeline, details):
              and stages.index(payload['stage']) >= stages.index(execution['stage']))
     if payload['stage'] == execution['stage']:
         _require(all(payload.get(k) == execution[k] for k in ('execution_id', 'generation', 'request_hash')))
+    if 'cce_recovery_evidence' in fields:
+        _require(payload['stage'] == execution['stage'] == 'step3_monitor')
     return fields
 
 

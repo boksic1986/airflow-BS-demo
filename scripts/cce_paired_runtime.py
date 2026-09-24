@@ -485,6 +485,24 @@ def _reconcile_initial_intent(root,payload,gate,pipeline,runtime,bundle,contract
         return
 
 
+def _automatic_failure_evidence(payload, value, *, runtime, bundle, selected, contract, config,
+        run_label, exported, request_root, pipeline):
+    if payload['stage'] != 'step3_monitor' or value.get('master_state') != 'FAILED':
+        return None
+    if __package__:
+        from .cce_recovery_failure import collect_failure_evidence
+    else:
+        from cce_recovery_failure import collect_failure_evidence
+    try:
+        return collect_failure_evidence(runtime=runtime,selected=selected,contract=contract,config=config,
+            run_label=run_label,binding=exported,
+            history_bundles=_source_history(request_root,pipeline,runtime,bundle,contract,selected))
+    except (ValueError, RuntimeError, OSError, KeyError, TypeError):
+        # Missing/mixed/unknown evidence is ineligible, not a reason to erase the
+        # ordinary failed status or change the existing manual recovery path.
+        return None
+
+
 def _observe_registered_source(payload, binding, gate, pipeline, runtime, bundle, contract, config, modules, writer, operation=None,
         expected=None, evidence=()):
     """Reattach a new observer without relabelling the original Master producer."""
@@ -531,6 +549,9 @@ def _observe_registered_source(payload, binding, gate, pipeline, runtime, bundle
                     master_bundle=source,expected_master_uid=record['job_uid'])
             result=json.loads(output.getvalue())
         else:result=operation(runtime,bundle,source,record['job_uid'],contract,config,modules,writer)
+        proof = _automatic_failure_evidence(payload,result or {},runtime=runtime,bundle=bundle,selected=source,
+            contract=contract,config=config,run_label=binding['run_label'],exported=exported,
+            request_root=path.parent,pipeline=pipeline)
         if _read_registered(path) != raw or any(_read_registered(p)!=v for p,v in evidence):
             raise RuntimeError('registered observer superseded')
         if __package__:
@@ -540,7 +561,7 @@ def _observe_registered_source(payload, binding, gate, pipeline, runtime, bundle
         execution=dict(pipeline=pipeline,**{k:payload[k] for k in
             ('analysis_id','attempt','stage','execution_id','generation','request_hash')})
         payload['_cce_master_result']=VerifiedMasterResult(
-            dict(bundle=str(source),master_uid=record['job_uid'],mode='observed'),exported,execution)
+            dict(bundle=str(source),master_uid=record['job_uid'],mode='observed'),exported,execution,failure_evidence=proof)
         return result
 
 
@@ -950,12 +971,15 @@ def _selected_registered(payload, *, binding, gate, pipeline, operation=None):
             value = json.loads(output.getvalue())
         else:
             value = operation(runtime,bundle,selected,record['job_uid'],contract,config,modules,writer)
+        proof = _automatic_failure_evidence(payload,value,runtime=runtime,bundle=bundle,selected=selected,
+            contract=contract,config=config,run_label=binding['run_label'],exported=exported,
+            request_root=path.parent,pipeline=pipeline)
         if any(content is not None and _read_registered(p) != content for p,content in [
                 (path,raw), (source_path,source_raw), (status_path,status_raw), (journal_path,journal_raw), *evidence]):
             raise RuntimeError('selected monitor evidence superseded during observation')
         execution = dict(pipeline=pipeline, **{k:payload[k] for k in keys})
         payload['_cce_master_result'] = VerifiedMasterResult(
-            dict(bundle=str(selected), master_uid=record['job_uid'], mode='observed'), exported, execution)
+            dict(bundle=str(selected), master_uid=record['job_uid'], mode='observed'), exported, execution,failure_evidence=proof)
         return value
 
 

@@ -1,0 +1,159 @@
+"""Real logger/plugin/native FINAL -> automatic evidence; synthetic API only."""
+import copy
+import hashlib
+import json
+import logging
+from pathlib import Path
+
+import pytest
+from test_recovery_final import view_inputs, handoff, runtime, SubmissionManager, plugin_tests
+from snakemake_logger_plugin_rule_status.failure_summary import FailureSummary
+from snakemake_interface_logger_plugins.common import LogEvent
+
+
+@pytest.fixture
+def failed_master(view_inputs, monkeypatch, request):
+    h, context = view_inputs
+    platform = dict(pipeline=context['pipeline'], analysis_id=context['analysis_id'], attempt=1,
+        stage=getattr(request,'param','step2_master'), execution_id=context['execution_id'], generation=8, request_hash='b'*64)
+    selected = h.bundle.parent/'selected'
+    runtime._prepare_recovery_view(h.bundle, selected, h.contract, context=context, platform_execution=platform)
+    record = dict(runtime._handoff_binding(selected,h.contract), **h.contract['identity'],
+        job_name='master',job_uid='master-uid',pod_uid='pod-uid',deadline_epoch=1600,
+        schema_version=2,state='START_CONFIRMED')
+    runtime._atomic_write_text(runtime._master_handoff_path(selected,h.contract),json.dumps(record))
+    monkeypatch.setattr(runtime,'_master_input_context',lambda:record)
+    monkeypatch.setenv('CCE_INPUT_ROOT',str(selected))
+    monkeypatch.setenv('CCE_RUN_ROOT',h.contract['paths']['run_dir'])
+    Path(h.contract['paths']['run_dir']).mkdir()
+    for phase in ('preflight','analysis'):
+        env=runtime._recovery_phase_start(phase);root=Path(env['SNAKEMAKE_CCE_SUBMIT_EVIDENCE_DIR'])
+        ctx=json.loads(Path(env['SNAKEMAKE_CCE_SUBMIT_CONTEXT_FILE']).read_bytes())
+        clock=plugin_tests.Clock()
+        manager=SubmissionManager(ctx,root,plugin_tests.API(root,[plugin_tests.admission()]*3),
+            monotonic=clock.monotonic,sleep=clock.sleep)
+        manager.claim_executor()
+        audit=FailureSummary(root/'submit-context.json',root)
+        event=logging.LogRecord('synthetic',logging.INFO,'synthetic',1,'',(),None)
+        event.event=LogEvent.WORKFLOW_STARTED;audit.emit(event)
+        if phase=='analysis':
+            with pytest.raises(plugin_tests.module().SubmissionFailure):
+                manager.submit(plugin_tests.body(),1)
+            event=logging.LogRecord('synthetic',logging.ERROR,'synthetic',1,'',(),None)
+            event.event=LogEvent.ERROR;event.exception='SubmissionFailure';audit.emit(event)
+        audit.close();runtime._recovery_phase_finished(phase,1 if phase=='analysis' else 0)
+    base=Path(h.contract['paths']['run_dir'])/'evidence'/record['run_id']
+    (base/'jobs.ndjson').write_text('')
+    terminal=runtime._bind_master_terminal(dict(schema_version=1,state='FAILED',failed_stage='analysis',
+        exit_code=1,exit_codes=dict(preflight=0,analysis=1,final_dryrun=None),finished_epoch=1500))
+    snapshot=json.loads((base/'recovery-final.json').read_bytes())
+    evidence={'START_CONFIRMED.json':dict(record,confirmed_epoch=1000),
+        'RUN_FAILED.json':terminal,'recovery-final.json':snapshot}
+    assert runtime._write_mirror_evidence(selected,record['run_id'],evidence,project=record['project'],batch=record['batch'])
+    native={k:record[k] for k in ('project','batch','run_id','job_name','job_uid','pod_uid','attempt',
+        'execution_generation','request_hash','config_sha256','manifest_sha256','files_sha256','deadline_epoch','recovery_context')}
+    native['namespace']=h.contract['kubernetes']['namespace']
+    binding=dict(schema_version=2,platform_execution=platform,native=native,
+        source_bundle=str(h.bundle),selected_bundle=str(selected))
+    master=dict(kind='Job',metadata=dict(name='master',uid='master-uid',namespace=native['namespace'],
+        labels={'cce.biosan.cn/run-id':'synthetic-run'}),status=dict(conditions=[dict(type='Failed',status='True')]))
+    def query(config,kind,*args):
+        if kind=='job':return copy.deepcopy(master) if args[0]=='master' else None
+        return dict(kind='JobList' if kind=='jobs' else 'PodList',metadata={},items=[copy.deepcopy(master)] if kind=='jobs' else [])
+    monkeypatch.setattr(runtime,'_recovery_query',query)
+    return h,selected,binding,evidence,master
+
+
+@pytest.mark.parametrize('change',[None,'mixed_rule','incomplete','native_identity','platform_identity','active_master'])
+def test_actual_final_failure_evidence_keeps_native_and_platform_identity(failed_master,change):
+    from scripts.cce_recovery_failure import collect_failure_evidence
+    h,selected,binding,evidence,master=failed_master
+    if change in {'mixed_rule','incomplete'}:
+        audit=evidence['recovery-final.json']['phases']['analysis']['failure_summary']
+        if change=='mixed_rule':audit['counts']['rule']=1
+        else:audit['complete']=False
+        evidence['RUN_FAILED.json']['submission_snapshot_sha256']=hashlib.sha256(
+            runtime._recovery_encoded(evidence['recovery-final.json'])).hexdigest()
+        runtime._write_mirror_evidence(selected,binding['native']['run_id'],evidence,
+            project=binding['native']['project'],batch=binding['native']['batch'])
+    elif change=='native_identity':binding['native']['request_hash']='c'*64
+    elif change=='platform_identity':binding['platform_execution']['generation']=2
+    elif change=='active_master':master['status']={'active':1}
+    def collect():return collect_failure_evidence(runtime=runtime,selected=selected,contract=h.contract,
+        config=h.config,run_label='synthetic-run',binding=binding)
+    if change:
+        with pytest.raises((RuntimeError,ValueError)):collect()
+        return
+    result=collect()
+    assert result['terminal']['generation']==2
+    assert result['terminal']['execution_id']=='exec-next:analysis'
+    assert result['terminal']['request_hash']==binding['native']['request_hash']!='b'*64
+    assert result['binding']['platform_execution']['generation']==8
+    assert result['terminal']['rule_failure_count']==0
+    assert result['terminal']['executor_failure_count']==1
+    assert result['candidate']['failures'][0]['category']=='WORKER_CREATE_ADMISSION_TIMEOUT'
+
+
+@pytest.mark.parametrize('view_inputs',[{'pipeline':'wgs'}, {'pipeline':'gatk'}],indirect=True)
+@pytest.mark.parametrize('failed_master',['step2_master','step3_monitor'],indirect=True)
+def test_schema2_evidence_through_normal_receipt_and_reservation(failed_master,tmp_path,monkeypatch):
+    from datetime import datetime,timedelta,timezone
+    from sqlalchemy import create_engine,select
+    from sqlalchemy.orm import sessionmaker
+    from app.models import AnalysisRun,Base,WgsStageExecution,PipelineStageExecution,RunAction
+    from app.cce_recovery_service import reserve_monitored_recovery
+    from scripts.cce_recovery_failure import collect_failure_evidence
+    from scripts.cce_recovery_inventory import VerifiedMasterResult
+    from scripts import wgs_runtime_gate,gatk_runtime_gate
+    h,selected,binding,_,_=failed_master
+    proof=collect_failure_evidence(runtime=runtime,selected=selected,contract=h.contract,
+        config=h.config,run_label='synthetic-run',binding=binding)
+    source=binding['platform_execution'];pipeline=source['pipeline']
+    monitor=dict(source,stage='step3_monitor',execution_id='monitor',generation=9,request_hash='c'*64)
+    result=VerifiedMasterResult({},binding,monitor,failure_evidence=proof)
+    payload=dict(monitor,orchestration_contract_version=2,_cce_master_result=result)
+    path=tmp_path/'step3.json'
+    if pipeline=='wgs':
+        monkeypatch.setattr(wgs_runtime_gate,'_sidecar_path',lambda p,s:path.with_suffix(s))
+        wgs_runtime_gate._write_status(payload,'failed')
+        receipt=json.loads(path.with_suffix('.status.json').read_bytes())
+    else:receipt=gatk_runtime_gate._write_status(path,payload,'failed','synthetic')
+    assert receipt['cce_recovery_evidence']==proof
+    # Editing the exposed result cannot replace the evidence captured by the writer.
+    result['cce_recovery_evidence']['terminal']['request_hash']='f'*64
+    from scripts.cce_recovery_inventory import master_receipt_fields
+    assert master_receipt_fields(payload,pipeline=pipeline,details={})['cce_recovery_evidence']==proof
+    now=datetime(2026,9,25,tzinfo=timezone.utc);deadline=(now+timedelta(hours=1)).isoformat()
+    engine=create_engine('sqlite+pysqlite://');Base.metadata.create_all(engine)
+    factory=sessionmaker(bind=engine,expire_on_commit=False)
+    model=WgsStageExecution if pipeline=='wgs' else PipelineStageExecution
+    extra={} if pipeline=='wgs' else dict(pipeline_name=pipeline)
+    release='synthetic' if pipeline=='wgs' else 'synthetic@1'
+    with factory.begin() as session:
+        session.add(AnalysisRun(analysis_id=source['analysis_id'],pipeline_name=pipeline,dag_id='bio_'+pipeline,
+            attempt=1,execution_mode='cce',status='failed',current_stage='step3_monitor',workdir='/platform/run',
+            params_json=dict(pipeline_release_id=release,runtime_profile_id='synthetic',runtime_profile_revision=1,
+                cce_recovery_policy=dict(version=1,attempt=1,enabled=True,original_deadline=deadline),
+                cce_recovery_budget=dict(attempt=1,count=0,original_deadline=deadline))))
+        session.flush()
+        for execution,status,data in ((source,'success',{'cce_master_binding':binding}), (monitor,'failed',receipt)):
+            session.add(model(**extra,analysis_id=source['analysis_id'],attempt=1,
+                execution_id=execution['execution_id'],generation=execution['generation'],stage_code=execution['stage'],
+                status=status,request_hash=execution['request_hash'],release_id=release,terminal_payload_json=data))
+    def reserve():
+        with factory.begin() as session:
+            return reserve_monitored_recovery(session=session,analysis_id=source['analysis_id'],attempt=1,
+                monitor_execution_id='monitor',evidence_root=tmp_path/'no-legacy-files',now=now)
+    first=reserve();assert reserve()==first
+    assert first['source_execution_id']==source['execution_id']!='exec-next:analysis'
+    assert first['evidence_binding']['submit_generation']==8
+    assert first['evidence_binding']['submit_request_hash']=='b'*64
+    with factory.begin() as session:
+        row=session.scalar(select(model).where(model.execution_id=='monitor'))
+        row.terminal_payload_json={**receipt,'cce_recovery_evidence':dict(proof,binding=dict(binding,
+            platform_execution=dict(source,generation=2)))}
+    with pytest.raises(ValueError):reserve()
+    with factory() as session:
+        assert len(session.scalars(select(RunAction)).all())==1
+        assert session.scalar(select(AnalysisRun)).params_json['cce_recovery_budget']['count']==1
+    engine.dispose()
