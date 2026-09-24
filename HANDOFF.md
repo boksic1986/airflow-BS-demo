@@ -1,5 +1,18 @@
 # Handoff
 
+## 2026-09-24 01:17 UTC BS96 rollout and WES downstream resumed
+
+Deployed1cdfb0b1 module only to actual server96 mounted backend20260923-gatk-waiting-ui.
+New SHA256 2ecaa57b178ab183a4e6ee14705b084ac551f252646e890682816f380dee7372.
+Backup: /data/airflow-WGS/gatk-waiting-ui-20260923-control/gatk_runtime_service.pre-1cdfb0b1.py.
+Compose config valid; restarted backend API only. Airflow and native workers untouched.
+Step3 status now0.028s success/ready=true generation3 (previously40s timeout).
+Authenticated Airflow dry-run then clear11 exact wait_step3/downstream tasks only
+in GATK_20260922_160936_F730F0-a1; no start_step3/prepare/Step1/Step2.
+DagRun running; wait_step3 success; native Step4gen1 success01:16:31UTC.
+Step5/6 pending. No cleanup until full workflow, logs and terminal evidence complete.
+Direct server GitHub push lacked credentials; use authenticated local transport.
+
 ## 2026-09-24 GATK terminal status timeout repair
 
 User authorized continuing backend repair and scoped WES downstream recovery.

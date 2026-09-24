@@ -1,5 +1,10 @@
 # Current state
 
+## 2026-09-24 01:17 UTC GATK receipt-first deployed to BS96
+
+WES20260921B Step3 acknowledgement restored; Step4 native publish succeeded.
+Only backend restarted; no analysis rerun. Step5/6 and final scoped cleanup pending.
+
 ## 2026-09-24 GATK terminal receipt fast path
 
 Validated terminal status no longer waits for synchronous rule-log import.

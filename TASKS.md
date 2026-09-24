@@ -1,5 +1,12 @@
 # Active test-branch tasks
 
+## GATK-TERMINAL-STATUS-20260924 rollout follow-up
+
+- [x] Publish1cdfb0b1 backend module to BS96; confirm0.028s terminal response.
+- [x] Resume exact WES wait_step3/downstream; confirm Step3 sensor and Step4 success.
+- [ ] Observe Step5/6 delivery and log package completion via existing heartbeat.
+- [ ] Only then perform previously authorized exact UID cleanup.
+
 ## GATK-TERMINAL-STATUS-20260924
 
 - [x] Reproduce blocked terminal acknowledgement and preserve identity fencing.
