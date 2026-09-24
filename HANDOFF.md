@@ -1,5 +1,43 @@
 # Handoff
 
+## 2026-09-24 Task4 normal-receipt identity checkpoint
+
+Goal: continue the existing Task4 route only; no new functionality, automatic
+recovery, UI, public API, database table or production changes.
+
+Completed: RecoveryCapability returns a JSON-compatible internal verified result
+with an independent receipt snapshot. Both normal status writers preserve its
+Master binding and submit execution ID; GATK signs them in its existing receipt
+hash. Generic progress JSON cannot inject those fields. WGS Resume attaches the
+result to the in-memory worker payload so terminal failure/success cannot drop
+the binding. GATK return wrapping no longer discards the verified result type.
+Package/standalone imports work through the same module convention. An older
+successful Master's submit identity is not replaced by a new observer identity.
+
+Changed source: scripts/cce_recovery_inventory.py, wgs_resume.py, gatk_resume.py,
+wgs_runtime_gate.py, gatk_runtime_gate.py, tests/test_p02_resume_final.py.
+Updated runtime contract, plan, current state, tasks and SDD ledger.
+
+Validation: BS10610/server10610, existing control/current and actual RO app/config
+mounts checked before each call; intake scan and auto dispatch remain false.
+Offline read-only source containers, network none; no local runtime tests.
+pytest test_p02_resume_final.py::test_verified_master_binding_survives_normal_stage_receipts:
+two RED (missing field). First GREEN attempt exposed GATK result type lost in its
+dict wrapper (one failure); repaired wrapper, two GREEN. Affected selection:
+that pair + WGS disconnect worker + prior binding-export pair + existing WGS
+status monotonicity/retry preservation = seven GREEN7.62s. Inspection then caught
+observer vs submit identity distinction; refined it and reran only receipt pair,
+two GREEN3.51s. git diff --check passed. No redundant whole-suite run.
+Logs: /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/p02-task4-20260924/
+normal-receipts-{red,green,affected,observer-green}.log.
+
+Remaining/next: trusted per-run registration/capability factory, actual GATK
+Resume routing, cross-process selected-view reconstruction and native Step3-6
+entry, verified final lock release, full authenticated service/DAG/native mock.
+This commit only closes the in-process normal-receipt seam, not all Task4.
+Tasks5/6 remain unstarted. No capability policy installed or branch merged.
+Rollback: revert this source checkpoint before activation; nothing deployed.
+
 ## 2026-09-24 Task4 cloud identity and actual entry selection checkpoint
 
 Committed source: native7026528 and platformc3cf3c2. Post-checkpoint scope check

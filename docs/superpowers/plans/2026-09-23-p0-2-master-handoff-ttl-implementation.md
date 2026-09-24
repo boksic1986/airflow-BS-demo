@@ -180,6 +180,14 @@ assert delete_options["preconditions"] == {"uid": old_uid, "resourceVersion": ol
 
 ## Task4 — Authenticated manual adapter closure before automatic dispatch
 
+2026-09-24 normal-receipt checkpoint: internal native-verified result now survives
+both status writers and GATK terminal receipt hashing; WGS worker disconnect
+preserves it. Caller JSON cannot mint authority, and a new observer does not
+relabel the Master submit identity. Two RED, affected7 GREEN7.62s; final observer
+refinement receipt2 GREEN3.51s on BS10610 offline. This is in-process forwarding
+only. Trusted factory, actual GATK routing, cross-process selected-view/native
+Step3-6 execution, final release and full manual flow remain OPEN. No Task5/6.
+
 2026-09-24 checkpoint: user-approved existing cloud reader now resolves SFS
 identity without a host mount; exact volume/Job/Pod fences and durable one-create
 cleanup validated (cloud10 + protected-entry13 GREEN). Actual WGS/GATK stage

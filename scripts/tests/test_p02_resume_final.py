@@ -20,6 +20,89 @@ from scripts.cce_recovery_inventory import RecoveryCapability
 REAL_CLAIM=runtime._claim_batch_lock
 
 
+@pytest.mark.parametrize('view_inputs',[{'pipeline':'wgs','analysis_id':'WGS_20260924_000000_AAAAAA'}],indirect=True)
+def test_wgs_resume_worker_retains_binding_when_monitor_disconnects(adapter,tmp_path,monkeypatch):
+    from scripts import wgs_runtime_gate as gate
+    state,invoke,bundle,cap,h=adapter
+    platform={k:cap.context[k] for k in ('pipeline','analysis_id','execution_id')}
+    platform.update(attempt=1,stage='step3_monitor',generation=8,request_hash='b'*64)
+    cap.platform_execution=platform
+    result=invoke()
+    payload={**platform,'orchestration_contract_version':2,'resume_action_id':'new-action'}
+    root=tmp_path/'worker-receipts';root.mkdir()
+    monkeypatch.setattr(gate,'_sidecar_path',lambda p,s:root/(p['stage']+s))
+    monkeypatch.setattr(gate,'_load_binding',lambda p:{'cce_bundle':str(bundle)})
+    monkeypatch.setattr(wgs_resume,'resume_master',lambda **kw:result)
+    def monitor(p):
+        gate._write_status(p,'running','monitoring selected Master')
+        raise RuntimeError('synthetic monitor disconnect')
+    monkeypatch.setattr(gate,'_monitor_step3',monitor)
+    monkeypatch.setattr(gate,'run_stage',lambda p:wgs_resume.run_resume_stage(p,gate=gate))
+    with pytest.raises(RuntimeError,match='synthetic monitor disconnect'):
+        gate._run_worker(payload)
+    receipt=json.loads((root/'step3_monitor.status.json').read_bytes())
+    assert receipt['status']=='failed'
+    assert receipt['cce_master_binding']==result['cce_master_binding']
+    assert receipt['cce_master_submit_execution_id']==platform['execution_id']
+
+
+@pytest.mark.parametrize('view_inputs',[{'pipeline':'wgs','analysis_id':'WGS_20260924_000000_AAAAAA'},
+    {'pipeline':'gatk','analysis_id':'GATK_20260924_000000_AAAAAA'}],indirect=True)
+def test_verified_master_binding_survives_normal_stage_receipts(adapter,tmp_path,monkeypatch):
+    from scripts import wgs_runtime_gate,gatk_runtime_gate
+    state,invoke,bundle,cap,h=adapter
+    pipeline=cap.context['pipeline']
+    platform={k:cap.context[k] for k in ('pipeline','analysis_id','execution_id')}
+    platform.update(attempt=1,stage='step3_monitor',generation=8,request_hash='b'*64)
+    cap.platform_execution=platform
+    result=invoke()
+    expected=copy.deepcopy(result['cce_master_binding'])
+    payload={**platform,'orchestration_contract_version':2,'_cce_master_result':result}
+    root=tmp_path/'normal-receipts';root.mkdir()
+    monkeypatch.setattr(wgs_runtime_gate,'_sidecar_path',lambda p,s:root/(p['stage']+s))
+    def write(p,status,**details):
+        if pipeline=='wgs':
+            wgs_runtime_gate._write_status(p,status,'normal stage receipt',**details)
+            return json.loads((root/(p['stage']+'.status.json')).read_bytes())
+        path=root/(p['stage']+'.request.json')
+        return gatk_runtime_gate._write_status(path,p,status,'normal stage receipt',**details)
+    # Mutating the JSON-facing return must not alter the verified receipt copy.
+    result['cce_master_binding']['native']['job_uid']='forged-uid'
+    for number,stage in enumerate(('step3_monitor','step4_publish','step5_download','step6_materialize'),3):
+        current={**payload,'stage':stage}
+        if number>3:
+            current.update(execution_id='downstream-'+str(number),generation=1,request_hash='c'*64)
+        for status in ('running','success'):
+            value=write(current,status)
+            assert value['cce_master_binding']==expected
+            assert value['cce_master_submit_execution_id']==platform['execution_id']
+            assert value['request_hash']==current['request_hash']
+            assert value['generation']==current['generation']
+            if pipeline=='gatk':
+                if status=='success':
+                    unsigned={k:v for k,v in value.items() if k!='receipt_hash'}
+                    assert value['receipt_hash']==hashlib.sha256(json.dumps(unsigned,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+    # A JSON round trip loses authority; caller-provided receipt fields are not
+    # enough to carry a binding, including through generic progress kwargs.
+    forged={**payload,'_cce_master_result':json.loads(json.dumps(result))}
+    with pytest.raises((ValueError,RuntimeError)):
+        write(forged,'failed')
+    with pytest.raises((ValueError,RuntimeError)):
+        write({**payload,'attempt':2},'failed')
+    with pytest.raises((ValueError,RuntimeError)):
+        write({**payload,'request_hash':'d'*64},'failed')
+    with pytest.raises((ValueError,RuntimeError)):
+        write({k:v for k,v in payload.items() if k!='_cce_master_result'},'failed',
+              cce_master_binding=expected)
+    # A successful older Master keeps its original submit identity even when a
+    # new authorized platform execution observes it. Test only receipt mapping
+    # here; native-success validation remains in RecoveryCapability.export_result.
+    from scripts.cce_recovery_inventory import VerifiedMasterResult,master_receipt_fields
+    observing={**platform,'execution_id':'new-observer','generation':9,'request_hash':'e'*64}
+    observed={**payload,**observing,'_cce_master_result':VerifiedMasterResult({},expected,observing)}
+    assert master_receipt_fields(observed,pipeline=pipeline,details={})['cce_master_binding']==expected
+
+
 @pytest.fixture
 def adapter(mirrored_final,tmp_path,monkeypatch):
     h,view,record,evidence=mirrored_final

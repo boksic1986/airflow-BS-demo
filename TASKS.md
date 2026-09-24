@@ -1,5 +1,14 @@
 # Active test-branch tasks
 
+- [x] Task4 verified Master metadata through normal WGS/GATK status writers;
+  GATK receipt hash covers it, WGS worker failure retains it, JSON cannot grant
+  authority, old submit identity is not relabelled as the observing execution.
+  BS10610 two RED -> GREEN; affected7 GREEN; final refined receipt2 GREEN.
+- [ ] Task4 next: trusted per-run capability factory and actual restricted
+  routing; reconstruct selected Master from verified native evidence across
+  processes, then final protected Step6 release and full manual synthetic flow.
+  Do not interpret the in-process receipt checkpoint as full Task4 acceptance.
+
 - [x] Activated WGS/GATK Resume without verified capability cannot use legacy
   locking. Follow-up2 RED; final paired-entry12 + existing3 GREEN on BS10610.
 

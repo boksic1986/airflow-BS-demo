@@ -120,6 +120,13 @@ def _write_status(
     message: str,
     **progress: Any,
 ) -> dict[str, Any]:
+    master_fields = {}
+    if '_cce_master_result' in payload or {'cce_master_binding', 'cce_master_submit_execution_id'}.intersection(progress):
+        if __package__:
+            from .cce_recovery_inventory import master_receipt_fields
+        else:
+            from cce_recovery_inventory import master_receipt_fields
+        master_fields = master_receipt_fields(payload, pipeline='gatk', details=progress)
     if payload.get("stage") in STAGE_SCRIPTS and payload.get("stage") != "step7_cleanup":
         if request_path.with_suffix(".worker.state.json").exists():
             _assert_current_dispatch(request_path, payload)
@@ -138,6 +145,7 @@ def _write_status(
         "message": message[-2000:],
         "updated_at": datetime.now(timezone.utc).isoformat(),
         **progress,
+        **master_fields,
     }
     if status in TERMINAL:
         value["receipt_hash"] = hashlib.sha256(

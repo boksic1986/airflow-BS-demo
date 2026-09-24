@@ -217,7 +217,10 @@ def resume(*, analysis_id, attempt, expected_job_uid, expected_binding_sha256,
             raise ResumeGuardError('resume journal identity mismatch')
         v2 = manifest['metadata'].get('annotations', {}).get('cce-pipeline/handoff-version') == '2'
         if recovery is not None:
-            from scripts.cce_recovery_inventory import RecoveryCapability
+            if __package__:
+                from .cce_recovery_inventory import RecoveryCapability
+            else:
+                from cce_recovery_inventory import RecoveryCapability
             if (not isinstance(recovery,RecoveryCapability) or recovery.bundle!=bundle
                     or recovery.expected_job_uid!=expected_job_uid):
                 raise ResumeGuardError('internal verified recovery capability required')
@@ -235,9 +238,8 @@ def resume(*, analysis_id, attempt, expected_job_uid, expected_binding_sha256,
                 claim=recovery.claim,authorize=recovery._authorized,
                 before_handoff=lambda:_guard_maintenance_and_obs(runtime,contract,config,modules),execute=execute,
                 platform_execution=recovery.platform_execution)
-            result=recovery.export_result(result)
-            return {**identity,**result,'replacement_job_uid':result['master_uid'],
-                    'status':'succeeded' if result['mode']=='succeeded' else 'ready' if result['mode']=='ready' else 'completed'}
+            return recovery.export_result({**identity,**result,'replacement_job_uid':result['master_uid'],
+                    'status':'succeeded' if result['mode']=='succeeded' else 'ready' if result['mode']=='ready' else 'completed'})
         job = _query(runtime, config, 'job', names['master_job'])
         if job and job['metadata']['uid'] != expected_job_uid:
             if not v2 and journal and journal.get('status') == 'completed' and journal.get('replacement_job_uid') == job['metadata']['uid'] and _subset(manifest, job):

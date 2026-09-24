@@ -1,5 +1,22 @@
 # Workflow runtime integration
 
+## Task4 verified normal stage receipts (source only, 2026-09-24)
+
+RecoveryCapability.export_result returns the same JSON fields in an internal
+VerifiedMasterResult. Existing WGS/GATK status writers copy its separately stored
+verified binding into normal running/terminal receipts. GATK's existing receipt
+hash includes those fields. WGS Resume stores the result only in its in-process
+worker payload, preserving it if monitoring later fails. No new API/schema.
+
+The verified submission identity remains separate from both native identity and
+the current observing platform execution. A successful historical Master is not
+relabelled. Generic progress kwargs cannot inject cce_master_binding or
+cce_master_submit_execution_id. Deserializing JSON never restores the internal
+authority: each subsequent process must revalidate the selected native evidence.
+This forwarding does not authorize directory writes, select a runtime path, or
+replace the pending registered capability factory/cross-process stage closure.
+Unactivated legacy status writes do not import or require the new result path.
+
 ## Task4 approved cloud identity and paired entry source (2026-09-24)
 
 An operator-selected paired runtime may not enter legacy Resume locking without

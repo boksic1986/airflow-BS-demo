@@ -1,5 +1,21 @@
 # Current state
 
+## 2026-09-24 Task4 verified normal-receipt checkpoint
+
+WGS/GATK status writers now carry native-verified Master binding metadata from
+an internal result, including running/success/failed receipts; GATK receipt hash
+covers the metadata. WGS Resume worker retains it when monitoring disconnects.
+JSON round trips and generic progress kwargs cannot supply verified authority.
+Master submit identity stays distinct from the current observing execution.
+BS10610 offline: two receipt cases RED then GREEN; seven affected checks GREEN
+7.62s; final observer-identity refinement two GREEN3.51s. No full suite or live
+runtime tests. No production, deployment, activation, DB or frozen bundle change.
+
+Task4 remains OPEN: trusted per-run factory, actual GATK Resume routing,
+cross-process selected-view reconstruction/Step3-6 execution, final lock release
+and one authenticated service/DAG/native manual flow. The status-writer slice
+is not cross-process closure. Tasks5/6 remain unstarted.
+
 ## 2026-09-24 Task4 cloud identity and paired entry checkpoints
 
 Source commits: native7026528, platformc3cf3c2. Follow-up closes a fallback edge:

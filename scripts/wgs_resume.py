@@ -154,7 +154,10 @@ def resume_master(*, payload, binding, runtime=None, recovery=None):
     journal_path = Path(payload['control_workdir']) / ('recovery-' + payload['resume_action_id'] + '.json')
     if recovery is not None:
         import fcntl
-        from scripts.cce_recovery_inventory import RecoveryCapability
+        if __package__:
+            from .cce_recovery_inventory import RecoveryCapability
+        else:
+            from cce_recovery_inventory import RecoveryCapability
         if not isinstance(recovery,RecoveryCapability) or recovery.bundle != bundle:
             raise RuntimeError('internal verified recovery capability required')
         recovery.bind(runtime,contract,config,run_label=binding['run_label'],pipeline='wgs',
@@ -290,6 +293,8 @@ def run_resume_stage(payload, *, gate):
     elif stage in {'step2_master', 'step3_monitor'}:
         result = resume_master(payload=payload, binding=binding)
         payload['resume_master_uid'] = result['master_uid']
+        if 'cce_master_binding' in result:
+            payload['_cce_master_result'] = result
         if stage == 'step3_monitor':
             gate._monitor_step3(payload)
     elif stage == 'step4_publish':

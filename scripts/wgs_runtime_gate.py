@@ -521,6 +521,13 @@ def _freeze_validation_execution_mode(
 def _write_status(
     payload: dict[str, Any], status: str, message: str = "", **details: Any
 ) -> bool:
+    master_fields = {}
+    if '_cce_master_result' in payload or {'cce_master_binding', 'cce_master_submit_execution_id'}.intersection(details):
+        if __package__:
+            from .cce_recovery_inventory import master_receipt_fields
+        else:
+            from cce_recovery_inventory import master_receipt_fields
+        master_fields = master_receipt_fields(payload, pipeline='wgs', details=details)
     value = {
         "schema_version": STAGE_STATUS_SCHEMA,
         "analysis_id": payload["analysis_id"],
@@ -530,6 +537,7 @@ def _write_status(
         "message": message[-2000:],
         "updated_at": datetime.now(timezone.utc).isoformat(),
         **details,
+        **master_fields,
     }
     if payload.get("maintenance_action_id"):
         value["maintenance_action_id"] = payload["maintenance_action_id"]

@@ -11,7 +11,10 @@ import json
 import re
 from pathlib import Path
 
-from scripts.cce_recovery_workloads import DNS, UID, probe_bound_workloads, probe_final_workloads
+if __package__:
+    from .cce_recovery_workloads import DNS, UID, probe_bound_workloads, probe_final_workloads
+else:
+    from cce_recovery_workloads import DNS, UID, probe_bound_workloads, probe_final_workloads
 
 
 IDENTITY = ("pipeline", "analysis_id", "attempt", "execution_id", "generation",
@@ -280,6 +283,51 @@ def probe_submission_inventory(*, runtime, config, master_job, expected_context,
     return dict(inventory=inventory, observation=observation)
 
 
+class VerifiedMasterResult(dict):
+    """In-process result of native verification, not authority restored from JSON.
+
+    The ordinary JSON-facing result is unchanged. Receipts use a separate byte
+    snapshot so mutation of that result cannot replace a verified Master identity.
+    A later process must revalidate native evidence before constructing this type.
+    """
+    def __init__(self, result, binding, execution):
+        self._execution_bytes = json.dumps(execution, sort_keys=True).encode()
+        self._receipt_bytes = json.dumps({
+            'cce_master_binding': binding,
+            'cce_master_submit_execution_id': binding['platform_execution']['execution_id'],
+        }, sort_keys=True).encode()
+        super().__init__(result, **_json(self._receipt_bytes))
+
+
+def master_receipt_fields(payload, *, pipeline, details):
+    """Forward verified identity through existing normal stage status writers.
+
+    This does not authorize a downstream writer or select its runtime directory.
+    Those remain protected by the registered request and directory lock.
+    """
+    keys = {'cce_master_binding', 'cce_master_submit_execution_id'}
+    _require(not keys.intersection(details))
+    result = payload.get('_cce_master_result')
+    if result is None:
+        return {}
+    _require(isinstance(result, VerifiedMasterResult))
+    fields = _json(result._receipt_bytes)
+    source = fields['cce_master_binding']['platform_execution']
+    execution = _json(result._execution_bytes)
+    _require(source['pipeline'] == pipeline
+             and source['analysis_id'] == payload.get('analysis_id')
+             and source['attempt'] == payload.get('attempt')
+             and all(execution[k] == source[k] for k in ('pipeline', 'analysis_id', 'attempt'))
+             and payload.get('orchestration_contract_version') == 2)
+    stages = ('step2_master', 'step3_monitor', 'step4_publish', 'step5_download', 'step6_materialize')
+    _require(source['stage'] in stages[:2] and execution['stage'] in stages[:2]
+             and payload.get('stage') in stages
+             and stages.index(payload['stage']) >= stages.index(execution['stage']))
+    if payload['stage'] == execution['stage']:
+        _require(all(payload.get(k) == execution[k] for k in ('execution_id', 'generation', 'request_hash')))
+    return fields
+
+
 class RecoveryCapability:
     """Internal adapter capability, NOT JSON/API input or recovery policy.
 
@@ -346,8 +394,7 @@ class RecoveryCapability:
             source_bundle=str(self.bundle), selected_bundle=str(selected))
         # Deep copy: a caller must not mutate the validated capability by editing
         # the receipt envelope it is about to persist.
-        return {**result, 'cce_master_binding': _json(json.dumps(exported)),
-            'cce_master_submit_execution_id': platform['execution_id']}
+        return VerifiedMasterResult(result, exported, self.platform_execution)
 
     def _authorized(self):
         value=self.runtime._recovery_final_evidence(self.bundle,self.contract,self.expected_job_uid)
