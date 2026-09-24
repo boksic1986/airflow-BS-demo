@@ -1,5 +1,30 @@
 # Workflow runtime integration
 
+## Task4 registered Step2 recovery entry (source only, 2026-09-24)
+
+Internal resume_registered composes the existing paired runtime, operator
+per-bundle registration and RecoveryCapability; it is not an API or retry
+engine. WGS hashes the registered body excluding its six execution metadata
+keys, GATK excluding request_hash only, matching their existing registration
+services. Request bytes must still match the restricted worker payload and
+remain unchanged before native actions/export. Hashes are integrity checks;
+the authenticated spool and operator-owned pinned policy provide authority.
+
+The restricted gate already holds its current worker lock. Factory additionally
+holds all launch locks, sibling worker locks and shared directory serialization
+through existing Resume. Previous dispatchers require identity-matching terminal
+receipts; unknown evidence or an active writer blocks replacement. Operator
+registration must match native old generation/action/UID and actual canonical
+storage. Missing or legacy-only directory locks are not automatically adopted.
+Native final snapshot/live Worker checks and durable one-CREATE/START remain
+inside existing RecoveryCapability/native recovery. No old project is edited.
+
+Normal WGS/GATK Step2 status preserves the verified result. This source slice
+does not enable GATK registry capability or install bindings. Activated Step3
+replacement still fails closed pending selected-view cross-process continuation,
+Step3-6/final release and full authenticated manual-flow acceptance. No automatic
+recovery/TTL release enabled by this checkpoint.
+
 ## Task4 verified normal stage receipts (source only, 2026-09-24)
 
 RecoveryCapability.export_result returns the same JSON fields in an internal

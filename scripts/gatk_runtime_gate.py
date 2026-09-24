@@ -949,6 +949,19 @@ def _execute_stage(
     if stage in {"step1_upload", "step5_download"}:
         environment.update(_transfer_environment(payload))
     try:
+        if payload.get('resume_action_id') and stage in {'step2_master', 'step3_monitor'}:
+            if __package__:
+                from .cce_paired_runtime import resume_registered
+            else:
+                from cce_paired_runtime import resume_registered
+            result = resume_registered(payload, binding=_load_binding(payload),
+                gate=sys.modules[__name__], pipeline='gatk')
+            if result is None:
+                raise RuntimeError('GATK Resume requires paired registered recovery')
+            payload['_cce_master_result'] = result
+            payload['resume_master_uid'] = result['master_uid']
+            _write_status(request_path, payload, 'success', 'Verified Master recovery completed')
+            return
         if stage == "prepare":
             completed = subprocess.run(
                 _prepare(payload), check=True, text=True, capture_output=True, env=environment

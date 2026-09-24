@@ -1,5 +1,93 @@
 # Handoff
 
+## 2026-09-24 Task4 registered Step2 recovery — source checkpoint
+
+Network restored. BS returned node005; BS10610 preflight returned server10610,
+current20260912-opt-4d3d24e6, backend36ff21f87356 /app from
+20260923-step7-ae416fa/backend/backend RO and /config20260912-opt-4d3d24e6 RO.
+Scanner and automatic dispatch remain false. No service restart/config write.
+
+Goal: connect registered request to the existing verified Resume capability.
+Implemented in scripts/cce_paired_runtime.py, wgs_resume.py and
+gatk_runtime_gate.py. Native cce_writer_guard.py validate now returns the
+already-validated physical mapping (no new probe/activation mechanism).
+The existing authenticated spool is the trust boundary; canonical hashes detect
+changes, not authentication. Recheck request bytes before native actions/export.
+Use the fixed pinned runtime and operator-approved per-run frozen registration;
+do not synthesize a binding from batch name. Hold shared writer serialization,
+all stage launch locks and other worker locks. The invoking restricted gate
+already holds its own worker lock. Free/dead dispatcher alone does not prove
+quiescence: existing state must have a matching terminal receipt. Match the old
+native owner before takeover; blank new-owner binding and live replacement UID
+are fenced. Missing/foreign/legacy-only lock cannot authorize this new path.
+Repeated action goes through existing one-CREATE/START journal, not a new retry
+engine. Original frozen files unchanged. Normal receipt carries verified result.
+
+Validation, only BS10610 offline cached Docker image a0112f0b8ef0, network none,
+read-only candidate/producer, synthetic scratch and fake Kubernetes transport:
+- Initial draft6 failed/4 passed exposed GATK fixture import error as well as
+  missing routing. Fixed test import path/alias, then actual entry2 RED2.87s.
+- Factory/routing first10 GREEN10.76s. Real backend request review found GATK
+  does not have WGS control_workdir: corrected fixture, reproduced1 RED1.90s,
+  then limited that field check to WGS. No backend request schema change.
+- Final pytest scripts/tests/test_p02_registered_recovery.py:14 GREEN13.78s,
+  includes repeat, changed request, occupied/uncertain dispatcher, foreign or
+  missing lock and absent operator registration for both pipelines.
+- Existing test_unactivated_entries_preserve_old_bundle (2 cases) and
+  test_wgs_resume_worker_retains_binding_when_monitor_disconnects:3 GREEN2.17s.
+Evidence root /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/
+p02-task4-20260924: registered-entry-red.log, registered-gatk-shape-red.log,
+registered-recovery-green.log, registered-recovery-affected.log.
+One green-run SSH command exited1 during jump handshake (Connection aborted),
+before preflight/test. Direct BS hostname then succeeded; bounded retry ran the
+test. No blind repeated launch or environment substitution.
+
+Docs: CURRENT_STATE/TASKS/HANDOFF, docs08, Task4 plan and ignored SDD ledger.
+No new public API/table; no BS96, DB, image/CLI upgrade, live workload, operator
+policy installation, actual batch rerun, main/production merge or push.
+Task4 OPEN: current slice is Step2 only; paired Step3 replacement explicitly
+refuses until verified selected-view cross-process continuation is connected.
+Still need native Step3-6 use of selected view, final protected lock release,
+full authenticated service/DAG/native manual flow. Then Tasks5/6 in order.
+Rollback: revert this isolated source checkpoint with its native guard return;
+no deployed state or original project needs restoration. Do not enable policy
+or GATK resume registry before the remaining Task4 gates pass.
+
+## 2026-09-24 Task4 registered-entry continuation blocked before RED
+
+Latest user-reported network restoration recheck: the same BS10610 test runner
+still failed at SSH banner exchange (exit1); a single direct BS hostname probe
+failed TCP connect172.17.61.18:22 (exit1). Read-only Find-NetRoute selects local
+Ethernet192.168.1.144 via default gateway192.168.1.1. This locates the currently
+unavailable hop, not a proven server/VPN root cause. Target health remains
+unknown. No remote preflight or test ran, and no network settings were changed.
+
+Goal: existing Task4 registered request -> verified capability -> own adapter
+Resume; no extra feature, new retry mechanism, Task5/6 or production change.
+Prepared WIP scripts/tests/test_p02_registered_recovery.py using existing native
+adapter fixtures and real physical mapping/lock CAS, with external transport
+substituted. This test draft is unverified; do not treat it as accepted coverage.
+No production implementation file changed. Last accepted commit685c5b2.
+
+Attempted command: existing gated BS10610 offline runner selecting
+pytest -q -p no:cacheprovider scripts/tests/test_p02_registered_recovery.py.
+Transport: ssh -o BatchMode=yes -o ConnectTimeout=15 BS10610 with the existing
+base64 command/data transfer. Two attempts, both exit1 at banner exchange:
+Connection timed out during banner exchange; Connection to UNKNOWN port65535
+timed out. Neither reached remote preflight, sync, container or test execution.
+Likely SSH transport/jump availability; no evidence of a test/code failure.
+Local read-only ssh -G confirmed BS10610=172.17.106.10 via BS=172.17.61.18.
+One diagnostic ssh -o BatchMode=yes -o ConnectTimeout=10 BS hostname also failed
+before remote execution: connect to host172.17.61.18 port22: Connection timed
+out (exit1). Thus the jump is currently unreachable; target health is unknown.
+No alternate environment, credential, production host, mount or service change.
+
+Changed only test draft and CURRENT_STATE/TASKS/HANDOFF plus ignored SDD ledger.
+No source checkpoint committed while RED cannot run. Next: restore test SSH,
+rerun this single draft selection, correct fixture issues if any, implement only
+planned registered entry, then minimal affected checks. Do not reuse the earlier
+receipt tests as proof of this new capability. Task4 remains OPEN.
+
 ## 2026-09-24 Task4 normal-receipt identity checkpoint
 
 Goal: continue the existing Task4 route only; no new functionality, automatic

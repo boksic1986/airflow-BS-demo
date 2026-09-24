@@ -1,11 +1,16 @@
 # Active test-branch tasks
 
+- [x] Task4 registered Step2 capability factory and actual WGS/GATK Resume routing.
+  Request hash/current bytes, operator binding/storage, exact native old lock
+  owner and sibling dispatcher exclusion checked before native replacement.
+  BS10610 entry2 RED, real GATK shape1 RED; final14 + affected3 GREEN.
+  No activation, policy installation, production or original bundle changes.
+
 - [x] Task4 verified Master metadata through normal WGS/GATK status writers;
   GATK receipt hash covers it, WGS worker failure retains it, JSON cannot grant
   authority, old submit identity is not relabelled as the observing execution.
   BS10610 two RED -> GREEN; affected7 GREEN; final refined receipt2 GREEN.
-- [ ] Task4 next: trusted per-run capability factory and actual restricted
-  routing; reconstruct selected Master from verified native evidence across
+- [ ] Task4 next: reconstruct selected Master from verified native evidence across
   processes, then final protected Step6 release and full manual synthetic flow.
   Do not interpret the in-process receipt checkpoint as full Task4 acceptance.
 

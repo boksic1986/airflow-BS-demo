@@ -180,6 +180,16 @@ assert delete_options["preconditions"] == {"uid": old_uid, "resourceVersion": ol
 
 ## Task4 — Authenticated manual adapter closure before automatic dispatch
 
+2026-09-24 registered Step2 source checkpoint: trusted factory now reads existing
+authenticated spool, verifies its adapter-specific hash, operator frozen binding,
+physical directory and exact native old owner, excludes sibling dispatchers and
+holds shared directory serialization through existing WGS/GATK Resume. Actual
+Step2 writes verified binding receipt and repeated request reuses native journal.
+BS10610 entry2 RED, real GATK request-shape1 RED; final14 GREEN13.78s and affected3
+GREEN2.17s. No policy installation/activation. Step3 replacement remains fail-closed
+until selected-view cross-process continuation is connected. Native Step3-6,
+final protected release and full authenticated manual flow remain OPEN; no Task5/6.
+
 2026-09-24 normal-receipt checkpoint: internal native-verified result now survives
 both status writers and GATK terminal receipt hashing; WGS worker disconnect
 preserves it. Caller JSON cannot mint authority, and a new observer does not

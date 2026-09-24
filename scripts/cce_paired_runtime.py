@@ -10,6 +10,9 @@ import os
 from pathlib import Path
 import stat
 import sys
+from contextlib import ExitStack, contextmanager
+import fcntl
+import re
 
 POLICY_PATH = Path('/etc/cce-pipeline/writers-v2.json')
 TRUST_ROOT = Path('/etc/cce-pipeline')
@@ -98,3 +101,169 @@ def load_runtime():
         raise
     module._operator_paired_activation = True
     return module
+
+
+def _read_registered(path):
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(fd, 'rb') as stream:
+        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+            raise RuntimeError('registered evidence must be a regular file')
+        raw = stream.read(16*1024*1024+1)
+    if len(raw) > 16*1024*1024:
+        raise RuntimeError('registered evidence is too large')
+    return raw
+
+
+@contextmanager
+def _exclusive(path):
+    fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        yield
+    finally:
+        os.close(fd)
+
+
+def _inactive_dispatcher(path, gate, pipeline):
+    """A free lock/dead parent alone is not terminal dispatcher evidence."""
+    worker = path.with_suffix('.worker.json' if pipeline == 'wgs' else '.worker.state.json')
+    status = path.with_suffix('.status.json')
+    if not worker.exists() and not status.exists():
+        return  # Registered but never dispatched, or no request yet.
+    if not worker.exists() or not status.exists() or not path.exists():
+        raise RuntimeError('other dispatcher lacks terminal evidence')
+    state, receipt, request = [json.loads(_read_registered(p)) for p in (worker, status, path)]
+    keys = ('analysis_id', 'attempt', 'stage', 'generation', 'execution_id', 'request_hash')
+    if (request.get('orchestration_contract_version') != 2
+            or any(not request.get(k) or state.get(k) != request[k] or receipt.get(k) != request[k] for k in keys)
+            or receipt.get('status') not in {'success', 'succeeded', 'complete', 'failed', 'canceled'}):
+        raise RuntimeError('other dispatcher terminal identity is incomplete')
+    if pipeline == 'gatk':
+        process = state.get('process')
+        if (state.get('schema_version') != 'gatk-runtime.dispatcher.v1'
+                or state.get('state') != 'finished'
+                or (process and gate._process_identity(process['pid']) == process)):
+            raise RuntimeError('other dispatcher is active or uncertain')
+    elif (not all(state.get(k) for k in ('pid', 'boot_id', 'process_start_time'))
+            or gate._process_matches(state) or gate._process_matches(state.get('reattach') or {})):
+        raise RuntimeError('other dispatcher is active or uncertain')
+
+
+def resume_registered(payload, *, binding, gate, pipeline):
+    """Internal restricted-worker entry; caller already holds its worker lock.
+
+    The fixed operator policy and the authenticated spool are separate trust
+    boundaries. Request flags cannot assert quiescence, choose code, or map an
+    old lock. Locks remain held until the existing native recovery returns.
+    """
+    runtime = load_runtime()
+    if runtime is None:
+        return None
+    if (pipeline not in {'wgs', 'gatk'} or payload.get('orchestration_contract_version') != 2
+            or payload.get('stage') != 'step2_master'
+            or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', str(payload.get('resume_action_id') or ''))):
+        raise RuntimeError('registered replacement requires Step2; selected Step3 continuation is not activated')
+    path = gate._request_path(payload['analysis_id'], payload['attempt'], payload['stage'])
+    raw = _read_registered(path)
+    registered = json.loads(raw)
+    # Resume results are internal, not part of the signed/registered request.
+    public = {k:v for k,v in payload.items() if not k.startswith('_') and k != 'resume_master_uid'}
+    excluded = {'request_hash'} if pipeline == 'gatk' else {
+        'execution_id', 'generation', 'request_hash', 'predecessor_execution_id',
+        'predecessor_generation', 'predecessor_receipt_hash'}
+    digest = hashlib.sha256(json.dumps({k:v for k,v in registered.items() if k not in excluded},
+        sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    if registered != public or digest != registered.get('request_hash'):
+        raise RuntimeError('registered recovery request changed or hash differs')
+    if pipeline == 'wgs' and Path(registered['control_workdir']) != path.parent:
+        raise RuntimeError('recovery journal must belong to registered request scope')
+    bundle = Path(binding['cce_bundle'])
+    contract, config, _ = runtime._load(bundle, None)
+    writer = runtime.writer_for_bundle(runtime, bundle, contract, config)
+    if writer is None:
+        raise RuntimeError('trusted per-run writer registration required')
+    if __package__:
+        from .cce_recovery_inventory import RecoveryCapability
+        from . import wgs_resume, gatk_resume
+    else:
+        from cce_recovery_inventory import RecoveryCapability
+        import wgs_resume, gatk_resume
+    with ExitStack() as stack:
+        # Exclude launches as well as execution. The current worker lock is
+        # owned by the restricted gate, so it must not be acquired twice.
+        paths = [gate._request_path(payload['analysis_id'], payload['attempt'], stage)
+                 for stage in ('prepare', *COMMANDS, 'step7_cleanup')]
+        for other in paths:
+            stack.enter_context(_exclusive(other.with_suffix('.launch.lock')))
+            if other != path:
+                stack.enter_context(_exclusive(other.with_suffix('.worker.lock')))
+                _inactive_dispatcher(other, gate, pipeline)
+        stack.enter_context(writer.serialize())
+        scope = writer.validate()
+        record = runtime._read_master_handoff(bundle, contract)
+        if not isinstance(record, dict) or record.get('schema_version') != 2:
+            raise RuntimeError('native Master handoff identity required')
+        old_uid = record['job_uid']
+        terminal = runtime._recovery_final_evidence(bundle, contract, old_uid)['terminal']
+        context = dict(pipeline=pipeline, analysis_id=payload['analysis_id'],
+            execution_id=payload['execution_id'], generation=terminal['execution_generation']+1,
+            action=payload['resume_action_id'])
+        platform = {k:payload[k] for k in ('analysis_id', 'attempt', 'stage', 'execution_id', 'generation', 'request_hash')}
+        platform['pipeline'] = pipeline
+        name, identity, old_owner = runtime._directory_lock_identity(contract, writer.context)
+        expected_owner = dict(generation=terminal['execution_generation'],
+            action=terminal['recovery_context']['action'], master_uid=old_uid)
+        if (old_owner != expected_owner or identity['pipeline'] != pipeline
+                or identity['analysis_id'] != payload['analysis_id']
+                or identity['attempt'] != str(payload['attempt'])):
+            raise RuntimeError('operator registration differs from native old owner')
+
+        def authorize(facts):
+            if _read_registered(path) != raw:
+                raise RuntimeError('registered recovery request superseded')
+            current_scope = writer.validate()
+            if (current_scope != scope or facts['native_directory'] != scope['native_directory']
+                    or facts['old_job_uid'] != old_uid or facts['config_digest'] != identity['config_digest']
+                    or facts['run_id'] != identity['run_id'] or facts['context'] != context):
+                raise RuntimeError('registered recovery identity changed')
+            # A disappeared old lock cannot be treated as permission for a new claim.
+            current = runtime._recovery_query(config, 'configmap', name)
+            value = json.loads(current['data']['lock']) if current else {}
+            if value.get('schema_version') != 2 or value.get('identity') != identity or value.get('state') != 'OWNED':
+                raise RuntimeError('registered directory lock missing or foreign')
+            owner = value.get('owner', {})
+            if owner != expected_owner and (owner.get('generation') != context['generation']
+                    or owner.get('action') != context['action']):
+                raise RuntimeError('directory lock owner differs from recovery')
+            if owner != expected_owner and owner.get('master_uid'):
+                live = runtime._recovery_query(config, 'job', contract['kubernetes']['master_job'])
+                metadata = (live or {}).get('metadata', {})
+                if (metadata.get('uid') != owner['master_uid'] or metadata.get('deletionTimestamp')
+                        or metadata.get('annotations', {}).get('cce-pipeline/recovery-context') != json.dumps(context, sort_keys=True)):
+                    raise RuntimeError('replacement lock UID is not the registered Master')
+            return dict(writers_protocol=2, dispatcher_inactive=True, recovery_allowed=True,
+                native_directory=scope['native_directory'], canonical_directory=scope['canonical_directory'])
+
+        def verify_lock(current, operation, facts):
+            value = json.loads(current['data']['lock'])
+            expected = expected_owner if operation == 'takeover' else dict(
+                generation=context['generation'], action=context['action'], master_uid='')
+            if (operation not in {'takeover', 'bind'} or value.get('identity') != identity
+                    or value.get('owner') != expected):
+                raise RuntimeError('lock transition does not match verified native owner')
+            return dict(object_uid=current['metadata']['uid'], resource_version=current['metadata']['resourceVersion'],
+                identity=identity, owner=expected)
+
+        capability = RecoveryCapability(bundle=bundle, expected_job_uid=old_uid, context=context,
+            authorize=authorize, verify_lock=verify_lock, platform_execution=platform)
+        if pipeline == 'wgs':
+            result = wgs_resume.resume_master(payload=payload, binding=binding, runtime=runtime, recovery=capability)
+        else:
+            result = gatk_resume.resume(analysis_id=payload['analysis_id'], attempt=payload['attempt'],
+                expected_job_uid=old_uid, expected_binding_sha256=hashlib.sha256(
+                    _read_registered(bundle.parent/'batch-binding.json')).hexdigest(),
+                expected_contract_sha256=hashlib.sha256(_read_registered(bundle/'BATCH_RUNTIME.yaml')).hexdigest(),
+                execute=True, runtime=runtime, recovery=capability)
+        if _read_registered(path) != raw:
+            raise RuntimeError('registered recovery request superseded after native recovery')
+        return result

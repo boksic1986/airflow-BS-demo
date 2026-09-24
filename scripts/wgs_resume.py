@@ -291,7 +291,13 @@ def run_resume_stage(payload, *, gate):
     elif stage == 'step6_materialize':
         subprocess.run(gate._step_command(payload, stage), check=True)
     elif stage in {'step2_master', 'step3_monitor'}:
-        result = resume_master(payload=payload, binding=binding)
+        if __package__:
+            from .cce_paired_runtime import resume_registered
+        else:
+            from cce_paired_runtime import resume_registered
+        result = resume_registered(payload, binding=binding, gate=gate, pipeline='wgs')
+        if result is None:
+            result = resume_master(payload=payload, binding=binding)
         payload['resume_master_uid'] = result['master_uid']
         if 'cce_master_binding' in result:
             payload['_cce_master_result'] = result

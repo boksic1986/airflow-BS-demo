@@ -1,5 +1,25 @@
 # Current state
 
+## 2026-09-24 Task4 registered Step2 recovery checkpoint
+
+BS10610 SSH restored; isolated offline validation resumed. Existing paired
+runtime now constructs RecoveryCapability from the registered stage request,
+operator-approved frozen binding, physical directory identity and exact native
+old owner. Holds shared directory serialization and other dispatcher/launch
+locks throughout existing Resume. Missing/foreign locks, changed request and
+uncertain dispatcher evidence refuse replacement. WGS/GATK actual Step2 entries
+retain verified native/platform identity in normal status receipts; replay
+creates/starts only once and preserves frozen inputs.
+
+BS10610: actual entry2 RED; corrected real GATK request shape1 RED; final14
+GREEN13.78s and affected legacy/receipt3 GREEN2.17s. No broad suite, local tests,
+activation, live cloud workload, production service or DB change.
+Task4 remains OPEN: selected-view reconstruction across processes, native
+Step3-6 execution, final protected release and authenticated service/DAG/native
+manual flow. Activated Step3 replacement fails closed until that continuation
+is connected. Operator bindings are not automatically generated/installed.
+Tasks5/6 remain unstarted.
+
 ## 2026-09-24 Task4 verified normal-receipt checkpoint
 
 WGS/GATK status writers now carry native-verified Master binding metadata from
