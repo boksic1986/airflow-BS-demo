@@ -1899,6 +1899,10 @@ def _binding_run_label(binding: dict[str, Any]) -> str:
 
 def _step_command(payload: dict[str, Any], stage: str, *arguments: str) -> list[str]:
     binding = _load_binding(payload)
+    from cce_paired_runtime import stage_command
+    paired = stage_command(Path(str(binding['cce_bundle'])), stage, *arguments)
+    if paired is not None:
+        return paired
     script = Path(str(binding["cce_bundle"])) / STEP_SCRIPTS[stage]
     if not script.is_file() or script.is_symlink():
         raise FileNotFoundError(f"frozen WGS step is missing: {script.name}")

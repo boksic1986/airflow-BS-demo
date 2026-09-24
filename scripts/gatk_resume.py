@@ -64,6 +64,13 @@ def _save(path, value, *, create=False):
 
 
 def _runtime(bundle):
+    if __package__:
+        from .cce_paired_runtime import load_runtime
+    else:
+        from cce_paired_runtime import load_runtime
+    paired = load_runtime()
+    if paired is not None:
+        return paired
     source = _regular(bundle/'cce_batch_runtime.py')
     spec = importlib.util.spec_from_file_location('gatk_frozen_runtime', source)
     runtime = importlib.util.module_from_spec(spec)

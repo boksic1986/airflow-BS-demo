@@ -1,5 +1,50 @@
 # Handoff
 
+## 2026-09-24 Task4 cloud identity and actual entry selection checkpoint
+
+Goal: implement the approved read-only cloud directory identity source and wire
+paired runtime selection without changing frozen projects or production.
+Native guard/source checkpoint: readonly PVC-only reader from existing generator,
+bound PVC/PV/Job/Pod UIDs, cloud symlink resolution, persisted one-CREATE intent,
+uncertain-response reconciliation and conditional cleanup. Replayed foreign UID
+cannot be deleted; completed cleanup does not reuse stale directory evidence.
+Factory rejects bad frozen registration before any probe. Cloud10 + writer13
+GREEN2.23s; details and source commit in native HANDOFF/history.
+
+Platform adds scripts/cce_paired_runtime.py and its focused tests; actual WGS/GATK
+stage command builders and Resume loaders select the operator-pinned external
+runtime, preserving --bundle. Fixed policy, source hashes and root ownership;
+guard sibling is pinned before importing native code. No payload/env runtime
+selector and no invalid-policy fallback. GATK's direct materialization now enters
+the protected writer while retaining its original approved result-root validation.
+Existing prepare/Step7/maintenance mechanisms stay outside this source change.
+
+Validation: BS10610/server10610, current20260912-opt-4d3d24e6,
+backend36ff21f87356 mounts backend20260923-step7-ae416fa and config20260912-opt;
+both RO, scanner/auto dispatch false. Cached imagea0112f0b8ef0 offline readonly
+candidate/producer/plugin/dependencies; only synthetic scratch RW. New loader7
+RED missing module -> GREEN, unactivated compatibility2 GREEN, custom GATK guard
+1 RED -> GREEN; final10 new +3 existing result-root cases GREEN0.82s. Evidence:
+WGS_test/cce-evidence/p02-task4-20260924/paired-{loader,materialize,entry}-*.log.
+Two individual SSH jump handshake failures had bounded successful retries.
+No local runtime tests/full-suite reruns; no real cloud/DB/analysis/deployment.
+
+Task4 OPEN: this is selection/entry fencing, not automatic registration or full
+Resume capability construction. Normal selected-view receipts/backend binding,
+final Step6 release and real service->DAG->native synthetic closure still pending.
+GATK resume registry remains disabled. Tasks5/6 not started; no TTL/capacity claim.
+Next continue those existing Task4 seams, not another storage choice. Rollback:
+revert isolated source commits; no deployed release/policy or data to roll back.
+Docs08/02/11 and plan/ledger updated; no API/schema change in this checkpoint.
+
+## 2026-09-24 Task4 cloud-reader identity authorization
+
+User agreed to reuse the existing cloud read-only reader for actual SFS directory
+identity, with no new host mount. Continue isolated source + BS10610 offline
+synthetic verification only. This supersedes the pending mapping-choice question,
+not the production rollout gates. No real reader Job, production query, CLI/image
+upgrade, frozen bundle edit or deployment is authorized by this confirmation.
+
 ## 2026-09-24 Task4 CLI compatibility authorization
 
 Latest: protected stage actual arguments now bind to original bundle/contract/

@@ -1,5 +1,14 @@
 # Engineering specification
 
+## P0 paired runtime source checkpoint (not deployed, 2026-09-24)
+
+Restricted WGS/GATK entries consult fixed /etc/cce-pipeline/writers-v2.json for
+paired external runtime selection. Operator-owned source pins include cli,
+platform selection module and runtime_guard; operator_python is an absolute
+operator-owned executable. No new service, port, DB field or environment switch.
+Cloud directory identity uses the existing reader with read-only workspace PVC,
+not a control-host SFS mount. Contracts and remaining activation gates: docs08.
+
 ## WGS deployed runtime pins recorded in source (2026-09-17)
 
 Administrator-only WGS_RELEASE_RUNTIMES_JSON maps release ID to python,

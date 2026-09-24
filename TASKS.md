@@ -1,5 +1,12 @@
 # Active test-branch tasks
 
+- [x] Task4 user-approved cloud reader identity source: read-only workspace only,
+  PVC/PV and Job/Pod fences, actual directory resolution, durable one-create and
+  safe cleanup replay. BS10610 cloud10 + protected-entry13 GREEN.
+- [x] Task4 paired external runtime selection in real WGS/GATK stage builders and
+  Resume loaders; GATK custom materialization guarded without changing output.
+  New10 + affected existing3 GREEN; no activation policy installed.
+
 - [x] Task4 native selected-Master Step4/5/log-export reader with original delivery
   roots (native08c6cda); BS10610 affected10 passed.
 - [x] Task4 WGS/GATK Resume exports validated v2 platform/native binding metadata;
@@ -10,9 +17,8 @@
 - [ ] Complete
   trusted storage/all-writer and actual restricted-gate receipt forwarding before
   Task4 acceptance. Tasks5/6 remain unstarted, not skipped or marked complete.
-- [ ] Confirm canonical SFS identity source: existing cloud read-only reader
-  (recommended; no new mount) vs user-supplied existing actual SFS mount. Never
-  equate local analysis NFS with cloud SFS. No activation without this resolution.
+- [x] Canonical SFS identity choice confirmed: existing cloud read-only reader,
+  no new host mount. Never equate local analysis NFS with cloud SFS.
 
 - [x] Task4 GATK Step1–6 dispatcher launch/worker fence and late-receipt protection;
   BS10610 focused15 passed. This is not the full Task4 manual mock acceptance.

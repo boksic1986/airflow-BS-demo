@@ -284,6 +284,10 @@ def _prepare(payload: dict[str, Any]) -> list[str]:
 
 
 def _step(payload: dict[str, Any], stage: str) -> list[str]:
+    from cce_paired_runtime import stage_command
+    paired = stage_command(_bundle(payload), stage)
+    if paired is not None:
+        return paired
     script = _bundle(payload) / STAGE_SCRIPTS[stage]
     if not script.is_file() or script.is_symlink():
         raise RuntimeError(f"frozen GATK stage script is unavailable: {script.name}")
@@ -811,6 +815,21 @@ def _run_step5_with_progress(payload: dict[str, Any], environment: dict[str, str
 
 
 def _materialize(payload: dict[str, Any]) -> Path:
+    from cce_paired_runtime import load_runtime
+    paired = load_runtime()
+    if paired is None:
+        return _materialize_to_approved_root(payload)
+    bundle = _bundle(payload)
+    contract, config, _ = paired._load(bundle, None)
+    writer = paired.writer_for_bundle(paired, bundle, contract, config)
+    if writer is None:
+        raise RuntimeError('paired GATK materialization requires a protected writer')
+    writer.validate_call({'bundle':bundle, 'contract':contract, 'config':config})
+    with writer.enter(6):
+        return _materialize_to_approved_root(payload)
+
+
+def _materialize_to_approved_root(payload: dict[str, Any]) -> Path:
     bundle = _bundle(payload)
     runtime = yaml.safe_load((bundle / "BATCH_RUNTIME.yaml").read_text(encoding="utf-8"))
     if not isinstance(runtime, dict) or runtime.get("schema_version") != 3:

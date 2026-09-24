@@ -1,12 +1,31 @@
 # Current state
 
+## 2026-09-24 Task4 cloud identity and paired entry checkpoints
+
+User approved the existing cloud read-only reader, not a new SFS host mount.
+Native source now validates PVC/PV/Job/Pod identities and resolves directory
+aliases in that reader, with durable one-create/reconciled cleanup and no foreign
+UID deletion. Frozen binding validation precedes the probe. Cloud10 plus affected
+protected-entry13 passed on BS10610 offline synthetic (23 GREEN2.23s).
+
+Platform WGS/GATK stage command and Resume runtime selection now honor fixed
+operator-owned paired pins, including the sibling guard; invalid activation
+never falls back to old frozen code. GATK custom result-root materialization
+enters the same writer without changing its approved output location. New10 and
+three existing GATK result-root checks passed (13 GREEN0.82s).
+
+These are source checkpoints, not Task4 acceptance or deployment. Actual trusted
+per-run registration/recovery capability, selected-view normal receipts, final
+lock release and full service/DAG/native manual closure remain OPEN. Tasks5/6
+remain unstarted. No policy, cloud Job, CLI/image or production service changed.
+
 ## 2026-09-24 Task4 CLI protected-entry checkpoint (native8ec5415)
 
 Follow-up binds actual stage arguments to the original bundle/contract/config;
-new13 checks passed. Cloud SFS identity source now needs confirmation: reuse the
+new13 checks passed. Historical mapping question (resolved above): reuse the
 existing cloud read-only reader (recommended) vs an already mounted SFS path.
 No verified local SFS mapping exists in this task; do not substitute local NFS or
-create new mounts. Waiting for that choice before the actual gate integration.
+create new mounts. The user subsequently approved the cloud reader.
 
 User approved CLI Step1–Step6 compatibility scope. Isolated native source now
 guards every stage, preserves v2 locks on early failure, checks operator-owned

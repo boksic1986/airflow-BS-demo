@@ -1,5 +1,29 @@
 # Workflow runtime integration
 
+## Task4 approved cloud identity and paired entry source (2026-09-24)
+
+Operator storage mode `cloud-reader` uses native_root/canonical_root and exact
+pvc_name/pvc_uid/pv_name/pv_uid. Resolve native run_dir inside the existing reader
+generator with only that PVC mounted read-only. Remove other volumes, env and
+automatic service-account-token mounting. Verify live volume binding and exact
+reader Job/Pod identity before/after the probe. Fsync CREATE intent; reconcile
+uncertain CREATE, never issue a second POST for the same intent. Clean up only
+the bound UID/resourceVersion; cleanup replay cannot authorize a stage from old
+probe results. No local NFS-to-SFS equivalence or new host mount.
+
+The fixed writers-v2 policy additionally pins `runtime_guard` (path/sha256 for
+the CLI source's sibling cce_writer_guard.py), and `operator_python` selects the
+operator-owned executable for external stage commands. `writers.platform` pins
+scripts/cce_paired_runtime.py. Source and ancestry must be operator-owned and not
+group/world writable. No request field/environment flag can bypass bad policy.
+Actual WGS/GATK Step1–6 builders and Resume loaders select the external runtime
+only when this policy exists. GATK custom delivery also enters its writer and
+keeps the original approved result root. Unactivated old behavior is unchanged.
+
+Per-run bindings still require exact frozen registration; this checkpoint does
+not install or automatically generate those bindings. Selected-view receipts,
+recovery capability construction and final-release closure remain Task4 gates.
+
 ## Task4 protected writer entry (source only, 2026-09-24)
 
 Native8ec5415 exports ProtectedWriter for Step1–Step6 and bundles its guard module.

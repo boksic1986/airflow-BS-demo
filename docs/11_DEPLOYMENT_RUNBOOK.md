@@ -1,5 +1,16 @@
 # Deployment runbook
 
+## P0 paired runtime rollout remains closed (source only, 2026-09-24)
+
+Do not install writers-v2.json from the current Task4 source checkpoint. Native
+cloud identity and restricted entry selection are tested offline, but per-run
+trusted registration, selected-view normal receipts and final lifecycle release
+are not accepted. Later authorized paired rollout must install the runtime and
+sibling guard together, pin scripts/cce_paired_runtime.py, use an operator-owned
+Python and exact namespace/PVC/PV identities, and cover every CLI/platform writer.
+Invalid activation fails closed; removing policy while v2 owners remain is not
+a safe rollback. No new SFS host mount is required by the approved design.
+
 ## Same-batch / Step2 publication (2026-09-18)
 
 BS96 backend/frontend-nginx use

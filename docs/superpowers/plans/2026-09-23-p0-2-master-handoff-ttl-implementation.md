@@ -180,6 +180,15 @@ assert delete_options["preconditions"] == {"uid": old_uid, "resourceVersion": ol
 
 ## Task4 — Authenticated manual adapter closure before automatic dispatch
 
+2026-09-24 checkpoint: user-approved existing cloud reader now resolves SFS
+identity without a host mount; exact volume/Job/Pod fences and durable one-create
+cleanup validated (cloud10 + protected-entry13 GREEN). Actual WGS/GATK stage
+builders/Resume loaders select the paired operator runtime, and GATK custom
+materialization preserves its output-root checks under the writer (new10 +3
+affected GREEN). No activation policy installed. Per-run trusted registration,
+selected-view receipts, recovery capability/final release and full manual flow
+remain unchecked; these helper/entry checks do not open Tasks5/6.
+
 2026-09-24 additional source checkpoint: GATK own registration/history, existing
 adapter endpoint and DAG selection implemented; shared module contains only the
 accepted durable dispatch/action fences.39 affected backend cases plus two new

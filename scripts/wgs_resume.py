@@ -18,6 +18,13 @@ def _regular(path):
 
 
 def _runtime(bundle):
+    if __package__:
+        from .cce_paired_runtime import load_runtime
+    else:
+        from cce_paired_runtime import load_runtime
+    paired = load_runtime()
+    if paired is not None:
+        return paired
     spec = importlib.util.spec_from_file_location('wgs_frozen_resume_runtime', _regular(bundle / 'cce_batch_runtime.py'))
     runtime = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(runtime)
