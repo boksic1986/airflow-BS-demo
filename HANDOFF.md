@@ -1,5 +1,14 @@
 # Handoff
 
+## 2026-09-24 01:29 UTC production downstream update
+
+78f1857f GATK transfer-only poll delta deployed to BS96 backend; independent
+Step7 changes in development branch were preserved and NOT deployed.
+Step5 status returns success in0.045s. Airflow wait_step3/4/5 success;
+materialize_step6_results success, wait_step6_materialize up_for_reschedule.
+No second clear or native download rerun. Existing15min heartbeat continues.
+Code/docs pushed to repair branch, main/production not merged. No Job/Pod cleanup.
+
 ## 2026-09-24 GATK transfer polling follow-up
 
 Step5 started once but its first wait call timed out30s while still importing
