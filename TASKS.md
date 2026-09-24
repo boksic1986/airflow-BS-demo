@@ -4,7 +4,10 @@
   roots (native08c6cda); BS10610 affected10 passed.
 - [x] Task4 WGS/GATK Resume exports validated v2 platform/native binding metadata;
   source identities are not substituted, ready/legacy results not relabelled;6 passed.
-- [ ] Confirm necessary CLI Step1–6 protected-entry compatibility scope; complete
+- [x] User confirmed CLI Step1–6 scope; native8ec5415 adds source entry guards and
+  operator-owned physical mapping/version/binding checks. New12/affected35/legacy3
+  BS10610 checks GREEN; no operator configuration or runtime installed.
+- [ ] Complete
   trusted storage/all-writer and actual restricted-gate receipt forwarding before
   Task4 acceptance. Tasks5/6 remain unstarted, not skipped or marked complete.
 

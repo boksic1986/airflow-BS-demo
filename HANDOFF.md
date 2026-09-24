@@ -1,5 +1,27 @@
 # Handoff
 
+## 2026-09-24 Task4 CLI compatibility authorization
+
+User confirmed extending isolated cce-pipeline CLI Step1–Step6 protected entries,
+trusted storage mapping and paired CLI/platform version checks. Authorization is
+source development and BS10610 synthetic validation only. No production CLI,
+image, configuration, old frozen bundle, real Job or data changes are authorized.
+Task4 remains open until actual restricted gates and normal receipts are wired.
+
+Native checkpoint8ec5415 implements the protected-entry capability and fixed
+operator-owned activation reader. Source checks pins/namespace, actual mounted
+symlinks+root inode/filesystem identity, frozen bundle/config hashes; shared
+journal flock and existing CAS enforce entry/early-release fences. Explicit old
+binding required; missing proof fails closed. No policy or mount created. This
+does not prove the production all-writer inventory or complete gate wiring.
+BS10610 first jump handshake reset, bounded retry passed. New9 RED -> GREEN;
+actual CLI bypass1 RED -> GREEN; programmatic sibling import1 RED -> GREEN.
+Final new12 GREEN0.53s, affected35 GREEN5.78s, oldStep4/5 threeGREEN0.17s.
+Evidence p02-task4-20260924/protected-*.log under WGS_test/cce-evidence. Runtime
+imagea0112f0b8ef0 offline/RO source; existing swap-limit warning only. No full
+suite rerun, no local tests or production activity. Pending exact normal platform
+registration/entry, final release, selected-view receipts and manual closure.
+
 ## 2026-09-24 Task4 selected downstream and validated binding export
 
 Native08c6cda adds optional selected-Master bundle/UID to Step4/5/log export.

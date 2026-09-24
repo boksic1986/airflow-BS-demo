@@ -1,5 +1,16 @@
 # Current state
 
+## 2026-09-24 Task4 CLI protected-entry checkpoint (native8ec5415)
+
+User approved CLI Step1–Step6 compatibility scope. Isolated native source now
+guards every stage, preserves v2 locks on early failure, checks operator-owned
+paired source pins/physical storage mapping/exact frozen binding at CLI entry,
+and serializes shared journal writes. No old bundle/config/policy was installed.
+BS10610 new12 GREEN, affected lock/downstream35 GREEN, legacy Step4/5 three GREEN.
+Task4 remains OPEN: actual platform registration/gates, selected-view receipts,
+final downstream release and complete WGS/GATK manual flow are still pending.
+Tasks5/6 unstarted; no production/CLI/image/TTL/automatic activation.
+
 ## 2026-09-24 Task4 downstream/binding checkpoints; CLI entry scope confirmation
 
 Native isolated commit08c6cda accepts selected-Master evidence for Step4/5/log
@@ -11,9 +22,9 @@ BS10610 offline downstream10 and adapter binding6 affected checks passed.
 
 Task4 is NOT complete: restricted entry selected-view persistence/forwarding,
 canonical storage mapping and paired all-writer activation remain open. The CLI
-still has legacy Step1/2 lock calls and no v2 downstream entry protection. Asked
-user to confirm the necessary CLI Step1–6 entry compatibility source scope before
-adding that gate. No production changes; Task5/6 have not been started.
+scope was subsequently approved and the source entry checkpoint above supersedes
+the missing-entry observation. Actual paired activation remains unproven.
+No production changes; Task5/6 have not been started.
 
 ## 2026-09-24 Task4 GATK dispatcher fencing checkpoint
 

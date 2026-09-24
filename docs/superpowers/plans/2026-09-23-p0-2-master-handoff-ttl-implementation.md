@@ -215,8 +215,11 @@ closure below remains unchecked; this checkpoint is not that acceptance.
 keeps original output roots;10 focused checks passed. Actual WGS/GATK Resume
 exports v2 binding from validated handoff with separate native/platform hashes;
 6 affected checks passed. Backend/gate receipt forwarding is NOT yet closed.
-CLI Step1–6 protected-entry compatibility and actual-storage/all-writer proof need
-completion; user scope confirmation requested before that native entry change.
+CLI Step1–6 protected-entry compatibility scope was confirmed. Native8ec5415
+adds protected stage/CLI entry, paired source pins, physical mapping, registered
+frozen binding and shared journal serialization. New12/affected35/legacy3 checks
+passed on BS10610. Actual gate registration, final release and all-writer rollout
+proof remain pending; no policy or mount installed.
 Tasks5/6 remain gated, no TTL/default CLI behavior enabled by these checkpoints.
 
 2026-09-24 checkpoint: GATK restricted Step1–6 launcher/worker now has durable

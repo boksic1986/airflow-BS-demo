@@ -1,5 +1,21 @@
 # Workflow runtime integration
 
+## Task4 protected writer entry (source only, 2026-09-24)
+
+Native8ec5415 exports ProtectedWriter for Step1–Step6 and bundles its guard module.
+CLI main reads fixed operator-owned /etc/cce-pipeline/writers-v2.json; no browser
+or environment opt-out. When activated, require paired source pins, namespace,
+physical shared-storage mapping and exact registered immutable bundle/config.
+Unknown legacy identity fails closed. Shared journal flock serializes the stage;
+CAS intents retain existing fsync semantics. Legacy failure cleanup inside a
+protected stage cannot release the v2 lifecycle lock. Release after Step6 still
+requires separately verified downstream/quiescence proof and is not yet wired.
+
+No operator policy is installed by source development. Paired writer inventory
+and access-path fencing are rollout conditions, not implied by a source hash.
+Actual platform registration/gate construction and selected-view normal receipt
+forwarding remain Task4 work. No API, DB, production or TTL activation changed.
+
 ## Task4 selected Master downstream and binding export (source only, 2026-09-24)
 
 Native08c6cda internal Step4/Step5/download_snakemake_logs accept the selected
