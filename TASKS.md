@@ -1,5 +1,12 @@
 # Active test-branch tasks
 
+## GATK-TERMINAL-STATUS-20260924
+
+- [x] Reproduce blocked terminal acknowledgement and preserve identity fencing.
+- [x] Apply minimal ordering fix;48 affected isolated tests passed on BS10610.
+- [ ] Publish scoped backend change to BS96 and confirm status response latency.
+- [ ] Restore WES20260921B wait_step3/downstream only; preserve successful analysis.
+
 ## GATK external-Master recovery 20260924
 - [x] Add opt-in identity/inventory/dispatch-fenced manual recovery and focused tests.
 - [x] Verify candidate preflight for authorized WES run without creating Master.

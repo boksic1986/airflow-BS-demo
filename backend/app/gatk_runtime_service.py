@@ -240,8 +240,6 @@ def _execution_payload(row: PipelineStageExecution) -> dict[str, Any]:
 def sync_gatk_stage_status(
     *, session: Session, settings, analysis_id: str, attempt: int, stage: str
 ) -> dict[str, Any]:
-    if stage in {"step1_upload", "step3_monitor", "step5_download", "step6_materialize"}:
-        _ingest_gatk_evidence(session=session, settings=settings, analysis_id=analysis_id, attempt=attempt)
     row = session.scalar(
         select(PipelineStageExecution)
         .where(
@@ -335,6 +333,14 @@ def sync_gatk_stage_status(
                     run.ended_at = run.ended_at or now
                     run.progress_updated_at = now
             session.commit()
+    # A fenced terminal receipt is authoritative. Bulk rule-log projection can
+    # exceed the sensor HTTP deadline and must not block its acknowledgement.
+    # Raw evidence remains on disk; live polling retains the existing importer.
+    if (
+        row.status not in {"success", "failed", "canceled"}
+        and stage in {"step1_upload", "step3_monitor", "step5_download", "step6_materialize"}
+    ):
+        _ingest_gatk_evidence(session=session, settings=settings, analysis_id=analysis_id, attempt=attempt)
     _reconcile_terminal_transfer(session=session, row=row)
     failed = row.status in {"failed", "canceled"}
     return {

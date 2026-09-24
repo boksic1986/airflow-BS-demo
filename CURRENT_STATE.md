@@ -1,5 +1,11 @@
 # Current state
 
+## 2026-09-24 GATK terminal receipt fast path
+
+Validated terminal status no longer waits for synchronous rule-log import.
+BS10610 isolated affected tests48 passed. Production rollout pending.
+WES20260921B Step3 success/healthy; wait_step3 and downstream need scoped recovery.
+
 ## WES recovery live outcome 2026-09-24
 Authorized attempt1 Master rebuilt, START sent, new Workers dispatched; Step3gen3
 and original Airflow DagRun running. Completion and evidence-bridge health pending.

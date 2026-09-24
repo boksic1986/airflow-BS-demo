@@ -1,5 +1,17 @@
 # Handoff
 
+## 2026-09-24 GATK terminal status timeout repair
+
+User authorized continuing backend repair and scoped WES downstream recovery.
+Source gatk_runtime_service.py SHA256 matched server96 deployed code before edits.
+Move evidence import after fenced receipt synchronization, only for live stages.
+Preserve identity/generation validation, terminal immutability and transfer release.
+BS10610 isolated network-none container: expected red reproduced; affected tests
+passed48/48 once. No real analysis or test deployment restart. One SSH handshake
+failure retried once before the green run. No full regression (user scope).
+Production deployment and WES wait_step3/downstream recovery still pending.
+Rollback is original backend module; never rerun successful Step3 or delete data.
+
 ## 2026-09-24 WES recovery launched (23:42 UTC September 23)
 7077e588 helper deployed to node200 /home/ctapa/.config/airflow-gatk/gatk_resume.py,
 SHA256 cbf7b6352fbc300bbe5abf8f9a21b5c4e4a9aff221b651df1a1cb8a537f3c917.

@@ -1,5 +1,13 @@
 # Workflow runtime integration
 
+## 2026-09-24 GATK terminal receipt acknowledgement
+
+GATK stage-status validates the latest generation and sidecar identity before
+bulk evidence ingestion. A terminal stage does not synchronously reimport rule
+logs before returning ready/failed. Live stages retain their existing importer;
+raw evidence and log downloads are unchanged. This is not a new retry mechanism
+or a guarantee that every final rule event has already reached the UI database.
+
 ## Explicit external-Master GATK recovery (2026-09-24)
 gatk_resume.py --externally-removed-master is operator-only and defaults off.
 It requires frozen binding/contract hashes and the previous UID-bound handoff,
