@@ -1,9 +1,11 @@
 # Active test-branch tasks
 
-## Task5 checkpoint — 2026-09-24
+## Task5 accepted — 2026-09-24
 
-- TTL source and targeted BS10610 matrix accepted; distinct offline artifacts
-  and provenance in progress. Task6 unstarted; no production activation.
+- TTL source and targeted BS10610 matrix accepted; distinct offline wheels and
+  WGS/GATK Master images built. Actual-wheel13 passed, image smokes2 passed.
+  Provenance: docs/releases/2026-09-24-p02-task5-offline-artifacts.md.
+  Task6 next; no production activation or live TTL/controller acceptance.
 
 ## Current authoritative status — 2026-09-24
 
@@ -16,8 +18,8 @@
   live inventory and inactive dispatchers; unknown/active objects block.
 - [x] Final review findings fixed and latest design checked. BS10610 selected41
   passed/1 adapter-inapplicable skip; authenticated full manual flows2 passed.
-- [ ] Task5: existing three Job generators, compatible pinned artifacts and
-  integrated TTL acceptance. Not started; no release/production activation.
+- [x] Task5: existing Worker/Master/reader generators, compatible pinned artifacts
+  and bounded offline TTL-recovery acceptance; no release/production activation.
 - [ ] Task6: remaining automatic dispatch/UI/PostgreSQL/operational gates.
 
 The entries below retain checkpoint history; older OPEN wording describes that

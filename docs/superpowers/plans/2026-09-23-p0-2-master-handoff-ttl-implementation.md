@@ -29,7 +29,7 @@
 - [x] Integrate781877e P0-2E: logical-run ownership, conditional generation takeover/release, TTL-independent lock lifetime and legacy lock-domain compatibility.
 - [x] Verify authoritative cce-pipeline source before editing it. BS10610 remote source and local object both resolve83e7adbff9e94b99da34f687903cb4ee9df9f996; created independent `D:/pipeline/cce-pipeline-worktrees/p02-master-handoff-20260923`, branch `jiucheng/runtime/p02-master-handoff-20260923`. Earlier1462e9e snapshot superseded by this fresh check.
 - [x] Read remote source instructions/HANDOFF, branch/status/remotes and prototype scope. `/mnt/biodevrwbi/33.chenjiucheng/project/worktrees/huawei-cloud-runtime-master-errors-20260923` has no AGENTS, clean tracked83e7adb, two untracked audit files (`scripts/cce_master_error_audit.py`, `tests/test_master_error_audit.py`). Preserved the source/prototype; informed operations owner of isolated scope.
-- [x] Verify plugin25297f9 source status and establish isolated successor source5b5d7ee/0.6.4+bs8.dev1. No accepted bs7 bytes replaced. Wheel/image build and artifact provenance remain Task5, not yet performed.
+- [x] Verify plugin25297f9 source status and establish isolated successor source5b5d7ee/0.6.4+bs8.dev1. No accepted bs7 bytes replaced. The later Task5 entry records fdf1520 and its built artifact pins.
 - [x] Fresh BS10610 preflight succeeded: server10610, control/current/mount fingerprint recorded in HANDOFF; scanner and auto-dispatch false, task-specific candidate/evidence writable. Intermittent later SSH handshake failures did not trigger local-test fallback or service changes.
 
 One writer owns each source worktree. This plan's coordinator owns Airflow changes; cross-repo ownership must be resolved before touching dirty producer code. No implicit delegation to another task.
@@ -183,7 +183,8 @@ assert delete_options["preconditions"] == {"uid": old_uid, "resourceVersion": ol
 **Accepted 2026-09-24: manual source/synthetic scope complete.** Native bd41f87,
 plugin5b5d7ee (unchanged), platform commit containing this acceptance entry.
 The checkpoints below are historical; their OPEN statements are superseded here.
-Task5/6 remain unstarted and deployment/automatic/TTL gates remain closed.
+At Task4 closure Tasks5/6 were unstarted; the later Task5 acceptance below now
+supersedes that status. Deployment/automatic/live TTL gates remain closed.
 
 Latest-design verification (not a new feature plan):
 
@@ -294,15 +295,16 @@ assert persisted_dag_id == confirmed_dag_id
 
 ## Task5 — TTL generators and integrated artifact acceptance
 
-Task4 manual source dependency accepted 2026-09-24 as recorded above. Task5 is
-the next planned task, not implemented or activated by this Task4 closure. The
-separate build-environment/source-ownership and production gates still apply.
+Task5 source/offline artifacts accepted2026-09-24 after Task4 compatibility.
+Exact pins, bounded tests, scope review and build caveats are recorded in
+[Task5 provenance](../../releases/2026-09-24-p02-task5-offline-artifacts.md).
+Production/live TTL gates remain closed; this is not automatic P0 completion.
 
 **Files:** Plugin existing Worker Job generator; cce-pipeline `src/cce_pipeline/master_job.py` and Master template source used by it; Airflow `scripts/wgs_evidence_bridge.py::build_reader_job`. Preserve Step7/maintenance templates outside this scope.
 
 **Interfaces:** Existing generators used by CLI, WGS/GATK and resume must generate Job.spec TTL, not Pod.spec TTL. Do not patch frozen generated bundles.
 
-- [ ] After Tasks1–4 consumer compatibility passes, add focused generator assertions to existing tests, including normal/resume entry paths.
+- [x] After Tasks1–4 consumer compatibility passes, add focused generator assertions to existing tests, including normal/resume entry paths.
 
 ```python
 assert job["spec"]["ttlSecondsAfterFinished"] == 100
@@ -311,10 +313,10 @@ assert master["spec"]["backoffLimit"] == 0
 assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
 ```
 
-- [ ] RED then modify only three generator families. Existing reader timeout/read-only mounts/active cleanup remain; TTL is fallback, not evidence acknowledgment.
-- [ ] Build distinct pinned test artifacts offline only after approved build environment/source ownership checks. Record producer commit, wheel SHA256, Master digest, cce-pipeline version and consumer commit. Never overwrite accepted artifact identities.
-- [ ] One affected mock matrix: TTL missing-object branches, actual producer records consumed by actual runtime/adapter, lost response and original deadline. Do not rerun unaffected budget/callback suites. A mock cannot validate cloud TTL controllers.
-- [ ] Commit source/artifact provenance and final review results. Production deployment remains separate.
+- [x] RED then modify only three generator families. Existing reader timeout/read-only mounts/active cleanup remain; TTL is fallback, not evidence acknowledgment.
+- [x] Build distinct pinned test artifacts offline only after approved build environment/source ownership checks. Record producer commit, wheel SHA256, local Master image IDs (not registry manifest digests), cce-pipeline version and consumer commit. Never overwrite accepted artifact identities.
+- [x] One affected mock matrix: TTL missing-object branches, actual producer records consumed by actual runtime/adapter, lost response and original deadline. Actual-wheel acceptance13 passed; no unaffected budget/callback suites. A mock cannot validate cloud TTL controllers.
+- [x] Commit source/artifact provenance and Task5 scope review results. Whole-plan review follows Task6; production deployment remains separate.
 
 ## Task6 — Remaining P0 and separately authorized operational gates
 
@@ -325,10 +327,10 @@ assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
 
 ## Progress / current status
 
-2026-09-24: Tasks1–4 accepted in isolated source with bounded BS10610 synthetic
-evidence. Task4 acceptance above supersedes prior interrupted/partial entries.
-Tasks5/6 remain unstarted. No production activation; retain all source branches
-and evidence. Next is Task5, not a repeat of the Task4 helpers or full P0 claim.
+2026-09-24: Tasks1–5 accepted in isolated source with bounded BS10610 synthetic
+and offline artifact evidence. Current acceptance supersedes prior interrupted/
+partial entries. Task6 remains unstarted. No production activation; retain all
+branches/evidence. Next is Task6, not a repeat of Task4/5 or a full P0 claim.
 
 ### Historical initial interruption
 

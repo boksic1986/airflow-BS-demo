@@ -1,16 +1,20 @@
 # Current state
 
-## 2026-09-24 Task5 source accepted; offline artifacts in progress
+## 2026-09-24 Task5 source and offline artifacts accepted
 
 Task5 only: Worker/Master/evidence-reader TTL100. Generators6 RED then6 GREEN;
 affected missing-object/lost-response/deadline15 GREEN; image sibling1 RED then
-1 GREEN. All BS10610 offline. Distinct artifacts/provenance remain before closure.
+1 GREEN. All BS10610 offline. Distinct native/plugin wheels and WGS/GATK Master
+test images built; actual-wheel acceptance13 passed and both image smokes passed.
+Pins: native7232f57, pluginfdf1520, platform consumer074dc55. Full provenance and
+scope review: docs/releases/2026-09-24-p02-task5-offline-artifacts.md.
+Task6 automatic recovery is next; live TTL/capacity/AOM/alerts remain separate gates.
 No Task6, production, installed CLI/policy, old-bundle or service changes.
 
 ## 2026-09-24 Task4 manual source acceptance complete
 
-Authoritative current status: P0-2 Tasks1–4 source acceptance complete; Task5
-TTL/artifacts and Task6 automatic/operational gates remain unstarted. Earlier
+Historical Task4 closure: Tasks1–4 source acceptance complete; the newer Task5
+entry above supersedes its then-unstarted TTL/artifact status. Task6 remains open. Earlier
 dated checkpoints below describe their then-open slices, not current blockers.
 
 Existing authenticated WGS/GATK manual Resume now reaches the original restricted

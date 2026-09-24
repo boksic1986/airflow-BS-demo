@@ -1,5 +1,16 @@
 # Workflow runtime integration
 
+## Task5 accepted offline Job TTL contract (2026-09-24)
+
+New Worker/Master and existing evidence-reader Job.spec TTL100, never Pod TTL.
+Derived initial/resume manifests preserve it without rewriting frozen bundles.
+Master backoff0/restartNever/deadline259200s, reader timeouts/cleanup/mounts and
+maintenance/Step7 remain unchanged. Missing Job alone never proves terminality;
+durable identity-bound evidence remains required, otherwise UNKNOWN/fail-closed.
+Only isolated test artifacts accepted; no production CLI/policy/image activation.
+Exact paired pins and actual-wheel/image evidence:
+[Task5 provenance](releases/2026-09-24-p02-task5-offline-artifacts.md).
+
 ## Task4 accepted manual continuation contract (2026-09-24, source only)
 
 This section supersedes the limited-entry/open statements in older checkpoints
