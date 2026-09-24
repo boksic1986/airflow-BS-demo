@@ -1,5 +1,19 @@
 # 04 数据库设计
 
+## Task6 internal automatic dispatch journal (2026-09-25, source only)
+
+No table/migration. Existing cce_compute_recovery RunAction keeps its original
+reservation action_id, ordinal, source execution/Master UID, evidence_binding,
+next_retry_at and original_deadline. On due preparation its payload additionally
+stores stage=step3_monitor, original_dag_run_id, deterministic dag_run_id,
+resume_stages, frozen_request and dispatch_state=not_started. This preparation
+commits before request writes. Adapter registration then stores generation/conf.
+AnalysisRun.params_json.resume_action_id points to this SAME automatic action.
+Shared dispatcher commits post_intent before POST and confirms via exact GET;
+uncertain/post_intent never authorizes another POST. Historical missing policy
+or budget is not initialized. No caller/activation or PG concurrency acceptance
+is claimed by this internal service checkpoint.
+
 ## P0-2 manual dispatch journal (2026-09-24, source only)
 
 No schema migration. Existing WGS resume_stage RunAction.payload_json adds

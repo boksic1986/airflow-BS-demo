@@ -332,7 +332,10 @@ assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
   Accepted 2026-09-25: actual logger/native FINAL, schema2 selected monitor,
   immutable receipt and existing budget reservation; final focused28 GREEN.
   Native and platform IDs/hashes remain distinct, including observer-only reattach.
-- [ ] Continue CR-02/03 actual automatic dispatch using existing reservations, two shared slots60/180s, original deadline, control fences and Step4 uncertain-dispatch reconciliation. Do not count manual P0-2 closure as automatic completion.
+- [x] Internal due-dispatch service reuses existing reservation, adapter stage
+  registration and shared durable Resume dispatch. Prepared crash rechecks proof;
+  POST uncertainty is GET-only. Targeted23 GREEN on BS10610 (2026-09-25).
+- [ ] Continue CR-02/03 actual automatic dispatch using existing reservations, two shared slots60/180s, original deadline, control fences and Step4 uncertain-dispatch reconciliation. Airflow polling, new-attempt policy freeze, native deadline enforcement, Worker wait and action terminal lifecycle remain open. Do not count manual P0-2 closure or the internal service as automatic completion.
 - [ ] CR-04 reuses existing Tracker/detail waiting/recovering/exhausted/stale fields; no new page.
 - [ ] CR-05 focused PostgreSQL contention and final integration tests, no real biological analysis. Respect WGS/GATK per-adapter enablement.
 - [ ] Separate production authorization: real synthetic Complete/Failed TTL checks, all-entry Pod capacity accounting, AOM data freshness and alert notification record. Missing evidence keeps production gate closed; no invented managed metrics or self-hosted monitoring service.

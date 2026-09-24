@@ -172,6 +172,8 @@ def register_gatk_stage(
             for key in ('runtime_workdir', 'cce_bundle', 'profile_id', 'profile_revision'):
                 request[key] = frozen[key]
             request['resume_action_id'] = recovery_action.payload_json['action_id']
+            if recovery_action.action == 'cce_compute_recovery':
+                request['cce_recovery_deadline'] = recovery_action.payload_json['original_deadline']
             if latest:
                 request['resume_previous_execution'] = {key: getattr(latest, key)
                     for key in ('execution_id', 'generation', 'request_hash')}

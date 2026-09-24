@@ -1,5 +1,23 @@
 # Current state
 
+## 2026-09-25 Task6 internal due-dispatch checkpoint
+
+Prerequisite source committed: platform abdba43, native ffe51d4, plugin c0b266b.
+Existing reserved automatic actions now have an internal due-dispatch service:
+wait without writing requests, revalidate original schema2 proof and budget,
+persist the same action/DagRun before writes, then use existing adapter stage
+registration and shared Resume POST-intent/GET-only reconciliation. No second
+manual action, new attempt, prepare/upload or independent retry engine.
+After a prepared-intent crash the original failed receipt is revalidated again.
+Late reconciliation cannot overwrite a user stop; missing policy/evidence fails
+closed. The frozen original deadline is carried into recovery stage requests.
+
+BS10610 targeted23 GREEN4.68s (14 new cases plus9 affected manual cases).
+This is internal source acceptance only: no Airflow automatic caller, new-attempt
+policy freeze/enablement or runtime deadline consumption is wired yet. Bounded
+Worker wait, remaining exact error classes, Step4 reconciliation, UI, PG and
+whole Task6 integration still open. No deployment/main merge/push/real rerun.
+
 ## 2026-09-25 Task6 prerequisite accepted — bound failure accounting
 
 User approved “补齐，然后继续”. Existing Master rule-status logger now counts

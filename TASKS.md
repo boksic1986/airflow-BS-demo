@@ -9,8 +9,14 @@
   lifecycle validation; incomplete/mixed failures remain ineligible.
 - [x] Bind automatic evidence to schema2 platform/native identities without
   conflating their execution IDs, generations or request hashes.
+- [x] Internal due-dispatch adapter: existing automatic reservation -> existing
+  Resume dispatcher/adapter registration, durable prepared identity, no duplicate
+  slot/POST; crash revalidates source. BS10610 targeted23 GREEN4.68s.
 - [ ] Complete automatic dispatch, policy/budget freeze, Step4 reconciliation,
   existing UI projections and focused PostgreSQL/integration acceptance.
+  Next: connect existing Airflow monitoring and freeze new-attempt policy;
+  propagate/enforce original deadline in native replacement, bounded Worker wait,
+  exact remaining source classifications and terminal action lifecycle.
 - [ ] Separately authorized live TTL/capacity/AOM/alerts gates remain closed.
 
 Task6 prerequisite accepted: final focused28 GREEN35.59s on BS10610. The selected

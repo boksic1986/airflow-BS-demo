@@ -1,5 +1,45 @@
 # Handoff
 
+## 2026-09-25 Task6 continuation / internal due dispatch
+
+Same user authorization and three isolated branches as the entry below. Completed
+prerequisite commits: platform abdba43/native ffe51d4/plugin c0b266b. Preserved
+Task5 artifacts, installed CLI/images and unrelated original workspace edits.
+
+Added backend/app/cce_compute_dispatch.py and focused test. Reuses existing
+cce_compute_recovery RunAction, budget validator, adapter-specific registration
+and cce_resume_dispatch; shared stage authorization now recognizes that same
+automatic action. No new table/public route/loop/manual action. Deadline field
+is preserved in WGS/GATK recovery requests. Prepared identity commits before
+request writes; replay rechecks current source proof and current action under
+run/action locks. Missing/changed evidence, stopped state and expiry block first
+dispatch. Once POST intent exists, reconcile by GET only even after expiry/stop;
+late replies do not reset the user's state. Runtime live quiescence/owner guards
+remain Task4's responsibility and are not replaced by a client-provided flag.
+
+Tests: same BS10610 offline/non-root/read-only environment and exact fresh
+fingerprint below. task6.ps1 test_cce_recovery_dispatch.py:12 RED (missing service)
+then12 GREEN3.50s. Two prepared-crash cases RED (proof not rechecked), fixed by
+reloading action under run lock and validating original failed receipt again.
+Final explicit changed-boundary selection:23 passed4.68s, log dispatch-final.log
+under p02-task6-20260925 (14 new +9 affected manual Resume cases). git diff --check
+passed. No full unrelated suite, local runtime tests or production database.
+The kernel swap-limit warning is unchanged; container memory limit remains1GiB.
+
+Ruling: split durable preparation from external dispatch using the same action,
+not a new scheduler or a nested manual Resume call (which correctly fences a
+pending automatic action). Cost if interrupted between filesystem and database
+writes: adapter mismatch remains fail-closed, never an invented new generation.
+
+OPEN: automatic Airflow polling entry point, default-off new-attempt policy/
+budget freeze, native original-deadline enforcement, terminal action lifecycle,
+bounded natural Worker wait, exact CREATE transport/storage classes, Step4,
+UI/PG/final integration. No task-wide/final reviewer claim. This checkpoint does
+not activate recovery or complete Task6/P0. Next work stays within Task6; real
+TTL/capacity/AOM/alerts, installation and production require separate gates.
+Rollback: revert this platform source checkpoint; no live service/data rollback
+needed. Native/plugin have no changes after their prerequisite commits.
+
 ## 2026-09-25 Task6 approved prerequisite / source acceptance
 
 Authorization: user “补齐，然后继续” approves the prior bounded Master wrapper/

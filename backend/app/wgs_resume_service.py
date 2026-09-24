@@ -49,6 +49,8 @@ def register_recovery_stage(*, session, settings, run, stage, action):
     for key in EXECUTION_KEYS:
         payload.pop(key, None)
     payload.update(stage=stage, resume_action_id=data['action_id'])
+    if action.action == 'cce_compute_recovery':
+        payload['cce_recovery_deadline'] = data['original_deadline']
     for key in ('analysis_id', 'attempt', 'pipeline_release_id', 'control_workdir', 'expected_batch_root', 'wgs_source_commit'):
         if payload.get(key) != data['frozen_request'].get(key):
             raise ValueError('recovery request differs from frozen identity')

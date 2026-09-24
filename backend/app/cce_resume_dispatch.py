@@ -6,7 +6,7 @@ from app.models import AnalysisRun, RunAction
 
 def recovery_action(session, run, action_id):
     action = session.scalar(select(RunAction).where(RunAction.analysis_id == run.analysis_id,
-        RunAction.action == 'resume_stage').order_by(RunAction.id.desc()).limit(1))
+        RunAction.action.in_({'resume_stage', 'cce_compute_recovery'})).order_by(RunAction.id.desc()).limit(1))
     if not action or action.payload_json.get('action_id') != action_id or action.payload_json.get('attempt') != run.attempt:
         raise ValueError('recovery action does not match the current attempt')
     if (run.params_json or {}).get('resume_action_id') != action_id:
@@ -39,7 +39,7 @@ def authorize_recovery_stage(*, session, run, action_id, dag_run_id, stage):
     return action
 
 
-def dispatch_recovery(*, session, run, action, airflow_client, latest_execution):
+def dispatch_recovery(*, session, run, action, airflow_client, latest_execution, before_post=None):
     """One durable POST intent; an uncertain action is reconciled by GET only."""
     analysis_id, action_pk = run.analysis_id, action.id
     def refresh():
@@ -69,6 +69,8 @@ def dispatch_recovery(*, session, run, action, airflow_client, latest_execution)
             # Old reserved/uncertain records have no proof that POST never ran.
             if data.get('dispatch_state') != 'not_started':
                 raise
+            if before_post is not None:
+                before_post(run, action)
             action.payload_json = dict(data, dispatch_state='post_intent')
             session.commit()  # Survives process death and response loss before POST.
             run, action = refresh()
@@ -78,6 +80,8 @@ def dispatch_recovery(*, session, run, action, airflow_client, latest_execution)
                               'canceled', 'cancelled', 'terminated', 'delete_requested', 'deleted'}:
                 raise ValueError('recovery dispatch blocked by current control state')
             data = action.payload_json
+            if before_post is not None:
+                before_post(run, action)
             try:
                 found = airflow_client.trigger_dag_run(run.dag_id, dag_run_id=data['dag_run_id'], conf=data['conf'])
             except httpx.HTTPStatusError as error:

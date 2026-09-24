@@ -1,5 +1,18 @@
 # Workflow runtime integration
 
+## Task6 due-dispatch source boundary (2026-09-25)
+
+Internal cce_compute_dispatch consumes an already validated/reserved schema2
+action. Before due time it does not rewrite the request; at due time it rechecks
+policy/budget/control/current evidence, freezes the existing Step3 request and
+reuses adapter registration plus shared Resume dispatch. Only Step3 and needed
+downstream stages are selected; same attempt/config/directory/output preserved.
+One cce_compute_recovery action owns both reservation and dispatch (not a nested
+resume_stage action). A prepared crash must revalidate its source receipt.
+WGS/GATK recovery requests carry cce_recovery_deadline from original_deadline.
+Native consumption/enforcement and Airflow polling/policy freeze remain future
+Task6 wiring; no installed runtime/automatic capability is enabled here.
+
 ## Task5 accepted offline Job TTL contract (2026-09-24)
 
 New Worker/Master and existing evidence-reader Job.spec TTL100, never Pod TTL.
