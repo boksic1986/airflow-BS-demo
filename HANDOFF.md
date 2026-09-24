@@ -1,5 +1,97 @@
 # Handoff
 
+## 2026-09-24 Task4 selected Master -> actual Step3 monitor checkpoint
+
+BS10610 SSH restored; hostname server10610. Each isolated run rechecked current
+20260912-opt-4d3d24e6, backend36ff21f87356 /app20260923-step7-ae416fa/backend/backend
+RO and /config20260912-opt-4d3d24e6 RO; scanner/auto dispatch false. Same offline
+image a0112f0b8ef0, user6708:520, network none, source/producer RO, task scratch
+only. No service, DB, real workload, credential, policy or production change.
+
+Scope: finish the interrupted cross-process selected-monitor slice, not all
+Task4. Native903e1af adds UID/Pod/generation/platform-bound Step3 evidence from
+the selected view. Platform cce_paired_runtime.py reconstructs authority from
+registered producer/current request, receipt digest, native journal/handoff and
+current directory lock under writer serialization. Actual WGS/GATK gate loops
+use it; rule bridge gets a copied selected bundle binding. wgs_resume routes
+paired Step3 into that monitor instead of the Step2-only replacement factory.
+Original bundle bytes remain unchanged; no extra CREATE/START on observation.
+
+Remote tests (scripts/tests/test_p02_selected_monitor.py; genuine os.fork):
+- Prior missing-entry2 RED. Resumed draft10 cases:2 failed/8 passed. Diagnostic
+  isolated missing START_CONFIRMED because the test Pod omitted Ready=True;
+  corrected the transport fixture, normal2 GREEN4.13s, no relaxed identity gate.
+- Actual WGS/GATK gate entry2 RED (Step2-only factory); connected monitoring.
+  Fixture used invalid display run label and caught its own stop sentinel as
+  workflow failure; corrected those test boundaries, gate2 GREEN4.27s.
+- Old ANALYSIS_COMPLETE wrongly yielded success; reclaimed failure was routed
+  to success-only reader. New terminal matrix4 RED/2 GREEN, then6 GREEN11.96s.
+  Native monitor ignores run-id-only completion absent a verified new terminal,
+  uses sealed final failure after Job reclaim and refuses unproven completion.
+- Final focused18 GREEN30.04s. Affected registered Step2 replay2 GREEN3.99s;
+  legacy worker disconnect1 GREEN1.99s; unactivated entry2 GREEN0.26s. No broad
+  suites or local runtime tests. Docker swap-limit warning only.
+
+Evidence: /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/
+p02-task4-20260924/{selected-monitor-final,selected-gates-red,selected-gates-green,
+selected-terminal-red,selected-terminal-green,selected-registered-affected,
+selected-disconnect-affected,selected-legacy-affected}.log.
+Reusable scoped runner is in the ignored plan workspace selected-test.ps1.
+Changed platform: cce_paired_runtime.py, wgs_runtime_gate.py, gatk_runtime_gate.py,
+wgs_resume.py, new test_p02_selected_monitor.py and state/contract/plan docs.
+Native changes only cce_batch_runtime.py. git diff --check passed.
+
+Remaining Task4: direct Step3 replacement and initial-submit view selection,
+selected Step4-6 execution across processes, final protected release and actual
+authenticated service/DAG/native manual synthetic closure. Current monitor
+requires its successful registered Step2 predecessor, otherwise fails closed.
+GATK registry capability/policy not activated; no Tasks5/6 advancement. Rollback
+is source revert only; there is no deployed service or data rollback to perform.
+
+## 2026-09-24 Task4 fresh-process monitor — unverified working-tree draft
+
+Goal: continue the existing Task4 cross-process selected-Master handoff, not TTL
+or automatic activation. Last accepted platform caf87e4, native1c8fca7.
+Changed scripts/cce_paired_runtime.py, added scripts/tests/test_p02_selected_monitor.py;
+native p02-master-handoff-20260923/src/cce_pipeline/assets/cce_batch_runtime.py.
+State/task/runtime docs and ignored progress ledger updated. All remain
+uncommitted; no branch push, merge or production changes.
+
+First BS10610 offline pytest test_p02_selected_monitor.py -k None --tb=short:
+2 RED/8 deselected4.56s, missing monitor_registered. Genuine os.fork means only
+registered JSON crosses the process boundary. Evidence: WGS_test/cce-evidence/
+p02-task4-20260924/selected-monitor-red.log. Successful preflight: server10610,
+current20260912-opt-4d3d24e6, backend36ff21f87356 /app20260923-step7-ae416fa/
+backend/backend RO, /config20260912-opt-4d3d24e6 RO, scan/dispatch false.
+Cached image a0112f0b8ef0, network none, user6708:520, source/producer RO and
+task-specific synthetic scratch only. No runtime services changed.
+
+Draft implementation: shared registered-request check; Step3 reads successful
+Step2's registered producer, verifies raw WGS or canonical GATK receipt hash;
+derives recovery journal/view rather than trusting a supplied path. Checks
+journal context/platform identity, frozen hashes, native handoff and current
+directory owner under writer serialization. Native Step3 optional selected-view
+arguments fence Job UID/recovery context, Pod UID and startup/terminal identity,
+and write only the selected mirror. No gate loop wired yet. Direct Step3 Resume,
+missing-Job failure/success acceptance, downstream execution and final release
+still require work; do not claim this draft is a complete consumer.
+
+GREEN command attempted same isolated runner with this one test file (10 cases),
+but SSH exit1: kex_exchange_identification read Connection reset by
+172.17.61.18 port22, then UNKNOWN port65535. No preflight, source sync or test ran.
+Diagnostic ssh -G BS10610 confirms host172.17.106.10/userchenjc/ProxyJumpBS;
+ssh -o BatchMode=yes -o ConnectTimeout=15 BS hostname also exit1, same jump
+handshake reset. No blind retries, local tests or BS96 substitution. The earlier
+preflight above is not a current availability claim. git diff --check passed
+both source worktrees (only CRLF warnings).
+
+Next: after access returns, rerun only this focused file with both platform and
+native runtime source synchronized; fix any real failures before actual gate
+wiring, then cover the existing service/DAG path. Do not rerun accepted suites.
+Rollback: only uncommitted task-owned draft hunks if necessary, preserving other
+work; no data, frozen bundle, service or operator policy rollback is required.
+Task4 remains OPEN. No Task5/6 advancement or production authority inferred.
+
 ## 2026-09-24 Task4 registered Step2 recovery — source checkpoint
 
 Network restored. BS returned node005; BS10610 preflight returned server10610,

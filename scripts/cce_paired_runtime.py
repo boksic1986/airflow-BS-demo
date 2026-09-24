@@ -10,7 +10,8 @@ import os
 from pathlib import Path
 import stat
 import sys
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, contextmanager, nullcontext, redirect_stdout
+import io
 import fcntl
 import re
 
@@ -114,6 +115,23 @@ def _read_registered(path):
     return raw
 
 
+def _registered_request(payload, gate, pipeline):
+    path = gate._request_path(payload['analysis_id'], payload['attempt'], payload['stage'])
+    raw = _read_registered(path)
+    registered = json.loads(raw)
+    public = {k:v for k,v in payload.items() if not k.startswith('_') and k != 'resume_master_uid'}
+    excluded = {'request_hash'} if pipeline == 'gatk' else {
+        'execution_id', 'generation', 'request_hash', 'predecessor_execution_id',
+        'predecessor_generation', 'predecessor_receipt_hash'}
+    digest = hashlib.sha256(json.dumps({k:v for k,v in registered.items() if k not in excluded},
+        sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    if registered != public or digest != registered.get('request_hash'):
+        raise RuntimeError('registered recovery request changed or hash differs')
+    if pipeline == 'wgs' and Path(registered['control_workdir']) != path.parent:
+        raise RuntimeError('recovery journal must belong to registered request scope')
+    return path, raw
+
+
 @contextmanager
 def _exclusive(path):
     fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
@@ -163,20 +181,7 @@ def resume_registered(payload, *, binding, gate, pipeline):
             or payload.get('stage') != 'step2_master'
             or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', str(payload.get('resume_action_id') or ''))):
         raise RuntimeError('registered replacement requires Step2; selected Step3 continuation is not activated')
-    path = gate._request_path(payload['analysis_id'], payload['attempt'], payload['stage'])
-    raw = _read_registered(path)
-    registered = json.loads(raw)
-    # Resume results are internal, not part of the signed/registered request.
-    public = {k:v for k,v in payload.items() if not k.startswith('_') and k != 'resume_master_uid'}
-    excluded = {'request_hash'} if pipeline == 'gatk' else {
-        'execution_id', 'generation', 'request_hash', 'predecessor_execution_id',
-        'predecessor_generation', 'predecessor_receipt_hash'}
-    digest = hashlib.sha256(json.dumps({k:v for k,v in registered.items() if k not in excluded},
-        sort_keys=True, separators=(',', ':')).encode()).hexdigest()
-    if registered != public or digest != registered.get('request_hash'):
-        raise RuntimeError('registered recovery request changed or hash differs')
-    if pipeline == 'wgs' and Path(registered['control_workdir']) != path.parent:
-        raise RuntimeError('recovery journal must belong to registered request scope')
+    path, raw = _registered_request(payload, gate, pipeline)
     bundle = Path(binding['cce_bundle'])
     contract, config, _ = runtime._load(bundle, None)
     writer = runtime.writer_for_bundle(runtime, bundle, contract, config)
@@ -267,3 +272,108 @@ def resume_registered(payload, *, binding, gate, pipeline):
         if _read_registered(path) != raw:
             raise RuntimeError('registered recovery request superseded after native recovery')
         return result
+
+
+def monitor_registered(payload, *, binding, gate, pipeline):
+    """Reconstruct a selected Master in a new restricted monitor process.
+
+    A receipt is a locator/checksum, not a capability. The registered producer,
+    native journal, frozen input binding and current directory owner must agree.
+    No replacement, takeover or missing-lock claim is performed by this reader.
+    """
+    runtime = load_runtime()
+    if runtime is None:
+        return None
+    if (pipeline not in {'wgs', 'gatk'} or payload.get('orchestration_contract_version') != 2
+            or payload.get('stage') != 'step3_monitor'):
+        raise RuntimeError('selected monitor requires registered Step3')
+    path, raw = _registered_request(payload, gate, pipeline)
+    source_path = gate._request_path(payload['analysis_id'], payload['attempt'], 'step2_master')
+    source = json.loads(_read_registered(source_path))
+    _, source_raw = _registered_request(source, gate, pipeline)
+    status_path = source_path.with_suffix('.status.json')
+    status_raw = _read_registered(status_path)
+    receipt = json.loads(status_raw)
+    keys = ('analysis_id', 'attempt', 'stage', 'execution_id', 'generation', 'request_hash')
+    digest = hashlib.sha256(status_raw).hexdigest() if pipeline == 'wgs' else hashlib.sha256(
+        json.dumps({k:v for k,v in receipt.items() if k != 'receipt_hash'},
+            sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    action = source.get('resume_action_id')
+    if (source.get('orchestration_contract_version') != 2
+            or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', str(action or ''))
+            or any(receipt.get(k) != source[k] for k in keys)
+            or any(source.get(k) != payload.get(k) for k in ('analysis_id', 'attempt'))
+            or receipt.get('status') != 'success'
+            or payload.get('predecessor_execution_id') != source['execution_id']
+            or payload.get('predecessor_receipt_hash') != digest
+            or (pipeline == 'gatk' and receipt.get('receipt_hash') != digest)):
+        raise RuntimeError('selected monitor predecessor is not the registered successful submit')
+    bundle = Path(binding['cce_bundle'])
+    contract, config, modules = runtime._load(bundle, None)
+    writer = runtime.writer_for_bundle(runtime, bundle, contract, config)
+    if writer is None:
+        raise RuntimeError('trusted per-run writer registration required')
+    if __package__:
+        from .cce_recovery_inventory import VerifiedMasterResult
+    else:
+        from cce_recovery_inventory import VerifiedMasterResult
+    with writer.serialize():
+        writer.validate()
+        original = runtime._handoff_binding(bundle, contract)
+        old = runtime._read_master_handoff(bundle, contract)
+        if not old or any(old.get(k) != v for k,v in original.items()):
+            raise RuntimeError('original Master handoff changed')
+        journal_path = source_path.parent / (f'recovery-{action}.json' if pipeline == 'wgs'
+            else f"resume-{old['job_uid']}.json")
+        selected = journal_path.with_suffix('') / 'view' if pipeline == 'wgs' else (
+            source_path.parent / f"resume-{old['job_uid']}-view")
+        if selected.resolve(strict=True) != selected:
+            raise RuntimeError('selected Master view is not canonical')
+        journal_raw = _read_registered(journal_path)
+        journal = json.loads(journal_raw)
+        platform = dict(pipeline=pipeline, **{k:source[k] for k in keys})
+        context = dict(pipeline=pipeline, analysis_id=source['analysis_id'],
+            execution_id=source['execution_id'], generation=original['execution_generation']+1, action=action)
+        expected = dict(expected_job_uid=old['job_uid'], context=context, original=original,
+            view=str(selected), platform_execution=platform)
+        selected_binding = runtime._handoff_binding(selected, contract)
+        record = runtime._read_master_handoff(selected, contract)
+        if (journal.get('recovery_state') != 'started' or journal.get('recovery_v2') != expected
+                or not record or record.get('schema_version') != 2 or record.get('state') != 'START_CONFIRMED'
+                or journal.get('replacement_uid') != record.get('job_uid') or not record.get('pod_uid')
+                or any(record.get(k) != v for k,v in selected_binding.items())
+                or selected_binding.get('platform_execution') != platform
+                or selected_binding.get('recovery_context') != context
+                or any(selected_binding.get(k) != original[k] for k in ('attempt', 'files_sha256', 'config_sha256'))):
+            raise RuntimeError('selected Master native journal/handoff changed')
+        native = {k:record[k] for k in ('project', 'batch', 'run_id', 'job_name',
+            'job_uid', 'pod_uid', 'attempt', 'execution_generation', 'request_hash',
+            'config_sha256', 'manifest_sha256', 'files_sha256', 'deadline_epoch', 'recovery_context')}
+        native['namespace'] = contract['kubernetes']['namespace']
+        exported = dict(schema_version=2, platform_execution=platform, native=native,
+            source_bundle=str(bundle), selected_bundle=str(selected))
+        if (receipt.get('cce_master_binding') != exported
+                or receipt.get('cce_master_submit_execution_id') != source['execution_id']):
+            raise RuntimeError('selected Master receipt differs from native binding')
+        writer.context.update(generation=context['generation'], action=action, master_uid=record['job_uid'])
+        name, identity, owner = runtime._directory_lock_identity(contract, writer.context)
+        current = runtime._recovery_query(config, 'configmap', name)
+        lock = json.loads(current['data']['lock']) if current else {}
+        if (lock.get('schema_version') != 2 or lock.get('state') != 'OWNED'
+                or lock.get('identity') != identity or lock.get('owner') != owner):
+            raise RuntimeError('selected Master directory owner changed or missing')
+        # Already serialized; native protected_stage still validates and checks
+        # the exact new owner. It cannot take over another generation.
+        writer.serialize = nullcontext
+        output = io.StringIO()
+        with redirect_stdout(output):
+            runtime.step3(contract, config, modules, 'json', bundle=bundle, writer=writer,
+                master_bundle=selected, expected_master_uid=record['job_uid'])
+        if any(_read_registered(p) != content for p,content in (
+                (path,raw), (source_path,source_raw), (status_path,status_raw), (journal_path,journal_raw))):
+            raise RuntimeError('selected monitor evidence superseded during observation')
+        value = json.loads(output.getvalue())
+        execution = dict(pipeline=pipeline, **{k:payload[k] for k in keys})
+        payload['_cce_master_result'] = VerifiedMasterResult(
+            dict(bundle=str(selected), master_uid=record['job_uid'], mode='observed'), exported, execution)
+        return value

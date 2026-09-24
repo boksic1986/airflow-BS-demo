@@ -1,5 +1,22 @@
 # Current state
 
+## 2026-09-24 Task4 selected-Master Step3 checkpoint
+
+BS10610 validation resumed. A fresh WGS/GATK monitor reconstructs the selected
+Master from registered Step2 request/receipt, native journal/handoff, frozen
+inputs and the exact directory owner. Actual gate polling and rule-log bridge
+now use that verified view, preserving the original bundle and producer identity.
+Old run-id-only completion markers cannot report a new Master successful.
+Reclaimed Job success/failure requires matching native terminal evidence.
+
+Focused selected-monitor tests18 GREEN30.04s; affected Step2 replay2, worker
+disconnect1 and unactivated entry2 also GREEN. Native903e1af; no production,
+deployment, policy installation, new Job, local tests or full-suite repetition.
+Task4 remains OPEN: direct Step3 replacement/initial-submit paths, selected
+Step4-6 reconstruction/execution, final protected release and authenticated
+service/DAG/native manual flow. Tasks5/6 remain unstarted. This checkpoint does
+not authorize activation or represent whole Task4 acceptance.
+
 ## 2026-09-24 Task4 registered Step2 recovery checkpoint
 
 BS10610 SSH restored; isolated offline validation resumed. Existing paired

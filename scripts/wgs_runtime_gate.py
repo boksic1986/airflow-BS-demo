@@ -2223,36 +2223,35 @@ def _sync_rule_evidence(
 
 
 def _monitor_step3(payload: dict[str, Any]) -> None:
+    from cce_paired_runtime import monitor_registered
     started = time.monotonic()
     binding = _load_binding(payload)
     while True:
-        monitoring_error = _sync_rule_evidence(payload, binding, terminal=False)
-        completed = subprocess.run(
-            _step_command(payload, "step3_monitor", "--output", "json"),
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        if completed.returncode != 0:
-            message = (completed.stderr or completed.stdout)[-2000:]
-            if "kubectl query failed" in message:
-                if time.monotonic() - started > MONITOR_TIMEOUT_SECONDS:
-                    raise TimeoutError(
-                        "Step3 status query remained unavailable until monitor timeout"
-                    )
-                time.sleep(MONITOR_INTERVAL_SECONDS)
-                continue
-            raise RuntimeError(message)
-        value = parse_step3_status_output(completed.stdout)
-        if payload.get('resume_master_uid'):
+        value = monitor_registered(payload, binding=binding, gate=sys.modules[__name__], pipeline='wgs')
+        paired = value is not None
+        if not paired:
+            completed = subprocess.run(
+                _step_command(payload, "step3_monitor", "--output", "json"),
+                check=False, capture_output=True, text=True,
+            )
+            if completed.returncode != 0:
+                message = (completed.stderr or completed.stdout)[-2000:]
+                if "kubectl query failed" in message:
+                    if time.monotonic() - started > MONITOR_TIMEOUT_SECONDS:
+                        raise TimeoutError("Step3 status query remained unavailable until monitor timeout")
+                    time.sleep(MONITOR_INTERVAL_SECONDS)
+                    continue
+                raise RuntimeError(message)
+            value = parse_step3_status_output(completed.stdout)
+        if not paired and payload.get('resume_master_uid'):
             from wgs_resume import _runtime, fence_master_status
             runtime = _runtime(Path(binding['cce_bundle']))
             contract, config, _ = runtime._load(Path(binding['cce_bundle']), None)
             live = runtime._kubectl_json(config, 'job', contract['kubernetes']['master_job'])
             value = fence_master_status(value, live, expected_uid=payload['resume_master_uid'])
         terminal = value["master_state"] in {"SUCCEEDED", "FAILED"}
-        if terminal:
-            monitoring_error = _sync_rule_evidence(payload, binding, terminal=True)
+        evidence_binding = {**binding, 'cce_bundle': payload['_cce_master_result']['bundle']} if paired else binding
+        monitoring_error = _sync_rule_evidence(payload, evidence_binding, terminal=terminal)
         _write_status(
             payload,
             {

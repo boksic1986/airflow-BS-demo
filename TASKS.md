@@ -1,5 +1,11 @@
 # Active test-branch tasks
 
+- [x] Task4 Step2-selected Master -> fresh Step3 WGS/GATK monitor and rule bridge.
+  Native journal/receipt/current lock revalidated; old completion marker ignored;
+  reclaimed success/failure bound to the new Master. BS10610 final18 GREEN30.04s,
+  affected Step2 replay2/worker disconnect1/unactivated entry2 GREEN. Native903e1af.
+  No deployment. Direct Step3 replacement/initial-submit paths remain open.
+
 - [x] Task4 registered Step2 capability factory and actual WGS/GATK Resume routing.
   Request hash/current bytes, operator binding/storage, exact native old lock
   owner and sibling dispatcher exclusion checked before native replacement.
@@ -10,8 +16,8 @@
   GATK receipt hash covers it, WGS worker failure retains it, JSON cannot grant
   authority, old submit identity is not relabelled as the observing execution.
   BS10610 two RED -> GREEN; affected7 GREEN; final refined receipt2 GREEN.
-- [ ] Task4 next: reconstruct selected Master from verified native evidence across
-  processes, then final protected Step6 release and full manual synthetic flow.
+- [ ] Task4 next: complete direct Step3/initial-submit selection, selected Step4-6
+  execution across processes, final protected release and full manual synthetic flow.
   Do not interpret the in-process receipt checkpoint as full Task4 acceptance.
 
 - [x] Activated WGS/GATK Resume without verified capability cannot use legacy

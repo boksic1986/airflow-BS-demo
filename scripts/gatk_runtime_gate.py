@@ -949,7 +949,7 @@ def _execute_stage(
     if stage in {"step1_upload", "step5_download"}:
         environment.update(_transfer_environment(payload))
     try:
-        if payload.get('resume_action_id') and stage in {'step2_master', 'step3_monitor'}:
+        if payload.get('resume_action_id') and stage == 'step2_master':
             if __package__:
                 from .cce_paired_runtime import resume_registered
             else:
@@ -970,16 +970,26 @@ def _execute_stage(
             _write_status(request_path, payload, "success", completed.stdout[-2000:] or "GATK contract prepared")
             return
         if stage == "step3_monitor":
+            if __package__:
+                from .cce_paired_runtime import monitor_registered
+            else:
+                from cce_paired_runtime import monitor_registered
             binding = _load_binding(payload)
             while True:
-                monitoring_error = _sync_evidence(payload, binding, terminal=False)
-                completed = subprocess.run(
-                    _step(payload, stage), check=False, text=True, capture_output=True, env=environment
-                )
-                if completed.returncode:
-                    raise RuntimeError((completed.stderr or completed.stdout)[-2000:])
-                state = _parse_step3(completed.stdout)
+                state = monitor_registered(payload, binding=binding, gate=sys.modules[__name__], pipeline='gatk')
+                paired = state is not None
+                if not paired:
+                    if payload.get('resume_action_id'):
+                        raise RuntimeError('GATK Resume requires paired registered recovery')
+                    completed = subprocess.run(
+                        _step(payload, stage), check=False, text=True, capture_output=True, env=environment
+                    )
+                    if completed.returncode:
+                        raise RuntimeError((completed.stderr or completed.stdout)[-2000:])
+                    state = _parse_step3(completed.stdout)
                 master = state["master_state"]
+                evidence_binding = {**binding, 'cce_bundle': payload['_cce_master_result']['bundle']} if paired else binding
+                monitoring_error = _sync_evidence(payload, evidence_binding, terminal=master in {'SUCCEEDED','FAILED'})
                 progress = {
                     "progress_percent": int(float(state.get("percent") or 0)),
                     "completed_units": int(state.get("completed") or 0),
@@ -988,7 +998,6 @@ def _execute_stage(
                     "current_item": state.get("current_rule"),
                 }
                 if master == "SUCCEEDED":
-                    monitoring_error = _sync_evidence(payload, binding, terminal=True)
                     _write_status(
                         request_path,
                         payload,

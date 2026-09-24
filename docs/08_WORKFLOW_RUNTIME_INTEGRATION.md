@@ -1,5 +1,28 @@
 # Workflow runtime integration
 
+## Task4 fresh-process selected monitor (source only, 2026-09-24)
+
+The internal monitor_registered resolves only the successful
+registered Step2 producer of a Step3 request. It recomputes existing adapter
+request/receipt digests, derives the native view from the recovery journal and
+checks frozen hashes, handoff, producer identity and exact v2 directory owner.
+Receipt JSON alone never restores VerifiedMasterResult authority. Native Step3
+uses the selected mirror, filters current Master UID/Pod UID and fences native
+startup/terminal identities; run_id-only legacy run-state cannot decide the new
+Master's status. No original bundle rewrite, replacement or lock takeover.
+
+Actual WGS/GATK polling loops consume this reader and pass a copied selected
+binding to the existing rule-evidence bridge, without redirecting the original
+delivery root. Successful registered Step2 identity remains distinct from the
+observing Step3 execution. Old workflow completion markers alone never prove
+replacement success. Job disappearance requires bound native success or sealed
+failure evidence; it does not authorize another CREATE or release the lock.
+
+BS10610 focused18 and affected5 checks passed with native903e1af. No deployment
+or paired policy installed. Direct Step3 replacement, initial submission-view
+selection, Step4-6 reconstruction/final release and manual end-to-end acceptance
+remain open; Tasks5/6 are not enabled by this source checkpoint.
+
 ## Task4 registered Step2 recovery entry (source only, 2026-09-24)
 
 Internal resume_registered composes the existing paired runtime, operator

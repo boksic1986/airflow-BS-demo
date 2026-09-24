@@ -269,6 +269,14 @@ assert persisted_dag_id == confirmed_dag_id
 
 ## Task5 — TTL generators and integrated artifact acceptance
 
+Task4 source checkpoint (2026-09-24): native903e1af + platform selected-monitor
+entry now reconstruct the successful Step2-selected Master across processes and
+use it in both actual Step3 gate loops/rule bridge. New18 focused checks and5
+affected checks GREEN on BS10610; old completion marker and reclaimed failure
+were reproduced RED before fixes. Original bundles unchanged, no activation.
+Direct Step3 replacement/initial-submit paths, Step4-6/final release and full
+manual flow remain OPEN. This checkpoint does NOT open Task5.
+
 **Files:** Plugin existing Worker Job generator; cce-pipeline `src/cce_pipeline/master_job.py` and Master template source used by it; Airflow `scripts/wgs_evidence_bridge.py::build_reader_job`. Preserve Step7/maintenance templates outside this scope.
 
 **Interfaces:** Existing generators used by CLI, WGS/GATK and resume must generate Job.spec TTL, not Pod.spec TTL. Do not patch frozen generated bundles.

@@ -292,9 +292,12 @@ def run_resume_stage(payload, *, gate):
         subprocess.run(gate._step_command(payload, stage), check=True)
     elif stage in {'step2_master', 'step3_monitor'}:
         if __package__:
-            from .cce_paired_runtime import resume_registered
+            from .cce_paired_runtime import resume_registered, selected_runtime
         else:
-            from cce_paired_runtime import resume_registered
+            from cce_paired_runtime import resume_registered, selected_runtime
+        if stage == 'step3_monitor' and selected_runtime() is not None:
+            gate._monitor_step3(payload)
+            return
         result = resume_registered(payload, binding=binding, gate=gate, pipeline='wgs')
         if result is None:
             result = resume_master(payload=payload, binding=binding)
