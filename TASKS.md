@@ -12,11 +12,15 @@
 - [x] Internal due-dispatch adapter: existing automatic reservation -> existing
   Resume dispatcher/adapter registration, durable prepared identity, no duplicate
   slot/POST; crash revalidates source. BS10610 targeted23 GREEN4.68s.
-- [ ] Complete automatic dispatch, policy/budget freeze, Step4 reconciliation,
+- [x] Default-off new-run policy/budget freeze, first monitor deadline and replay;
+  existing authenticated stage POST/Airflow sensor handoff; terminal compute
+  lifecycle across two shared slots and old/current DagRun cleanup identity.
+  BS10610 backend19 GREEN4.70s + real-Airflow5 GREEN3.00s (2026-09-25).
+- [ ] Complete automatic runtime enforcement, Step4 reconciliation,
   existing UI projections and focused PostgreSQL/integration acceptance.
-  Next: connect existing Airflow monitoring and freeze new-attempt policy;
-  propagate/enforce original deadline in native replacement, bounded Worker wait,
-  exact remaining source classifications and terminal action lifecycle.
+  Next: enforce original deadline in native replacement/monitoring, bounded
+  Worker wait and exact remaining source classifications; then Step4/UI/PG and
+  full automatic lifecycle integration. The source caller is not rollout approval.
 - [ ] Separately authorized live TTL/capacity/AOM/alerts gates remain closed.
 
 Task6 prerequisite accepted: final focused28 GREEN35.59s on BS10610. The selected

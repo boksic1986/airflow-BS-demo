@@ -118,6 +118,8 @@ def create_wgs_platform_run(*, session: Session, settings, project_name: str, ex
         },
         submitted_by=submitted_by,
     )
+    from app.cce_recovery_policy import freeze_new_attempt
+    freeze_new_attempt(run=run,settings=settings)
     session.add(run)
     snapshot_row = WgsInputSnapshot(analysis_id=analysis_id, attempt=1, batch_no=batch_no, fq_path=canonical_source, manifest_path=str(manifest_path), status="pending")
     session.add(snapshot_row)

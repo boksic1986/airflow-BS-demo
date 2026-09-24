@@ -24,6 +24,12 @@ CONTROL_ACTIONS = {"resume_stage", "resume", "rerun_failed", "cancel_submission"
                    "pause", "cancel", "delete", "terminate"}
 
 
+def compute_finished(action):
+    return (action.result_status in FINISHED_ACTIONS or
+        (action.result_status=='queued' and isinstance(action.payload_json,dict)
+         and action.payload_json.get('compute_terminal') in {'success','failed'}))
+
+
 def dag_failure_fence_reason(*, session, run, dag_run_id):
     """Return why a failure callback cannot project; caller holds refreshed run lock.
 
@@ -44,7 +50,7 @@ def dag_failure_fence_reason(*, session, run, dag_run_id):
             continue
         if not dag_run_id:
             return 'recovery_callback_identity_required'
-        if action.result_status not in FINISHED_ACTIONS:
+        if not compute_finished(action):
             if (action.result_status not in {'queued', 'uncertain'}
                     or data.get('dag_run_id') != dag_run_id):
                 return 'pending_compute_recovery'
@@ -82,7 +88,7 @@ def require_no_pending_compute_recovery(*, session, run):
     actions = session.scalars(select(RunAction).where(
         RunAction.analysis_id == run.analysis_id, RunAction.action == ACTION)).all()
     for action in actions:
-        if action.result_status in FINISHED_ACTIONS:
+        if compute_finished(action):
             continue
         data = action.payload_json
         if (not isinstance(data, dict) or type(data.get('attempt')) is not int
@@ -170,7 +176,7 @@ def reserve_compute_recovery(*, session, analysis_id, attempt,
             return deepcopy(data)
         if data.get("source_master_uid") == source_master_uid:
             raise ValueError("recovery source identity differs for the same Master")
-    if any(action.result_status not in FINISHED_ACTIONS for action in journal):
+    if any(not compute_finished(action) for action in journal):
         raise ValueError("another recovery action is active")
     count = budget["count"]
     if count >= len(DELAYS):

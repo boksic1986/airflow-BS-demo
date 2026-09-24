@@ -1,5 +1,17 @@
 # Deployment runbook
 
+## Task6 policy/caller checkpoint — do not activate (2026-09-25)
+
+New backend-only environment switches WGS_CCE_RECOVERY_ENABLED and
+GATK_CCE_RECOVERY_ENABLED both default false. No Compose/environment/production
+change accompanies their source addition. Do not turn them on yet: native
+original-deadline enforcement, bounded Worker wait, remaining error classes,
+Step4 reconciliation and Task6 integration/PG gates are incomplete.
+Later authorized rollout must pair backend and DAG versions and the already
+required native/plugin/writer registration gates. Enabling later affects new
+runs only; never edit old params_json or freeze fresh quotas for failed history.
+Task5 wheels/images are unchanged and do not contain this source checkpoint.
+
 ## P0 paired runtime rollout remains closed (source only, 2026-09-24)
 
 Do not install writers-v2.json from the current Task4 source checkpoint. Native

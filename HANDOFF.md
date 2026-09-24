@@ -1,5 +1,66 @@
 # Handoff
 
+## 2026-09-25 Task6 continuation / frozen policy and sensor handoff
+
+User: continue the approved P0 Task6, narrow scope and minimal tests. BASEf5c82e0
+on jiucheng/runtime/CR01-cce-recovery-20260922; nativeffe51d4 and pluginc0b266b
+unchanged. No production/real rerun/installation/build/main merge/push authorization
+used. Original workspace and Task5 offline artifacts preserved.
+
+Added cce_recovery_policy.py and cce_recovery_poll.py. New-run creation freezes
+default-off per-adapter policy/budget; first monitor fixes the absolute deadline.
+WGS duplicate registration carries that same deadline into its hash. Historical
+missing policy or legacy manual next-attempt state is not backfilled; it cannot
+receive automatic quota but does not block the manual registration path.
+Existing internal stage POST authenticates actual DagRun/action and reuses the
+due dispatcher. Existing Step3 sensors reschedule waiting/uncertain and skip old
+chains after delegation, including lost-response replay when GET sees the new
+monitor. Current exact monitor generation alone sets compute_terminal; preserve
+queued authorization for downstream, but end the active compute fence. Second
+failure uses the same two-slot journal. GATK cleanup forwards its action identity.
+
+Changed scope: backend policy/poll/config, creation and registration services,
+shared budget lifecycle and existing main routes; existing WGS/GATK DAG sensors;
+focused tests and docs02/04/05/07/08/11 plus plan/state/task/handoff.
+No DB migration/public endpoint/new DAG node/independent retry daemon.
+
+RED: policy3 and poll4 initially missing modules; internal route2 and real sensor2
+then exposed missing caller wiring. Second-failure2 reproduced completed-history
+cleanup incorrectly blocked as pending. Fixed that shared fence. First monitor
+hash replay, duplicate creation, actual GATK creation/registration, old manual
+attempt compatibility and current/old cleanup identity covered by final selection.
+BS10610 final backend19 passed4.70s (policy-poll-final.log), real-Airflow5
+passed3.00s (policy-poll-dag-final.log). Commands: task6.ps1 -Mode test with new
+policy/poll files, affected GATK confirm and two budget cases; -Mode dag with new
+sensor file, WGS transport classifier and two GATK default-off sensor cases.
+No redundant full suite. git diff --check passed. Preliminary RED/missing-path
+discovery outputs are not acceptance; tests ran only remotely.
+
+Fresh preflight each run: server10610; control
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/current ->
+releases/20260912-opt-4d3d24e6; backend36ff21f87356 has RO/app from
+20260923-step7-ae416fa/backend/backend and RO/config from current release;
+scan/auto-dispatch false. Evidence/task files confined to uid6708-owned
+/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/p02-task6-20260925.
+Offline cached containers, network none, read-only source, nonroot,1CPU/1GiB.
+Master test image a0112f0b8ef003dd488c6c6ee2f13ca760c116d703e9ff7a83083e2857ce143e;
+Airflow test image58195672af685cfa6551cfc44b37b6218bd2039c44b717163a6e8072f78dfd2b.
+Existing kernel swap-limit warning does not remove the1GiB memory limit.
+
+Ruling: only existing sensor rescheduling/control POST owns automatic waiting;
+stage-status GET stays read-only. An old sensor must reconcile even when the
+latest monitor looks running, or a lost response could advance the wrong chain.
+compute_terminal is separate from dispatch result_status because downstream still
+needs the same action's authority. No manual Resume call is nested into auto.
+
+OPEN/NEXT: native consumption/enforcement of original cce_recovery_deadline,
+bounded natural Worker wait, exact CREATE transport/storage classification,
+Step4 uncertain operation reconciliation, CR04 projection, PG contention and
+final automatic integration. No complete Task6/P0 or whole-plan review claim.
+Both new env switches stay false; do not activate while these gates are open.
+Rollback: revert this isolated platform checkpoint; no live service/data rollback
+needed. No failed biological runs were restarted.
+
 ## 2026-09-25 Task6 continuation / internal due dispatch
 
 Same user authorization and three isolated branches as the entry below. Completed

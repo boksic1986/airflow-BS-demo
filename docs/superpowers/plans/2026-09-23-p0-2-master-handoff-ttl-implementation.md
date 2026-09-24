@@ -335,7 +335,13 @@ assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
 - [x] Internal due-dispatch service reuses existing reservation, adapter stage
   registration and shared durable Resume dispatch. Prepared crash rechecks proof;
   POST uncertainty is GET-only. Targeted23 GREEN on BS10610 (2026-09-25).
-- [ ] Continue CR-02/03 actual automatic dispatch using existing reservations, two shared slots60/180s, original deadline, control fences and Step4 uncertain-dispatch reconciliation. Airflow polling, new-attempt policy freeze, native deadline enforcement, Worker wait and action terminal lifecycle remain open. Do not count manual P0-2 closure or the internal service as automatic completion.
+- [x] Freeze new-run per-adapter default-off policy/budget and initial Step3
+  deadline; wire existing authenticated stage POST and existing Airflow sensors.
+  Repeated/lost replies reuse one action; delegation skips the old chain.
+  Exact current compute terminal lifecycle permits the second shared slot and
+  current cleanup without releasing stale DagRun authority. BS10610 backend19
+  GREEN4.70s and actual-Airflow5 GREEN3.00s (2026-09-25).
+- [ ] Continue CR-02/03 actual automatic dispatch using existing reservations, two shared slots60/180s, original deadline, control fences and Step4 uncertain-dispatch reconciliation. Native deadline enforcement, bounded Worker wait, remaining source classes and full automatic lifecycle integration remain open. Do not count the source caller or manual P0-2 closure as automatic completion.
 - [ ] CR-04 reuses existing Tracker/detail waiting/recovering/exhausted/stale fields; no new page.
 - [ ] CR-05 focused PostgreSQL contention and final integration tests, no real biological analysis. Respect WGS/GATK per-adapter enablement.
 - [ ] Separate production authorization: real synthetic Complete/Failed TTL checks, all-entry Pod capacity accounting, AOM data freshness and alert notification record. Missing evidence keeps production gate closed; no invented managed metrics or self-hosted monitoring service.

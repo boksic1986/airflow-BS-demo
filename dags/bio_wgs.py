@@ -14,7 +14,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from airflow import DAG
-from airflow.exceptions import AirflowFailException
+from airflow.exceptions import AirflowFailException, AirflowSkipException
 from airflow.operators.python import BranchPythonOperator, PythonOperator
 from airflow.sensors.python import PythonSensor
 from airflow.utils.task_group import TaskGroup
@@ -463,6 +463,18 @@ def stage_ready(stage: str, **context: Any) -> bool:
     )
     if payload is None:
         return False
+    policy = dict(dict(conf.get('params') or {}).get('cce_recovery_policy') or {})
+    if runner_stage == 'step3_monitor' and policy.get('enabled') is True and policy.get('attempt') == conf['attempt']:
+        # Also reconcile after a lost response: the latest monitor may already
+        # belong to the replacement, not to this sensor's DagRun.
+        recovery = _stage_query_json(
+            f"/api/internal/wgs/runs/{conf['analysis_id']}/stages/compute_recovery",
+            method='POST', payload=dict(attempt=conf['attempt'], adapter='wgs-runtime-200',
+                dag_run_id=context['dag_run'].run_id, resume_action_id=conf.get('resume_action_id')))
+        if recovery.get('status') in {'waiting', 'uncertain'}:
+            return False
+        if recovery.get('status') in {'delegated', 'superseded'}:
+            raise AirflowSkipException('Compute recovery delegated to the current DagRun')
     if runner_stage == "step3_monitor" and (
         payload.get("failed") or payload.get("ready")
     ):
@@ -511,10 +523,10 @@ def _sensor_backend_json(
         return None
 
 
-def _stage_query_json(path: str) -> dict[str, Any]:
-    """Only read-only CCE stage polling consumes the Airflow retry budget."""
+def _stage_query_json(path: str, *, method: str = 'GET', payload: dict | None = None) -> dict[str, Any]:
+    """Stage polling and idempotent recovery reconciliation share transport retries."""
     try:
-        value = _backend_json(path)
+        value = _backend_json(path, method=method, payload=payload)
         if not isinstance(value, dict):
             raise AirflowFailException('WGS stage query returned a non-object payload')
         return value

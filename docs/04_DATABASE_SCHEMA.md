@@ -1,5 +1,25 @@
 # 04 数据库设计
 
+## Task6 policy and compute lifecycle (2026-09-25, source only)
+
+No schema migration. New WGS/GATK creation freezes params_json.cce_recovery_policy
+{version:1,attempt,enabled,monitor_timeout_seconds,original_deadline:null} and
+cce_recovery_budget {attempt,count:0,original_deadline:null}. Only the first
+registered Step3 initializes both deadlines identically. Duplicate creation and
+registration retain identity/quota/deadline. Legacy manual Resume that increments
+attempt retains its old policy/journal without granting a new automatic budget;
+the new manual attempt remains manually executable but automatically ineligible.
+
+The existing automatic action additionally records original_resume_action_id so
+the original sensor can reconcile its own action after lost responses. Only the
+current DagRun and exact registered monitor generation may set compute_terminal
+to success/failed. result_status remains queued to authorize required downstream;
+compute_terminal ends that action's active compute-budget/manual-control fence.
+Older completed compute actions cannot fence cleanup of a newer current action.
+Old DagRun cleanup and callbacks remain rejected. An untransmitted rejected action
+ends with manual review; post_intent uncertainty stays GET-only. PostgreSQL
+contention acceptance remains open; these tests do not prove DB concurrency.
+
 ## Task6 internal automatic dispatch journal (2026-09-25, source only)
 
 No table/migration. Existing cce_compute_recovery RunAction keeps its original

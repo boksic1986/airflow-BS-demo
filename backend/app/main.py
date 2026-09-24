@@ -2098,6 +2098,12 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
         raise HTTPException(status_code=409, detail={"code": "WGS_RUNTIME_DISABLED", "message": "WGS execution is disabled; Step7 was not registered."})
     try:
         with get_sessionmaker()() as session:
+            if stage_name == 'compute_recovery':
+                from app.cce_recovery_poll import poll_compute_recovery
+                return poll_compute_recovery(session=session, settings=get_settings(),
+                    airflow_client=get_airflow_client(), analysis_id=analysis_id, attempt=request.attempt,
+                    pipeline='wgs', dag_run_id=request.dag_run_id,
+                    resume_action_id=request.resume_action_id, now=datetime.now(timezone.utc))
             if stage_name in {"release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
                 from app.cce_recovery_budget import require_current_dag_cleanup
                 run = require_current_dag_cleanup(session=session, analysis_id=analysis_id,
@@ -2732,6 +2738,12 @@ def internal_gatk_runtime_stage(
         )
     try:
         with get_sessionmaker()() as session:
+            if stage_name == 'compute_recovery':
+                from app.cce_recovery_poll import poll_compute_recovery
+                return poll_compute_recovery(session=session, settings=settings,
+                    airflow_client=get_airflow_client(), analysis_id=analysis_id, attempt=request.attempt,
+                    pipeline='gatk', dag_run_id=request.dag_run_id,
+                    resume_action_id=request.resume_action_id, now=datetime.now(timezone.utc))
             def authorize():
                 from app.cce_resume_dispatch import authorize_recovery_stage
                 run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
@@ -2769,7 +2781,8 @@ def internal_gatk_runtime_stage(
             if stage_name in {"release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
                 from app.cce_recovery_budget import require_current_dag_cleanup
                 require_current_dag_cleanup(session=session, analysis_id=analysis_id,
-                    attempt=request.attempt, pipeline='gatk', dag_run_id=request.dag_run_id)
+                    attempt=request.attempt, pipeline='gatk', dag_run_id=request.dag_run_id,
+                    resume_action_id=request.resume_action_id)
                 transfer_kind = None
                 if stage_name == "release_input_transfer_slot":
                     transfer_kind = "input"

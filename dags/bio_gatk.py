@@ -12,7 +12,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from airflow import DAG
-from airflow.exceptions import AirflowException, AirflowFailException
+from airflow.exceptions import AirflowException, AirflowFailException, AirflowSkipException
 from airflow.operators.python import PythonOperator
 from airflow.sensors.python import PythonSensor
 from airflow.utils.trigger_rule import TriggerRule
@@ -159,6 +159,16 @@ def stage_ready(stage: str, **context: Any) -> bool:
     value = _backend_json(
         f"/api/internal/gatk/runs/{conf['analysis_id']}/stage-status?{query}"
     )
+    policy = dict(dict(conf.get('params') or {}).get('cce_recovery_policy') or {})
+    if stage == 'step3_monitor' and policy.get('enabled') is True and policy.get('attempt') == conf['attempt']:
+        recovery = _backend_json(
+            f"/api/internal/gatk/runs/{conf['analysis_id']}/stages/compute_recovery",
+            method='POST', payload=dict(attempt=conf['attempt'], adapter='gatk-runtime-200',
+                dag_run_id=context['dag_run'].run_id, resume_action_id=conf.get('resume_action_id')))
+        if recovery.get('status') in {'waiting', 'uncertain'}:
+            return False
+        if recovery.get('status') in {'delegated', 'superseded'}:
+            raise AirflowSkipException('Compute recovery delegated to the current DagRun')
     if value.get("failed"):
         # A terminal runtime receipt is not a transient polling failure.
         raise AirflowFailException(str(value.get("message") or f"GATK stage failed: {stage}"))

@@ -62,6 +62,8 @@ class Settings:
     wgs_auto_dispatch_not_before: str | None
     wgs_stage_contract_path: str
     wgs_contract_v2_enabled: bool
+    wgs_cce_recovery_enabled: bool
+    gatk_cce_recovery_enabled: bool
     wgs_transfer_adapter: str
     wgs_heavy_slot_limit: int
     wgs_heavy_slot_mode: str
@@ -258,6 +260,8 @@ def get_settings() -> Settings:
         wgs_contract_v2_enabled=_parse_bool(
             os.getenv("WGS_CONTRACT_V2_ENABLED", "false")
         ),
+        wgs_cce_recovery_enabled=_parse_bool(os.getenv("WGS_CCE_RECOVERY_ENABLED", "false")),
+        gatk_cce_recovery_enabled=_parse_bool(os.getenv("GATK_CCE_RECOVERY_ENABLED", "false")),
         wgs_transfer_adapter=os.getenv("WGS_TRANSFER_ADAPTER", "obs_sdk").strip() or "obs_sdk",
         wgs_heavy_slot_limit=heavy_limit,
         wgs_heavy_slot_mode=heavy_mode,

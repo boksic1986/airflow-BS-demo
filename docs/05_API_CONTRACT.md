@@ -1,5 +1,23 @@
 # API contract
 
+## Task6 existing stage-control polling (2026-09-25, source only)
+
+The existing internal POST /api/internal/{wgs|gatk}/runs/{analysis_id}/stages/{stage}
+accepts stage=compute_recovery with its existing adapter, attempt, actual
+dag_run_id and optional resume_action_id fields. Internal service authentication
+and adapter gates are unchanged. There is no new public API or user-provided
+evidence/deadline. This operation locks and validates the current run/action,
+consumes trusted receipt evidence and calls the same due dispatcher. Read-only
+stage-status GET does not reserve/dispatch recovery.
+
+Results: waiting/uncertain reschedule the existing sensor; delegated means the
+replacement was confirmed and stops the old chain; superseded stops an obsolete
+caller; complete allows current successful compute to continue; not_eligible or
+needs_attention retains the normal terminal-failure behavior. Repeated calls,
+including an old sensor after a lost response, cannot allocate another action or
+repeat an ambiguous POST. GATK cleanup forwards the current resume_action_id to
+the shared identity fence. Automatic policy remains default-off pending Task6.
+
 ## P0-2 Task4 adapter routing checkpoint (2026-09-24, source only)
 
 The existing `POST /api/runs/{analysis_id}/actions/resume-stage` now requires the

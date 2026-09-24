@@ -1,5 +1,25 @@
 # Current state
 
+## 2026-09-25 Task6 policy and Airflow polling checkpoint
+
+New WGS/GATK CCE creation now freezes its own default-off policy/zero budget.
+First Step3 registration fixes the original deadline; duplicate registration
+preserves request hash/generation. Historical or legacy manual next-attempt
+flows gain no new automatic quota and remain manually executable.
+Existing authenticated stage POST and existing Step3 sensors call the due owner;
+waiting reschedules, confirmed delegation skips the old chain before observer
+deactivation/downstream. Lost responses do not create another action/POST.
+Exact current compute terminal evidence releases the active compute fence while
+retaining downstream authorization. Two failures consume shared slots60/180s;
+older completed compute history no longer blocks current cleanup.
+
+BS10610 offline targeted backend19 GREEN4.70s and real-Airflow5 GREEN3.00s.
+No full-suite repetition, local runtime test, production, deployment, main merge,
+push or real rerun. Default-off settings are source only and must NOT be enabled.
+Task6 remains open: native deadline enforcement, bounded Worker wait, remaining
+exact failure classes, Step4 reconciliation, UI, PG and final integration.
+Task5 artifacts and native/plugin source pins remain unchanged this checkpoint.
+
 ## 2026-09-25 Task6 internal due-dispatch checkpoint
 
 Prerequisite source committed: platform abdba43, native ffe51d4, plugin c0b266b.

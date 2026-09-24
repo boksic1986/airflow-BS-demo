@@ -1,5 +1,16 @@
 # Workflow runtime integration
 
+## Task6 initial deadline registration (2026-09-25, source only)
+
+Enabled new CCE runs freeze the monitor timeout at creation and set matching
+policy/budget original_deadline on their first Step3 registration. Its registered
+request includes cce_recovery_deadline in the canonical hash. WGS replay inserts
+the same field before hashing; GATK replay keeps its existing registered request.
+Legacy/manual different-attempt registrations receive no fresh automatic budget.
+The deadline is carried to replacement requests, not yet consumed by native
+replacement/monitor loops. That enforcement remains the next Task6 gate; caller
+wiring must not be treated as permission to enable automatic recovery.
+
 ## Task6 due-dispatch source boundary (2026-09-25)
 
 Internal cce_compute_dispatch consumes an already validated/reserved schema2

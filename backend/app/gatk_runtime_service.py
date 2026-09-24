@@ -180,6 +180,12 @@ def register_gatk_stage(
                 if latest.status in {'accepted', 'running'}:
                     latest.status = 'canceled'
                     latest.ended_at = datetime.now(timezone.utc)
+        if (stage == 'step3_monitor' and latest is None
+                and ((run.params_json or {}).get('cce_recovery_policy') or {}).get('attempt') == attempt):
+            from app.cce_recovery_policy import start_monitor_deadline
+            deadline = start_monitor_deadline(run=run,now=datetime.now(timezone.utc))
+            if deadline is not None:
+                request['cce_recovery_deadline'] = deadline
         request_hash = _canonical_hash(request)
         request["request_hash"] = request_hash
     execution = PipelineStageExecution(

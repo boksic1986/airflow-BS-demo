@@ -1,5 +1,17 @@
 # Engineering specification
 
+## Task6 frozen recovery policy (2026-09-25, source only)
+
+Backend settings `WGS_CCE_RECOVERY_ENABLED` and `GATK_CCE_RECOVERY_ENABLED`
+default to false and apply independently only when creating a new CCE run.
+They are NOT installed/enabled by this checkpoint. New runs freeze policy version1,
+attempt and enabled state alongside a zero-count budget. Enabled WGS requires
+contract v2 and freezes its Step3 timeout; GATK freezes the existing72h timeout.
+The first Step3 registration sets the original absolute deadline; replay does not
+extend it. Historical/mismatched-attempt state is not backfilled. Existing sensors
+call the internal idempotent stage-control operation, with no new service or loop.
+Runtime deadline enforcement and the remaining Task6 gates are still open.
+
 ## P0 paired runtime source checkpoint (not deployed, 2026-09-24)
 
 Restricted WGS/GATK entries consult fixed /etc/cce-pipeline/writers-v2.json for

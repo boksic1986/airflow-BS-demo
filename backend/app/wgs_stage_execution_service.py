@@ -34,13 +34,25 @@ def register_stage_execution(*, session, run: AnalysisRun, contract: WgsStageCon
     if definition is None:
         raise ValueError(f"stage is not defined by contract v2: {stage_code}")
     now = now or datetime.now(timezone.utc)
-    request_hash = _sha256(request_payload)
     latest = session.scalar(
         select(WgsStageExecution)
         .where(WgsStageExecution.analysis_id == run.analysis_id, WgsStageExecution.attempt == run.attempt, WgsStageExecution.stage_code == stage_code)
         .order_by(WgsStageExecution.generation.desc())
         .limit(1)
     )
+    if stage_code == 'step3_monitor':
+        from app.cce_recovery_policy import start_monitor_deadline
+        policy = (run.params_json or {}).get('cce_recovery_policy') or {}
+        # Replays use the first monitor's deadline. Never backfill an existing
+        # monitor whose policy did not freeze a deadline at registration.
+        current_policy = policy.get('attempt') == run.attempt
+        if current_policy and (latest is None or policy.get('original_deadline')):
+            deadline = start_monitor_deadline(run=run,now=now)
+            if deadline is not None:
+                request_payload['cce_recovery_deadline'] = deadline
+        elif current_policy and policy.get('enabled') is True:
+            raise ValueError('existing monitor has no original recovery deadline')
+    request_hash = _sha256(request_payload)
     if latest is not None and latest.request_hash == request_hash and (
         not force_new_generation or latest.status in ACTIVE
     ):

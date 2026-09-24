@@ -1,5 +1,22 @@
 # Airflow DAG specification
 
+## Task6 automatic sensor handoff (2026-09-25, source only)
+
+WGS/GATK existing Step3 reschedule sensors call compute_recovery only when their
+frozen conf policy is enabled for that exact attempt. The POST uses actual
+context.dag_run.run_id, not a conf-supplied identity. Poll even when the latest
+monitor is running: a lost POST reply may mean that row belongs to the replacement.
+waiting/uncertain returns false; delegated/superseded raises AirflowSkipException
+before WGS observer deactivation and before downstream execution. Only the current
+DagRun may settle its registered compute action and advance after success.
+
+No DAG nodes, stage ordering, pools or retry counts changed. WGS idempotent
+recovery reconciliation shares its existing bounded stage-query transport retry
+classification; GATK uses its existing backend transport classification. Default-off,
+legacy and mismatched-attempt policies do not call the automatic operation.
+Native deadline enforcement, Worker wait and Step4 reconciliation remain open;
+this sensor wiring is not whole Task6 acceptance or rollout authorization.
+
 ## P0-2 GATK manual recovery selection (2026-09-24, source only)
 
 bio_gatk uses the persisted resume_stages list: skipped runner/sensor/transfer
