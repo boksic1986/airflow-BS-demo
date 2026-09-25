@@ -1,5 +1,57 @@
 # Handoff
 
+## 2026-09-25 Task6 continuation / finite reconnect wired
+
+Goal: continue approved query-only CR-04 integration from platform400bf77 and
+native90cae30, same isolated branches. Native source now fd43f88; plugin81132cf
+unchanged. No production, main/production merge, push, deploy or real workflow.
+
+Completed: selected WGS/GATK monitor GET-only retry owner, durable existing
+status JSON reservations/identity and original deadline, missing/foreign/terminal
+status fence; full observation clears only query budget. Private hook reaches
+strict and legacy native readers without wrapping mutations. Runtime outer
+failure keeps marker. Backend real ingestion preserves confirmed analysis and
+stage projections; existing view shows checking/needs_attention limit6. Shared
+callback and periodic DagRun failure fence prevents false analysis failure.
+Selected identity/control errors stop without retry or terminal inference.
+
+Files: scripts/cce_paired_runtime.py, cce_query_reconnect.py, WGS/GATK gate status
+writers and their selected/status tests; backend cce_monitor_observation,
+cce_recovery_budget/projection, wgs_observer, gatk_runtime_service,
+diagnostics_service/gatk_airflow_sync and producer-ingestion test; docs04/05/08,
+plan, CURRENT_STATE/TASKS/HANDOFF. No frontend/schema/workflow changes.
+
+Validation via existing ignored task6.ps1 only on ssh BS10610 / server10610:
+control /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/current remains
+releases/20260912-opt-4d3d24e6; backend36ff21f87356 /app RO points to
+20260923-step7-ae416fa/backend/backend, /config RO to current release/config;
+scanner/auto-dispatch false, evidence uid6708. Cached a0112f0b8ef0 container,
+network-none/read-only root and task-scoped scratch. No services changed.
+Evidence root: /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/p02-task6-20260925.
+- query-periodic-red: WGS entered analysis failure diagnostics; GATK became failed.
+  Shared current-monitor fence -> query-periodic-green2 pass2.14s.
+- query-selected-integration:2 failed ProtectedWriter config mismatch. A bound
+  method was deep-copied; stable closure retains one owner without weakening
+  comparisons. query-selected-final: actual protected new/legacy WGS/GATK4
+  pass6.43s; no second CREATE/START, source config not mutated.
+- query-control-red2 missing blocked marker -> query-control-green2 pass0.27s.
+- query-status-fence-red2 missing status silently accepted; fail closed before
+  any GET -> query-status-fence-green producer/consumer16 pass3.63s.
+- query-wiring-final: native query24, core17, status8, ingestion4, projection,
+  callback fences, GATK and observer periodic sync regression total113 pass8.29s.
+  Final fence changed only paired owner/status fixture; affected16 + selected4
+  rerun above. git diff --check passes (native only normal LF/CRLF warnings).
+
+Not run: broad suites, local runtime tests, frontend build (no frontend change),
+PG contention/full automatic lifecycle, live cluster TTL/AOM, image builds.
+These remain separate planned gates, not inferred passed from synthetic SQLite.
+Task6/CR-04 OPEN: next final automatic/manual reconnect interaction (including
+pending automatic-action mutual exclusion and existing manual entry), focused PG,
+then whole-plan fresh review. No new manual control/status invented here.
+Task5 frozen artifacts do NOT contain this paired source; installed CLI/policy
+unchanged. Rollback before activation is source revert of these paired commits;
+no data or service rollback needed. Do not clean other worktrees or evidence.
+
 ## 2026-09-25 Task6 continuation / finite query-budget prerequisite
 
 Goal: continue original Task6/CR-04, BASE04a1a04 platform and BASEd7bd741 native,

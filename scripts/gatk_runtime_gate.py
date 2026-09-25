@@ -120,6 +120,12 @@ def _write_status(
     message: str,
     **progress: Any,
 ) -> dict[str, Any]:
+    if payload.get('stage') == 'step3_monitor' and '_monitor_reconnect' in payload:
+        progress['monitor_reconnect'] = payload['_monitor_reconnect']
+        if payload['_monitor_reconnect']['phase'] != 'healthy':
+            progress['monitoring_health'] = 'degraded'
+        else:
+            progress.setdefault('monitoring_health', 'healthy')
     master_fields = {}
     if '_cce_master_result' in payload or {'cce_master_binding', 'cce_master_submit_execution_id'}.intersection(progress):
         if __package__:

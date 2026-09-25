@@ -5,10 +5,16 @@
 Existing authenticated run detail and dashboard/runs item responses gain optional
 `recovery` (null/absent for ordinary, unsupported and native-only runs). Object:
 state=waiting|checking|recovering|needs_attention|stale|completed_degraded,
-message, reason, stage_code, generation, ordinal, limit=2, next_retry_at,
+message, reason, stage_code, generation, ordinal, limit, next_retry_at,
 last_confirmed_at. Nullable evidence/times stay null, not guessed from page reads.
 Compute ordinal1/2 is the current attempt reservation; publish ordinal0/1/2 is
 the separate existing dispatch sequence (0 initial, not a consumed retry).
+Their limit remains2. A validated current monitor_reconnect observation uses
+limit6 and ordinal0..6 (consumed extra GET retries), checking while bounded
+reconnect is active, needs_attention after blocked/exhausted/deadline. It states
+execution is unconfirmed, not analysis failed, and preserves measured progress.
+Complete confirmed observation removes this query overlay. No new public route,
+business status or manual control; query counters do not reset compute counters.
 
 Read-only bulk projection from existing actions/latest executions: GET never
 reserves, dispatches, calls remote files/services or changes business status.
@@ -16,8 +22,10 @@ Exact current identity and started-Master binding, not DagRun acceptance, enable
 recovering. Monitor-only failures remain state-unconfirmed unless authoritative
 compute-terminal failure exists. Old attempt/generation/manual recovery/user stop
 cannot revive an old action. No raw errors, filesystem paths or action conf are
-included. Finite reconnect loops with no explicit persisted signal are not
-invented; their producer-to-view integration remains a Task6 acceptance item.
+included. Finite reconnect is displayed only from the persisted scoped producer
+signal, not inferred from degraded log health. Failure callbacks and periodic
+Airflow reconciliation do not overwrite the last confirmed analysis state from
+this monitor-only failure. Full automatic/manual lifecycle remains a Task6 gate.
 
 ## Task6 Step4 stage-control caller (2026-09-25, source only)
 

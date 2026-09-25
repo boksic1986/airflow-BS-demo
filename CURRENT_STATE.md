@@ -1,5 +1,29 @@
 # Current state
 
+## 2026-09-25 Task6 finite reconnect producer/consumer wiring
+
+Supersedes the unwired prerequisite below. Paired WGS/GATK selected monitors now
+attach one query-only owner to strict native GETs (including legacy JSON reads).
+Existing current-generation status JSON persists reservations before retry,
+retains measured progress, checks registration on every load/save and fsyncs the
+GATK reservation. Missing/foreign/terminal status cannot silently reset a budget.
+No whole-monitor, CREATE/START, transfer or biological-workflow retry was added.
+
+Outer failed monitor status preserves the query marker. Real WGS/GATK ingestion
+retains last confirmed analysis/stage state; the existing recovery view shows
+checking or needs_attention, limit6, and explicitly unconfirmed execution after
+exhaustion/control errors. Failure callbacks AND periodic DagRun reconciliation
+share the current monitor fence. A healthy complete observation clears the
+query overlay, not the attempt-level compute budget.
+
+BS10610: affected query/backend regression113 pass8.29s; after final missing-status
+guard, producer/consumer16 pass3.63s and actual selected-monitor new/legacy4
+pass6.43s. Native source fd43f88, plugin81132cf unchanged. No local runtime tests,
+production, push/merge/deploy, activation or artifact rebuild.
+Task6/CR-04 remain OPEN pending the final automatic lifecycle/manual reconnect
+interaction, focused PostgreSQL contention and whole-plan fresh review. Existing
+manual controls and compute-action lifecycle were not expanded in this checkpoint.
+
 ## 2026-09-25 Task6 finite query-budget prerequisite
 
 Added the internal query-only budget core: initial GET plus max6 retries at

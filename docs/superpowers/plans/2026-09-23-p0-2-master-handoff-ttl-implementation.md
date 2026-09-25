@@ -384,6 +384,13 @@ assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
   next integrate under current worker identity, preserve status through outer
   failure handlers, then distinguish monitor/controller failure in backend/UI.
   Do not mark CR-04 closed or add retries around mutation/whole-stage calls.
+  Superseded by producer/consumer wiring checkpoint (2026-09-25): selected native
+  GETs share one existing-stage-JSON owner, with before-retry fsync and scope/status
+  fences. Outer failure status preserves marker; real ingestion, read-only view,
+  callback and periodic DagRun projection distinguish monitor from analysis.
+  Native fd43f88; BS10610 regression113 plus final affected16/selected4 pass.
+  No new controls/statuses; verify manual reconnect versus pending automatic
+  action and full lifecycle in final integration before closing CR-04.
 - [ ] CR-05 focused PostgreSQL contention and final integration tests, no real biological analysis. Respect WGS/GATK per-adapter enablement.
 - [ ] Separate production authorization: real synthetic Complete/Failed TTL checks, all-entry Pod capacity accounting, AOM data freshness and alert notification record. Missing evidence keeps production gate closed; no invented managed metrics or self-hosted monitoring service.
 

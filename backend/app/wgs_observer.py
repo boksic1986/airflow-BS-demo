@@ -969,6 +969,12 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                         or "Rule evidence bridge failed"
                     ),
                 )
+            if contract_v2:
+                from app.cce_monitor_observation import query_unconfirmed
+                if query_unconfirmed(execution):
+                    # Do not timestamp stale Master/progress as a fresh observation.
+                    session.commit()
+                    return False
             master_job = str(payload.get("master_job") or "")
             master = payload.get("master") if isinstance(payload.get("master"), dict) else {}
             if not master_job or not master:

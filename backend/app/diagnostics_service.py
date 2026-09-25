@@ -114,6 +114,10 @@ def sync_wgs_airflow_status(*, session: Session, airflow_client, analysis_id: st
         ):
             authoritative_status = "failed"
             airflow_payload = {**airflow_payload, "state": "failed"}
+    if authoritative_status == 'failed':
+        from app.cce_recovery_budget import dag_failure_fence_reason
+        if dag_failure_fence_reason(session=session, run=run, dag_run_id=run.dag_run_id):
+            return _run_payload(run)
     run.status = authoritative_status
     run.started_at = _parse_airflow_datetime(airflow_payload.get("start_date")) or run.started_at
     dag_end_at = _parse_airflow_datetime(airflow_payload.get("end_date"))

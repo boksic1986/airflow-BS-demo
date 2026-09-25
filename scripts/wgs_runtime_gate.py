@@ -521,6 +521,12 @@ def _freeze_validation_execution_mode(
 def _write_status(
     payload: dict[str, Any], status: str, message: str = "", **details: Any
 ) -> bool:
+    if payload.get('stage') == 'step3_monitor' and '_monitor_reconnect' in payload:
+        details['monitor_reconnect'] = payload['_monitor_reconnect']
+        if payload['_monitor_reconnect']['phase'] != 'healthy':
+            details['monitoring_health'] = 'degraded'
+        else:
+            details.setdefault('monitoring_health', 'healthy')
     master_fields = {}
     if '_cce_master_result' in payload or {'cce_master_binding', 'cce_master_submit_execution_id'}.intersection(details):
         if __package__:

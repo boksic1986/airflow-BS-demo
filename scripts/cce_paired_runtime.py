@@ -809,7 +809,70 @@ def _predecessor(payload, gate, pipeline):
 def monitor_registered(payload, *, binding, gate, pipeline):
     if payload.get('stage') != 'step3_monitor':
         raise RuntimeError('selected monitor requires Step3')
-    return _selected_registered(payload, binding=binding, gate=gate, pipeline=pipeline)
+    runtime = load_runtime()
+    if runtime is None:
+        return None
+    owner = _monitor_query_owner(payload, gate, pipeline, runtime)
+    try:
+        value = _selected_registered(payload, binding=binding, gate=gate, pipeline=pipeline,
+            runtime=runtime, query_owner=owner)
+        if owner is not None:
+            owner.confirmed()
+    except Exception:
+        # No whole-monitor replay. Only a returned, validated terminal result
+        # proves analysis failure; query/control errors leave execution unknown.
+        # The owner's save rechecks registration, so stale workers cannot write.
+        if owner is not None:
+            owner.unconfirmed()
+        raise
+    return value
+
+
+def _monitor_query_owner(payload, gate, pipeline, runtime):
+    """Current worker owns the lock; reuse its registered status, never a new spool."""
+    if __package__:
+        from .cce_query_reconnect import QueryReconnect
+        from .cce_recovery_deadline import deadline_epoch
+    else:
+        from cce_query_reconnect import QueryReconnect
+        from cce_recovery_deadline import deadline_epoch
+    deadline = deadline_epoch(payload)
+    if deadline is None:
+        return None  # Existing unmarked executions keep their original behavior.
+    if payload.get('orchestration_contract_version') != 2 or payload.get('stage') != 'step3_monitor':
+        raise RuntimeError('query reconnect requires registered v2 monitor')
+    path, _ = _registered_request(payload, gate, pipeline)
+    status_path = path.with_suffix('.status.json')
+    keys = ('analysis_id', 'attempt', 'stage', 'execution_id', 'generation', 'request_hash')
+    scope = dict(pipeline=pipeline, **{k:payload[k] for k in keys})
+
+    def current():
+        _registered_request(payload, gate, pipeline)
+        value = json.loads(_read_registered(status_path))
+        if (not isinstance(value, dict)
+                or any(type(value.get(k)) is not type(payload[k]) or value[k] != payload[k] for k in keys)
+                or value.get('status') not in {'accepted', 'running'}):
+            raise RuntimeError('registered monitor status changed or terminal')
+        return value
+
+    def save(state):
+        previous = current()
+        payload['_monitor_reconnect'] = state
+        progress = {k:previous[k] for k in ('progress_percent', 'completed_units', 'total_units', 'unit', 'current_item')
+                    if k in previous}
+        message = 'Monitor observation confirmed' if state['phase'] == 'healthy' else 'Monitor query unavailable; execution state unconfirmed'
+        if pipeline == 'wgs':
+            if not gate._write_status(payload, 'running', message, **progress):
+                raise RuntimeError('registered monitor status refused query reservation')
+        else:
+            gate._write_status(path, payload, 'running', message, **progress)
+            # GATK's ordinary atomic writer does not fsync; a retry reservation must.
+            for target in (status_path, status_path.parent):
+                fd = os.open(target, os.O_RDONLY | os.O_NOFOLLOW)
+                try: os.fsync(fd)
+                finally: os.close(fd)
+    return QueryReconnect(scope=scope, deadline=deadline,
+        load=lambda: current().get('monitor_reconnect'), save=save, error_type=runtime.RecoveryQueryError)
 
 
 def downstream_registered(payload, *, binding, gate, pipeline, materialize=None):
@@ -882,14 +945,14 @@ def _release_registered_writer(payload, binding, gate, pipeline,
             journal=writer.journal,save_journal=writer.save_journal,verify=proof)
 
 
-def _selected_registered(payload, *, binding, gate, pipeline, operation=None):
+def _selected_registered(payload, *, binding, gate, pipeline, operation=None, runtime=None, query_owner=None):
     """Reconstruct a selected Master in a new restricted monitor process.
 
     A receipt is a locator/checksum, not a capability. The registered producer,
     native journal, frozen input binding and current directory owner must agree.
     No replacement, takeover or missing-lock claim is performed by this reader.
     """
-    runtime = load_runtime()
+    runtime = runtime or load_runtime()
     if runtime is None:
         return None
     if (pipeline not in {'wgs', 'gatk'} or payload.get('orchestration_contract_version') != 2
@@ -898,6 +961,10 @@ def _selected_registered(payload, *, binding, gate, pipeline, operation=None):
     path, raw = _registered_request(payload, gate, pipeline)
     bundle = Path(binding['cce_bundle'])
     contract, config, modules = runtime._load(bundle, None)
+    if query_owner is not None:
+        # ProtectedWriter snapshots config with deepcopy. A closure preserves
+        # the one durable owner; copying a bound method would clone that owner.
+        config = {**config, '_monitor_query_runner': lambda query: query_owner.run(query)}
     writer = runtime.writer_for_bundle(runtime, bundle, contract, config)
     if writer is None:
         raise RuntimeError('trusted per-run writer registration required')

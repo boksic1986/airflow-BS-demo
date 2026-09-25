@@ -450,6 +450,13 @@ def sync_gatk_stage_status(
                 snapshot = (row.terminal_payload_json or {}).get(KEY)
                 row.terminal_payload_json = {**value, **({KEY: snapshot} if snapshot is not None else {})}
             retain_monitor_observation(row, value, pipeline='gatk', previous=previous_monitor)
+            from app.cce_monitor_observation import query_unconfirmed
+            if query_unconfirmed(row):
+                # The observer/control task ended, not necessarily the analysis.
+                # Keep measured stage/run projections and let the sensor stop.
+                session.commit()
+                return {**_execution_payload(row), 'ready': False,
+                    'failed': row.status in {'failed','canceled'}, 'message': row.message}
             _upsert_gatk_stage_state(
                 session,
                 analysis_id=analysis_id,

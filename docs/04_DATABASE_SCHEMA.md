@@ -13,6 +13,17 @@ It is UI evidence only, NOT a terminal receipt or recovery permission; execution
 status, receipt_hash, estimate baseline and action budgets keep existing semantics.
 Public reads expose only allowlisted display fields, not this private binding.
 
+Selected monitor query wiring additionally retains reduced monitor_reconnect:
+version1, exact scope(pipeline/analysis_id/attempt/stage/execution_id/generation/
+request_hash), deadline, phase, retries_used0..6, next_retry_at, last_success_at.
+Scope/types are checked after the existing status identity gate. Runtime retains
+the full budget in its stage JSON; this nested DB snapshot is not a retry owner.
+The snapshot now also fences false failure projection from monitor/controller
+errors, including callback and periodic Airflow sync. It does not authorize
+dispatch, prove workload terminality or change the separate compute budget.
+The execution row may be failed (monitor ended) while the analysis preserves its
+last confirmed state with a needs_attention overlay. No table/model migration.
+
 ## Task6 Step4 caller persistence (2026-09-25, source only)
 
 First eligible Step4 adds params_json.cce_publish_deadline for the exact frozen

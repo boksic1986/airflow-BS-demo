@@ -5,6 +5,8 @@ import json
 import os
 import shutil
 import traceback
+import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -17,6 +19,8 @@ from scripts import cce_paired_runtime as paired, wgs_runtime_gate, wgs_resume
 from cce_pipeline.assets import step3_status
 from test_recovery_final import SubmissionManager, plugin_tests
 REAL_RELEASE=runtime._release_batch_lock
+REAL_QUERY=runtime._recovery_query
+REAL_LEGACY_QUERY=runtime._kubectl_json
 
 
 @pytest.fixture
@@ -30,7 +34,7 @@ def handoff(tmp_path):
 
 @pytest.mark.parametrize('view_inputs',[{'pipeline':'wgs','analysis_id':'WGS_20260924_000000_AAAAAA'},
     {'pipeline':'gatk','analysis_id':'GATK_20260924_000000_AAAAAA'}],indirect=True)
-@pytest.mark.parametrize('outcome',['normal','lost_response','unknown','recover','bound_crash','reattach','interrupted','reattach_worker'])
+@pytest.mark.parametrize('outcome',['normal','lost_response','unknown','recover','bound_crash','reattach','interrupted','reattach_worker','reconnect'])
 def test_registered_initial_submission_selects_its_view(registered,monkeypatch,outcome):
     state,launch,gate,payload,request,policy,old_bundle,h=registered
     pipeline='wgs' if gate is wgs_runtime_gate else 'gatk'
@@ -109,6 +113,8 @@ def test_registered_initial_submission_selects_its_view(registered,monkeypatch,o
     current.update(stage='step3_monitor',execution_id=payload['analysis_id']+'-a1-step3_monitor-g1',generation=1,
         predecessor_execution_id=payload['execution_id'],predecessor_receipt_hash=
         hashlib.sha256(request.with_suffix('.status.json').read_bytes()).hexdigest() if pipeline=='wgs' else receipt['receipt_hash'])
+    if outcome=='reconnect':
+        current['cce_recovery_deadline']=datetime.fromtimestamp(h.now+3600,timezone.utc).isoformat()
     path=gate._request_path(payload['analysis_id'],1,'step3_monitor');save(current,path)
     h.modules=(*h.modules[:3],step3_status)
     query=runtime._kubectl_json
@@ -119,8 +125,43 @@ def test_registered_initial_submission_selects_its_view(registered,monkeypatch,o
         return result
     monkeypatch.setattr(runtime,'_kubectl_json',ready)
     monkeypatch.setattr(runtime,'_read_pod_evidence',lambda *a,**k:({'START_CONFIRMED.json':state.confirmation},None))
+    if outcome=='reconnect':
+        # Only the Kubernetes transport is fake; real selected monitor and both
+        # native readers must carry the same persisted retry owner.
+        if pipeline=='wgs':gate._write_status(current,'running','monitor started')
+        else:gate._write_status(path,current,'running','monitor started')
+        original_transport=runtime._run
+        calls=[]
+        def monitor_transport(command,**kw):
+            if command[5]!='get':return original_transport(command,**kw)
+            calls.append(command)
+            if len(calls)==1:
+                return subprocess.CompletedProcess(command,1,b'',b'Error (ServiceUnavailable)')
+            if len(calls)==2:
+                assert json.loads(path.with_suffix('.status.json').read_bytes())['monitor_reconnect']['retries_used']==1
+            args=command[6:command.index('-o')]
+            args=[v for v in args if v not in {'--ignore-not-found','--chunk-size=0'}]
+            value=ready(h.config,*args)
+            if value is not None and args[0]=='pods':
+                value.update(kind='PodList',metadata={})
+            return subprocess.CompletedProcess(command,0,json.dumps(value).encode() if value is not None else b'',b'')
+        monkeypatch.setattr(runtime,'_run',monitor_transport)
+        monkeypatch.setattr(runtime,'_recovery_query',REAL_QUERY)
+        monkeypatch.setattr(runtime,'_kubectl_json',REAL_LEGACY_QUERY)
+        factory=paired._monitor_query_owner
+        clock=[h.now]
+        def owner(*a):
+            value=factory(*a);value.now=lambda:clock[0]
+            value.sleep=lambda seconds:clock.__setitem__(0,clock[0]+seconds)
+            return value
+        monkeypatch.setattr(paired,'_monitor_query_owner',owner)
     assert paired.monitor_registered(current,binding=binding,gate=gate,pipeline=pipeline)['master_state']=='RUNNING'
     assert (state.creates,state.starts)==(1,1)
+    if outcome=='reconnect':
+        marker=json.loads(path.with_suffix('.status.json').read_bytes())['monitor_reconnect']
+        assert marker['phase']=='healthy' and marker['retries_used']==0
+        assert marker['last_success_at']==h.now+30 and len(calls)>2
+        assert '_monitor_query_runner' not in h.config
     if outcome in ('reattach','reattach_worker'):
         archived=request.parent/'request-history'/'step2_master'/('generation-'+str(payload['generation'])+'.json')
         archived.parent.mkdir(parents=True);archived.write_bytes(request.read_bytes())

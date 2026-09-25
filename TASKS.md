@@ -2,6 +2,13 @@
 
 ## Task6 active — 2026-09-25
 
+- [x] Finite query owner wired through real selected WGS/GATK monitors and existing
+  status persistence; outer failures retain marker, backend/view distinguish
+  unconfirmed execution, callback and periodic Airflow sync cannot mark analysis
+  failed from query exhaustion. Native fd43f88; BS10610 regression113 plus final
+  affected producer/consumer16 and actual selected-monitor4 pass. Source only.
+- [ ] Complete final automatic lifecycle/manual reconnect interaction and focused
+  PostgreSQL contention before CR-04/Task6 closure and whole-plan fresh review.
 - [x] Inspect Task4/5 producer versus existing automatic-recovery consumer.
 - [x] User approved necessary wrapper/logger failure-summary addition before extending
   runtime source; preserve existing biological workflow and accepted artifacts.

@@ -40,6 +40,17 @@ def dag_failure_fence_reason(*, session, run, dag_run_id):
     """
     if dag_run_id is not None and dag_run_id != run.dag_run_id:
         return 'superseded_dag_run'
+    if run.current_stage == 'step3_monitor' and run.status not in STOPPED:
+        from app.models import WgsStageExecution, PipelineStageExecution
+        from app.cce_monitor_observation import query_unconfirmed
+        model = WgsStageExecution if run.pipeline_name == 'wgs' else PipelineStageExecution
+        query = select(model).where(model.analysis_id == run.analysis_id,
+            model.attempt == run.attempt, model.stage_code == 'step3_monitor')
+        if model is PipelineStageExecution:
+            query = query.where(model.pipeline_name == run.pipeline_name)
+        row = session.scalar(query.order_by(model.generation.desc()).limit(1))
+        if row is not None and query_unconfirmed(row):
+            return 'monitor_execution_unconfirmed'
     actions = session.scalars(select(RunAction).where(
         RunAction.analysis_id == run.analysis_id, RunAction.action == ACTION)).all()
     for action in actions:

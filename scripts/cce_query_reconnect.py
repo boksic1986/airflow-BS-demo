@@ -133,6 +133,13 @@ class QueryReconnect:
         self._save(state)
         self.observed = False
 
+    def unconfirmed(self):
+        """A control/identity error is not terminal workload evidence or retryable."""
+        state = self._state()
+        if state['phase'] in {'blocked', 'exhausted'}:
+            raise QueryReconnectStopped(f"query reconnect {state['phase']}: {state['reason']}")
+        self._stop(state, 'blocked', 'non_retryable')
+
 
 def _number(value):
     return type(value) in {int, float} and math.isfinite(value)

@@ -1,5 +1,35 @@
 # Workflow runtime integration
 
+## Task6 selected-monitor finite reconnect wiring (2026-09-25, source only)
+
+Supersedes the unwired prerequisite below. monitor_registered builds one owner
+only for the operator-selected v2 Step3 with a registered original deadline.
+Its in-memory native _monitor_query_runner hook is internal, not a request option
+or new executable selector. Strict GET and selected legacy JSON GET share it;
+list reads request all items. No hook on _run, CREATE, START, transfers or whole
+stages. Unmarked legacy monitors retain their ABI/behavior.
+
+Existing worker lock and stage status JSON own monitor_reconnect. Every load/save
+revalidates registered request bytes/hash and exact typed execution/generation;
+status must exist and be accepted/running. A missing, foreign or terminal sidecar
+cannot start a fresh budget. Reservations are durable before requests; the GATK
+path additionally fsyncs file and parent. ProtectedWriter still compares exact
+config: a stable closure preserves one owner through its config deepcopy.
+
+Only a complete selected-Master observation calls confirmed(). Query exhaustion,
+permission/auth/invalid response or selected identity/control error stops without
+replaying the monitor or inferring remote failure. Outer worker failure writers
+preserve the marker. True returned terminal workload evidence retains its usual
+failure/recovery path. The existing backend consumers retain the reduced scoped
+observation and suppress fresh analysis/stage failure projection while the query
+is unconfirmed; callbacks and periodic DagRun sync use the same fence. This is
+negative evidence only, never automatic compute permission or terminal success.
+
+BS10610 source checks: regression113, final affected producer/consumer16 and
+actual protected selected new/legacy monitors4 pass. Paired native fd43f88;
+no Task5 artifacts rebuilt or production/runtime activation. Final automatic
+lifecycle/manual reconnect and PG/whole-plan acceptance remain open.
+
 ## Task6 finite query owner prerequisite (2026-09-25, not yet wired)
 
 Internal scripts/cce_query_reconnect.py accepts only a trusted typed read-only

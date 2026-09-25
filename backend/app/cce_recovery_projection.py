@@ -67,6 +67,14 @@ def _view(run, row, action, now):
         return dict(base,state=state,message=message,reason=reason,**fields)
     if run.status == 'success':
         return output('completed_degraded','分析完成，日志采集异常') if health in {'degraded','error'} else None
+    query = _object(payload.get('monitor_reconnect'))
+    if query.get('phase') in {'waiting','querying','observing','blocked','exhausted'}:
+        base.update(ordinal=query.get('retries_used'), limit=6)
+        if query['phase'] in {'blocked','exhausted'} or now.timestamp() >= query['deadline']:
+            return output('needs_attention','监控重连停止，需人工核对','执行状态待确认；不表示分析失败')
+        if query.get('next_retry_at') is not None:
+            base['next_retry_at'] = datetime.fromtimestamp(query['next_retry_at'],timezone.utc).isoformat()
+        return output('checking','监控重连中','保留最后确认进度；不会重复提交计算')
     if action:
         data = _object(action.payload_json)
         if data.get('pipeline') != run.pipeline_name or data.get('workdir') != run.workdir:

@@ -31,6 +31,10 @@ def sync_gatk_airflow_status(*, session, airflow_client, analysis_id, settings):
     # Successful/cancelled runs are immutable to delayed orchestration snapshots.
     if run.status in {'success', 'cancelled', 'canceled', 'cancel_requested'}:
         return _run_payload(run)
+    if state == 'failed':
+        from app.cce_recovery_budget import dag_failure_fence_reason
+        if dag_failure_fence_reason(session=session, run=run, dag_run_id=run.dag_run_id):
+            return _run_payload(run)
 
     executions = session.scalars(select(PipelineStageExecution).where(
         PipelineStageExecution.analysis_id == analysis_id,
