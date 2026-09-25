@@ -4,11 +4,13 @@
 
 ACTIVE: user corrected the relayed pause as historical and reaffirmed publication.
 Both original owners resumed; only R1 is authorized for the current slice.
+User further simplified to direct4.2.2 publication without old-batch compatibility
+gate; normal ACTIVE_ASSETS update permitted. No unrelated deletion or platform switch.
 
 - [x] Resume original WGS owner under explicit step1 authorization and deliver
   accepted0.8.6/Master/r2 binding evidence.
-- [ ] Rebind candidate publication metadata, audit ACTIVE_ASSETS compatibility,
-  publish independent4.2.2 SFS paths and obtain minimal publication receipt.
+- [ ] Rebind candidate publication metadata, publish4.2.2 SFS paths with normal
+  tool validation and obtain minimal publication receipt.
 - [ ] Review exact manifests/READY/paths and record accepted R1 result.
 
 Do not execute R4, activate profiles on Airflow, merge shared branches or deploy

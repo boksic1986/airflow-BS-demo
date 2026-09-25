@@ -6,6 +6,14 @@
 
 ## 最新执行裁定（2026-09-25，优先于下方历史顺序）
 
+2026-09-26最终简化：用户“直接更新WGS4.2.2，然后进行发布，不用管旧批次”。
+R1正常更新共享ACTIVE_ASSETS已获授权，不再以旧版本status/消费者兼容审计为前置；
+保留发布工具必要完整性/认证校验及结果回执。仍不额外删除旧目录或切换Airflow/BS96。
+
+用户明确源码只能来自最新dev_CJC_4.2.2_cloud，不提交dev_CJC_4.2.1_cloud。
+常规whitelist必须以 `/bi/BioCodeHub/WGS/WGS_V3.2.1/annotation/GRCh38_primary_assembly/whitelist.V1_BKW.V20260909.hg38.vcf.gz`
+替代同目录旧 `whitelist.V1.V20260909.hg38.vcf.gz`；确认BKW VCF与索引配套及实际payload摘要。
+
 2026-09-26最新纠正：用户明确指出转达的暂停是旧命令，最新要求为“先完成发布”。
 恢复R1，仅完成WGS4.2.2 SFS发布；下述暂停记录为协调端时序误判，不再生效。
 已同步原WGS/native负责人，复用已有核对结果，不重复构建测试或扩大部署范围。

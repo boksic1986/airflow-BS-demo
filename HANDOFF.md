@@ -1,5 +1,53 @@
 # Handoff
 
+## 2026-09-26 exact whitelist replacement requirement
+
+User explicitly requires source
+/bi/BioCodeHub/WGS/WGS_V3.2.1/annotation/GRCh38_primary_assembly/whitelist.V1_BKW.V20260909.hg38.vcf.gz
+in place of the former whitelist.V1.V20260909.hg38.vcf.gz in that directory.
+Both owners notified before apply: confirm actual BKW payload (not filename-only),
+matching.tbi source/hash, logical resource mapping and SFS target. Reuse existing
+candidate if it already contains exactly these bytes; otherwise refresh immutable
+candidate and dependent hashes before apply. No unrelated database/source edits.
+
+WGS owner confirmed source branch dev_CJC_4.2.2_cloud HEAD3b1dae5 matches payload;
+authenticated GitLab query shows current release_V4.2.2 upstreamca71cd6 included.
+GitLab has no dev_CJC_4.2.2_cloud head: do not claim that branch was pushed.
+No4.2.1 commits/pushes. BKW VCF SHA10ec6792ad3589051ca4625a6e64882e7eb99de96ce482b35cd7b0d8fc2b55c1
+and index7003b1ba87f4df6ef2c15e4f795eb884e90ac1e8ce56f2fb1fd54c3ca2d815bc
+match existing candidate. Logical whitelistV1 target retains ordinary name with
+BKW content; no reupload required.
+
+Infra established node005 to server10610 direct SSH using existing identity and
+task-only known_hosts verified against trusted host keys. A process-only ssh
+wrapper preserves strict checking/argv/exit and avoids global SSH edits. First
+node005 validate failed because task operator referenced a historical absent OBS
+config. WGS owner supplied the same existing configuration used by successful
+copy/upload; only task operator is being corrected. No credentials copied.
+
+## 2026-09-26 explicit WGS source branch requirement
+
+User requires latest merged dev_CJC_4.2.2_cloud and explicitly prohibits
+committing publication changes to dev_CJC_4.2.1_cloud. Both owners notified;
+WGS owner must confirm current merged source/payload correspondence before apply.
+Local WGS-noncoding-model is a separate dirty governance checkout without that
+branch, not the authoritative WGS source. Its read-only branch query failed;
+no edits/checkouts performed there. Source verification remains with WGS owner
+and its existing remote WGS checkout, not an invented local branch.
+
+## 2026-09-26 simplify R1 per latest user direction
+
+User: "直接更新WGS 4.2.2，然后进行发布，不用管旧批次".
+Both owners informed: stop old-release compatibility audits; normal shared
+ACTIVE_ASSETS change is authorized for this publication. Keep tool integrity/
+authentication checks and a single apply writer; do not delete unrelated old
+directories, change Airflow/BS96 or start clinical runs. Use existing documented
+SSH routes/task-scoped operator configuration, no copied private credentials.
+WGS owner reports20260926.1-wgs422 candidate prepared:12unchanged objects copied
+server-side,2metadata uploads, hashes checked,exit0. Manifest73bca89d28619fb6194233f0bea40ae5f5d8423bd6fab4fdf511a52493eaacd7;
+SOURCE_READYa1c0fcd52226760374bda1c89df839458472bbeb200fdbcd3eb3810d9fce8670.
+SFS has not been applied at that checkpoint; final receipt still pending.
+
 ## 2026-09-26 chronology correction: complete R1 publication
 
 User corrected the cross-task pause as an older instruction and explicitly
@@ -9,6 +57,12 @@ resume R1 only and not replay historical pause state. Reuse accepted checks,
 payloads and0.8.6/SWR/r2; continue metadata binding and safe SFS publication.
 No additional scope, Airflow/BS96 switch, source changes or clinical submission.
 Earlier pause entries are history of that error, not active authorization.
+
+Authorization chronology verified from direct user message:
+2026-09-25T17:33:56.145Z, task019fa8d1-0d81-7e92-abee-8154dd1cf0a7,
+turn01a0d9a1-83e1-7042-bda5-466ca2a9c335,
+message msg_01a0d9a1-8431-7573-91f0-c9a685dde638 (role=user).
+Both owners received the exact source location, not merely a relayed summary.
 
 ## 2026-09-26 R1 paused again before completion
 

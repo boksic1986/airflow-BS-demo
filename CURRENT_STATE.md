@@ -1,5 +1,18 @@
 # Current state
 
+## 2026-09-26 direct WGS4.2.2 publication authorized
+
+Latest user asks to publish4.2.2 directly, without old-batch compatibility work.
+Normal shared ACTIVE_ASSETS update is now within scope; retain integrity/auth
+checks, but no old-release status/consumer audit gate. No unrelated deletion or
+Airflow/BS96 switch. WGS owner reports new20260926.1-wgs422 OBS metadata ready,
+12unchanged objects server-side copied and2metadata uploads, exit0; SFS pending.
+User explicitly requires source branch dev_CJC_4.2.2_cloud; no commits to
+dev_CJC_4.2.1_cloud. WGS owner to confirm current merged HEAD matches payload.
+Whitelist source explicitly required: GRCh38_primary_assembly/
+whitelist.V1_BKW.V20260909.hg38.vcf.gz instead of whitelist.V1.V20260909.hg38.vcf.gz;
+VCF/index pairing and payload provenance must be confirmed before SFS apply.
+
 ## 2026-09-26 R1 active: stale pause corrected
 
 User explicitly corrected the relayed pause as an OLD instruction and reaffirmed
