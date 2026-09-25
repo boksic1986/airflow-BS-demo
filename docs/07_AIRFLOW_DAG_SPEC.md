@@ -9,6 +9,7 @@ read-only reconnection delays are30/60/120 seconds. An ambiguous launch response
 is reconciled before at most one identical resend, allowed only if not_started.
 Running/success attaches, unknown stops, failed deletion needs manual retry.
 Failure callbacks affect only the maintenance action. Test acceptance pending.
+
 ## Task6 existing Step4 runner/sensor (2026-09-25, source only)
 
 For an enabled frozen current-attempt policy, start_step4_publish registers the

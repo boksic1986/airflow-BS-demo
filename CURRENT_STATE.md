@@ -74,6 +74,7 @@ Step7 maintenance/recovery code and focused tests are drafted in the isolated
 worktree. Read-only code review findings were addressed. Acceptance, commit and
 deployment remain pending the coordinator's explicit release. No production or
 runtime changes were performed; no tests have run.
+
 ## 2026-09-26 R1 WGS4.2.2 SFS publication complete
 
 Release20260926.1-wgs422 published by normal0.8.6 CLI:validate PASS,apply exit0,

@@ -18,6 +18,7 @@ Internal service authentication protects two new routes beneath
 Successful exact receipts override timeout callbacks. Unknown execution is
 reported as failed monitoring with a state-unconfirmed message, not perpetual
 queued and not permission to blindly delete. No database migration.
+
 ## Task6 manual monitor reconnect (2026-09-25, source only)
 
 Reuse `POST /api/runs/{analysis_id}/actions/resume-stage`, same operator/CSRF,

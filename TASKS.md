@@ -59,6 +59,7 @@ No implementation or deployment is claimed by this documentation task.
 - [x] Primary test-branch integration completed; no main or production merge.
 
 Checkpoint: `docs/STEP7_MAINTENANCE_20260922.md`. Not shipped; production excluded.
+
 ## 2026-09-26 current slice: R1 SFS publication only
 
 ACTIVE: user corrected the relayed pause as historical and reaffirmed publication.

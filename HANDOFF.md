@@ -185,6 +185,7 @@ follow successful acceptance. Rollback restores only test code/configuration;
 do not remove results or replay requests.
 See `docs/STEP7_MAINTENANCE_20260922.md` for exact findings, scope and remaining
 implementation/acceptance. This is not a completed fix or deployment.
+
 ## 2026-09-26 R1 accepted: WGS4.2.2 published to SFS
 
 Original Infra single writer ran0.8.6 assets validate/apply/status on node005,

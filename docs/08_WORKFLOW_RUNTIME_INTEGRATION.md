@@ -13,6 +13,7 @@ start a newer action. Existing bare wgs-runtime commands remain supported.
 Frozen cleanup target equality is checked on registration; retries preserve
 the original target. Unowned partial remnants remain blocked. No new delete
 implementation or changes to Step1–6/GATK/bioinformatics scripts.
+
 ## P0 correction interface (2026-09-25, isolated source accepted)
 
 Checkpoint297bcee replaces UID-0 selection with fixed code-adjacent
