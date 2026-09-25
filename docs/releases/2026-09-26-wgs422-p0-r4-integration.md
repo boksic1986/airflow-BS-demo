@@ -22,7 +22,14 @@ batch submission, or a new WGS/native artifact build.
   Step7 and P0 projection. Documentation conflicts retain both historical
   Step7 and P0 sections; the coordinator will refresh state/task/handoff tops.
 - `git diff --check` passed on the merged range. No local runtime tests were
-  run, per this R4 instruction. BS10610 focused verification is still required.
+  run, per this R4 instruction. Original Infra owner reports the agreed
+  BS10610 focused set **11/11 PASS** (backend 10, DAG 1; DAG node 2.97 s).
+  The exact source archives, container images and command results are in
+  `D:/pipeline/task-artifacts/wgs422-p0-integration-20260926/R4_SYNTHETIC_TEST_RECEIPT.md`.
+  This is not a local rerun or full P0 suite claim. The first 10-backend run
+  omitted `/config` and had 6 pass/2 fail/2 error; the four affected nodes
+  passed after the existing config was mounted. The Airflow test container
+  received task-local pytest dependency files, not a service/image change.
 
 ## Version binding boundary
 
@@ -52,14 +59,30 @@ Candidate registration fields known from accepted receipts:
 | `profile_id`, `profile_revision`, `profile_sha256` | `wgs-4.2.2`, `r2`, `4a016a2d0c1006b013a1e66efc147e29275e0ce8dcd2b086f1488bed8c44d6ed` |
 | `cce_pipeline_version` | `0.8.6` |
 | `pipeline_build_sha256`, `resource_manifest_sha256` | `09da0287ba0f9dc600b6c8350a78b2bb65ac410daa2f8aa5246b6d0ebcf76a88`, `67713468626acbcaecf62a1ac23181b487c1074cffc833a10a6889ac8db122e7` |
-| `node200_profile_path` | Expected versioned r2 path under `/bi/biodevrwbi/33.chenjiucheng/project/cce-pipeline-profiles/wgs/`; confirm actual node200 readability before registration. |
-| `bs10610_repo_path`, `node200_repo_path` | **Pending** WGS owner's immutable 3b1dae5 source packaging and both-host path proof. The current source worktree is mutable and must not be cataloged. |
+| `node200_profile_path` | `/bi/biodevrwbi/33.chenjiucheng/project/cce-pipeline-profiles/wgs/wgs-4.2.2-r2.yaml`; node200 direct readability remains an activation gate. |
+| `bs10610_repo_path` | `/mnt/biodevrwbi/33.chenjiucheng/project/wgs-releases/20260926.1-wgs422/wgs-4.2.2-3b1dae5` |
+| `node200_repo_path` | `/bi/biodevrwbi/33.chenjiucheng/project/wgs-releases/20260926.1-wgs422/wgs-4.2.2-3b1dae5`; node200 direct readability remains an activation gate. |
 | CCE asset `release_id`, `asset_manifest_sha256`, status | `20260926.1-wgs422`, `73bca89d28619fb6194233f0bea40ae5f5d8423bd6fab4fdf511a52493eaacd7`, `PASS`, `state_verified=true` |
 
-The existing authenticated `POST /api/wgs/releases` requires the complete
-cross-bound `release`/`assets` payload and canonical `receipt_sha256`; compute
-that digest only after the pending paths are verified. Registration itself
-does not select the candidate.
+The versioned non-secret registration body is
+[`wgs-4.2.2-3b1dae5-registration.json`](wgs-4.2.2-3b1dae5-registration.json),
+using the existing authenticated `POST /api/wgs/releases` contract. Its
+canonical `receipt_sha256` is
+`fd392fe078d86f3599fe1456693ba46d5276c41ef0f72dbdf85a434c3b288b76`.
+Registration itself does not select the candidate.
+
+WGS owner's R4 source receipt at
+`D:/pipeline/task-artifacts/wgs-422-update-20260925/R4_WGS_SOURCE_RECEIPT.md`
+records an immutable package from the already published SFS payload, all 130
+files checked against the frozen manifest, `PIPELINE_READY` source commit
+3b1dae5, and `SOURCE_MANIFEST.json` SHA256
+`c34dec287983761133d48c1b378420d00e5dee512d36a67db1910447e7c3ff84`.
+On BS10610, `/mnt` and `/bi` map to the same inode; release-source directories
+have mode 755 and files 644/755. This is publicly readable pipeline source,
+not shared run output or a private credential spool. The excluded private
+WGS config/mail files are absent. The WGS development worktree is not used.
+Node200 has **not** read the path directly: the original Infra owner's route
+timed out. Do not convert BS10610 mount equivalence into node200 acceptance.
 
 The actual BS10610 private catalog (backend `/config` mount from
 `releases/20260912-opt-4d3d24e6/config`) currently selects
@@ -87,12 +110,35 @@ the legacy release-default submission path when its existing gates allow it.
 ## Pending acceptance
 
 - WGS owner: publish an immutable 3b1dae5 source package and exact BS10610/
-  node200 gateway repository paths. Original Infra owner: verify those paths
-  and the private catalog/mount boundary; confirm candidate fields from source/profile/
-  asset receipts before selection.
-- One BS10610 focused run only: test-version and actual-mount attestation,
-  existing WGS P0 recovery/publish nodes, old-chain DAG exit, Step7 stale/
-  success observation, upload/download queue display, and API/route/DAG
-  import smoke. On failure, rerun only affected nodes.
+  node200 gateway repository paths (delivered). Original Infra owner: obtain
+  authorized node200 direct path traversal/read/owner check, including profile
+  r2, then verify actual private catalog/mount and receipt before activation.
+- The frozen WGS prepare script must retain the existing `--handoff-request`
+  and receipt interface. The 4.2.2 platform version gates are being extended
+  only after this static contract check and two-node RED→GREEN, so missing
+  pending/selected handoff proof cannot be bypassed.
+
+WGS owner subsequently checked the exact frozen 3b1dae5 source: its
+`prepare/prepare_wgs_batch.py` exposes `--handoff-request` at line 646,
+loads it for sampleinfo/analysis at lines 716–728 (rejecting `all`), emits
+sampleinfo receipt v1 at 211–237 and analysis receipt v1 at 306–354 with
+final sampleinfo, pending revision/SHA, selected/pending decisions. Both
+all-pending and successful branches write that receipt (468, 613).
+`prepare/handoff_contract.py` names `stage.receipt.json` (95–96) and writes
+atomically with fsync/hardlink/no-overwrite (287–305). This is source-interface
+evidence, not a node200 execution or end-to-end test.
+
+The 4.2.2 prepare gate needed a narrow source-binding correction. Test-only
+commit `beba26aa171555f0cdcf4bf5553f2fd312717e34` produced the expected
+two BS10610 RED results: restricted gate `KeyError` for missing exact
+`wgs-4.2.2-3b1dae5` allowlist entry, and backend `artifact_pending=false`
+for a successful prepare marker without a handoff receipt. The correction adds
+that exact immutable source path and `V4.2.2` to the gate's repository and
+handoff version sets, plus the backend's required-receipt version set. Unknown
+versions remain rejected. The same two GREEN results are pending; the 11
+baseline cases are not rerun.
+- Original Infra owner reported 11/11 PASS for the agreed WGS P0/Step7
+  backend+DAG nodes with the receipt path above. A separate two-node 4.2.2
+  binding GREEN remains pending; it is not part of 11/11.
 - No local tests, test-service deployment, profile activation, production
   deployment, real samples, or main/production branch merge is claimed here.
