@@ -1264,6 +1264,10 @@ def start(analysis_id: str, attempt: int, stage: str,
 
 
 def main() -> None:
+    if sys.argv[1:2] == ['--publish-probe']:
+        from cce_publish_recovery import publish_probe_command
+        print(json.dumps(publish_probe_command(sys.argv[1:],gate=sys.modules[__name__],pipeline='gatk'),sort_keys=True))
+        return
     if sys.argv[1:2] == ['--recovery-probe']:
         from cce_paired_runtime import worker_probe_command
         print(json.dumps(worker_probe_command(sys.argv[1:],gate=sys.modules[__name__],pipeline='gatk'),sort_keys=True))

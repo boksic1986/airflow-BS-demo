@@ -1,5 +1,24 @@
 # 04 数据库设计
 
+## Task6 Step4 dispatch budget (2026-09-25, internal source contract)
+
+No table/migration. RunAction action=cce_publish_dispatch holds one original
+Step4 operation: pipeline/analysis/attempt/stage/execution_id/generation/request_hash,
+action_id, current dag_run_id, release_id, workdir, absolute deadline, sequence
+0(initial)/1/2(redispatch), in_flight, next_retry_at, probe/probe_issued_at,
+last_nonce and started_observed. Same AnalysisRun row lock serializes callers;
+latest Step4 execution, frozen enabled policy and current DagRun are rechecked.
+sequence is separate from params_json.cce_recovery_budget, which is untouched.
+
+Caller must commit intent before SSH; only the exact exited SSH sequence may
+clear in_flight. A caller crash leaves uncertain intent, never an expiring lease.
+Negative remote proof cannot override that flag. Redispatch requires a new
+challenge issued at/after the persisted60/180s due time. Consumed duplicate proof
+cannot authorize another send; restart never moves due time or deadline.
+Recorded started evidence permanently forbids a later not_started retry. Terminal
+results persist across later polls. No stage row/receipt success is fabricated.
+This service is internal and not wired to stage registration/API/Airflow yet.
+
 ## Task6 bounded Worker wait (2026-09-25, source only)
 
 No migration/table. The existing cce_compute_recovery RunAction.payload_json

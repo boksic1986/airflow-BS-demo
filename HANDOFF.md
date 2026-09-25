@@ -1,5 +1,71 @@
 # Handoff
 
+## 2026-09-25 Task6 continuation / Step4 original operation and durable budget
+
+Goal: next approved Step4 slice, source development only, minimal targeted tests.
+BASE platform a53aabd; branch jiucheng/runtime/CR01-cce-recovery-20260922 in the
+existing isolated worktree. Native d7bd741/plugin81132cf unchanged. No production
+access, push/merge, new artifact build, install, automatic enablement or real run.
+
+Completed: scripts/cce_publish_recovery.py validates the original registered
+Step4 operation and lock/process/receipt evidence; both restricted gates expose
+fixed --publish-probe. New hashed request marker publish_dispatch_version=1 is
+mandatory, never inferred for legacy requests. WGS opted-in async launch refuses
+repeat Popen after uncertain intent; GATK's existing intent fence is unchanged.
+Only absence of records under free launch/worker locks yields not_started;
+unknown/foreign/malformed evidence cannot authorize replay. Existing terminal
+receipts are read, not synthesized; no native publish record reconstruction or
+output scanning. No automatic caller or new registered marker is enabled yet.
+
+backend/app/cce_publish_recovery.py uses existing RunAction and refreshed run/
+latest execution locks: one initial sequence0, max2 same-operation redispatches
+60/180; original stage deadline, identity, release and workdir retained. Separate
+from compute budget. Initial intent must commit before SSH; exact local SSH exit
+acknowledges its sequence, process death leaves in_flight unresolved. Negative
+proof cannot override in-flight; dispatch requires a challenge issued at/after
+due time. Consumed duplicates/stale identity cannot spend another slot. Started
+once never returns to not-started eligibility, and success survives later expiry.
+Stop/expiry blocks unsent work. Service does not commit or perform external I/O.
+
+Changed files: two new cce_publish_recovery.py modules, both existing runtime
+gates, backend/tests/test_cce_publish_recovery.py and scripts/tests/test_cce_publish_probe.py.
+Docs04/05/08, plan Task6, CURRENT_STATE/TASKS/HANDOFF updated. No schema migration,
+public route, DAG node, frontend, native or biological workflow changes.
+
+Tests via ignored .superpowers/sdd/2026-09-23-p0-2-master-handoff-ttl-implementation/task6.ps1:
+- step4-probe-red:27 failed/1 passed (missing probe and WGS ambiguous launch fence;
+  removed the irrelevant GATK no-op parameter before GREEN), then27 GREEN1.30s.
+- step4-budget-red:22 failed (missing budget service). Initial budget/command
+  boundary32 GREEN2.22s. Additional freshness/started-once/terminal boundary6 RED.
+- Final -Mode test -Test '/task/platform/backend/tests/test_cce_publish_recovery.py
+  /task/platform/scripts/tests/test_cce_publish_probe.py
+  /task/platform/scripts/tests/test_gatk_dispatcher_fence.py::test_ambiguous_spawn_does_not_launch_again'
+  -Log step4-contract-final:64 passed3.73s, exit0. Real locks, request files,
+  SQLAlchemy transactions and gate loaders; only external Popen replaced.
+- git diff --check: clean. No full suite, local runtime tests, PG contention,
+  Airflow integration or live publish: deferred until the actual caller is wired.
+  Docker reports existing kernel swap-limit warning; no test failure.
+
+Every invocation verified BS10610/server10610, control root
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS, current release
+releases/20260912-opt-4d3d24e6 and backend36ff21f87356 actual RO mounts:
+/app from20260923-step7-ae416fa/backend/backend, /config from current. Scanner/
+auto-dispatch false. UID6708 task evidence path:
+/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/p02-task6-20260925.
+Cached network-none/read-only1CPU/1GiB container, source RO/task scratch RW.
+Services and current/rollback pointers preserved, no deployment/cleanup.
+
+Next: existing stage registration freezes this marker/deadline, and existing
+Step4 runner/reschedule sensor uses begin/finish/poll plus restricted probe. Send
+only original hash-pinned identity, commit/recheck controls before SSH; confirm
+normal authoritative stage receipt before downstream, do not fabricate success
+from the budget alone. Wire recovery-action/control fencing there. No retries=2
+on the whole side-effectful task, no new DAG nodes. PG contention/full automatic
+integration, existing UI and separately authorized cloud gates still OPEN.
+Risk: source contracts alone cannot repair a production SSH timeout. Ambiguous
+caller crash deliberately needs reconciliation, not guessed re-dispatch. Rollback
+by reverting this source checkpoint; no running service rollback needed.
+
 ## 2026-09-25 Task6 continuation / exact CREATE failure classes
 
 Goal: continue the approved next slice without widening retries or redundant

@@ -1,5 +1,23 @@
 # Current state
 
+## 2026-09-25 Task6 Step4 operation/budget checkpoint
+
+Step4 now has a fixed restricted original-operation probe and a separate durable
+dispatch budget in the existing RunAction. Probe validates registered identity,
+launch/worker locks and exact receipts/process records; missing or ambiguous
+evidence does not imply a failed publish. Opted-in WGS Step4 refuses a second
+spawn after an uncertain first spawn; GATK's existing intent fence is retained.
+Budget keeps the same execution/generation/hash and original stage deadline,
+at most two redispatches60/180, with fresh post-delay proof and no in-flight SSH.
+It never consumes/resets the Master recovery budget or rewrites stage receipts.
+BS10610 final64 targeted cases GREEN3.73s; no native/plugin or service changes.
+
+This is the Step4 source contract, NOT an active automatic caller. Next wire the
+existing stage registration and Airflow Step4 runner/sensor to these functions,
+freeze the opt-in request marker/deadline there and commit intent before SSH.
+No new DAG node/public route; real PG contention/full integration still pending.
+Task6 OPEN; no main/production merge, push, deployment or artifact rebuild.
+
 ## 2026-09-25 Task6 exact CREATE classification checkpoint
 
 Plugin source now classifies exact Worker CREATE storage RPC Unavailable/peer-reset

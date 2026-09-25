@@ -2966,6 +2966,13 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
     launch_lock.parent.mkdir(parents=True, exist_ok=True)
     with launch_lock.open("a+", encoding="utf-8") as lock_handle:
         fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+        publish_guard = payload.get('stage') == 'step4_publish' and 'publish_dispatch_version' in payload
+        if publish_guard:
+            if __package__:
+                from .cce_publish_recovery import registered_publish, observe_locked
+            else:
+                from cce_publish_recovery import registered_publish, observe_locked
+            registered_publish(payload, gate=sys.modules[__name__], pipeline='wgs')
         previous = _read_json(state_path)
         old_executor_locked = False
         if payload.get('resume_action_id'):
@@ -2998,6 +3005,13 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
         archived_generation = _prepare_contract_generation(
             payload, request_sha=request_sha
         )
+        if publish_guard:
+            observed = observe_locked(payload, gate=sys.modules[__name__], pipeline='wgs')
+            if observed in {'success', 'complete', 'succeeded', 'running'}:
+                return {'status': 'running' if observed == 'running' else 'complete',
+                    'generation': payload['generation'], 'execution_id': payload['execution_id']}
+            if observed != 'not_started':
+                raise RuntimeError('Step4 original dispatcher requires reconciliation')
         previous = _read_json(state_path)
         status = _read_json(_sidecar_path(payload, ".status.json"))
         retry_no = 0
@@ -3173,6 +3187,10 @@ def main() -> int:
     if command.split()[:1] == ['--recovery-probe'] and not (worker_mode or reattach_mode):
         from cce_paired_runtime import worker_probe_command
         print(json.dumps(worker_probe_command(command.split(),gate=sys.modules[__name__],pipeline='wgs'),sort_keys=True))
+        return 0
+    if command.split()[:1] == ['--publish-probe'] and not (worker_mode or reattach_mode):
+        from cce_publish_recovery import publish_probe_command
+        print(json.dumps(publish_probe_command(command.split(),gate=sys.modules[__name__],pipeline='wgs'),sort_keys=True))
         return 0
     analysis_id, attempt, stage = parse_command(command)
     payload = load_request(analysis_id, attempt, stage)

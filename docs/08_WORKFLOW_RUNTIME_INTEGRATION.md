@@ -1,5 +1,32 @@
 # Workflow runtime integration
 
+## Task6 original Step4 observation (2026-09-25, source only)
+
+Both restricted wrappers accept fixed --publish-probe ANALYSIS_ID ATTEMPT
+GENERATION REQUEST_HASH NONCE. The registered contract-v2 Step4 request must
+explicitly carry integer publish_dispatch_version=1 in its canonical hash.
+Legacy/unmarked requests cannot obtain negative launch evidence. No arbitrary
+paths, commands, publish, archive, hash sweep or cloud I/O is performed. Probe
+may create/acquire only existing request-adjacent lock files; JSON evidence is
+unchanged. Output binds the nonce and exact original operation identity.
+
+Under the launch lock, validate current request bytes and matching worker/status
+records. Existing success/failure receipts are authoritative (including GATK
+receipt digest); exact live process identity reports running. Lock contention,
+dead parent without terminal evidence, accepted intent without PID or incomplete
+records remains uncertain. Malformed/foreign evidence rejects the query. Only
+no records AND free launch/worker locks reports not_started at that observation;
+that is not a standalone retry permission and must be rechecked at dispatch.
+
+Opted-in WGS start_async_stage revalidates the registered request under its
+launch lock and refuses repeat spawn after ambiguous intent. Existing GATK
+intent/worker fencing is unchanged. No original failed receipt is rewritten.
+Backend RunAction budget additionally requires no in-flight SSH, fresh post-delay
+proof, current identity/control state and the original deadline; max2 retries
+60/180 independent of compute budget. Caller crash retains in-flight ambiguity.
+No automatic marker producer or Airflow caller is enabled yet: wiring/fenced
+original-identity sends are the next Task6 slice, before any activation.
+
 ## Task6 exact CREATE classifications (2026-09-25, source only)
 
 The plugin adds WORKER_CREATE_STORAGE_RPC_UNAVAILABLE from exact CREATE Status500

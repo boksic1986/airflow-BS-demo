@@ -28,7 +28,10 @@
   original budgets and default-off policy. BS10610 final30+2 GREEN (2026-09-25).
 - [ ] Complete remaining automatic runtime enforcement, Step4 reconciliation,
   existing UI projections and focused PostgreSQL/integration acceptance.
-  Next: Step4 original-operation reconciliation; then UI/PG and
+  Step4 restricted probe and durable independent budget accepted64 GREEN on
+  BS10610 (2026-09-25). No I/O caller yet; new opt-in contracts only.
+  Next: wire original Step4 stage registration/runner/sensor to these contracts;
+  then existing UI/PG and
   full automatic lifecycle integration. The source caller is not rollout approval.
 - [ ] Separately authorized live TTL/capacity/AOM/alerts gates remain closed.
 

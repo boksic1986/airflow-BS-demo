@@ -360,7 +360,13 @@ assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
   Source only; Task5 frozen artifacts not rebuilt or activated.
 - [ ] Continue CR-02/03 actual automatic dispatch using existing reservations,
   two shared slots60/180s, control fences and Step4 uncertain-dispatch reconciliation.
-  Next: Step4 original-operation reconciliation; full
+  2026-09-25 Step4 producer/budget checkpoint accepted64 targeted BS10610 cases:
+  fixed original-operation probe, guarded WGS ambiguous spawn and separate
+  persistent sequence0/1/2 in existing RunAction; fresh post-delay evidence,
+  in-flight/stop/expiry/stale/started-once fences, original deadline preserved.
+  No automatic caller/registration marker enabled. Next wire existing Step4
+  registration/runner/sensor, with hash-pinned sends and original deadline;
+  full
   automatic lifecycle integration remain open. Do not count the source caller
   or manual P0-2 closure as automatic completion.
 - [ ] CR-04 reuses existing Tracker/detail waiting/recovering/exhausted/stale fields; no new page.

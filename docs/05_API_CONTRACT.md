@@ -1,5 +1,23 @@
 # API contract
 
+## Task6 Step4 internal source boundary (2026-09-25)
+
+No new HTTP route or request field is enabled by this checkpoint. Internal
+cce_publish_recovery begin/finish/poll helpers are transaction-scoped contracts,
+not browser endpoints. The subsequent existing stage-control caller must derive
+the original Step4 deadline from trusted stage configuration and freeze
+publish_dispatch_version=1 into the canonical registered request hash before
+first send. It must commit intent before SSH, acknowledge only the exited exact
+dispatch sequence and recheck controls at dispatch. Repeated begin returns no
+second initial-send permission. These helpers do not register a new execution.
+
+Probe replies bind schema cce.publish-observation.v1, pipeline, analysis_id,
+attempt, stage=step4_publish, execution_id, generation, request_hash and nonce;
+status is not_started/running/success/failed/canceled/uncertain (normal complete/
+succeeded aliases normalize to success). Only the trusted internal Airflow
+caller may supply probe results in the future wiring. Public arbitrary evidence,
+paths, deadlines and budget changes must remain rejected. This is not deployed.
+
 ## Task6 internal Worker observation (2026-09-25, source only)
 
 Existing authenticated compute_recovery POST optionally accepts worker_observation
