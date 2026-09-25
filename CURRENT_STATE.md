@@ -1,5 +1,22 @@
 # Current state
 
+## 2026-09-25 Task6 source acceptance after final review
+
+Task6 source and BS10610 synthetic acceptance are complete. Whole-plan fresh
+review found no Critical/Minor issue and one Important selected-terminal
+contradiction. Native1bc67fd rejects live Failed/native success and live Complete/
+native failure before Step3 emits a terminal observation. Both reproduced RED;
+the final affected native monitor/downstream suite passed13 (8.11s). No second
+review or broad regression rerun. Platform runtime remains6f03dd6; plugin81132cf.
+
+Together with this turn's PG contention10, WGS/GATK automatic/manual lifecycle4
+and deadline/owner denial4, this closes the source gates for CR-02/03/04/05.
+Task6 operational acceptance remains OPEN: final pinned artifacts/paired-writer
+activation, real Complete/Failed TTL observation, all-entry Pod capacity, AOM
+freshness and alert delivery need separately authorized release work. Task5
+artifacts do not contain Task6 code. No production access, policy activation,
+deployment, installed CLI/image update, merge or push occurred.
+
 ## 2026-09-25 Task6 PostgreSQL and automatic lifecycle checkpoint
 
 BS10610 disposable PostgreSQL acceptance: 10 passed (7.42s). Actual blocked
@@ -20,6 +37,8 @@ the old source; selected-journal equality must include the registered producer's
 original compute deadline. No new budget, attempt, deadline or recovery path.
 Native fd43f88/plugin81132cf unchanged. Task6 remains open for final whole-plan
 review and separately authorized operational gates. No production/merge/push.
+Checkpoint commit6f03dd6. Task5's immutable artifacts predate Task6 and are not
+final release candidates for this source; no rebuild or activation is implied.
 
 ## 2026-09-25 Task6 manual monitor handoff checkpoint
 

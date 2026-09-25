@@ -1,5 +1,59 @@
 # Handoff
 
+## 2026-09-25 Task6 final source review and bounded correction
+
+Source acceptance complete; operational acceptance still open. Fresh read-only
+review covered platform9b381eb..6f03dd6, native83e7adb..fd43f88 and
+plugin25297f9..81132cf, against the P0 spec, P0-2 plan, TTL companion and ledger.
+No Critical or Minor finding. One Important issue: selected Step3 let verified
+native RUN_COMPLETE override live Job Failed (and RUN_FAILED override Complete).
+Downstream already refused conflicting success, but Step3 receipts/UI and compute
+settlement could be wrong. Accepted severity by effect, not merely doc mismatch.
+
+Correction: native1bc67fd56bed31b67ee25d4454d5179ebb60928e, five-line selected
+reader guard only, plus focused tests/native handoff docs. Neither replacement
+authority, legacy monitor nor biology changed. Existing paired query owner turns
+the raised control error into an unconfirmed observation; it is not a verified
+compute terminal. Matching states and valid TTL-absent evidence are preserved.
+Platform runtime6f03dd6 and plugin81132cf unchanged in this correction.
+
+BS10610 existing task6.ps1 Mode test, same preflight and isolated offline container:
+- /task/native/tests/test_recovery_monitor.py:
+  final-review-terminal-red.log, 2 failed/4 passed4.35s; both opposite states
+  emitted authoritative JSON before the fix (behavioral RED, not fixture errors).
+- /task/native/tests/test_recovery_monitor.py plus test_recovery_downstream.py:
+  final-review-terminal-green.log, 13 passed8.11s. No broad/redundant rerun.
+Evidence remains /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/p02-task6-20260925.
+Earlier this turn: PG10, full automatic/manual lifecycle4, deadline/owner denial4
+passed; full commands and transport limits are in the next entry. No second review.
+git diff --check passed. Initial native commit was blocked by absent Git author
+configuration; reused the verified existing project identity with command-local
+-c settings, not a global configuration change, then committed successfully.
+
+Final review rulings for items the reviewer declined to judge:
+1. Real TTL/capacity/AOM/notification: keep operational gate closed. Synthetic
+   tests cannot establish live behavior; cost is delayed release until authorized.
+2. Installed CLI/platform writers and storage mappings: retain operator-owned
+   paired activation/identity checks, no inferred live compatibility. Cost is
+   blocked activation where exact writer pins/mount mapping are unavailable.
+3. Task6 release artifacts: immutable Task5 pins are historical acceptance, not
+   current candidates. Rebuild/verify new pinned candidates in the release step;
+   no overwrite or install now. Cost is an outstanding artifact acceptance gate.
+4. Unrelated on-prem/intake/base-range changes: excluded from recovery review
+   and untouched here. This is not a verdict on unrelated features; cost is that
+   any future combined promotion still needs its own scope check.
+5. Production/historical batch feasibility: no live records inspected, no old
+   evidence fabricated, no rerun authorized. Missing identity remains fail-closed;
+   cost is manual case-specific reconciliation for historical runs.
+No deferred minors. Preserve worktrees, accepted artifacts and evidence; do not
+delete the plan workspace. Rollback remains source revert, never data cleanup.
+
+Updated platform CURRENT_STATE, TASKS, plan, docs08 and docs46 with the source/
+operational distinction. No local runtime tests, BS96, real cloud writes,
+workflow launch, service restart, image/CLI install, automatic-policy enablement,
+merge or push. Next requires separate release/operational authorization, not
+another round of unchanged source tests or new functionality.
+
 ## 2026-09-25 Task6 PostgreSQL and automatic lifecycle acceptance
 
 Goal: continue Task6 from platform7963428; nativefd43f88/plugin81132cf unchanged.

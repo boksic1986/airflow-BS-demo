@@ -358,7 +358,7 @@ assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
   ABSENT and existing fatal-cause/terminal gates. Existing budgets/default-off
   policy unchanged. BS10610 source/consumer30 plus actual FINAL/reservation2 GREEN.
   Source only; Task5 frozen artifacts not rebuilt or activated.
-- [ ] Continue CR-02/03 actual automatic dispatch using existing reservations,
+- [x] Continue CR-02/03 actual automatic dispatch using existing reservations,
   two shared slots60/180s, control fences and Step4 uncertain-dispatch reconciliation.
   2026-09-25 Step4 producer/budget checkpoint accepted64 targeted BS10610 cases:
   fixed original-operation probe, guarded WGS ambiguous spawn and separate
@@ -370,8 +370,9 @@ assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
   Superseded by 2026-09-25 lifecycle acceptance: WGS/GATK automatic and manual
   cases4 pass through actual fatal evidence, durable dispatch, DAG registration,
   restricted replacement, reclaimed-Master monitor, Step4–6 and normal finalize.
-  HTTP/SSH/cloud transports remain synthetic; final whole-plan review is pending.
-- [ ] CR-04 reuses existing Tracker/detail waiting/recovering/exhausted/stale fields; no new page.
+  HTTP/SSH/cloud transports remain synthetic. Final review completed; the one
+  Important native terminal conflict is fixed in1bc67fd, affected13 pass.
+- [x] CR-04 reuses existing Tracker/detail waiting/recovering/exhausted/stale fields; no new page.
   2026-09-25 projection checkpoint: common read-only action/current-generation
   view and existing UI connected; running binding/health retained by real WGS/GATK
   consumers. Pending display freezes measured progress/estimates; exact Master
@@ -405,9 +406,26 @@ assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
   retained. GATK manual deadline inheritance repaired. Existing detail panel
   serves query attention, no new page/endpoint. BS10610 backend82/frontend2 pass;
   source only. PG contention/full automatic lifecycle/final review remain OPEN.
+  Superseded by final source acceptance2026-09-25: PG10, lifecycle4 and final
+  review correction13 pass. No unresolved Critical/Important source finding;
+  operational gates below remain open and are not replaced by mock evidence.
+- [x] One whole-plan fresh review and one bounded fix pass: reject contradictory
+  live/persistent selected terminal states, behavioral RED2 -> affected GREEN13.
+  Native1bc67fd, platform runtime6f03dd6, plugin81132cf. No second reviewer or
+  redundant unaffected suite. Declined-to-judge rulings recorded in HANDOFF.
 - [ ] Separate production authorization: real synthetic Complete/Failed TTL checks, all-entry Pod capacity accounting, AOM data freshness and alert notification record. Missing evidence keeps production gate closed; no invented managed metrics or self-hosted monitoring service.
 
 ## Progress / current status
+
+2026-09-25 current checkpoint: platform6f03dd6 / nativefd43f88 / plugin81132cf.
+Tasks1–5 retain their accepted scope. Task6 automatic/manual lifecycle4,
+PostgreSQL contention10 and selected-monitor deadline/owner denial4 have passed
+on BS10610. Final fresh review found one Important terminal-conflict issue,
+fixed native1bc67fd with behavioral RED2 and affected GREEN13. Source closure is
+complete; no second review or broad rerun. Older "next" notes below are
+historical. Task5 artifacts pin earlier source and do not contain Task6 additions;
+they must not be presented as final P0 release artifacts. Live TTL, capacity and
+AOM/alert acceptance remain separately authorized operational gates.
 
 2026-09-24: Tasks1–5 accepted in isolated source with bounded BS10610 synthetic
 and offline artifact evidence. Current acceptance supersedes prior interrupted/

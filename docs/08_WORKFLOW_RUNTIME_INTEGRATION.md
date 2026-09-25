@@ -1,5 +1,14 @@
 # Workflow runtime integration
 
+## Selected Step3 terminal conflict fence (2026-09-25, source only)
+
+The identity-bound native terminal must not contradict the current live Master
+Job terminal: Failed/native success and Complete/native failure both reject
+before a terminal status is emitted. The paired monitor's existing query owner
+marks the control observation unconfirmed, not compute failed/succeeded. Matching
+terminal conditions and TTL-absent Jobs with valid native evidence retain the
+existing behavior. Native1bc67fd; BS10610 affected monitor/downstream13 pass.
+
 ## Task6 confirmed Step3 re-entry (2026-09-25, source only)
 
 An exact current Step3 action whose native recovery journal is already started

@@ -1,6 +1,14 @@
 # Active test-branch tasks
 
-## Task6 active — 2026-09-25
+## Task6 source accepted; operational gates open — 2026-09-25
+
+- [x] One fresh whole-plan review: one Important selected terminal conflict,
+  no Critical/Minor findings. Native1bc67fd fixes opposite live/persistent
+  terminal conditions; RED2, final affected13 pass on BS10610. No second review.
+  Source gates complete; historical pending notes below are superseded.
+- [ ] Separately authorized release acceptance: final Task6 artifacts and exact
+  paired-writer/storage activation, live TTL, Pod capacity and AOM/alerts.
+  No production enablement inferred from source/synthetic acceptance.
 
 - [x] PostgreSQL row-lock contention: 10 focused cases on disposable BS10610 PG,
   verified pg_stat_activity lock waits; no service DB connection.
@@ -20,7 +28,7 @@
   successor retains attempt/budget/deadline; GATK deadline inheritance repaired.
   Existing detail confirmation reused for query attention. BS10610 backend82,
   frontend2 pass (2026-09-25); no production or source-artifact rebuild.
-- [ ] Final whole-plan fresh review before CR-04/Task6 source closure; operational
+- [x] Final whole-plan fresh review before CR-04/Task6 source closure; operational
   cloud TTL/capacity/AOM acceptance remains separately authorized.
 - [x] Inspect Task4/5 producer versus existing automatic-recovery consumer.
 - [x] User approved necessary wrapper/logger failure-summary addition before extending
