@@ -2,7 +2,22 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to execute the assigned task sequentially. Retain the existing owner agents; do not create a parallel implementation of P0. Track steps with checkboxes.
 
-**Goal:** 按用户要求依次完成 WGS 4.2.2 SFS 发布、nipttest/新 Master 制品更新、新 profile、生产修复与 P0 的测试分支整合及小范围验证。
+**Goal:** 按用户最新顺序完成新版 cce-pipeline 安装、WGS Master 推送、新 profile 绑定，随后发布 WGS4.2.2 SFS、对接 Airflow API/面板，最终同步 Airflow main/生产分支并做最小验证。
+
+## 最新执行裁定（2026-09-25，优先于下方历史顺序）
+
+用户最后收窄本轮为：**先完成 cce-pipeline 安装 → 新 WGS Master 推送 SWR → 新 profile 绑定**。
+保留原任务编号避免丢失交接，实际先执行 R2，再执行 R3 的候选绑定部分；R1 的 SFS 发布放在后面。
+R2 不再依赖 R1 已成功发布，只依赖已冻结的 WGS4.2.2 源码/资源合同和兼容性核对。
+R3 可以绑定预定不可变 SFS 路径，但必须明确资产未就绪、candidate 未启用，不能宣称可提交分析。
+
+- 安装和发布按正式 SOP 核实；已有本次测试约定为 nipttest。若 SOP 与当前授权范围实质冲突，报告准确依据，不猜测或擅自切换生产环境。
+- 原 native/Infra owner 执行安装、推送和 profile 落地；原 WGS owner 提供合同/兼容性确认。协调员不接管 wheel/Master 构建。
+- 复用已验收 dev3 wheel 和 WGS Master，仅做安装路径/version/hash、SWR digest、profile 绑定的必要验证，不重复源码/TTL/生物流程测试。
+- 本轮暂不执行 SFS apply、Airflow 服务更新或分支合并。用户已授权后续 Airflow main/生产分支同步；这不是 BS96 服务部署授权，也不是另外两个 P0 仓库的主线合并授权。
+- 本节覆盖下文旧的“R1 发布后才能 R2”及“最终不合 main/生产”限制；其他数据保护、旧批次冻结和范围限制不变。
+
+当前三步状态：已派发原负责人，安装、推送、profile 均待实际回执；不以派发代替完成。
 
 **Architecture:** WGS owner 管不可变流程/资源，native/Infra owner 管 wheel/Master 和实际部署，平台负责把已有生产修复、测试专有修复及 P0 合为同一测试版本。发布制品与切换运行选择分开；第3步交付候选 profile，第4步完成版本配套后才用于测试。
 
@@ -70,7 +85,7 @@ SSH/节点直连IP；本地BS10610返回server10610已验证，Infra正在核对
 
 ## R2：更新nipttest并推送WGS Master
 
-**输入：** R1发布合同；`docs/releases/2026-09-25-p0-validation-dev3.md` 和原owner dev3制品回执。
+**输入：** R1已冻结源码/资源合同（不要求SFS已发布）；`docs/releases/2026-09-25-p0-validation-dev3.md` 和原owner dev3制品回执。
 
 - [ ] 原native/Infra owner确认dev3与R1兼容：overlay不复制WGS源码，Master通过CCE_PIPELINE_DIR读取SFS；仍需核对base运行时与4.2.2所需接口。符合则复用dev3，不为版本标签重建；不符合则说明缺口再决定必要改动。
 - [ ] 临写前核对BS10610/node200/BS共享nipttest消费者、活动任务和实际挂载，记录精确旧package/dist-info字节、元数据、ACL、依赖快照及恢复命令。存在生产/活动消费者无法隔离时停止该安装，不另建环境或绕过。

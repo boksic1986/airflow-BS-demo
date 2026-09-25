@@ -1,5 +1,37 @@
 # Handoff
 
+## 2026-09-25 runtime-first slice and repository audit
+
+User directs cce-pipeline installation, new WGS Master SWR push, then new profile
+binding first. Original native/Infra task019f8355-2b77-7413-9553-6670c35a1a2f
+received execution request; WGS task01a09149-ad9d-7e92-b98a-16d9cae075e2 provides
+SOP and frozen compatibility contract without applying SFS. The plan now removes
+R1-SFS-success as a prerequisite for R2; profile remains inactive/unready until
+later asset publication. Installation target follows SOP/current test scope;
+do not reuse old production installation examples as implicit authority.
+No actual install/push/profile receipt yet. Later Airflow main/production branch
+merge is authorized, but latest turn is scoped to these three earlier steps;
+BS96 services and other P0 repository main merges are not included.
+
+Read-only Git audit: platform clean3bc77a8 includes functionalfdace86; remote
+main43cd0c5 and no named P0 branch. Plugin clean4f10c27 includes5ffcb07; remote
+maind5f720e and no named P0 branch. Native clean ae90b65 and build45323e4;
+functional commit is ancestor of build, two version-only files differ. Native
+P0 origin is local gatk-master-logger-source-20260917.bundle, not GitLab.
+Server repository main/origin-main83e7adb does not include native P0.
+
+Failed checks (no mutations): git ls-remote via GIT_SSH_COMMAND returned exit1
+because Git's shell context attempted PowerShell `exec ssh` for ProxyJump.
+Direct documented ssh BS10610 succeeded, hostname server10610; querying server
+refs returned83e7adb. Server GitLab ls-remote with GIT_TERMINAL_PROMPT=0 returned
+exit1, Username prompt unavailable. No credential workaround or blind retry;
+GitLab live push state remains unverified. No runtime tests were run in this
+audit; local checks were Git-only and wheel metadata/hash inspection.
+
+Files updated: release plan, CURRENT_STATE, TASKS, HANDOFF. No application changes.
+Rollback: revert this docs-only change. Next: inspect original owner's three-step
+receipt and record exact installed version/hash, image RepoDigest, profile path/SHA.
+
 ## 2026-09-25 explicit SSH identity correction
 
 User identifies `C:/Users/11217/.ssh/id_rsa_chenjiucheng` as the documented key.

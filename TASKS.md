@@ -1,5 +1,19 @@
 # Active test-branch tasks
 
+## 2026-09-25 current slice: runtime installation, image, profile
+
+- [ ] R2a: original native/Infra owner verifies SOP target and installs frozen
+  cce-pipeline0.8.5+p02.dev3 without unrelated dependency changes; retain rollback.
+- [ ] R2b: push the accepted WGS Master to a new SWR tag and record RepoDigest.
+- [ ] R3a: bind a new immutable inactive WGS4.2.2 profile to the accepted image,
+  native version and frozen source/resource contract; record path/SHA.
+- [ ] Later: R1 SFS publication, R4 Airflow API/dashboard/test integration, then
+  authorized Airflow main/production-branch synchronization and minimal tests.
+
+Latest scope prioritizes the first three items only. Existing R1-first dependency
+below is historical and superseded by the latest section in the release plan.
+Dispatch is done; actual installation/push/profile completion is not yet evidenced.
+
 ## 2026-09-25 new WGS4.2.2 / P0 four-step plan
 
 - [x] Coordinate original WGS/native owners and document exact sequence, baseline

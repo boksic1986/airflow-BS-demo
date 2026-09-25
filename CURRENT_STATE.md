@@ -1,5 +1,28 @@
 # Current state
 
+## 2026-09-25 runtime-first continuation authorized
+
+Latest user scope: first install the new cce-pipeline, push the WGS Master to
+SWR, then bind a new profile. Original native/Infra owner is executing these
+steps; WGS owner supplies the frozen4.2.2 contract. R1 SFS publication is no
+longer a prerequisite for installing/pushing; profile stays inactive until
+assets and paired consumers are ready. Follow the formal SOP and current test
+scope, do not infer a production environment switch from historical examples.
+Installation/push/profile receipts remain pending. No completion claim yet.
+
+Later user-authorized work is SFS publication, Airflow API/dashboard integration
+and Airflow main/production-branch synchronization with minimal validation.
+The final message narrows this turn to the first three steps; no BS96 deployment,
+other-repository main merge, real run or expanded tests is inferred.
+
+Repository audit: platform P0 committed through3bc77a8, functionalfdace86;
+GitHub main43cd0c5 does not include P0 and its named P0 branch is not remote.
+Plugin P0 committed through4f10c27, artifact5ffcb07; GitHub maind5f720e does
+not include P0 and its named P0 branch is not remote. Native functional ae90b65,
+build45323e4 committed/clean; this checkout origin is a local bundle, server
+main83e7adb does not contain P0. Live GitLab query lacked noninteractive auth,
+so upstream native push status is unverified, not reported as complete.
+
 ## 2026-09-25 documented SSH path correction
 
 Local BS10610 SSH verified exit0, hostname server10610, configured address
