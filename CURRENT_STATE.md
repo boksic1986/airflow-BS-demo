@@ -5,7 +5,8 @@
 User authorized V01–V07 fixes and continuation of the blocked step; shared
 outputs must not be forced to root or0600. Native/Infra owner is executing Task1
 in the existing isolated native/platform entry scope. Platform observation
-changes follow; no overlapping edits. Plan:
+independent files are now assigned separately; paired entry edits wait for the
+native owner's explicit handoff. No overlapping edits. Plan:
 docs/superpowers/plans/2026-09-25-p0-validation-corrections.md.
 No correction, installation or activation is accepted merely by dispatch.
 

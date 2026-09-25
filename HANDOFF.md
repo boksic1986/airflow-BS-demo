@@ -7,7 +7,8 @@ forbidding root/0600 output restrictions. Plan:
 docs/superpowers/plans/2026-09-25-p0-validation-corrections.md. Existing P0
 worktrees retained; prior audit docs are our uncommitted changes, not discarded.
 Native/Infra owner handles native plus paired trust integration and affected
-artifacts; platform observation follows to avoid shared-file conflicts.
+artifacts. Platform owner implements independent workload/failure/DAG files;
+paired entry remains native-owned until explicit handoff to avoid conflicts.
 Shared output permissions are distinct from private secrets. No recursive chmod,
 chown, production action, new service, unapproved Compose or new TTL Job.
 Testing remains bounded remote synthetic; deployment preflight/rollback must be

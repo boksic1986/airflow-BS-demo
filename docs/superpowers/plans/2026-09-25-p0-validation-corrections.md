@@ -60,8 +60,22 @@ backend polling only if existing receipt retry path needs a bounded correction.
 - [ ] V03: classify transient inventory movement separately from invalid evidence;
   bounded fresh observation before final ineligibility. Do not create authority
   from missing/ambiguous proof or silently extend compute deadlines/budgets.
+- Implementation boundary: at most three complete workload observations for
+  typed same-UID movement; each starts from fresh lists. The original absolute
+  compute deadline comes from `deadline_epoch(payload)` and hashed registered
+  `cce_recovery_deadline`, not the native Master handoff deadline. Conflicting
+  UID/owner, pagination and absent-without-terminal remain immediate refusal.
 - [ ] V07: align finite inner/outer probe budgets and reduce duplicate historical
   queries while retaining inventory completeness, UID/owner and absence proof.
+- Keep direct workload probe budget120s; outer Worker SSH is min(150s, remaining
+  persisted worker_wait_deadline). Present Workers may use the complete validated
+  Job LIST; missing names still require exact GET, and each bound Job retains a
+  job-name Pod LIST to detect residual/unlabelled Pods. Late results reject.
+  The six-argument restricted command is unchanged; Airflow enforces the shorter
+  Worker wait deadline. Initial monitor uses existing QueryReconnect under the
+  original compute deadline, not a claimed new120s wall-clock cap. No query-owner
+  bypass or new state/hook API. Extremely large inventories may still exceed
+  finite budgets; that must not authorize recovery with incomplete proof.
 - [ ] Focused synthetic tests for same-UID completion/GC, conflicting UID and
   exhausted observation deadline, without full workflow reruns.
 
@@ -92,3 +106,12 @@ outputs retaining intended group/default ACL access without changing secrets.
   bootstrap and validation scope. Task2 consumes it; tests must not replace trust
   checks merely to admit fixtures. Task3 consumes accepted exact source/artifacts.
 - No implementation or runtime acceptance is implied by this plan entry.
+- Task2 read-only call-chain preparation complete. Decision: retain120s inner and
+  give150s outer startup/receipt allowance rather than shrinking every probe to15s;
+  shrinking would make large valid histories less likely to complete. Existing
+  persisted deadlines remain the upper bound; no compute retry budget increase.
+- Execution refinement: Task2 may implement its independent workloads/failure/
+  DAG files while the existing native owner completes Task1. Paired-runtime file
+  ownership stays exclusively Task1 until an explicit handoff; Task2 only wires
+  that entry after release. This reduces idle time without overlapping edits or
+  changing either task's behavior, tests or final review gate.
