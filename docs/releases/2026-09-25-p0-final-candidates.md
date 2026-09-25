@@ -5,6 +5,11 @@ does not run builds/Compose; each repository owner executes its assigned scope.
 The immutable [Task5 record](2026-09-24-p02-task5-offline-artifacts.md) remains
 historical and is not overwritten by these successors.
 
+Subsequent authorized publication: both images are now in SWR with verified
+registry digests. See [SWR/live-gate follow-up](2026-09-25-p0-swr-ttl.md).
+The local-only/no-push statements below describe the original offline receipt,
+not the subsequent publication. Installation and platform activation remain separate.
+
 ## Plugin candidate accepted
 
 - Owner: `WGS-cloud-plugins`, task019f9d79-be3f-7701-af33-3595d72bbfac.

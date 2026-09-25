@@ -1,5 +1,92 @@
 # Handoff
 
+## 2026-09-25 installation stopped at unclosed trust prerequisite
+
+Coordinator read scripts/cce_paired_runtime.py:selected_runtime/_operator_path
+and native cce_writer_guard:_operator_file: policy, pinned runtime/platform/guard
+and selected interpreter require UID0/non-writable trusted ancestry. Shared
+nipttest is chenjc-owned, so a successful pip install alone cannot activate it.
+Owner confirms no approved root-owned interpreter/landing/admin entry was
+established. The first installation plan omitted this prerequisite; revised
+NIPTTEST_PAIRED_PREFLIGHT SHA917d4f...9bf7d and owner docs701b755 correct it.
+Final explicit no-new-service hold is owner docse5a1039 and preflight
+SHA5cbb2216...323729; coordinator verified the revised local record/hash.
+No install, new probe or extra test was performed to work around the mismatch.
+
+STOP before CLI mutation. User's pending general paired-upgrade question does
+not itself supply a trusted entry or authorize architecture expansion. Owner's
+new isolated service/container suggestion is unapproved and explicitly held;
+do not add services, use sudo, chown shared paths or relax UID checks. Next decision
+must reconcile the agreed nipttest deployment with the existing trust model.
+SWR and scoped TTL acceptance remain valid and are not whole-P0 acceptance.
+No production/runtime configuration changed. Unactivated rollback: retain old
+selection; both new registry images and test evidence are preserved.
+
+## 2026-09-25 SWR + scoped TTL final receipts
+
+SWR publication accepted: both new tags/registry manifests map exactly to accepted
+WGS/GATK image config IDs; coordinator read manifests/push receipts and verified8
+evidence hashes. Full identities: docs/releases/2026-09-25-p0-swr-ttl.md.
+TTL exact authorized Jobs reached Complete/exit0 and Failed/exit17. Job UIDs
+d53d9507-6c81-4407-ada0-dc5f56f666e3 and4be49d60-db08-4215-bec8-91bc416a00ea
+match respective Pod owners. Both Jobs/Pods automatically disappeared, no manual
+cleanup. Only these data-free ephemeral test objects removed; no business data,
+mounts or historical resources affected. Evidence retained, not object backups.
+Coordinator checked manifest/terminal/Pod/timeline/final-absence and15 hashes.
+Collector elapsed131s is its own clock, not an API-clock precise TTL measurement.
+Native owner HANDOFF9d636e3, no push. Source/artifact tests not repeated.
+
+Remaining: nipttest0.8.5 versus test catalog0.8.4; final candidate not installed.
+Need exact rollback snapshot and paired test rollout plan/authorization before
+shared nipttest mutation through BS. User question sent; no installation yet.
+Also pending approved AOM read-only entry, all-entry capacity and alert acceptance.
+No test-platform service/profile activation, BS96 access or automatic recovery.
+
+## 2026-09-25 explicit two-Job TTL authorization
+
+Owner pre-create receipt:2026-09-25T10:08:14Z server10610/chenjc, namespace Active,
+178 Jobs/2 active/172 succeeded,2 Pending Pods. Exact authorized names:
+`p0-ttl-ok-d84bace-250925-1010z`, `p0-ttl-fail-d84bace-250925-1010z`;
+both absent before creation. Published WGS manifest3bd26801...0336e2f5,
+SA cce-pipeline-master-v1 and pull secret default-secret; no workload data mounts.
+Owner wrote its HANDOFF before creation; terminal/UID/removal results pending.
+
+User approved the scoped question: exactly two no-business-data Jobs in
+snakemake-ns after SWR publication, one success/one failure, each requests10m
+CPU/64Mi memory, activeDeadlineSeconds60 and terminal TTL100. Only observe and,
+if necessary, clean these exact test objects; existing batches/history untouched.
+Owner must first return and record unique Job names, namespace and accepted
+published image digest. No PVC/OBS/business data mounts, no workflow commands,
+no Secret/ConfigMap data mounts; retain known service-account/imagePullSecret
+selection only. Limit resources to prior proposal100m/128Mi. Use backoffLimit0,
+restartPolicyNever, exit0/exit17. Bound observation to300s after creation;
+confirm terminal state and record Job/owner Pod UIDs before automatic removal.
+
+Deletion authorization is ONLINE Kubernetes test resources only: the two exact
+named Jobs and Pods whose owner UIDs match those Jobs. No label-only bulk cleanup,
+namespace delete, finalizer removal, history patch or filesystem deletion. These
+ephemeral objects have no promised backup; manifests, statuses and logs are
+retained in task-specific evidence. Actual names/results must be appended before
+and after any cleanup. TTL canary does not authorize platform activation/AOM.
+
+## 2026-09-25 SWR publication authorized / test-install preflight
+
+User: "SWR 已经登录，现在继续完成后续工作" after final candidate acceptance.
+Scope now includes publication of the two accepted candidate images by their
+original native/Infra owner, using existing authenticated SWR access and new
+distinct tags. Never overwrite historical tags or rebuild accepted artifacts.
+Owner must check source image IDs and destination before push, then record
+actual registry manifest digests (not local image config IDs).
+
+In parallel with publication, owner may perform read-only nipttest installation
+preflight: actual host/path/Python/dependencies/current version, active users,
+paired test-platform compatibility and rollback availability. No installation
+until that scope is concrete; never install into WGS or change Python/dependencies
+to force compatibility. No Compose/service restart, live Master replacement,
+production DB, real batches, automatic policy enablement, cloud Job creation,
+cleanup or AOM notification is authorized by SWR login. Prior pending live-gate
+questions remain unresolved. Coordinator maintains docs only and does not push.
+
 ## 2026-09-25 native owner documentation receipt
 
 After platform checkpoint1557bf1, native owner committed artifact/failed-attempt

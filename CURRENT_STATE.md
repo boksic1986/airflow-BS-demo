@@ -1,5 +1,25 @@
 # Current state
 
+## 2026-09-25 SWR publication and scoped live TTL accepted
+
+User confirmed SWR login and asked to continue. Existing native/Infra owner is
+published the exact two accepted Master images with distinct new tags.
+Coordinator checked both registry manifest/config identities and8 evidence hashes;
+no rebuild or repeated tests. Record: docs/releases/2026-09-25-p0-swr-ttl.md.
+Nipttest installation preflight is read-only. Test/production activation, live
+Master replacement and Compose changes remain unexecuted. User authorized two
+no-data TTL Jobs; exact names/UIDs recorded, Complete/exit0 and Failed/exit17,
+then both Jobs and owner Pods automatically removed. No manual cleanup.
+Coordinator checked15 original TTL evidence hashes and terminal/owner identities.
+Nipttest is0.8.5 while test catalog declares0.8.4; neither is the new candidate.
+User has been asked to approve BS shared-nipttest plus BS10610 paired-test update;
+preserve rollback, no WGS/production/old-run change or automatic enablement.
+Subsequent plan review exposed an additional hard prerequisite: paired selector
+requires root-owned interpreter/runtime, but nipttest is chenjc-owned. No approved
+trusted install entry is established. Installation is stopped even if the general
+paired-upgrade question is approved; reconcile that deployment premise first.
+No new service/container, sudo, ownership change or weaker trust check authorized.
+
 ## 2026-09-25 item2 offline artifacts accepted; item3 operational gate still closed
 
 Plugin successor accepted:5ffcb07 /0.6.4+bs8.dev2, actual wheel4 pass and10 Python

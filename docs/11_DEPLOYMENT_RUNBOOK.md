@@ -1,5 +1,14 @@
 # Deployment runbook
 
+## 2026-09-25 publication / limited TTL acceptance, no activation
+
+Two final Master candidate images are published with verified SWR manifest pins;
+the two user-approved no-data success/failure TTL Jobs were auto-reclaimed with
+their owner Pods. See [publication/live-gate receipt](releases/2026-09-25-p0-swr-ttl.md).
+This updates the earlier pending publication/live-canary status, not the paired
+writer/installation/capacity/AOM gates. Test shared nipttest and platform versions
+still require a coordinated rollout; no production or automatic policy activation.
+
 ## Task6 source accepted — activation gate remains closed (2026-09-25)
 
 New backend-only environment switches WGS_CCE_RECOVERY_ENABLED and

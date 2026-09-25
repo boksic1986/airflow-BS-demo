@@ -1,5 +1,20 @@
 # Active test-branch tasks
 
+## 2026-09-25 SWR publication follow-up
+
+- [x] P0-SWR-PUBLISH: two accepted images published with non-overwriting tags;
+  coordinator checked registry manifest/config linkage and8 evidence hashes.
+- [ ] P0-NIPTTEST-PREFLIGHT: shared install/version observations and paired
+  selector requirements documented. Exact old-package rollback, approved
+  root-owned interpreter/install authority and test-isolation scope still needed.
+  STOP: chenjc-owned nipttest is not a valid trusted interpreter under current
+  selector. Reconcile deployment premise; no new service or weakened UID checks.
+  No installation or dependency upgrade.
+- [x] P0-TTL-LIVE: exact authorized no-data Jobs reached Complete/exit0 and
+  Failed/exit17, then both Jobs/owner Pods auto-removed; no manual cleanup.
+  Coordinator inspected originals and15 evidence hashes; no existing changes.
+- [ ] P0-OPS-GATES remains open; publication is not activation or cloud acceptance.
+
 ## 2026-09-25 items2/3 execution handoff
 
 - [x] P0-FINAL-PLUGIN: owner delivered5ffcb07 /0.6.4+bs8.dev2, actual wheel4 pass;

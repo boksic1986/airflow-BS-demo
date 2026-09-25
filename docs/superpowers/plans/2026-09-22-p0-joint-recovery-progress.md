@@ -1,5 +1,15 @@
 # P0 joint recovery implementation ledger
 
+## 2026-09-25 后续发布：SWR 与限定 TTL 已核验
+
+原负责人已推送两个已验收 Master 候选镜像，未覆盖旧标签；协调方核对实际
+registry manifest/config ID对应关系及8份证据哈希。用户已批准两个无业务数据
+TTL测试Job，创建前已登记精确名称。两者分别Complete/exit0、Failed/exit17，
+随后Job/owner Pods自动消失；15份原始证据哈希核验一致，无手工或历史清理。
+nipttest 安装仅完成部分只读核查，尚未安装；已询问BS安装例外与BS10610成对
+测试更新授权。平台配套启用、全入口容量与AOM等门禁未完成。
+详见 [SWR与现场门禁记录](../../releases/2026-09-25-p0-swr-ttl.md)。
+
 ## 2026-09-25 item2 离线制品已验收，item3 现场门禁未完成
 
 Plugin owner 已交付5ffcb07 /0.6.4+bs8.dev2，实际wheel4 passed、10个Python文件
