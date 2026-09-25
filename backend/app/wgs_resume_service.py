@@ -5,6 +5,7 @@ from pathlib import Path
 import secrets
 
 from app.cce_resume_dispatch import recovery_action, authorize_recovery_stage, dispatch_recovery as _dispatch_recovery
+from app.cce_resume_dispatch import interrupted_monitor_action, record_monitor_handoff
 from sqlalchemy import select
 
 from app.models import AnalysisRun, RunAction, RunStageState, WgsStageExecution, WgsExecutionDispatch
@@ -84,7 +85,9 @@ def request_resume_stage(*, session, settings, airflow_client, analysis_id, atte
         raise ValueError('unknown current WGS attempt')
     # Serialize with automatic reservations on the same AnalysisRun row. Do not
     # replace frozen requests or contact Airflow while their outcome is pending.
-    require_no_pending_compute_recovery(session=session, run=run)
+    handoff = interrupted_monitor_action(session=session,run=run,monitor=_latest(session,run,stage),
+        stage=stage,idempotency_key=idempotency_key)
+    require_no_pending_compute_recovery(session=session, run=run, monitor_handoff=handoff)
     params = dict(run.params_json or {})
     if int(params.get('orchestration_contract_version', 1)) != 2 or not settings.wgs_contract_v2_enabled:
         raise ValueError('recovery requires the frozen v2 stage contract')
@@ -95,6 +98,8 @@ def request_resume_stage(*, session, settings, airflow_client, analysis_id, atte
         RunAction.action == 'resume_stage').order_by(RunAction.id.desc())).all()
     action = None
     for previous in actions:
+        if handoff is not None and previous.id == handoff.id:
+            continue
         data = previous.payload_json
         if data.get('attempt') != attempt:
             continue
@@ -134,6 +139,7 @@ def request_resume_stage(*, session, settings, airflow_client, analysis_id, atte
         action.payload_json = dict(data)
         run.dag_run_id = data['dag_run_id']
         run.current_stage = stage
+        record_monitor_handoff(handoff, action_id)
         session.commit()  # Persist identity before an external side effect.
     action = _dispatch_recovery(session=session, run=run, action=action, airflow_client=airflow_client, latest_execution=_latest)
     data = action.payload_json

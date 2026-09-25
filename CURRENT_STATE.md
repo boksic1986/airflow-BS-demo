@@ -1,5 +1,25 @@
 # Current state
 
+## 2026-09-25 Task6 manual monitor handoff checkpoint
+
+Automatic polling no longer treats a failed query-only observer as terminal
+compute or releases its action fence. Existing authenticated same-attempt Resume
+can hand off an exact ended observer (scoped blocked/exhausted query marker,
+confirmed dispatch, current action/DagRun/generation) to one new monitor action.
+The prior action is canceled as superseded, NOT compute-failed; history remains.
+Registration and retirement commit together under the existing run lock; old
+DagRun authority is fenced. Reserved/uncertain dispatch, active reconnect,
+foreign identity and user stops are not bypassed. Repeated requests reuse the
+same action. GATK now preserves the original Step3 deadline on manual recovery.
+No attempt/automatic-budget/deadline reset or unconditional Master replacement.
+
+Existing detail Resume confirmation is reused as "恢复监控" for WGS/GATK query
+attention, behind adapter capability/operator gates. No new page/public route.
+BS10610 backend82 pass15.32s; frontend2 pass3.15s; TypeScript/Vite build passed.
+Native fd43f88/plugin81132cf unchanged. No production, merge/push, images,
+installed CLI/runtime updates or live workflows. Task6 remains OPEN: focused
+PostgreSQL contention, full automatic lifecycle and one final whole-plan review.
+
 ## 2026-09-25 Task6 finite reconnect producer/consumer wiring
 
 Supersedes the unwired prerequisite below. Paired WGS/GATK selected monitors now

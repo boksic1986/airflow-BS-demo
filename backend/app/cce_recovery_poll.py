@@ -9,6 +9,7 @@ from app.cce_recovery_budget import ACTION, FINISHED_ACTIONS, STOPPED, _date, re
 from app.cce_recovery_evidence import validate_schema2_recovery_evidence
 from app.cce_recovery_service import reserve_monitored_recovery
 from app.cce_compute_dispatch import dispatch_due_recovery
+from app.cce_monitor_observation import query_unconfirmed
 
 
 def poll_compute_recovery(*, session, settings, airflow_client, analysis_id, attempt,
@@ -40,6 +41,11 @@ def poll_compute_recovery(*, session, settings, airflow_client, analysis_id, att
     else:
         from app.gatk_runtime_service import _latest_gatk as latest
     monitor = latest(session,run,'step3_monitor')
+    if monitor and query_unconfirmed(monitor):
+        # A failed observer is not a terminal computation. Keep the original
+        # action/slot fenced until an explicit, identity-bound manual handoff.
+        session.commit()
+        return dict(status='needs_attention' if monitor.status=='failed' else 'not_eligible')
     current_action = next((a for a in actions if a.payload_json.get('action_id')==resume_action_id),None)
     if current_action and monitor and dag_run_id==run.dag_run_id:
         data = current_action.payload_json

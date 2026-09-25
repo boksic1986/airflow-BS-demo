@@ -177,6 +177,8 @@ def register_gatk_stage(
             request['resume_action_id'] = recovery_action.payload_json['action_id']
             if recovery_action.action == 'cce_compute_recovery':
                 request['cce_recovery_deadline'] = recovery_action.payload_json['original_deadline']
+            elif stage == 'step3_monitor' and 'cce_recovery_deadline' in (saved or frozen):
+                request['cce_recovery_deadline'] = (saved or frozen)['cce_recovery_deadline']
             if latest:
                 request['resume_previous_execution'] = {key: getattr(latest, key)
                     for key in ('execution_id', 'generation', 'request_hash')}
@@ -281,10 +283,15 @@ def request_gatk_resume_stage(*, session, settings, airflow_client, analysis_id,
         .with_for_update().execution_options(populate_existing=True))
     if not run or run.pipeline_name != 'gatk' or run.attempt != attempt or run.execution_mode != 'cce':
         raise ValueError('unknown current GATK CCE attempt')
-    require_no_pending_compute_recovery(session=session, run=run)
+    from app.cce_resume_dispatch import interrupted_monitor_action, record_monitor_handoff
+    handoff = interrupted_monitor_action(session=session,run=run,monitor=_latest_gatk(session,run,stage),
+        stage=stage,idempotency_key=idempotency_key)
+    require_no_pending_compute_recovery(session=session, run=run, monitor_handoff=handoff)
     action = None
     for previous in session.scalars(select(RunAction).where(RunAction.analysis_id == analysis_id,
             RunAction.action == 'resume_stage').order_by(RunAction.id.desc())):
+        if handoff is not None and previous.id == handoff.id:
+            continue
         data = previous.payload_json
         if data.get('attempt') != attempt:
             continue
@@ -320,6 +327,7 @@ def request_gatk_resume_stage(*, session, settings, airflow_client, analysis_id,
             resume_action_id=action_id, resume_stages=stages)
         action.payload_json = dict(data)
         run.dag_run_id, run.current_stage = data['dag_run_id'], stage
+        record_monitor_handoff(handoff, action_id)
         session.commit()
     action = dispatch_recovery(session=session, run=run, action=action,
         airflow_client=airflow_client, latest_execution=_latest_gatk)

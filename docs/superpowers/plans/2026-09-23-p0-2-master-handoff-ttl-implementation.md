@@ -392,6 +392,14 @@ assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
   No new controls/statuses; verify manual reconnect versus pending automatic
   action and full lifecycle in final integration before closing CR-04.
 - [ ] CR-05 focused PostgreSQL contention and final integration tests, no real biological analysis. Respect WGS/GATK per-adapter enablement.
+- [x] Manual/automatic observer handoff checkpoint (2026-09-25): query-only
+  monitor failure never settles compute; existing explicit Step3 Resume retires
+  only exact confirmed ended observer authority and commits its successor under
+  the run lock. Pending/uncertain/active/foreign/stopped gates remain. Repeated
+  keys/clicks reuse one action; same attempt/budget/deadline and old failed history
+  retained. GATK manual deadline inheritance repaired. Existing detail panel
+  serves query attention, no new page/endpoint. BS10610 backend82/frontend2 pass;
+  source only. PG contention/full automatic lifecycle/final review remain OPEN.
 - [ ] Separate production authorization: real synthetic Complete/Failed TTL checks, all-entry Pod capacity accounting, AOM data freshness and alert notification record. Missing evidence keeps production gate closed; no invented managed metrics or self-hosted monitoring service.
 
 ## Progress / current status

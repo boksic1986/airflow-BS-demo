@@ -1,5 +1,17 @@
 # 04 数据库设计
 
+## Task6 explicit monitor handoff (2026-09-25, source only)
+
+No migration. An exact current confirmed queued RunAction may be retired as
+`canceled` when an operator explicitly replaces its ended query observer.
+`payload_json.monitor_handoff_to` records the successor action ID; do not write
+`compute_terminal=failed` for monitor exhaustion. Cancellation here ends the
+controller's authority, not the remote computation. New action/current DagRun/
+generation and prior-action retirement commit under the same AnalysisRun lock.
+The scoped query snapshot is negative evidence only; it neither proves Master
+failure nor authorizes replacement. Existing frozen request and runtime liveness
+checks remain mandatory. Attempt-level compute count/deadline are unchanged.
+
 ## Task6 monitor UI observation (2026-09-25, source only)
 
 No table/migration. Existing WgsStageExecution/PipelineStageExecution

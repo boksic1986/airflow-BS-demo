@@ -90,7 +90,7 @@ def require_current_dag_cleanup(*, session, analysis_id, attempt, pipeline,
     return run
 
 
-def require_no_pending_compute_recovery(*, session, run):
+def require_no_pending_compute_recovery(*, session, run, monitor_handoff=None):
     """Manual retry fence; caller holds/refreshed the same AnalysisRun row lock.
 
     Stop/cancel paths must not use this fence: user stop keeps priority. Missing
@@ -106,6 +106,8 @@ def require_no_pending_compute_recovery(*, session, run):
     actions = session.scalars(select(RunAction).where(
         RunAction.analysis_id == run.analysis_id, RunAction.action == ACTION)).all()
     for action in actions:
+        if monitor_handoff is not None and action.id == monitor_handoff.id:
+            continue  # Exact confirmed, ended observer; caller binds its successor atomically.
         if compute_finished(action):
             continue
         data = action.payload_json

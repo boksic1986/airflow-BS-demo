@@ -50,6 +50,35 @@ def test_wrong_dag_or_identity_never_reserves_or_dispatches(automatic):
         assert session.scalar(select(AnalysisRun)).params_json['cce_recovery_budget']['count']==1
 
 
+@pytest.mark.parametrize('phase', ['waiting', 'blocked', 'exhausted'])
+def test_monitor_query_failure_does_not_settle_compute_or_reserve_another_slot(automatic, phase):
+    from app.cce_monitor_observation import retain_monitor_observation
+    fixture, model, _, data = automatic
+    factory, _, airflow, _, _ = fixture
+    assert poll(automatic,60)['status']=='delegated'
+    dag = airflow.posts[0][1]
+    with factory.begin() as session:
+        run = session.scalar(select(AnalysisRun))
+        run.status = 'running'
+        row = session.scalar(select(model).where(model.stage_code=='step3_monitor',model.generation==2))
+        row.status = 'failed'
+        scope = dict(pipeline=run.pipeline_name,analysis_id=run.analysis_id,attempt=1,
+            stage=row.stage_code,execution_id=row.execution_id,generation=row.generation,request_hash=row.request_hash)
+        retain_monitor_observation(row, dict(updated_at=NOW.isoformat(),monitoring_health='degraded',
+            monitor_reconnect=dict(version=1,scope=scope,phase=phase,retries_used=6,
+                deadline=(NOW+timedelta(hours=1)).timestamp())), pipeline=run.pipeline_name)
+    assert poll(automatic,62,dag,data['action_id'])['status']=='needs_attention'
+    with factory() as session:
+        action = session.scalar(select(RunAction))
+        assert 'compute_terminal' not in action.payload_json
+        assert action.result_status == 'queued'
+        run = session.scalar(select(AnalysisRun))
+        assert run.status == 'running'
+        assert run.params_json['cce_recovery_budget']['count'] == 1
+        assert len(session.scalars(select(RunAction)).all()) == 1
+    assert len(airflow.posts) == 1
+
+
 def test_second_terminal_master_consumes_only_remaining_slot_and_old_history_does_not_fence_cleanup(automatic):
     from app.cce_recovery_budget import require_current_dag_cleanup
     fixture,model,aid,first=automatic

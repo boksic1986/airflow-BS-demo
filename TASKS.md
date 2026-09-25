@@ -7,7 +7,13 @@
   unconfirmed execution, callback and periodic Airflow sync cannot mark analysis
   failed from query exhaustion. Native fd43f88; BS10610 regression113 plus final
   affected producer/consumer16 and actual selected-monitor4 pass. Source only.
-- [ ] Complete final automatic lifecycle/manual reconnect interaction and focused
+- [x] Manual reconnect/automatic action boundary: failed observer is not failed
+  compute; exact confirmed ended observer can be explicitly handed off under
+  the run lock, old action canceled without a terminal-compute claim. Idempotent
+  successor retains attempt/budget/deadline; GATK deadline inheritance repaired.
+  Existing detail confirmation reused for query attention. BS10610 backend82,
+  frontend2 pass (2026-09-25); no production or source-artifact rebuild.
+- [ ] Complete final automatic lifecycle and focused
   PostgreSQL contention before CR-04/Task6 closure and whole-plan fresh review.
 - [x] Inspect Task4/5 producer versus existing automatic-recovery consumer.
 - [x] User approved necessary wrapper/logger failure-summary addition before extending
@@ -46,12 +52,13 @@
   request/original deadline caps, durable callback reservation, interrupted retry
   accounting, strict identity and non-retryable controls. Paired strict native GET
   fixes existing exact ConfigMap ABI and timeout/error classification. BS10610
-  native24 + platform17 GREEN0.79s. Helper is not yet wired/activated.
-- [ ] Connect query-only owner to real WGS/GATK selected monitor/status JSON;
+  native24 + platform17 GREEN0.79s. Wiring accepted in the later checkpoint above;
+  deployment/activation remains closed.
+- [x] Connect query-only owner to real WGS/GATK selected monitor/status JSON;
   distinguish query exhaustion/control from analysis failure in GATK ingestion,
   callback/periodic projection and existing UI. Do not wrap CREATE/START or an
   entire stage; no second retry budget. Preserve last confirmed progress.
-- [ ] Complete finite-reconnect producer/UI distinctions, focused PostgreSQL contention and full
+- [ ] Complete focused PostgreSQL contention and full
   automatic lifecycle integration/whole-plan review. The source caller is not
   rollout approval; native/plugin artifacts and default-off policy unchanged.
 - [ ] Separately authorized live TTL/capacity/AOM/alerts gates remain closed.

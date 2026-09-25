@@ -1,5 +1,16 @@
 # Workflow runtime integration
 
+## Task6 manual observer boundary (2026-09-25, source only)
+
+Failed query observers do not settle automatic compute actions. Explicit existing
+Step3 Resume may hand off their exact confirmed current controller after a scoped
+blocked/exhausted observation; it still uses existing frozen-request validation
+and runtime active/terminal/quiescence checks. Only observer authority is retired.
+No new compute permission, CREATE/START retry or history rewrite. Same attempt,
+compute budget and original deadline persist; GATK manual Step3 registration now
+copies that deadline instead of silently dropping the selected query contract.
+Historical untagged requests do not gain an automatic policy/deadline.
+
 ## Task6 selected-monitor finite reconnect wiring (2026-09-25, source only)
 
 Supersedes the unwired prerequisite below. monitor_registered builds one owner

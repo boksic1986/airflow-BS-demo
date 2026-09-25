@@ -1,5 +1,16 @@
 # Frontend specification
 
+## Task6 monitor reconnect control (2026-09-25, source only)
+
+Existing same-attempt ResumeStagePanel also serves WGS/GATK CCE query attention
+(recovery needs_attention, Step3, limit6). Use label "恢复监控", explicit confirmation,
+existing operator role and adapter resume capability. Preserve the idempotency
+key after uncertain replies; remount for a different monitor generation so a
+later ended monitor can be an explicit new operation. Active checking/compute
+wait is not this entrance. No new page, API, automatic click or polling owner.
+Backend retains dispatch/identity/control fences; UI visibility is not permission
+to create a Master. Existing normal WGS stage Resume presentation is unchanged.
+
 ## Task6 recovery presentation checkpoint (2026-09-25, source only)
 
 Reuse existing Run Tracker current-stage cell and RunDetail Current progress;
@@ -13,8 +24,8 @@ and percentage with a last-confirmed label; no advancing linear estimate, live
 speed or ETA. Missing measured evidence uses an empty neutral bar, not 100% failed
 or complete. Confirmed current execution returns normal progress. Successful
 analysis with degraded log capture remains successful with a separate notice.
-Finite-reconnect producer integration is still open; degraded is not fabricated
-as "正在重连" without evidence that a reconnect is actually underway.
+Finite-reconnect producer integration is now wired (see current checkpoint);
+degraded is not fabricated as "正在重连" without evidence of an active reconnect.
 
 ## 2026-09-18 imported sampleinfo configuration review
 

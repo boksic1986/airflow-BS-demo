@@ -4,6 +4,50 @@ from sqlalchemy import select
 from app.models import AnalysisRun, RunAction
 
 
+def interrupted_monitor_action(*, session, run, monitor, stage, idempotency_key):
+    """Candidate for explicit observer handoff, under the refreshed run row lock.
+
+    Never settles compute or permits a second uncertain POST. Registration must
+    still validate the frozen request and runtime must recheck original liveness.
+    The caller retires this action only together with its successor's identity.
+    """
+    from app.cce_recovery_budget import STOPPED
+    from app.cce_monitor_observation import KEY, query_observation
+    if (run.status in STOPPED or run.execution_mode != 'cce'
+            or stage != 'step3_monitor' or run.current_stage != stage
+            or monitor is None or monitor.status != 'failed'):
+        return None
+    marker = (monitor.terminal_payload_json or {}).get(KEY, {}).get('monitor_reconnect')
+    try:
+        observation = query_observation(monitor, {'monitor_reconnect':marker}, pipeline=run.pipeline_name)
+    except ValueError:
+        return None
+    if not observation or observation['phase'] not in {'blocked','exhausted'}:
+        return None
+    action_id = (run.params_json or {}).get('resume_action_id')
+    if not action_id:
+        return None  # Original observer: ordinary same-attempt Resume handles it.
+    action = recovery_action(session, run, action_id)
+    data = action.payload_json
+    conf = data.get('conf') or {}
+    expected = dict(analysis_id=run.analysis_id, attempt=run.attempt, pipeline=run.pipeline_name,
+        execution_mode='cce', resume_stage=stage, resume_action_id=action_id)
+    if (data.get('idempotency_key') == idempotency_key
+            or action.result_status != 'queued' or data.get('dispatch_state') != 'confirmed'
+            or data.get('stage') != stage or data.get('dag_run_id') != run.dag_run_id
+            or data.get('generation') != monitor.generation or data.get('compute_terminal')
+            or any(conf.get(k) != v for k,v in expected.items())):
+        return None
+    return action
+
+
+def record_monitor_handoff(previous, successor_id):
+    if previous is not None:
+        previous.result_status = 'canceled'
+        previous.payload_json = dict(previous.payload_json, monitor_handoff_to=successor_id)
+        previous.message = 'Interrupted observer superseded by explicit same-attempt monitoring recovery; compute unconfirmed'
+
+
 def recovery_action(session, run, action_id):
     action = session.scalar(select(RunAction).where(RunAction.analysis_id == run.analysis_id,
         RunAction.action.in_({'resume_stage', 'cce_compute_recovery'})).order_by(RunAction.id.desc()).limit(1))

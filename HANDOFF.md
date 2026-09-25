@@ -1,5 +1,64 @@
 # Handoff
 
+## 2026-09-25 Task6 continuation / explicit monitor handoff
+
+Goal: continue approved automatic/manual interaction from platform728f098,
+nativefd43f88/plugin81132cf. Same isolated platform branch; native/plugin unchanged.
+No production access, rerun, service change, push/merge/deploy or artifact rebuild.
+
+Completed: poll query-unconfirmed guard prevents a failed observer becoming
+compute_terminal=failed. Existing manual Step3 service may retire an exact ended
+query observer only after blocked/exhausted scope validation, current confirmed
+action/DagRun/generation, frozen request checks and the existing run lock. The
+prior action becomes canceled with monitor_handoff_to, not compute-failed.
+Successor identity and retirement commit together; existing runtime must check
+original execution liveness. Pending/uncertain/active/foreign/stopped actions
+remain fenced. Same key/new concurrent click reuse the active operation; later
+explicit monitor recovery can have a new generation without resetting attempt,
+compute count or deadline. GATK manual registration now retains the deadline.
+Existing ResumeStagePanel is reused for WGS/GATK query attention and labels it
+恢复监控; adapter resume capability and operator confirmation still apply.
+
+Files: backend cce_recovery_poll/budget, cce_resume_dispatch, wgs_resume_service,
+gatk_runtime_service; new test_cce_manual_monitor_reconnect and poll regression;
+frontend ResumeStagePanel/test and RunDetailPage; docs04/05/06/08, plan and state
+docs. No migration, DAG/native/plugin/workflow changes or new public endpoint.
+
+Environment verified by each existing task6.ps1 call before task writes:
+ssh BS10610 -> server10610, uid6708; control
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/current resolves to
+releases/20260912-opt-4d3d24e6. Backend36ff21f87356 /app RO remains
+20260923-step7-ae416fa/backend/backend; /config RO remains current release/config.
+Scanner/auto-dispatch false. Cached test containers a0112f0b8ef0 / 25e83a56052d,
+network-none, read-only root, task-scoped scratch; no runtime services altered.
+Evidence: /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/p02-task6-20260925.
+
+Commands/results (runner: ignored .superpowers/sdd/2026-09-23-p0-2-master-handoff-ttl-implementation/task6.ps1):
+- Mode test, poll::test_monitor_query_failure_does_not_settle_compute_or_reserve_another_slot:
+  query-action-red.log, exit1/6 expected failures, false compute_terminal persisted.
+- Mode test, manual monitor positive test: manual-reconnect-red.log, exit1/2
+  expected failures, old automatic queued action permanently blocked manual Resume.
+- Mode test, poll + manual files: monitor-handoff-green.log, exit1/29 pass/1 fail;
+  GATK dropped cce_recovery_deadline. Repair scoped inheritance, not a new deadline.
+- Mode test, test_cce_manual_monitor_reconnect.py + test_cce_recovery_poll.py +
+  test_wgs_resume_stage.py + test_gatk_resume_stage.py + test_cce_recovery_manual_fence.py:
+  monitor-handoff-final.log, exit0, 82 pass15.32s; existing Starlette deprecation only.
+- Mode ui, src/features/run-detail/ResumeStagePanel.test.tsx:
+  monitor-ui-red.log exit1/1 expected missing helper; monitor-ui-green.log exit0,
+  2 pass3.15s. Existing uncertain-reply key and new explicit monitor control tested.
+- Mode ui-build: monitor-ui-build.log exit0, tsc -b and Vite build successful.
+No local runtime tests, broad suites, real biological/cloud tasks or production DB.
+
+Open: Task6/CR-04 not closed. Next focused PostgreSQL concurrent-action checks,
+full automatic lifecycle integration, then one fresh whole-plan review. These
+were not run in this bounded interaction checkpoint; SQLite tests do NOT prove
+PostgreSQL lock contention. Operational TTL/capacity/AOM/alerts remain separately
+authorized gates. No change to default-off policy or accepted Task5 artifacts.
+Rollback: revert this isolated source checkpoint before any release; no production
+rollback required. Preserve history/evidence and do not roll an enabled controller
+back across an in-flight handoff without reconciliation. Tracked changes are this
+checkpoint only; commit after final diff/whitespace check, no remote branch update.
+
 ## 2026-09-25 Task6 continuation / finite reconnect wired
 
 Goal: continue approved query-only CR-04 integration from platform400bf77 and

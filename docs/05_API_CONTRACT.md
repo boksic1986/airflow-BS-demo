@@ -1,5 +1,19 @@
 # API contract
 
+## Task6 manual monitor reconnect (2026-09-25, source only)
+
+Reuse `POST /api/runs/{analysis_id}/actions/resume-stage`, same operator/CSRF,
+adapter capability, attempt, stage and idempotency key contract. No new endpoint.
+For Step3, a new explicit key may replace the exact current failed query observer
+after blocked/exhausted scoped observation and confirmed original dispatch.
+Retire its existing action and bind the successor atomically, retaining history,
+attempt, frozen inputs/workdir, compute retry count and original deadline.
+Same key or concurrent clicks while the successor is active reuse that operation.
+Reserved/uncertain dispatch, active reconnect, identity mismatch, pending other
+actions and user stops retain their fences; a failure is not forced to success.
+New monitor generation does not imply new Master: existing runtime liveness and
+ownership checks must decide reattachment or allowed same-attempt continuation.
+
 ## Task6 recovery view (2026-09-25, source only)
 
 Existing authenticated run detail and dashboard/runs item responses gain optional
@@ -13,8 +27,9 @@ Their limit remains2. A validated current monitor_reconnect observation uses
 limit6 and ordinal0..6 (consumed extra GET retries), checking while bounded
 reconnect is active, needs_attention after blocked/exhausted/deadline. It states
 execution is unconfirmed, not analysis failed, and preserves measured progress.
-Complete confirmed observation removes this query overlay. No new public route,
-business status or manual control; query counters do not reset compute counters.
+Complete confirmed observation removes this query overlay. No new public route
+or business status; existing manual confirmation is reused as described above.
+Query counters do not reset compute counters.
 
 Read-only bulk projection from existing actions/latest executions: GET never
 reserves, dispatches, calls remote files/services or changes business status.
