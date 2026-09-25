@@ -6,6 +6,16 @@
 
 ## 最新执行裁定（2026-09-25，优先于下方历史顺序）
 
+2026-09-26最新授权：用户“按计划完成1,2,3”并要求同步生产分支最新修复。
+现进入R4：整合生产最新修复与P0、绑定已发布4.2.2/0.8.6/r2、部署BS10610并做
+最小验证。下方“本轮不进入R4”及此前暂停是历史记录，不再约束当前测试发布。
+本轮不合main/生产、不部署BS96、不启动真实批次。原组件owner继续负责各自操作。
+实际隔离分支使用`jiucheng/test/wgs422-p0-integration-20260926`。
+已完成fetch/包含性核对与合并0af8367；生产43cd0c5已在测试781877e内。
+限定冲突审查无Critical/Important。原Infra对固定功能commit执行11例synthetic，
+与WGS owner补齐不可变host repo目录并行。候选登记/测试选择/服务部署尚待回执；
+后续纯候选数据或文档变动不重复功能测试。实际私有catalog不得被repo示例覆盖。
+
 2026-09-26完成更新：R1已发布`20260926.1-wgs422`，正式status PASS/state_verified=true，
 WGS owner核对SFS READY、4.2.2源commit和BKW VCF/tbi摘要。协调端已读取CLI输出及总回执，
 详见`../../releases/2026-09-26-wgs422-sfs.md`。本轮不进入R4/服务切换。

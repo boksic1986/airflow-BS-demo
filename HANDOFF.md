@@ -1,5 +1,40 @@
 # Handoff
 
+## 2026-09-26 — R4 integration and latest production fixes
+
+Goal/authority: user authorized the next three test-release steps and explicitly
+required the latest production fixes. No production service change is included.
+Fresh fetch confirms main/production43cd0c5 already ancestors of test781877e;
+no duplicate cherry-pick. Isolated branch
+`jiucheng/test/wgs422-p0-integration-20260926` merges P0fd9a008 as0af8367.
+Only two executable conflicts required resolution (wgs_observer.py and
+wgs_runtime_gate.py); independent scoped review found no Critical/Important issue.
+Step7 observation and upload/download waiting behavior are preserved.
+
+Commands/checks: git fetch, ancestor/log comparison, merge and diff whitespace
+check succeeded. No local tests (repository boundary); original Infra assigned
+eleven named synthetic tests against exact0af8367 on BS10610. Results pending.
+R1/R2/R3 artifacts remain accepted, no rebuild or republish. R4 handoffa8f9bc4
+documents source pins and catalog boundary. Only test branch will be pushed.
+
+Target preflight: BS10610/server10610, controlroot
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS`;
+backend still mounts20260923-step7-ae416fa, /config20260912-opt-4d3d24e6,
+WGS DAG/common20260915-main-359df11. No service changes yet.
+Private catalog current34bfcbf differs from repository examplecc9bde3; preserve
+private entries and use actual-current CAS rather than replacing the file.
+WGS owner is supplying immutable3b1dae5 host-side source; node200 readability
+remains to be verified using approved routes. Do not use the forced-command key
+for arbitrary shell or treat a BS10610 /bi alias as node200 acceptance.
+
+Next: finish candidate data, remote focused tests, paired test rollout and
+API/DAG/mount smoke. Infra retains exact rollback mounts/config before changes;
+DB/Redis/unrelated services and all analysis data remain unchanged. Global scan,
+dispatch/recovery stay off. WGS4.2.2 QC/options provenance remains unaudited,
+not a fabricated equivalent4.2.1 policy. Detailed receipt:
+`docs/releases/2026-09-26-wgs422-p0-r4-integration.md`.
+
+
 ## 2026-09-23 — P0-2E batch lock documentation gap
 Reviewed native _claim_batch_lock call and runtime ConfigMap/process/status locks.
 Previous design stated preservation but omitted owner handoff/release acceptance.

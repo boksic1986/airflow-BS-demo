@@ -1,5 +1,29 @@
 # Current state
 
+## 2026-09-26 R4 test integration in progress (current authority)
+
+User authorized the next three steps: integrate the latest production fixes
+with P0, bind WGS4.2.2/0.8.6/r2 through existing APIs/UI, then deploy and minimally
+verify BS10610. Historical pauses and design-only headings below are not the
+current R4 status. No BS96 deployment or main/production merge is in this slice.
+
+- Fresh fetch: main/production `43cd0c5` are already contained in test `781877e`.
+- Integrated P0 `fd9a008` into isolated test branch
+  `jiucheng/test/wgs422-p0-integration-20260926`, functional merge `0af8367`;
+  document handoff `a8f9bc4`. Bounded merge review found no Critical/Important issue.
+- R1 SFS release `20260926.1-wgs422`, runtime0.8.6 and WGS Master/profile r2 are
+  complete; do not rebuild, reinstall or republish them for R4.
+- Eleven focused synthetic cases are assigned to original Infra on BS10610,
+  against exact functional source0af8367. No local runtime tests or full suites.
+- Candidate registration waits for the WGS owner's immutable host-side3b1dae5
+  source paths. Actual private catalog current34bfcbf differs from the example;
+  preserve existing entries, register and CAS-select only the new test release.
+- Service rollout, test selection and final smoke are not yet claimed complete.
+  Scanning, dispatch and global automatic recovery remain off. No real batches.
+
+Detailed evidence and outstanding gates:
+`docs/releases/2026-09-26-wgs422-p0-r4-integration.md`.
+
 ## 2026-09-23 P0-2E lock contract supplement (design only)
 Added owner/generation CAS handoff, TTL-independent directory protection and
 conditional release to both P0 documents. Airflow submission control does not
