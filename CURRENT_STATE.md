@@ -1,5 +1,25 @@
 # Current state
 
+## 2026-09-25 P0 corrections in progress
+
+User authorized V01–V07 fixes and continuation of the blocked step; shared
+outputs must not be forced to root or0600. Native/Infra owner is executing Task1
+in the existing isolated native/platform entry scope. Platform observation
+changes follow; no overlapping edits. Plan:
+docs/superpowers/plans/2026-09-25-p0-validation-corrections.md.
+No correction, installation or activation is accepted merely by dispatch.
+
+## 2026-09-25 P0 source validation audit; fixes not implemented
+
+Static review of platform4a4ed3c/nativef44619d confirms six validation defects
+(including the known root-only entry) and one conditional query-budget risk.
+Record: docs/reviews/2026-09-25-p0-validation-audit.md. Prioritize non-root entry,
+PVC/PV allowlist mismatch and lost eligibility on transient workload movement.
+Repeated reader Jobs, cleanup-state handling and global policy equality also
+need correction within the existing P0 scope. No source edits, tests, SSH,
+installation, deployment or production operations; only review/state documents.
+Candidate publication and TTL evidence do not close these integration gaps.
+
 ## 2026-09-25 non-root trust contract corrected; source adaptation pending
 
 User confirms Airflow deployer chenjc, analysis user ctapa, WGS source owner

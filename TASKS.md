@@ -1,5 +1,24 @@
 # Active test-branch tasks
 
+## 2026-09-25 authorized validation corrections
+
+- [ ] Task1 native/paired trust, cloud query, probe and shared-output corrections.
+  Dispatched to original native/Infra owner; preserve secrets and scope fences.
+- [ ] Task2 platform workload observation and finite probe-budget corrections.
+- [ ] Task3 combined review, affected artifacts and scoped nipttest/paired-test
+  continuation with exact preflight and rollback. No production authorization.
+  Plan: docs/superpowers/plans/2026-09-25-p0-validation-corrections.md.
+
+## 2026-09-25 P0 validation source review
+
+- [x] P0-VALIDATION-AUDIT: static platform/native call-chain review; findings
+  V01–V07 in docs/reviews/2026-09-25-p0-validation-audit.md. No runtime testing.
+- [ ] Correct V01–V03 in existing entry/guard/observation paths, then V04–V06;
+  align V07 finite query budgets. Source work is not performed by this review.
+  Preserve identity, lock, immutable-input and complete-evidence protections.
+  Installation/activation acceptance remains open; no new feature or production
+  operation is authorized by this audit entry.
+
 ## 2026-09-25 non-root deployment audit
 
 - [x] P0-NONROOT-DOC: withdraw root-only ownership and /etc-only activation

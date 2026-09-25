@@ -1,5 +1,48 @@
 # Handoff
 
+## 2026-09-25 validation corrections authorized; shared output requirement added
+
+User requests fixing reviewed issues then continuing the blocked step, explicitly
+forbidding root/0600 output restrictions. Plan:
+docs/superpowers/plans/2026-09-25-p0-validation-corrections.md. Existing P0
+worktrees retained; prior audit docs are our uncommitted changes, not discarded.
+Native/Infra owner handles native plus paired trust integration and affected
+artifacts; platform observation follows to avoid shared-file conflicts.
+Shared output permissions are distinct from private secrets. No recursive chmod,
+chown, production action, new service, unapproved Compose or new TTL Job.
+Testing remains bounded remote synthetic; deployment preflight/rollback must be
+explicit before the existing nipttest/paired-test blocked step can proceed.
+
+## 2026-09-25 P0 validation code audit — review only
+
+Goal: user requests checking code for excessive/unreasonable validation after
+the non-root contract correction. Reviewed platform4a4ed3c/nativef44619d and
+direct callers; independent read-only reviewers covered native guard and final
+workload observations. No plugin or full-workflow review claimed.
+
+Completed: six confirmed defects and one conditional budget risk recorded in
+docs/reviews/2026-09-25-p0-validation-audit.md with source lines, triggers and
+minimal correction boundaries. Known root-only/symlink entry is not fixed.
+New high-priority findings: PVC/PV queries rejected by reconnect allowlist;
+transient GC/completion races lose initial automatic recovery eligibility.
+Also record repeated directory probes, asynchronous cleanup false refusals,
+unrelated global policy changes and nested deadline mismatch.
+
+Changed files: review note, CURRENT_STATE.md, TASKS.md, HANDOFF.md only. Commands:
+local git status, source/doc reads and rg searches. `git diff --check` passed;
+the review note and its linked security policy exist, and V01–V07 references
+were checked. Final status contains only the four documented review/state files.
+No pytest or other runtime tests: review-only request, no source change and no
+need to rerun existing suites. No remote target/hostname/mount/permissions checked;
+no SSH alias used. Test/production releases, services, scanner/dispatch, images,
+wheels, accounts and databases remain unchanged. Worktree was clean at review
+start; no commit/push/merge is requested for this review.
+
+Next: approve/perform bounded corrections within the existing P0 paths and record
+focused remote synthetic acceptance. Do not treat old fixture passes as non-root
+or real cloud-reader acceptance. Risks and retained checks are in the review note.
+Rollback is limited to these documentation changes; no runtime rollback needed.
+
 ## 2026-09-25 root-only requirement withdrawn after documentation audit
 
 Goal/authority: user requests audit and cancellation of unreasonable root

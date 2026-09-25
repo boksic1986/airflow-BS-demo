@@ -166,6 +166,10 @@ Never copy test runtime, evidence, credentials or database to production.
 - Mutable runtime, evidence, results and shared roots use group `bioinfo`,
   setgid 2770 where isolation is required, and explicit default ACLs for the
   named runtime users.
+- User clarification (2026-09-25): do not force root ownership or0600 files/
+  0700 directories on shared P0 outputs. Honor approved effective group/default
+  ACL access, including atomic replacements; directories need traverse access.
+  This does not authorize existing-tree permission rewrites or secret widening.
 - FASTQ, workflow source, references and input projects are mounted read-only.
   Only approved runtime, result, log, binding and spool roots are writable.
 - Never use `chmod 777`, recursively widen `/sg2` or `/bi`, or follow symlinks

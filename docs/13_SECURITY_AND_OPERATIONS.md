@@ -92,6 +92,15 @@ code-root restrictions to the existing scoped runtime/output write permissions.
 Normal interpreter links may resolve to an approved canonical interpreter; an
 unapproved target or path escape is still rejected. Do not globally allow links.
 
+User clarification (2026-09-25 implementation follow-up): P0 shared output,
+runtime, evidence, derived bundle and journal paths must not be forced to root
+ownership or owner-only 0600 files/0700 directories. Use the authorized execution
+identity and existing approved shared group/default ACLs. Directories require
+traverse permission; atomic file replacement must preserve intended collaborator
+access. This does not relax private credentials, authorize chmod/chown of existing
+trees or make outputs world-writable. Tests must distinguish shared artifacts
+from private secret staging rather than replacing every restrictive mode.
+
 **Audit finding / source gap:** platform `scripts/cce_paired_runtime.py` and
 native `src/cce_pipeline/assets/cce_writer_guard.py` still hardcode UID 0 and
 the `/etc` entry. The platform test fixture substitutes `TRUSTED_UID` and
