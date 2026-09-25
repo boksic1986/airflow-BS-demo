@@ -1,5 +1,16 @@
 # Current state
 
+## 2026-09-25 corrected candidates ready; paired test rollout needs confirmation
+
+Platformfdace86 and nativeae90b65 source fixes are complete. Original artifact
+owner built dev3 from version-only45323e4: one wheel/two Master images. Coordinator
+verified delivered hashes and smoke evidence; actual-wheel log is3 pass/1 skip,
+not four passes. See docs/releases/2026-09-25-p0-validation-dev3.md.
+Nothing is installed/pushed/switched. Actual test execution is ctapa@node200,
+whose old WGS gate has no paired runtime. The proposed deployment list still
+needs the full module/consumer closure and explicit existing test-service scope;
+do not install only the wheel or treat a source fix as completed deployment.
+
 ## 2026-09-25 P0 corrections source accepted; installation pending
 
 Native ae90b65 is frozen; paired non-root selector297bcee plus the current

@@ -83,8 +83,10 @@ backend polling only if existing receipt retry path needs a bounded correction.
 
 - [x] Review combined corrections once; resolve consequential findings with only
   affected tests. Keep prior passing plugin/TTL evidence.
-- [ ] Native owner packages only changed consumed payload; do not assume both
+- [x] Native owner packages only changed consumed payload; do not assume both
   Masters consume Operator-only changes. Preserve old tags/hash records.
+  Dev3 consumption verified: both Masters copy the changed standalone assets;
+  one wheel/two images built from45323e4, plugin/Worker/WGS rules unchanged.
 - [ ] Fresh exact nipttest/paired test preflight and rollback inventory. Report
   installation/activation plan and any remaining authority/environment gaps.
 - [ ] Resume the approved blocked step when prerequisites and scope are explicit;

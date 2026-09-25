@@ -1,5 +1,14 @@
 # P0 joint recovery implementation ledger
 
+## 2026-09-25 dev3已构建；测试成对部署仍未完成
+
+原native owner从45323e4构建1个dev3 wheel和2个Master；协调方核验9份日志/制品哈希，
+双镜像asset/plugin/Snakemake smoke一致。wheel独立环境为3 passed/1 skipped，
+不把skip记为通过，亦不为补数字重复已覆盖测试。详见
+[dev3候选及剩余部署门禁](../../releases/2026-09-25-p0-validation-dev3.md)。
+实际node200 WGS测试入口仍旧，无paired模块；GATK测试consumer及Airflow挂载切换范围
+尚未确认。部署清单只是proposal，不是已授权/已执行；未安装、push、重建服务或改生产。
+
 ## 2026-09-25 已授权校验修正源码完成；安装继续准备
 
 用户要求修复 V01–V07 并继续被阻碍的 nipttest/成对测试接入；输出不得强制

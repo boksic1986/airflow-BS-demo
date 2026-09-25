@@ -1,5 +1,30 @@
 # Handoff
 
+## 2026-09-25 dev3 offline artifacts and deployment hold
+
+Original native owner built dev3 from45323e4 (version-only child of ae90b65).
+Coordinator matched nine artifact/log hashes and read original wheel3-pass/
+1-skip and both Master asset/plugin/Snakemake smoke outputs. No repeated tests.
+Record: docs/releases/2026-09-25-p0-validation-dev3.md. A skipped case is not
+reported as passing. Source correction checkpoint remains platformfdace86.
+
+Bounded read-only deployment preflight established ctapa@t640 and the existing
+private WGS test root. Current gate is old and lacks paired modules; the assumed
+Airflow release/scripts location is not the actual consumer. First path probe
+failed because host Python lacks str.removeprefix; only the local probe line was
+made compatible, then the same bounded check succeeded. No permission bypass,
+Python upgrade, production-root read or environment write. Owner's recursive
+artifact copy hit a synthetic pytest directory permission error; exact named
+artifact copies subsequently succeeded, without deleting anything.
+
+Deployment is not complete. The initial proposed eight-file list omitted paired
+resume imports and did not establish the GATK test entry. Owner was asked to
+correct the proposal statically only; no further SSH/tests/install. A bounded
+test-service update/restart decision and rollback capture are still required
+before a coherent nipttest/gate/profile/release transaction. No source feature
+expansion, production rollout, new service/Compose, SSH-authority edit or clinical
+operation is permitted by this handoff. Current environments remain unchanged.
+
 ## 2026-09-25 V01–V07 source correction acceptance
 
 Goal: fix excessive/incompatible validation and then continue the blocked test

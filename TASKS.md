@@ -8,6 +8,9 @@
   Affected34 plus two fixture-only rechecks passed; DAG8 passed. Review closed.
 - [ ] Task3 combined review, affected artifacts and scoped nipttest/paired-test
   continuation with exact preflight and rollback. No production authorization.
+  Review and dev3 offline artifacts complete; actual node200 test gate is old.
+  Proposed runtime dependency/consumer and test-service rollout scope still need
+  closure/confirmation. No installation, SWR push or service switch performed.
   Plan: docs/superpowers/plans/2026-09-25-p0-validation-corrections.md.
 
 ## 2026-09-25 P0 validation source review
