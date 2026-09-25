@@ -1,5 +1,18 @@
 # P0 validation dev3 candidates — not installed
 
+## Current execution authority
+
+User has approved the replacement four-step sequence in
+`../superpowers/plans/2026-09-25-wgs422-p0-test-release.md` and asked to start.
+R1 publishes refreshed WGS4.2.2 assets; R2 then installs the compatible wheel
+in nipttest and pushes the WGS Master; R3 installs a candidate profile; R4
+integrates and activates the paired test consumers. Thus the older "integrate
+first / writes held" notes below describe previous preflight, not a renewed
+approval requirement. Paired recovery remains inactive until R4. GATK remains
+deferred. Read R2_READY.md for current readonly preparation; no install/push
+receipt has been delivered yet. Test781877e already has ae416fa-equivalent
+Step7 source via255be59, so it must be preserved, not cherry-picked twice.
+
 ## WGS-only continuation approved (subsequent user decision)
 
 Latest preflight outcome: no writes. Existing test backendae416fa lacks the

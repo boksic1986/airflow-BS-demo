@@ -14,6 +14,13 @@ Pre-integration correction: test781877e has equivalent Step7 code via255be59.
 The earlier ancestry-only statement did not mean the fix was absent; preserve
 this code without a duplicate cherry-pick. P0 still needs bounded integration.
 
+R1 owner has freshly verified source3b1dae5/upstreamca71cd6 and the changed
+whitelist/index; publication is pending consumer-impact checks. R2 read-only
+preparation received and hash-verified at task-artifacts/p0-final-native-ops-
+20260925/R2_READY.md. Existing test mounts/disabled gates are unchanged, node200
+is a confirmed nipttest consumer, and installed native remains0.8.5. No install,
+push or profile activation has occurred; R2 compatibility still consumes R1.
+
 ## 2026-09-25 replacement four-step WGS4.2.2/P0 rollout plan
 
 User requests a new sequence: WGS4.2.2 SFS publication with WGS-pipeline owner,

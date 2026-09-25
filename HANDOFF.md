@@ -35,6 +35,17 @@ alongside P0 publish/probe handling. Remaining conflicts are contracts/design/
 state docs. main.py auto-merges but its combined API behavior still needs the
 planned targeted verification. This is preparation, not R4 deployment acceptance.
 
+Original native owner delivered R2_READY.md under task-artifacts/p0-final-native-
+ops-20260925; coordinator read it and matched SHA256
+179cff1cb3825205e118966183aea771f4506c9ccebfc71a177115342ae72c8e.
+Owner's bounded BS10610/node200/node005/image readonly commands each exit0.
+Test mount/gate state unchanged; node200 private test entry consumes shared
+nipttest, current native0.8.5. No active process observed is not a complete
+consumer guarantee. Exact rollback backup and final consumer check remain
+before installation. Image labels are inherited old metadata; compatibility
+must use R1 actual runtime contract, not require a rebuild just for a label.
+No installation/push/profile/service change; R1 has not published yet.
+
 ## 2026-09-25 WGS4.2.2/P0 replacement plan; no implementation
 
 User asks for four ordered steps and explicit cooperation with WGS-pipeline
