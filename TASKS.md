@@ -1,5 +1,17 @@
 # Active test-branch tasks
 
+## 2026-09-25 WGS-only rollout continuation
+
+- [x] Record user approval: WGS only, GATK/WES deferred and not a blocker.
+- [x] Fresh read-only owner preflight and coordinator source comparison expose
+  missing backend P0 APIs and divergent ae416fa/fdace86 baseline; no writes.
+- [ ] Confirm bounded test-baseline integration preserving Step7 and transfer
+  display fixes; do not deploy fdace86 wholesale or invent a WGS-only API fork.
+- [ ] Original native/Infra owner: exact test-consumer and active-use preflight,
+  scoped paired installation with rollback, minimum synthetic recovery check.
+- [ ] Coordinator: reconcile actual receipt and update installation/acceptance
+  status separately; no production or automatic enablement inferred.
+
 ## 2026-09-25 authorized validation corrections
 
 - [x] Task1 native/paired trust, cloud query, probe and shared-output corrections.

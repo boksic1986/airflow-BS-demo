@@ -81,6 +81,19 @@ backend polling only if existing receipt retry path needs a bounded correction.
 
 ## Task 3 — owner rollout continuation
 
+Latest user decision: WGS-only test rollout and minimum recovery validation are
+approved. Defer GATK/WES testing/entry discovery, not WGS completion. Use existing
+BS10610 services, node200 WGS test gate and agreed nipttest; first establish exact
+consumer/mount/active-use and rollback facts. Shared GATK helper imports may be
+required by WGS's module closure but do not authorize GATK deployment or testing.
+Do not repeat accepted source/TTL suites or activate global automatic recovery.
+
+Preflight exposed divergent current test releaseae416fa versus P0fdace86:
+old backend lacks P0 APIs, but direct replacement removes newer maintenance/
+transfer display fixes. Environment writes are held. Proposed prerequisite is
+bounded integration preserving both sets of accepted changes, not new recovery
+functionality or a separate WGS-only API implementation; await user direction.
+
 - [x] Review combined corrections once; resolve consequential findings with only
   affected tests. Keep prior passing plugin/TTL evidence.
 - [x] Native owner packages only changed consumed payload; do not assume both

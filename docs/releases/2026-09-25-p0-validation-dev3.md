@@ -1,5 +1,26 @@
 # P0 validation dev3 candidates — not installed
 
+## WGS-only continuation approved (subsequent user decision)
+
+Latest preflight outcome: no writes. Existing test backendae416fa lacks the
+P0 recovery APIs, while a direct replacement byfdace86 would regress current
+Step7 maintenance and transfer-queue fixes (verified source diff, common
+ancestor1da45f3). Existing WGS DAG mounts are also pre-P0. Resolve the test-release
+integration first; neither wheel-only installation nor whole-source rollback
+is accepted. GATK testing remains deferred, not a prerequisite. A shared backend
+containing dormant GATK code does not by itself constitute a GATK rollout.
+
+User defers GATK/WES testing and approves the WGS test-entry/candidate-runtime
+paired deployment and minimum recovery verification. This supersedes the
+GATK-consumer prerequisite and pending-scope approval below for WGS only; it
+does not assert installation success. Original native/Infra owner is dispatched
+to refresh WGS consumer/mount/active-use/rollback facts and execute within the
+existing test scope. No GATK rollout, production, new service/Compose project,
+biological run, live replacement/TTL retest or automatic enablement. Necessary
+GATK helper imports in a shared module are code dependencies, not GATK activation.
+Common-runtime verification must not be reported as WES deployment acceptance.
+Actual results are pending the owner's WGS_ONLY_ROLLOUT_RECEIPT.md.
+
 Corrected platform source: `fdace86db2f25a2c3bf25ecef2c6947d5fba7d27`.
 Native functional source: `ae90b654b0fa297c5102b2f696990ed75b0b4d74`.
 Build source: `45323e4e956728bd2f4117e00e978c344b9f1bec`, a version-only child

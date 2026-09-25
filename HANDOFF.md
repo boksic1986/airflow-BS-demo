@@ -1,5 +1,59 @@
 # Handoff
 
+## 2026-09-25 WGS rollout held on verified test-baseline divergence
+
+Owner performed read-only BS10610/node200 preflight: BS10610 backend consumes
+20260923-step7-ae416fa, missing compute_recovery and publish_recovery APIs;
+Airflow worker/scheduler/api-server share candidates/step7-ae416fa-control/
+compose.json and older20260915-main-359df11 WGS/common DAG mounts. No active
+nipttest/cce-pipeline process observed and node200 runner requests empty; these
+are observations, not proof of no future/shared production consumer. Three
+execution gates remain false/paused. No remote install/push/restart/config write.
+
+Coordinator independently ran local git diff ae416fa fdace86 -- backend and
+git log fdace86..ae416fa on main/Step7/transfer files. Common ancestor1da45f3.
+Direct replacement would remove ae416fa's independent Step7 maintenance,
+frozen target/observation handling and later queued-transfer display fixes.
+New DAG plus old backend is also incompatible. No additional Alembic migration
+appears in the source diff; owner reports existing0025/0026 present.
+
+Do not misclassify shared GATK backend code as forbidden by the user's GATK-test
+deferral. No GATK gate/profile/image/test action is requested, but a separate
+WGS-only API fork would add unnecessary work. Owner has been instructed to hold
+all environment writes and record the actual evidence in task-artifacts/
+p0-final-native-ops-20260925/WGS_ONLY_ROLLOUT_RECEIPT.md. Proposed next step needs
+user direction: integrate already accepted P0 into the current test baseline,
+preserve existing fixes, perform only affected integration checks, then deploy.
+
+This turn edits only state/release/plan docs; git diff --check is the local
+non-runtime check. No coordinator SSH, tests, build or deployment. Rollback is
+not needed for the untouched environment; local documentation edits are reversible.
+Owner receipt read and SHA256 matched:
+03e76622c1374949da4f90c42640bd30857331dbb48880137ee01cdfbb658f3e.
+No runtime tests were run because integration/deployment was held before mutation.
+
+## 2026-09-25 WGS-only paired test rollout authorized
+
+User explicitly defers GATK/WES testing and approves the next WGS test-entry /
+candidate-runtime paired deployment and minimum recovery validation. GATK entry
+discovery is no longer a prerequisite; common-runtime verification is not WES
+deployment acceptance. Native/Infra remains the original artifact/deployment owner.
+
+Scope: existing BS10610 test services and ctapa node200 WGS test entry, agreed
+shared nipttest installation, accepted dev3 WGS candidate and test-only paired
+configuration. Before writes, refresh actual mounts/consumers, active-use checks,
+exact dependency closure and byte/permission/ACL rollback. Stop on unexpected
+shared production consumers or permission/environment drift. No GATK gate/profile/
+image deployment, production change, new service/Compose project, SSH authority
+change, workflow-core change, biological run, broad chmod/chown or deletion.
+Keep automatic scan/dispatch/recovery off; use only bounded synthetic recovery
+verification, not a repeated suite or new live replacement/TTL test. Shared
+outputs retain group access (2770/0660), distinct from private credentials.
+
+Coordinator owns this repository's state documents; original owner supplies an
+exact deployment and acceptance receipt without editing these shared documents.
+Approval is recorded here; deployment and validation are not yet reported done.
+
 ## 2026-09-25 dev3 offline artifacts and deployment hold
 
 Original native owner built dev3 from45323e4 (version-only child of ae90b65).

@@ -1,5 +1,24 @@
 # Current state
 
+## 2026-09-25 WGS rollout preflight: divergent test baseline, no writes
+
+Original owner reports BS10610 backend mounted20260923-step7-ae416fa lacks
+compute_recovery/publish_recovery; existing WGS DAG is also pre-P0. Coordinator
+verified locally that replacing ae416fa with fdace86 would remove newer Step7
+maintenance and transfer-queue display fixes. Common ancestor1da45f3. WGS-only
+testing does not require stripping GATK code from shared backend; GATK testing
+is not the blocker. Stop environment writes pending a bounded integration of
+accepted P0 with current test fixes. No package/image/service/gate changes made.
+
+## 2026-09-25 WGS-only test continuation approved
+
+User approves WGS test-entry/candidate-runtime paired deployment and minimum
+recovery verification; GATK/WES testing and entry discovery are deferred, not
+blockers. Original native/Infra owner performs fresh consumer/mount/rollback
+preflight before scoped writes. No production, GATK deployment, new services,
+automatic activation or whole-suite retest. Source/artifact acceptance below
+is retained; actual installation and test acceptance still need an owner receipt.
+
 ## 2026-09-25 corrected candidates ready; paired test rollout needs confirmation
 
 Platformfdace86 and nativeae90b65 source fixes are complete. Original artifact
