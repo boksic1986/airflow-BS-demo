@@ -1,5 +1,13 @@
 # Current state
 
+## 2026-09-25 documented SSH path correction
+
+Local BS10610 SSH verified exit0, hostname server10610, configured address
+172.17.106.10. User instructs using this or node005 direct IP. Do not require
+creation of a global alias solely because node005 lacks the workstation alias.
+Infra is checking existing direct connectivity/operator selection; no home/key
+change and no publication performed. Existing private OBS boundary still applies.
+
 ## 2026-09-25 four-step rollout execution authorized
 
 User explicitly says to continue and start execution. R1 is assigned to the

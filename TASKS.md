@@ -8,8 +8,10 @@
   ACTIVE_ASSETS consumers, publish and verify SFS with existing owner.
   Source/manifest refreshed;13 objects and SOURCE_READY uploaded/verified from
   node005. Supported node005 apply delegates kubectl to BS10610, but the
-  configured BS10610 SSH alias cannot resolve on node005. Await direction on
-  this managed SSH/host-key prerequisite; no SFS publication yet.
+  configured workstation-style alias cannot resolve on node005. User directs
+  existing local SSH/direct-IP routes; local BS10610 verified and Infra checks
+  existing node005 direct configuration, without adding global SSH aliases.
+  No SFS publication yet.
 - [ ] R2: compatibility check, exact rollback, nipttest dev3 install and WGS Master
   SWR publication; no GATK or unnecessary rebuild.
 - [ ] R3: versioned4.2.2 profile/catalog candidate with frozen hashes/digest.

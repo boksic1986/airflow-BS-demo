@@ -1,5 +1,22 @@
 # Handoff
 
+## 2026-09-25 user corrects SSH prerequisite; local connection verified
+
+User directs using documented local `ssh BS10610` or node005 direct IP, not
+assuming a new managed alias must be installed. Coordinator reread AGENTS and
+connection documentation. Local `ssh -G BS10610` resolves chenjc@172.17.106.10
+via ProxyJump BS; `ssh -o BatchMode=yes -o ConnectTimeout=12 BS10610 hostname`
+returned server10610, exit0. Do not blindly use the transposed172.61.106.10/9
+from the user's shorthand or infer the .9 host has the same environment.
+
+The previous conclusion that a global SSH alias/home edit was required was
+premature. Original Infra owner is checking the existing node005 direct route
+and supported operator configuration, with WGS owner avoiding duplicate probes.
+No global SSH/key/routing/CLI changes; no SOURCE_READY bypass. The separate
+BS10610 private-OBS read limitation is not disproved by successful local SSH.
+Reuse candidate20260925.1-wgs422; SFS publication and R2–R4 remain uncompleted.
+
+
 ## 2026-09-25 R1 staging cleanup receipt supplement; no new remote action
 
 WGS owner clarified its earlier cleanup: exact deleted path was
