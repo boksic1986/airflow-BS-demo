@@ -1,5 +1,12 @@
 # Current state
 
+## 2026-09-25 pause precedence pending clarification
+
+WGS task reports a direct user "先暂停" instruction; native/Infra has also paused
+R2/R3 and confirms no installation/push/profile writes. Current runtime-first
+authorization and the cross-task pause scope need user clarification. Do not
+claim those steps completed or restart owners without resolving that scope.
+
 ## 2026-09-25 runtime-first continuation authorized
 
 Latest user scope: first install the new cce-pipeline, push the WGS Master to

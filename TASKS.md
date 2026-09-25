@@ -2,6 +2,10 @@
 
 ## 2026-09-25 current slice: runtime installation, image, profile
 
+Dispatch paused by both original owners after WGS task's newer user "先暂停";
+coordinator is clarifying whether the pause also covers this runtime-first slice.
+No environment write has occurred.
+
 - [ ] R2a: original native/Infra owner verifies SOP target and installs frozen
   cce-pipeline0.8.5+p02.dev3 without unrelated dependency changes; retain rollback.
 - [ ] R2b: push the accepted WGS Master to a new SWR tag and record RepoDigest.

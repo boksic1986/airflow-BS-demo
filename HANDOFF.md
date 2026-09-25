@@ -1,5 +1,17 @@
 # Handoff
 
+## 2026-09-25 cross-task pause scope needs confirmation
+
+After dispatch, WGS owner reported a newer direct user instruction in its task:
+"先暂停". Native/Infra owner also paused R2/R3 after receiving that report;
+it confirms only SOP reads, no installation, SWR push or profile writes.
+Coordinator does not override a potentially newer user pause. Ask whether it
+applies only to WGS/SFS or also to this runtime-first slice before redispatch.
+WGS frozen SOP explicitly permits the nipttest cce-pipeline path for approved
+tests. Its exact0.8.5 example is the previous version, not proof that the user's
+explicit newdev3 installation request is invalid. No code compatibility change
+is inferred solely from that documentation example. All environment state retained.
+
 ## 2026-09-25 runtime-first slice and repository audit
 
 User directs cce-pipeline installation, new WGS Master SWR push, then new profile

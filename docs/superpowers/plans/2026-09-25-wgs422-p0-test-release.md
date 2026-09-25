@@ -19,6 +19,9 @@ R3 可以绑定预定不可变 SFS 路径，但必须明确资产未就绪、can
 
 当前三步状态：已派发原负责人，安装、推送、profile 均待实际回执；不以派发代替完成。
 
+后续暂停通知：WGS 任务报告用户在该任务要求“先暂停”，native/Infra 也已停止 R2/R3，
+确认尚无安装/push/profile 写入。协调端需确认暂停是否跨任务覆盖本轮三步，不能自行覆盖暂停指令。
+
 **Architecture:** WGS owner 管不可变流程/资源，native/Infra owner 管 wheel/Master 和实际部署，平台负责把已有生产修复、测试专有修复及 P0 合为同一测试版本。发布制品与切换运行选择分开；第3步交付候选 profile，第4步完成版本配套后才用于测试。
 
 **Tech Stack:** WGS/Snakemake、cce-pipeline、Kubernetes executor/logger、SFS/OBS/SWR、FastAPI、Airflow、Git。
