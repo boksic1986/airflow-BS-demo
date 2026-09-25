@@ -26,13 +26,14 @@
 - [x] Exact CREATE storage RPC/peer-reset and mutation Gatekeeper deadline source
   classification; deterministic Job reconciliation, strict typed consumer fields,
   original budgets and default-off policy. BS10610 final30+2 GREEN (2026-09-25).
-- [ ] Complete remaining automatic runtime enforcement, Step4 reconciliation,
-  existing UI projections and focused PostgreSQL/integration acceptance.
-  Step4 restricted probe and durable independent budget accepted64 GREEN on
-  BS10610 (2026-09-25). No I/O caller yet; new opt-in contracts only.
-  Next: wire original Step4 stage registration/runner/sensor to these contracts;
-  then existing UI/PG and
-  full automatic lifecycle integration. The source caller is not rollout approval.
+- [x] Step4 registered original-operation reconciliation wired to existing stage
+  routes/runner/reschedule sensor: hashed opt-in marker and original deadline,
+  durable begin/check/finish/poll, exact-generation/hash sends, control/manual
+  resume fences, normal successful receipt before downstream. BS10610 final
+  backend/runtime90 GREEN7.11s + actual-Airflow20 GREEN3.04s (2026-09-25).
+- [ ] Complete existing UI projections, focused PostgreSQL contention and full
+  automatic lifecycle integration/whole-plan review. The source caller is not
+  rollout approval; native/plugin artifacts and default-off policy unchanged.
 - [ ] Separately authorized live TTL/capacity/AOM/alerts gates remain closed.
 
 Task6 prerequisite accepted: final focused28 GREEN35.59s on BS10610. The selected

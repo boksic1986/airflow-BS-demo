@@ -2969,10 +2969,11 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
         publish_guard = payload.get('stage') == 'step4_publish' and 'publish_dispatch_version' in payload
         if publish_guard:
             if __package__:
-                from .cce_publish_recovery import registered_publish, observe_locked
+                from .cce_publish_recovery import registered_publish, observe_locked, require_publish_deadline
             else:
-                from cce_publish_recovery import registered_publish, observe_locked
+                from cce_publish_recovery import registered_publish, observe_locked, require_publish_deadline
             registered_publish(payload, gate=sys.modules[__name__], pipeline='wgs')
+            require_publish_deadline(payload)
         previous = _read_json(state_path)
         old_executor_locked = False
         if payload.get('resume_action_id'):
@@ -3191,6 +3192,10 @@ def main() -> int:
     if command.split()[:1] == ['--publish-probe'] and not (worker_mode or reattach_mode):
         from cce_publish_recovery import publish_probe_command
         print(json.dumps(publish_probe_command(command.split(),gate=sys.modules[__name__],pipeline='wgs'),sort_keys=True))
+        return 0
+    if command.split()[:1] == ['--publish-dispatch'] and not (worker_mode or reattach_mode):
+        from cce_publish_recovery import publish_dispatch_command
+        print(json.dumps(publish_dispatch_command(command.split(),gate=sys.modules[__name__],pipeline='wgs'),sort_keys=True))
         return 0
     analysis_id, attempt, stage = parse_command(command)
     payload = load_request(analysis_id, attempt, stage)

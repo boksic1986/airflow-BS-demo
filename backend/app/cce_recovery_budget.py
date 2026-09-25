@@ -85,6 +85,13 @@ def require_no_pending_compute_recovery(*, session, run):
     Stop/cancel paths must not use this fence: user stop keeps priority. Missing
     attempt identity is ambiguous and blocks; completed history is preserved.
     """
+    from app.cce_publish_recovery import ACTION as PUBLISH_ACTION, TERMINAL as PUBLISH_TERMINAL
+    for action in session.scalars(select(RunAction).where(
+            RunAction.analysis_id==run.analysis_id,RunAction.action==PUBLISH_ACTION)):
+        data=action.payload_json or {}
+        if data.get('attempt') in {None,run.attempt} and (
+                action.result_status not in PUBLISH_TERMINAL or data.get('in_flight')):
+            raise ValueError('pending publish dispatch must be reconciled before manual resume')
     actions = session.scalars(select(RunAction).where(
         RunAction.analysis_id == run.analysis_id, RunAction.action == ACTION)).all()
     for action in actions:

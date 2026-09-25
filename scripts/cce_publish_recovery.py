@@ -2,6 +2,7 @@
 import hashlib
 import json
 import re
+from datetime import datetime,timezone
 
 if __package__:
     from .cce_paired_runtime import _exclusive, _read_registered, _registered_request
@@ -20,6 +21,39 @@ def registered_publish(payload, *, gate, pipeline):
             or any(not payload.get(k) for k in KEYS)):
         raise ValueError('Step4 requires the registered publish dispatch contract')
     return _registered_request(payload, gate, pipeline)
+
+
+def require_publish_deadline(payload):
+    try:
+        deadline=datetime.fromisoformat(payload['publish_deadline'])
+        if deadline.tzinfo is None or datetime.now(timezone.utc)>=deadline:
+            raise ValueError('expired')
+    except (KeyError,TypeError,ValueError):
+        raise ValueError('Step4 original dispatch deadline is missing or exhausted') from None
+
+
+def publish_dispatch_command(arguments, *, gate, pipeline):
+    if (len(arguments)!=5 or arguments[0]!='--publish-dispatch'
+            or not re.fullmatch('[A-Za-z0-9_-]{1,128}',arguments[1])
+            or not re.fullmatch('[1-9][0-9]{0,8}',arguments[2])
+            or not re.fullmatch('[1-9][0-9]{0,8}',arguments[3])
+            or not re.fullmatch('[0-9a-f]{64}',arguments[4])):
+        raise ValueError('invalid restricted Step4 dispatch command')
+    _,aid,attempt,generation,digest=arguments
+    if pipeline=='gatk':
+        return gate.start(aid,int(attempt),'step4_publish',int(generation),expected_hash=digest)
+    if pipeline!='wgs':raise ValueError('invalid Step4 pipeline')
+    payload=gate.load_request(aid,int(attempt),'step4_publish')
+    if payload.get('generation')!=int(generation) or payload.get('request_hash')!=digest:
+        raise ValueError('Step4 dispatch was superseded')
+    registered_publish(payload,gate=gate,pipeline=pipeline)
+    if __package__:
+        from .wgs_release_runtime import select_release_runtime
+    else:
+        from wgs_release_runtime import select_release_runtime
+    gate.CCE_PIPELINE_BIN=select_release_runtime(payload,default_cli=gate.CCE_PIPELINE_BIN)
+    # start_async_stage revalidates these exact bytes under the launch lock.
+    return gate.start_async_stage(payload)
 
 
 def _record(path, payload):

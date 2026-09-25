@@ -1,5 +1,23 @@
 # Current state
 
+## 2026-09-25 Task6 Step4 caller checkpoint
+
+The existing WGS/GATK Step4 runner and reschedule sensor now consume the original
+operation probe/budget. First opted-in registration hashes marker1 and freezes
+the stage deadline (WGS contract timeout / GATK existing48h). Existing authenticated
+stage routes commit begin/poll intents before SSH, check current controls again
+at send, and acknowledge only the exact exited local invocation. Timeout/nonzero
+SSH hands off to reconciliation, not a task-wide retry or a new generation.
+Fixed --publish-dispatch pins generation/hash; both launch gates enforce the
+original deadline. Probe success still requires the normal successful stage
+receipt before Step5. Default-off/legacy paths and DAG graph are unchanged.
+
+BS10610 final scoped backend/runtime90 GREEN7.11s, real-Airflow20 GREEN3.04s.
+No native/plugin change, artifact rebuild, service activation or production access.
+Task6 remains OPEN: existing UI projections, focused PG contention and final
+automatic integration/whole-plan review next; separately authorized live gates
+remain closed. This is caller acceptance, not production readiness.
+
 ## 2026-09-25 Task6 Step4 operation/budget checkpoint
 
 Step4 now has a fixed restricted original-operation probe and a separate durable

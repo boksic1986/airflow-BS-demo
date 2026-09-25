@@ -1,5 +1,28 @@
 # API contract
 
+## Task6 Step4 stage-control caller (2026-09-25, source only)
+
+Supersedes the unwired checkpoint below. Existing service-token-only
+POST /api/internal/{wgs|gatk}/runs/{analysis_id}/stages/publish_recovery accepts
+attempt, fixed adapter, actual dag_run_id, current resume_action_id and
+publish_operation=begin|poll|check|finish. finish/check require the returned
+publish_execution_id and publish_sequence0..2; poll may echo the issued
+publish_observation. There is no browser route or caller-supplied path, policy,
+deadline or retry budget. Backend derives all authority from the exact registered
+request and latest execution, revalidates hash/release/workdir and controls.
+It commits its action/challenge before replying. A repeated/lost begin cannot
+grant another initial send; a lost poll permit remains in-flight/uncertain.
+
+First opted-in Step4 registration freezes publish_dispatch_version=1 and
+publish_deadline into the canonical hash. Repeated initial registration,
+including a lost failed-terminal reply, reuses the original execution. No legacy
+marker/deadline is backfilled. Initial registration and each dispatch recheck
+the current DagRun, recovery identity, control/maintenance fences. Pending publish
+also blocks manual Resume through the existing manual-recovery fence (never the
+user stop path). check is a final control recheck for the already granted sequence,
+not a second send grant; finish only acknowledges that exact local SSH exit.
+Probe success does not synthesize a successful stage receipt or release downstream.
+
 ## Task6 Step4 internal source boundary (2026-09-25)
 
 No new HTTP route or request field is enabled by this checkpoint. Internal

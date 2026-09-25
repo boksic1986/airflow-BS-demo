@@ -1,5 +1,22 @@
 # Workflow runtime integration
 
+## Task6 Step4 hash-pinned dispatch caller (2026-09-25, source only)
+
+Supersedes the unwired observation checkpoint below. First eligible registration
+hashes publish_dispatch_version=1 and publish_deadline. The existing stage-control
+route/runner/sensor consumes begin/check/finish/poll; no new execution is created
+for same-operation redispatch. Fixed --publish-dispatch ANALYSIS_ID ATTEMPT
+GENERATION REQUEST_HASH accepts only the registered Step4 request. WGS validates
+the loaded payload again under the existing launch lock; GATK checks the supplied
+hash under that lock before any intent/spawn. Both reject an expired original
+deadline. Existing duplicate/ambiguous launch guards and WGS release-runtime pins
+remain in force. Ordinary unmarked native invocation is unchanged.
+
+Lost response means reconcile, not replay. Normal stage receipt is still the
+sole success authority for subsequent stages; no native publish-record synthesis
+or output scan. Tests are synthetic on BS10610; wrappers are source-only, neither
+shared installation nor native/plugin/image artifacts were updated or activated.
+
 ## Task6 original Step4 observation (2026-09-25, source only)
 
 Both restricted wrappers accept fixed --publish-probe ANALYSIS_ID ATTEMPT

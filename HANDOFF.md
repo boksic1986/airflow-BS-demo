@@ -1,5 +1,70 @@
 # Handoff
 
+## 2026-09-25 Task6 continuation / Step4 actual caller
+
+Goal: connect the accepted Step4 probe/budget to existing WGS/GATK registration,
+runner and sensor. BASE29aae91, isolated jiucheng/runtime/CR01-cce-recovery-20260922.
+User requested continuation with no scope expansion or redundant tests. No BS96,
+production DB, analysis submission, shared installation, image rebuild or push.
+
+Completed: first opted-in Step4 freezes hashed marker1/original stage deadline;
+both adapters preserve execution identity on lost registration replies, including
+terminal failures. Existing authenticated stage route accepts begin/poll/check/
+finish and commits intent/challenge before SSH. Actual DagRun/recovery identity,
+pending control/maintenance, latest generation/hash and frozen request are checked.
+Manual Resume cannot race an unresolved publish action; stop paths remain allowed.
+Existing Airflow Step4 runner sends once via fixed --publish-dispatch, capped by
+120s/original deadline, and acknowledges only that exact local process exit.
+Timeout/nonzero enters existing sensor reconciliation. A crashed caller retains
+in-flight ambiguity. Sensor makes at most one probe per poke and sends only the
+backend-authorized same identity; success still requires normal stage receipt.
+Default-off policy, DAG graph/pools/task retries and compute budget unchanged.
+
+Files: backend cce_publish_recovery/cce_recovery_budget, main existing schemas/
+routes, WGS registration and GATK runtime service; dags cce_publish_dispatch and
+both existing DAG modules; scripts cce_publish_recovery and both runtime gates;
+two new caller test files plus original Step4 probe tests. Docs04/05/07/08,
+Task6 plan and state/task/handoff/ignored ledger aligned. No frontend/native/plugin
+changes. Needed ancillary fix: main.py used Any in the previous Worker observation
+schema without importing it; actual route import reproduced NameError, now fixed.
+
+Validation: only ignored task6.ps1 runner, BS10610 synthetic/cached containers.
+- step4-caller-red12 failures: absent registration marker / missing control caller.
+- step4-airflow-red10 failed4 passed: absent actual DagRun field/automatic stop
+  handling. Strengthened probe test to assert it actually made both control calls.
+- step4-registration-check6 failed8 passed: GATK filename suffix mismatch in new
+  caller plus not-yet-implemented exact send; use actual .request.json convention.
+- step4-send-deadline-red2 failures reproduced sends after expired deadline.
+- step4-caller-fences-red8 failed12 passed: absent manual/stale-caller fences,
+  repeated terminal registration generatedg2, and prior Any import failure.
+- step4-caller-boundary-green1 failed88 passed: package import of WGS release
+  selector failed; corrected package/standalone import as existing gates require.
+- FINAL -Mode test -Test '/task/platform/backend/tests/test_cce_publish_caller.py
+  /task/platform/scripts/tests/test_cce_publish_probe.py
+  /task/platform/backend/tests/test_cce_publish_recovery.py
+  /task/platform/scripts/tests/test_gatk_dispatcher_fence.py::test_ambiguous_spawn_does_not_launch_again'
+  -Log step4-caller-final:90 passed7.11s, exit0.
+- FINAL -Mode dag -Test /task/platform/dags/tests/test_cce_publish_caller.py
+  -Log step4-airflow-final:20 passed3.04s, exit0; actual Airflow DAG imports/callables,
+  only external HTTP/SSH substituted. No local runtime tests or broad suite rerun.
+- Tests use real SQLAlchemy temporary SQLite transactions/files/locks/request
+  registration, not production DB. PG contention and whole automatic integration
+  remain planned; this is not a PostgreSQL or cloud-operation acceptance claim.
+
+Each invocation verified test BS10610/server10610, control root
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS, current
+releases/20260912-opt-4d3d24e6 and backend36ff21f87356 actual RO mounts:
+/app from20260923-step7-ae416fa/backend/backend, /config from current. Scanner/
+auto-dispatch false; UID6708 evidence under
+/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/p02-task6-20260925.
+Cached network-none RO1CPU/1GiB containers with task scratch RW. Existing kernel
+swap-limit warning only. All services/current/rollback pointers preserved.
+
+Task6 OPEN. Next existing UI projections, focused PG contention/final automatic
+integration, then whole-plan review. Separately authorized live TTL/capacity/AOM/
+alerts still required; no production readiness claim. Rollback is source revert
+only; preserve state/receipts/history and accepted artifact pins. No cleanup.
+
 ## 2026-09-25 Task6 continuation / Step4 original operation and durable budget
 
 Goal: next approved Step4 slice, source development only, minimal targeted tests.

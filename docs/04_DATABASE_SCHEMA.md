@@ -1,5 +1,17 @@
 # 04 数据库设计
 
+## Task6 Step4 caller persistence (2026-09-25, source only)
+
+First eligible Step4 adds params_json.cce_publish_deadline for the exact frozen
+policy attempt, independently of the compute deadline/count. Its timeout is the
+existing WGS stage contract or GATK48h. The registered request hashes this absolute
+deadline plus publish_dispatch_version=1. Replays/manual same-attempt generations
+cannot slide it. Historical requests with no marker/deadline do not opt in.
+The existing RunAction contract below is now consumed by the authenticated stage
+route and Airflow runner/sensor, with commit before I/O and a final send check.
+No new model/table/migration; compute recovery budget and immutable receipts stay
+unchanged. Source-only acceptance does not authorize deployment or enablement.
+
 ## Task6 Step4 dispatch budget (2026-09-25, internal source contract)
 
 No table/migration. RunAction action=cce_publish_dispatch holds one original

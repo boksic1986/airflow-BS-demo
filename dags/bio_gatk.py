@@ -100,7 +100,7 @@ def register_stage(stage: str, **context: Any) -> dict[str, Any]:
     payload = {"attempt": conf["attempt"], "adapter": "gatk-runtime-200"}
     if conf.get('resume_action_id'):
         payload['resume_action_id'] = conf['resume_action_id']
-    if conf.get('resume_action_id') or stage in {"release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
+    if conf.get('resume_action_id') or stage in {"step4_publish", "release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
         payload["dag_run_id"] = context["dag_run"].run_id
     return _backend_json(
         f"/api/internal/gatk/runs/{conf['analysis_id']}/stages/{stage}",
@@ -116,6 +116,9 @@ def run_stage(stage: str, **context: Any) -> dict[str, Any]:
     if registered.get('status') == 'skipped':
         return registered
     conf = dict(context["dag_run"].conf or {})
+    from cce_publish_dispatch import enabled, start_publish
+    if stage == 'step4_publish' and enabled(conf):
+        return start_publish(_backend_json,pipeline='gatk',conf=conf,dag_run_id=context['dag_run'].run_id)
     command = [
         "ssh",
         "-tt",
@@ -160,6 +163,11 @@ def stage_ready(stage: str, **context: Any) -> bool:
         f"/api/internal/gatk/runs/{conf['analysis_id']}/stage-status?{query}"
     )
     policy = dict(dict(conf.get('params') or {}).get('cce_recovery_policy') or {})
+    if stage == 'step4_publish' and policy.get('enabled') is True and policy.get('attempt') == conf['attempt']:
+        from cce_publish_dispatch import poll_publish
+        recovery = poll_publish(_backend_json,pipeline='gatk',conf=conf,dag_run_id=context['dag_run'].run_id)
+        if recovery.get('status') != 'success':
+            return False
     if stage == 'step3_monitor' and policy.get('enabled') is True and policy.get('attempt') == conf['attempt']:
         from cce_worker_wait import poll_recovery
         recovery = poll_recovery(_backend_json,pipeline='gatk',conf=conf,

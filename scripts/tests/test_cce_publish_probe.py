@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import fcntl
+from datetime import datetime,timedelta,timezone
 from types import SimpleNamespace
 
 import pytest
@@ -23,6 +24,7 @@ def publish_case(request, tmp_path, monkeypatch):
     payload = dict(schema_version='wgs-runtime.request.v4', analysis_id=aid, attempt=1,
         stage='step4_publish', generation=1, execution_id=aid+'-a1-step4_publish-g1',
         orchestration_contract_version=2, publish_dispatch_version=1,
+        publish_deadline=(datetime.now(timezone.utc)+timedelta(hours=1)).isoformat(),
         control_workdir=str(path.parent))
     payload['request_hash'] = paired._request_digest(payload, pipeline)
     path.write_text(json.dumps(payload))
@@ -49,6 +51,40 @@ def write_state(case, status=None, *, live=False):
             receipt['receipt_hash'] = hashlib.sha256(json.dumps(receipt,
                 sort_keys=True, separators=(',', ':')).encode()).hexdigest()
         path.with_suffix('.status.json').write_text(json.dumps(receipt))
+
+
+def test_hash_pinned_dispatch_rejects_changed_request_before_launch(publish_case,monkeypatch):
+    from scripts import cce_publish_recovery as module
+    pipeline,gate,path,payload,_=publish_case
+    monkeypatch.setattr(gate.subprocess,'Popen',lambda *a,**kw:pytest.fail('must not launch'))
+    args=['--publish-dispatch',payload['analysis_id'],'1','1','f'*64]
+    with pytest.raises(ValueError,match='superseded'):
+        module.publish_dispatch_command(args,gate=gate,pipeline=pipeline)
+
+
+def test_hash_pinned_dispatch_reuses_exact_operation_after_lost_reply(publish_case,monkeypatch):
+    from scripts import cce_publish_recovery as module
+    pipeline,gate,_,payload,_=publish_case
+    launches=[]
+    monkeypatch.setattr(gate.subprocess,'Popen',lambda *a,**kw: launches.append(a) or SimpleNamespace(pid=os.getpid()))
+    args=['--publish-dispatch',payload['analysis_id'],'1','1',payload['request_hash']]
+    module.publish_dispatch_command(args,gate=gate,pipeline=pipeline)
+    module.publish_dispatch_command(args,gate=gate,pipeline=pipeline)
+    assert len(launches)==1
+    assert observe(publish_case)['status']=='running'
+
+
+def test_expired_registered_publish_never_spawns(publish_case,monkeypatch):
+    pipeline,gate,path,payload,_=publish_case
+    payload['publish_deadline']='2000-01-01T00:00:00+00:00'
+    payload['request_hash']=paired._request_digest(payload,pipeline)
+    path.write_text(json.dumps(payload))
+    launches=[]
+    monkeypatch.setattr(gate.subprocess,'Popen',lambda *a,**kw: launches.append(a) or SimpleNamespace(pid=os.getpid()))
+    with pytest.raises(ValueError,match='deadline'):
+        if pipeline=='wgs':gate.start_async_stage(payload)
+        else:gate.start(payload['analysis_id'],1,'step4_publish',1)
+    assert not launches
 
 
 def observe(case):

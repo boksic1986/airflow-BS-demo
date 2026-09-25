@@ -1226,12 +1226,21 @@ def _execute(analysis_id: str, attempt: int, stage: str, generation: int | None 
 
 
 def start(analysis_id: str, attempt: int, stage: str,
-          generation: int | None = None) -> dict[str, Any]:
+          generation: int | None = None, *, expected_hash: str | None = None) -> dict[str, Any]:
     if stage in {"prepare", "step7_cleanup"}:
         return _start_legacy(analysis_id, attempt, stage, generation)
     path = _request_path(analysis_id, attempt, stage)
     with _dispatch_lock(path.with_suffix(".launch.lock")):
         path, payload = _load(analysis_id, attempt, stage, generation)
+        if expected_hash is not None and payload.get('request_hash') != expected_hash:
+            raise ValueError('Step4 dispatch was superseded')
+        if stage=='step4_publish' and ('publish_dispatch_version' in payload or expected_hash is not None):
+            if __package__:
+                from .cce_publish_recovery import registered_publish, require_publish_deadline
+            else:
+                from cce_publish_recovery import registered_publish, require_publish_deadline
+            registered_publish(payload,gate=sys.modules[__name__],pipeline='gatk')
+            require_publish_deadline(payload)
         previous = _dispatch_state(path)
         same = previous is not None and _dispatch_identity(previous) == _dispatch_identity(payload)
         receipt = _dispatch_receipt(path, payload)
@@ -1264,6 +1273,10 @@ def start(analysis_id: str, attempt: int, stage: str,
 
 
 def main() -> None:
+    if sys.argv[1:2] == ['--publish-dispatch']:
+        from cce_publish_recovery import publish_dispatch_command
+        print(json.dumps(publish_dispatch_command(sys.argv[1:],gate=sys.modules[__name__],pipeline='gatk'),sort_keys=True))
+        return
     if sys.argv[1:2] == ['--publish-probe']:
         from cce_publish_recovery import publish_probe_command
         print(json.dumps(publish_probe_command(sys.argv[1:],gate=sys.modules[__name__],pipeline='gatk'),sort_keys=True))

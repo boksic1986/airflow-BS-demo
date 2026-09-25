@@ -52,9 +52,14 @@ def register_stage_execution(*, session, run: AnalysisRun, contract: WgsStageCon
                 request_payload['cce_recovery_deadline'] = deadline
         elif current_policy and policy.get('enabled') is True:
             raise ValueError('existing monitor has no original recovery deadline')
+    if stage_code == 'step4_publish':
+        from app.cce_publish_recovery import freeze_publish_request
+        freeze_publish_request(run=run,request=request_payload,latest=latest,now=now,
+            timeout_seconds=definition.timeout_seconds)
     request_hash = _sha256(request_payload)
     if latest is not None and latest.request_hash == request_hash and (
         not force_new_generation or latest.status in ACTIVE
+        or (stage_code == 'step4_publish' and request_payload.get('publish_dispatch_version') == 1)
     ):
         return latest
     if latest is not None and latest.status in ACTIVE:

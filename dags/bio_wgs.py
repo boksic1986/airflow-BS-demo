@@ -241,7 +241,7 @@ def register_stage(stage: str, **context: Any) -> dict[str, Any]:
         "maintenance_action_id": conf.get("maintenance_action_id"),
         "resume_action_id": conf.get("resume_action_id"),
     }
-    if conf.get('resume_action_id') or stage in {"release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
+    if conf.get('resume_action_id') or stage in {"step4_publish", "release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
         request_payload["dag_run_id"] = context["dag_run"].run_id
     task_instance = context.get("ti") or context.get("task_instance")
     if int(getattr(task_instance, "try_number", 1) or 1) > 1:
@@ -275,6 +275,9 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
     if registered.get("skipped"):
         return registered
     runner_stage = effective_runner_stage(stage, conf)
+    from cce_publish_dispatch import enabled, start_publish
+    if runner_stage == 'step4_publish' and enabled(conf):
+        return start_publish(_stage_query_json,pipeline='wgs',conf=conf,dag_run_id=context['dag_run'].run_id)
     command = [
         "ssh",
         "-tt",
@@ -464,6 +467,11 @@ def stage_ready(stage: str, **context: Any) -> bool:
     if payload is None:
         return False
     policy = dict(dict(conf.get('params') or {}).get('cce_recovery_policy') or {})
+    if runner_stage == 'step4_publish' and policy.get('enabled') is True and policy.get('attempt') == conf['attempt']:
+        from cce_publish_dispatch import poll_publish
+        recovery = poll_publish(_stage_query_json,pipeline='wgs',conf=conf,dag_run_id=context['dag_run'].run_id)
+        if recovery.get('status') != 'success':
+            return False
     if runner_stage == 'step3_monitor' and policy.get('enabled') is True and policy.get('attempt') == conf['attempt']:
         # Also reconcile after a lost response: the latest monitor may already
         # belong to the replacement, not to this sensor's DagRun.

@@ -364,10 +364,10 @@ assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
   fixed original-operation probe, guarded WGS ambiguous spawn and separate
   persistent sequence0/1/2 in existing RunAction; fresh post-delay evidence,
   in-flight/stop/expiry/stale/started-once fences, original deadline preserved.
-  No automatic caller/registration marker enabled. Next wire existing Step4
-  registration/runner/sensor, with hash-pinned sends and original deadline;
-  full
-  automatic lifecycle integration remain open. Do not count the source caller
+  Superseded by 2026-09-25 caller checkpoint: existing registration/runner/sensor
+  now wired with frozen marker/deadline, committed intents and hash-pinned sends.
+  BS10610 backend/runtime90 and actual-Airflow20 pass. No enabled deployment.
+  Full automatic lifecycle integration remains open. Do not count the source caller
   or manual P0-2 closure as automatic completion.
 - [ ] CR-04 reuses existing Tracker/detail waiting/recovering/exhausted/stale fields; no new page.
 - [ ] CR-05 focused PostgreSQL contention and final integration tests, no real biological analysis. Respect WGS/GATK per-adapter enablement.

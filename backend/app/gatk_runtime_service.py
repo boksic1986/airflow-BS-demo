@@ -125,7 +125,10 @@ def register_gatk_stage(
         if latest and saved and saved.get('resume_action_id') == recovery_action.payload_json['action_id']:
             _validate_recovery_request(run, latest, saved)
             return _execution_payload(latest)
-    if not recovery_action and latest is not None and latest.status in {"accepted", "running", "success"}:
+    opted_publish = (stage == 'step4_publish' and (run.params_json or {}).get('cce_publish_deadline')
+        and ((run.params_json or {}).get('cce_recovery_policy') or {}).get('enabled') is True
+        and ((run.params_json or {}).get('cce_recovery_policy') or {}).get('attempt') == attempt)
+    if not recovery_action and latest is not None and (latest.status in {"accepted", "running", "success"} or opted_publish):
         return _execution_payload(latest)
     reopening_terminal_stage = latest is not None and latest.status in {
         "failed",
@@ -186,6 +189,10 @@ def register_gatk_stage(
             deadline = start_monitor_deadline(run=run,now=datetime.now(timezone.utc))
             if deadline is not None:
                 request['cce_recovery_deadline'] = deadline
+        if stage == 'step4_publish':
+            from app.cce_publish_recovery import freeze_publish_request
+            freeze_publish_request(run=run,request=request,latest=latest,
+                now=datetime.now(timezone.utc),timeout_seconds=48*3600)
         request_hash = _canonical_hash(request)
         request["request_hash"] = request_hash
     execution = PipelineStageExecution(
@@ -207,6 +214,8 @@ def register_gatk_stage(
     )
     session.add(execution)
     resuming_failed_run = run.status == "failed"
+    if recovery_action and stage == 'step4_publish':
+        run.current_stage = stage
     if not recovery_action:
         run.status = "running"
         run.current_stage = stage

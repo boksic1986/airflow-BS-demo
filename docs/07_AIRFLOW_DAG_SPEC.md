@@ -1,5 +1,23 @@
 # Airflow DAG specification
 
+## Task6 existing Step4 runner/sensor (2026-09-25, source only)
+
+For an enabled frozen current-attempt policy, start_step4_publish registers the
+original operation, obtains the committed begin permit, rechecks check, invokes
+fixed --publish-dispatch ANALYSIS_ID ATTEMPT GENERATION REQUEST_HASH and reports
+finish only after that local SSH invocation exits. SSH timeout/nonzero is an
+uncertain outcome, not another send. Process death/lost API reply retains durable
+in-flight ambiguity. SSH dispatch is capped at120s and the original stage deadline.
+
+wait_step4_publish performs at most one read-only --publish-probe per poke (30s /
+remaining deadline), echoes exact identity+nonce on the existing stage route,
+and sends only when the backend grants that same-operation redispatch. Failure to
+observe never grants dispatch. Persisted60/180 waits and two-slot dispatch budget
+remain backend-owned; no sensor sleep loop. Expired/exhausted/stopped/failed ends
+automatic reconciliation. Success additionally requires the existing stage-status
+normal receipt before downstream. Default-off/legacy behavior, DAG graph, pools,
+task retries and the compute budget are unchanged. No production activation.
+
 ## Task6 natural Worker wait (2026-09-25, source only)
 
 The same WGS/GATK Step3 sensor performs at most one fixed read-only SSH probe per
