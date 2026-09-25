@@ -1,5 +1,51 @@
 # Handoff
 
+## 2026-09-25 approved release-version hardcode correction
+
+User agreed to remove only the fixed0.8.5 restriction in native release binding.
+Original native/Infra owner is assigned release.py plus focused version-match /
+version-mismatch regression coverage on approved remote test infrastructure.
+Retain exact catalog/actual version equality, profile/source/resource hashes,
+asset PASS, schema and authentication. No installed site-packages patch, SSH or
+HTTP redesign. This supersedes the prior defer-only note below.
+
+Coordinate with active install/push/profile slice: corrected source must have
+its own commit and successor artifact version/hash; never overwrite accepted
+dev3 wheel with different bytes. Use the fixed artifact for the installation.
+If embedded Master runtime assets remain identical, reuse accepted Master after
+identity comparison rather than rebuilding for a client release.py change.
+Do not claim completion until source/test/artifact/installation receipts arrive.
+WGS/SFS remains paused; no Airflow/BS96 service changes or real analyses.
+
+Owner subsequently reports dev3 installed in shared nipttest, pip exit0 and
+metadata/CLI0.8.5+p02.dev3, import at the agreed site-packages path. Installed
+runtime/guard hashes match63d3f178.../4009e7c5... from accepted artifacts. Owner
+states a direct user instruction in its task requested direct installation and
+no other unnecessary actions, so no separate old-package backup was made.
+SWR/profile not changed. This is owner-reported installation evidence pending
+the persisted receipt, not completion of the newly approved release.py fix.
+Asked owner to continue the approved minimal fix and provide the exact successor
+artifact/installation receipt, or report any explicit contradictory direct scope.
+
+## 2026-09-25 user resolves pause scope and resumes runtime slice
+
+User answered "确认" to continuing cce-pipeline install -> WGS Master SWR push
+-> new profile binding while only WGS/SFS is paused. Redispatched the original
+native/Infra owner with this exact scope, existing dev3/hash and image pins,
+SOP-approved nipttest test target, minimal identity checks and rollback retention.
+Do not wake paused WGS owner or apply SFS; use already frozen source/resource
+contract. Candidate profile remains inactive and asset readiness is not claimed.
+No Airflow/BS96 service change or branch merge during this slice. Actual owner
+receipts are pending; no success inferred from redispatch.
+
+Read-only final-build inspection found release.py:_validate_release_binding
+still requires both catalog/native version equality and __version__ ==0.8.5.
+With build45323e4/dev3 this rejects managed release registration/publication.
+profiles.py separately accepts immutable Master RepoDigest and bound hashes;
+this finding does not block installation/push/inactive profile parsing. Native
+owner was informed: do not spoof version, patch installed package or rebuild in
+this slice; carry the exact finding to later Airflow release-API integration.
+
 ## 2026-09-25 cross-task pause scope needs confirmation
 
 After dispatch, WGS owner reported a newer direct user instruction in its task:

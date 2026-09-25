@@ -19,8 +19,12 @@ R3 可以绑定预定不可变 SFS 路径，但必须明确资产未就绪、can
 
 当前三步状态：已派发原负责人，安装、推送、profile 均待实际回执；不以派发代替完成。
 
-后续暂停通知：WGS 任务报告用户在该任务要求“先暂停”，native/Infra 也已停止 R2/R3，
-确认尚无安装/push/profile 写入。协调端需确认暂停是否跨任务覆盖本轮三步，不能自行覆盖暂停指令。
+暂停范围已由用户回复“确认”：只暂停 WGS/SFS，恢复本轮安装/push/profile 三步。
+原 native/Infra owner 已重新派发；使用已冻结的 WGS 合同，不唤醒被暂停 WGS 任务，不执行 SFS apply。
+
+用户随后批准必要最小修复：native release.py 去掉固定0.8.5限制，仍要求记录版本等于实际版本，
+其他身份/摘要/PASS门禁不变。原owner做匹配/不匹配两个定向回归并交付新commit和后继wheel版本，
+不得覆盖dev3或直接改已安装包。安装pin以新回执为准；若Master嵌入资产不变，比较后复用既有镜像。
 
 **Architecture:** WGS owner 管不可变流程/资源，native/Infra owner 管 wheel/Master 和实际部署，平台负责把已有生产修复、测试专有修复及 P0 合为同一测试版本。发布制品与切换运行选择分开；第3步交付候选 profile，第4步完成版本配套后才用于测试。
 

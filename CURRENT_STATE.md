@@ -1,11 +1,21 @@
 # Current state
 
-## 2026-09-25 pause precedence pending clarification
+## 2026-09-25 minimal native release fix authorized
 
-WGS task reports a direct user "先暂停" instruction; native/Infra has also paused
-R2/R3 and confirms no installation/push/profile writes. Current runtime-first
-authorization and the cross-task pause scope need user clarification. Do not
-claim those steps completed or restart owners without resolving that scope.
+User approved removing the fixed0.8.5 clause from release binding while keeping
+catalog/actual version equality and all asset identity/integrity checks. Original
+native owner will provide a successor artifact, minimal remote regression evidence
+and update the active installation/push/profile receipt. No direct installed-code
+patch or automatic Master rebuild; unchanged embedded assets allow image reuse.
+This supersedes dev3 as final install pin only after the successor is evidenced.
+
+## 2026-09-25 runtime-first slice resumed; WGS/SFS remains paused
+
+User explicitly confirmed that the pause only covers WGS/SFS publication.
+Original native/Infra owner was instructed to resume R2/R3: install dev3,
+push the accepted WGS Master and bind a new inactive profile, using the frozen
+contract without waking the paused WGS task. Receipts remain pending; no BS96,
+Airflow deployment, SFS apply or real analysis is included in this slice.
 
 ## 2026-09-25 runtime-first continuation authorized
 
