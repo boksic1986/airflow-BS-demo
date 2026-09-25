@@ -1,5 +1,56 @@
 # Handoff
 
+## 2026-09-25 Task6 continuation / finite query-budget prerequisite
+
+Goal: continue original Task6/CR-04, BASE04a1a04 platform and BASEd7bd741 native,
+same isolated branches. Scope is query-only budget and strict native read ABI,
+not new recovery policy/state machine for compute, public endpoints or controls.
+Paired native source committed90cae30; plugin remains81132cf, artifacts unchanged.
+
+Completed: scripts/cce_query_reconnect.py consumes caller-owned current scope and
+original deadline, one typed read-only GET at a time. Max6 retries with delays
+30/60/120/240/300/300, capped request30s/original deadline, persist before retry,
+crash consumes in-flight slot, failed persistence cannot authorize another call.
+Partial GET success retains outage count; explicit authoritative observation is
+needed to clear it. Exhausted/blocked/foreign/corrupt state fails closed. Tests
+use actual strict native GET + fake subprocess transport and synthetic JSON;
+the runtime persistence callback itself is NOT wired to real monitor status yet.
+
+Native prerequisite: platform selected observer calls _recovery_query(configmap)
+but native only accepted Job, so real directory-lock read failed INVALID_QUERY.
+Added exact ConfigMap under same identity envelope. Missing/denied command and
+auth/certificate failures no longer map to transport; generic unable-to-connect
+is unknown, not auto-retryable. Positive caller timeout may shorten existing30s.
+No legacy _kubectl_json, Snakemake workflow/plugin, CREATE/START or installed CLI
+changes. Files: platform helper/test + docs08/plan/state/tasks/handoff; native
+cce_batch_runtime.py/test_recovery_query.py/HANDOFF. Native source commit is paired,
+not contained in accepted Task5 wheels/images. Do not rebuild/activate implicitly.
+
+Validation: task6.ps1 preflight verified ssh BS10610 -> server10610; control
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/current remains
+releases/20260912-opt-4d3d24e6, backend36ff21f87356 expected /app and /config RO
+mounts, scanner/auto-dispatch false, uid6708; no services changed. Same cached
+backend a0112f0b8ef0 with network-none/read-only root and scoped scratch.
+Evidence root: /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/p02-task6-20260925.
+Command: task6.ps1 -Mode test -Test '/task/native/tests/test_recovery_query.py
+/task/platform/scripts/tests/test_cce_query_reconnect.py' -Log query-reconnect-final.
+Initial RED: collection missing new module (exit1), query-reconnect-red.log.
+Budget-corruption RED: three expected failures (a waiting count6 could exceed its
+limit; healthy nonzero count and bool attempt accepted), one passed;
+query-reconnect-fence-red.log. Fixed input-state validation, no runtime workaround.
+Final41 passed0.79s (native24 + platform17), exit0, query-reconnect-final.log.
+No local runtime tests, broad suites, frontend/DAG reruns or real K8s operations.
+
+Remaining/next: wire this owner only to paired selected monitor GETs, with current
+worker identity and existing status JSON atomic persistence; preserve reconnect
+fields through outer handlers. GATK currently can mark query error as analysis
+failed; that consumer and DagRun callback/periodic failure projection need the
+same explicit unconfirmed marker before UI integration acceptance. No retries
+around prepare_monitor_registered, Resume mutation or whole stage. No authority
+from cached progress. Then focused PG/final automatic lifecycle + whole-plan
+review. Task6 and CR-04 remain OPEN; no production/push/main merge/deployment.
+Rollback: revert paired source commits; no installed state to restore.
+
 ## 2026-09-25 Task6 continuation / existing recovery UI
 
 Goal: CR-04 existing Tracker/RunDetail projection, BASE5257b77 on isolated

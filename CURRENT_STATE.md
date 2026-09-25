@@ -1,5 +1,26 @@
 # Current state
 
+## 2026-09-25 Task6 finite query-budget prerequisite
+
+Added the internal query-only budget core: initial GET plus max6 retries at
+30/60/120/240/300/300s, each request capped30s and by the original absolute
+deadline. Existing-stage-JSON load/save callbacks retain identity, first error,
+consumed retries, due time and last confirmed observation. Reservation is saved
+before retry; interrupted in-flight calls consume their slot. Partial GET success
+cannot reset the outage; only caller-confirmed complete observation can reset it.
+Foreign/corrupt state and permission/auth/unknown errors stop without replay.
+
+Paired native strict GET now accepts the exact directory-lock ConfigMap that the
+platform already queries, supplies a shorter bounded timeout and separates local/
+auth errors from temporary transport errors. Legacy readers are unchanged.
+BS10610 native24 + platform17 targeted tests passed0.79s. No production, installed
+CLI, images, workflow, service or policy activation; source-only checkpoint.
+
+Important: the budget helper is NOT YET WIRED to the WGS/GATK monitor. Next is its
+current-generation status persistence/producer integration and backend/UI outcome
+distinction (including GATK/callback/periodic failure projection). Task6/CR-04
+remain OPEN, followed by focused PG and final automatic lifecycle/review gates.
+
 ## 2026-09-25 Task6 recovery UI checkpoint
 
 Existing Tracker and RunDetail now consume the same optional read-only recovery

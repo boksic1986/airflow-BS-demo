@@ -1,5 +1,34 @@
 # Workflow runtime integration
 
+## Task6 finite query owner prerequisite (2026-09-25, not yet wired)
+
+Internal scripts/cce_query_reconnect.py accepts only a trusted typed read-only
+GET callback plus current scope (pipeline/analysis_id/attempt/stage/execution_id/
+generation/request_hash) and original absolute deadline. No runtime dispatch,
+new table, public route or native activation is added. Its load/save callbacks
+are reserved for the current monitor's existing stage JSON under its existing
+exclusive execution lock; the actual WGS/GATK wiring is still outstanding.
+
+First call + max6 retries use30/60/120/240/300/300s. Query timeouts are <=30s and
+remaining original deadline; late success is not accepted. Save reservation
+before request, fail closed on failed persistence, retain consumed in-flight
+retry on restart. Stored phase: healthy/waiting/querying/observing/blocked/exhausted;
+scope/deadline/retries/first_error/last_error/last_success/next_retry/reason remain
+internal query-control fields, not workflow statuses or terminal proof. A partial
+GET only reaches observing; caller-confirmed complete authoritative observation
+is necessary to clear the outage. Exhausted/blocked replay cannot self-reset.
+
+Paired native _recovery_query supports exact Job and ConfigMap GET and complete
+Job/Pod lists, with typed errors and a caller-shortened positive timeout <=30s.
+ConfigMap support repairs the selected observer's existing directory-lock call.
+Only known transport or server failures are retry candidates; generic connection
+text, auth/certificate, permission, local command or malformed response is not.
+No raw diagnostics enter the budget. Legacy _kubectl_json behavior is unchanged.
+
+BS10610 isolated native24/platform17 tests pass. Neither monitor has activated
+the helper yet; CR-04 still requires producer/status/consumer integration and
+must not infer reconnecting from degraded health alone. No Task5 artifact refresh.
+
 ## Task6 Step4 hash-pinned dispatch caller (2026-09-25, source only)
 
 Supersedes the unwired observation checkpoint below. First eligible registration

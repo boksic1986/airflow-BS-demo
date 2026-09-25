@@ -35,6 +35,15 @@
   uncertain, exact started Master, exhausted/expired, stale and completed-degraded
   labels; retain measured progress without advancing estimates. Real WGS/GATK
   ingestion retains scoped observation. BS10610 backend26/frontend13/build GREEN.
+- [x] Finite query-budget prerequisite: max6 retries30/60/120/240/300/300,
+  request/original deadline caps, durable callback reservation, interrupted retry
+  accounting, strict identity and non-retryable controls. Paired strict native GET
+  fixes existing exact ConfigMap ABI and timeout/error classification. BS10610
+  native24 + platform17 GREEN0.79s. Helper is not yet wired/activated.
+- [ ] Connect query-only owner to real WGS/GATK selected monitor/status JSON;
+  distinguish query exhaustion/control from analysis failure in GATK ingestion,
+  callback/periodic projection and existing UI. Do not wrap CREATE/START or an
+  entire stage; no second retry budget. Preserve last confirmed progress.
 - [ ] Complete finite-reconnect producer/UI distinctions, focused PostgreSQL contention and full
   automatic lifecycle integration/whole-plan review. The source caller is not
   rollout approval; native/plugin artifacts and default-off policy unchanged.

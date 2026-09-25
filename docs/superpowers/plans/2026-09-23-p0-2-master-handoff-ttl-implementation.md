@@ -377,6 +377,13 @@ assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
   BS10610 backend26/frontend13/build GREEN. Finite-reconnect producer-to-UI
   distinction remains for final integration; do not claim a retry from degraded
   health alone. No new business status, page, control or policy activation.
+  2026-09-25 query prerequisite: internal typed GET budget core (max6 bounded
+  retries with durable JSON callbacks, original deadline/identity and crash
+  reservation fences); native exact ConfigMap ABI and error/timeout fix.
+  BS10610 native24/platform17 GREEN0.79s. Not yet wired to monitor producers;
+  next integrate under current worker identity, preserve status through outer
+  failure handlers, then distinguish monitor/controller failure in backend/UI.
+  Do not mark CR-04 closed or add retries around mutation/whole-stage calls.
 - [ ] CR-05 focused PostgreSQL contention and final integration tests, no real biological analysis. Respect WGS/GATK per-adapter enablement.
 - [ ] Separate production authorization: real synthetic Complete/Failed TTL checks, all-entry Pod capacity accounting, AOM data freshness and alert notification record. Missing evidence keeps production gate closed; no invented managed metrics or self-hosted monitoring service.
 
