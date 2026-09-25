@@ -467,10 +467,9 @@ def stage_ready(stage: str, **context: Any) -> bool:
     if runner_stage == 'step3_monitor' and policy.get('enabled') is True and policy.get('attempt') == conf['attempt']:
         # Also reconcile after a lost response: the latest monitor may already
         # belong to the replacement, not to this sensor's DagRun.
-        recovery = _stage_query_json(
-            f"/api/internal/wgs/runs/{conf['analysis_id']}/stages/compute_recovery",
-            method='POST', payload=dict(attempt=conf['attempt'], adapter='wgs-runtime-200',
-                dag_run_id=context['dag_run'].run_id, resume_action_id=conf.get('resume_action_id')))
+        from cce_worker_wait import poll_recovery
+        recovery = poll_recovery(_stage_query_json,pipeline='wgs',conf=conf,
+            dag_run_id=context['dag_run'].run_id)
         if recovery.get('status') in {'waiting', 'uncertain'}:
             return False
         if recovery.get('status') in {'delegated', 'superseded'}:

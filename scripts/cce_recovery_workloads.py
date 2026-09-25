@@ -65,7 +65,7 @@ def _metadata(value, namespace):
     return metadata
 
 
-def _job_state(value, namespace, name, uid):
+def _job_state(value, namespace, name, uid, *, allow_active=False):
     if value is None:
         return "absent"
     metadata = _metadata(value, namespace)
@@ -73,19 +73,24 @@ def _job_state(value, namespace, name, uid):
         raise ValueError("Job identity differs from frozen binding")
     status = _object(value.get("status"))
     for field in ("active", "terminating"):
-        if type(status.get(field, 0)) is not int or status.get(field, 0) != 0:
+        if (type(status.get(field, 0)) is not int or status.get(field, 0) < 0
+                or (status.get(field, 0) != 0 and not allow_active)):
             raise ValueError("Job is active or uncertain")
-    conditions = status.get("conditions")
+    conditions = status.get("conditions", [] if allow_active else None)
     if not isinstance(conditions, list) or any(not isinstance(c, dict) for c in conditions):
         raise ValueError("Job terminal conditions are unavailable")
     states = {c.get("type") for c in conditions if c.get("status") == "True"
               and c.get("type") in {"Complete", "Failed"}}
+    if allow_active and not states:
+        return "Active"  # Observation only, never permission to replace a Master.
+    if any(status.get(field, 0) for field in ("active", "terminating")):
+        raise ValueError("Job terminal condition conflicts with active count")
     if len(states) != 1:
         raise ValueError("Job is not unambiguously terminal")
     return states.pop()
 
 
-def _terminated_pods(value, namespace, job_uid, *, diagnostics=None):
+def _terminated_pods(value, namespace, job_uid, *, diagnostics=None, allow_active=False):
     if (not isinstance(value, dict) or value.get("kind") not in {"List", "PodList"}
             or not isinstance(value.get("items"), list)
             or not isinstance(value.get("metadata"), dict)
@@ -106,6 +111,11 @@ def _terminated_pods(value, namespace, job_uid, *, diagnostics=None):
                 or metadata["uid"] in observed):
             raise ValueError("Pod ownership differs or inventory is duplicated")
         status, spec = _object(pod.get("status")), _object(pod.get("spec"))
+        if allow_active and status.get("phase") in {"Pending", "Running"}:
+            if not isinstance(spec.get('containers'), list) or not spec['containers']:
+                raise ValueError('active Pod container inventory is unavailable')
+            observed[metadata['uid']] = None
+            continue
         if status.get("phase") not in {"Succeeded", "Failed"}:
             raise ValueError("Pod is active or uncertain")
         exits, containers_observed = {}, []
@@ -151,7 +161,8 @@ def _terminated_pods(value, namespace, job_uid, *, diagnostics=None):
 
 
 def probe_final_workloads(*, runtime, config, namespace, run_label, master_job,
-                          master_job_uid, master_state, workers, timeout_seconds=120):
+                          master_job_uid, master_state, workers, timeout_seconds=120,
+                          allow_active_workers=False):
     """Reconcile FINAL native inventory against full live lists and exact names.
 
     Absence only counts after a successful GET and requires a persisted exact
@@ -208,14 +219,15 @@ def probe_final_workloads(*, runtime, config, namespace, run_label, master_job,
     master=None
     for name,worker in bound.items():
         job=query('job',name)
-        state=_job_state(job,namespace,name,worker['uid'])
+        allow_active = allow_active_workers and name != master_job
+        state=_job_state(job,namespace,name,worker['uid'],allow_active=allow_active)
         if (job is not None and (name not in listed
                 or job['metadata'].get('labels',{}).get('cce.biosan.cn/run-id')!=run_label)):
             raise ValueError('Job differs from complete live inventory; recheck required')
         if job is None and name in listed:raise ValueError('Job inventory changed; recheck required')
-        listed_pods=_terminated_pods({'kind':'PodList','metadata':{},'items':grouped[name]},namespace,worker['uid'])
-        pods=_terminated_pods(query('pods','-l','job-name='+name,'--chunk-size=0'),namespace,worker['uid'])
-        if set(listed_pods) != set(pods):raise ValueError('Pod inventory changed or run label differs')
+        listed_pods=_terminated_pods({'kind':'PodList','metadata':{},'items':grouped[name]},namespace,worker['uid'],allow_active=allow_active)
+        pods=_terminated_pods(query('pods','-l','job-name='+name,'--chunk-size=0'),namespace,worker['uid'],allow_active=allow_active)
+        if listed_pods != pods:raise ValueError('Pod inventory changed or run label differs')
         expected=worker.get('terminal_state')
         if state=='absent':
             if pods or (worker['uid'] is not None and expected is None):
@@ -223,8 +235,13 @@ def probe_final_workloads(*, runtime, config, namespace, run_label, master_job,
         elif expected is not None and state != ('Complete' if expected=='SUCCEEDED' else 'Failed'):
             raise ValueError('live and persisted terminal states conflict')
         if name==master_job:master=job
-        else:observations.append({'name':name,'uid':worker['uid'],'job_state':state,'pods':len(pods)})
-    return {'master':master,'master_state':master_state,'workers':observations,'workers_inactive':True}
+        else:observations.append({'name':name,'uid':worker['uid'],'job_state':state,'pods':len(pods),
+            **({'active_pods':sum(v is None for v in pods.values())} if allow_active_workers else {})})
+    active_jobs=sum(w['job_state']=='Active' for w in observations)
+    active_pods=sum(w.get('active_pods',0) for w in observations)
+    return {'master':master,'master_state':master_state,'workers':observations,
+        'workers_inactive':not (active_jobs or active_pods),
+        **({'active_worker_jobs':active_jobs,'active_worker_pods':active_pods} if allow_active_workers else {})}
 
 
 def probe_bound_workloads(*, runtime, config, namespace, master_job,

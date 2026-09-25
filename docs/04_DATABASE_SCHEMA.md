@@ -1,5 +1,16 @@
 # 04 数据库设计
 
+## Task6 bounded Worker wait (2026-09-25, source only)
+
+No migration/table. The existing cce_compute_recovery RunAction.payload_json
+optionally holds worker_wait {state:waiting|ready,started_at,deadline,probe,
+last_nonce,finished_at}. deadline is exactly min(started_at+600s,original_deadline).
+probe binds a random nonce to the original failed monitor execution_id,
+generation and request_hash. A consumed nonce cannot mark a later probe ready.
+Only validated fresh zero-active evidence sets ready; ordinary due-dispatch
+cannot bypass waiting. Retries/restarts reuse the same action and reserved slot.
+No terminal receipt, FINAL snapshot, successful output or frozen input is updated.
+
 ## Task6 policy and compute lifecycle (2026-09-25, source only)
 
 No schema migration. New WGS/GATK creation freezes params_json.cce_recovery_policy

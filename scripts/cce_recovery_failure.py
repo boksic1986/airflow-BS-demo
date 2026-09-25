@@ -75,9 +75,9 @@ def collect_failure_evidence(*, runtime, selected, contract, config, run_label, 
     _require(all(worker['terminal_state'] != 'FAILED' for worker in workers))
     observed = probe_final_workloads(runtime=runtime, config=config,
         namespace=native['namespace'],run_label=run_label,master_job=native['job_name'],
-        master_job_uid=native['job_uid'],master_state=final['state'],workers=workers)
-    _require(observed['workers_inactive'] is True
-        and all(worker['job_state'] in {'Complete','absent'} for worker in observed['workers']))
+        master_job_uid=native['job_uid'],master_state=final['state'],workers=workers,
+        allow_active_workers=True)
+    _require(all(worker['job_state'] in {'Complete','absent','Active'} for worker in observed['workers']))
     phase, candidate, counts, control = chosen
     seal = dict(phase['context'], schema='cce.master-terminal.v1',
         plugin_failure_sha256=_digest(candidate), sealed=True, complete=True,
@@ -86,7 +86,7 @@ def collect_failure_evidence(*, runtime, selected, contract, config, run_label, 
         fatal_source='executor_control' if control else 'executor_submission',
         rule_failure_count=counts['rule'],other_failure_count=counts['other'],
         executor_failure_count=counts['control']+counts['submission'],
-        active_worker_jobs=0,active_worker_pods=0,unresolved_submissions=0,
+        active_worker_jobs=observed['active_worker_jobs'],active_worker_pods=observed['active_worker_pods'],unresolved_submissions=0,
         submission_snapshot_sha256=final['submission_snapshot_sha256'])
     return dict(schema_version=2,binding=json.loads(json.dumps(binding)),phase=failed_phase,
         candidate=candidate,terminal=seal)

@@ -726,6 +726,62 @@ def reattach_registered(payload,previous,*,binding,gate,pipeline):
         operation=lambda *args:None,expected=expected,evidence=((status_path,status_raw),))
 
 
+def probe_waiting_workers(payload, *, binding, gate, pipeline, generation, request_hash, nonce):
+    """Read-only refresh of one failed observer; never rewrite its receipt."""
+    if (payload.get('stage') != 'step3_monitor' or payload.get('generation') != generation
+            or payload.get('request_hash') != request_hash
+            or re.fullmatch('[0-9a-f]{32}', nonce) is None):
+        raise ValueError('Worker probe identity differs')
+    runtime = load_runtime()
+    if runtime is None:
+        raise RuntimeError('Worker probe requires registered paired runtime')
+    path, _ = _registered_request(payload, gate, pipeline)
+    status_path = path.with_suffix('.status.json')
+    raw = _read_registered(status_path)
+    previous = json.loads(raw)
+    if (previous.get('status') != 'failed' or not previous.get('cce_recovery_evidence')
+            or any(previous.get(k) != payload.get(k) for k in
+                ('analysis_id','attempt','stage','execution_id','generation','request_hash'))):
+        raise RuntimeError('Worker probe requires the exact failed receipt')
+    expected = previous.get('cce_master_binding', {})
+    if previous.get('cce_master_submit_execution_id') != expected.get('platform_execution', {}).get('execution_id'):
+        raise RuntimeError('Worker probe producer differs')
+    bundle = Path(binding['cce_bundle'])
+    contract, config, modules = runtime._load(bundle, None)
+    writer = runtime.writer_for_bundle(runtime, bundle, contract, config)
+    if writer is None:
+        raise RuntimeError('Worker probe writer registration missing')
+    _observe_registered_source(payload,binding,gate,pipeline,runtime,bundle,contract,config,modules,writer,
+        operation=lambda *args: {'master_state':'FAILED'}, expected=expected, evidence=((status_path,raw),))
+    if __package__:
+        from .cce_recovery_inventory import master_receipt_fields
+    else:
+        from cce_recovery_inventory import master_receipt_fields
+    proof = master_receipt_fields(payload,pipeline=pipeline,details={}).get('cce_recovery_evidence')
+    if proof is None:
+        raise RuntimeError('Worker probe evidence is incomplete')
+    return dict(nonce=nonce,execution_id=payload['execution_id'],generation=generation,
+        request_hash=request_hash,cce_recovery_evidence=proof)
+
+
+def worker_probe_command(arguments, *, gate, pipeline):
+    """Fixed restricted command; all paths come from the registered request."""
+    if (len(arguments) != 6 or arguments[0] != '--recovery-probe'
+            or re.fullmatch(r'[A-Za-z0-9_-]{1,128}', arguments[1]) is None
+            or re.fullmatch(r'[1-9][0-9]{0,8}', arguments[2]) is None
+            or re.fullmatch(r'[1-9][0-9]{0,8}', arguments[3]) is None
+            or re.fullmatch(r'[0-9a-f]{64}', arguments[4]) is None
+            or re.fullmatch(r'[0-9a-f]{32}', arguments[5]) is None):
+        raise ValueError('invalid restricted Worker probe command')
+    _, analysis_id, attempt, generation, request_hash, nonce = arguments
+    if pipeline == 'wgs':
+        payload = gate.load_request(analysis_id,int(attempt),'step3_monitor')
+    else:
+        _, payload = gate._load(analysis_id,int(attempt),'step3_monitor',int(generation))
+    return probe_waiting_workers(payload,binding=gate._load_binding(payload),gate=gate,pipeline=pipeline,
+        generation=int(generation),request_hash=request_hash,nonce=nonce)
+
+
 def _predecessor(payload, gate, pipeline):
     stages = tuple(COMMANDS)
     previous = stages[stages.index(payload['stage']) - 1]

@@ -85,12 +85,14 @@ def _bound(value, schema, expected):
         raise ValueError("recovery evidence identity differs")
 
 
-def validate_recovery_evidence(*, expected_context, candidate, terminal):
+def validate_recovery_evidence(*, expected_context, candidate, terminal, allow_active_workers=False):
     """Return validated source metadata only, never dispatch or reserve a budget.
 
 terminal is produced by the trusted wrapper AFTER observing the exact Master
 Job failed/Pod exited and fully reconciling all submitted/possibly-created work.
 Each assertion is mandatory. Dispatch must independently recheck current state.
+The explicit active-Worker opt-in only admits a bounded-wait candidate, never
+quiescence or replacement permission. All existing callers remain strict.
 """
     _context(expected_context)
     control = isinstance(candidate, dict) and candidate.get("schema") == CONTROL_SCHEMA
@@ -108,10 +110,13 @@ Each assertion is mandatory. Dispatch must independently recheck current state.
             or type(terminal.get("exit_code")) is not int or terminal["exit_code"] <= 0
             or terminal.get("fatal_source") != ("executor_control" if control else "executor_submission")):
         raise ValueError("Master termination is not a classified executor failure")
-    for key in ("rule_failure_count", "other_failure_count", "active_worker_jobs",
-                "active_worker_pods", "unresolved_submissions"):
+    for key in ("rule_failure_count", "other_failure_count", "unresolved_submissions"):
         if type(terminal.get(key)) is not int or terminal[key] != 0:
             raise ValueError("conflicting, unresolved or active execution evidence")
+    for key in ('active_worker_jobs','active_worker_pods'):
+        if (type(terminal.get(key)) is not int or terminal[key] < 0
+                or (terminal[key] != 0 and not allow_active_workers)):
+            raise ValueError('conflicting, unresolved or active execution evidence')
     failures = candidate.get("failures")
     if not isinstance(failures, list) or not failures:
         raise ValueError("missing executor failures")
@@ -143,7 +148,7 @@ Each assertion is mandatory. Dispatch must independently recheck current state.
                 evidence_sha256=_digest(terminal))
 
 
-def validate_schema2_recovery_evidence(*, binding, evidence, expected_platform):
+def validate_schema2_recovery_evidence(*, binding, evidence, expected_platform, allow_active_workers=False):
     """Consume only the authenticated monitor receipt, not browser-uploaded data.
 
     The restricted reader has revalidated native FINAL and complete live work.
@@ -176,6 +181,8 @@ def validate_schema2_recovery_evidence(*, binding, evidence, expected_platform):
     if (not isinstance(terminal,dict) or not isinstance(terminal.get('submission_snapshot_sha256'),str)
             or not re.fullmatch(r'[a-f0-9]{64}',terminal['submission_snapshot_sha256'])):
         raise ValueError('native FINAL snapshot digest is required')
-    result = validate_recovery_evidence(expected_context=context,candidate=evidence.get('candidate'),terminal=terminal)
+    result = validate_recovery_evidence(expected_context=context,candidate=evidence.get('candidate'),terminal=terminal,
+        allow_active_workers=allow_active_workers)
     return dict(result,evidence_key=f"native-final/{native['job_uid']}/{phase}",
-        native_binding_sha256=_digest(binding))
+        native_binding_sha256=_digest(binding),
+        workers_active=bool(terminal['active_worker_jobs'] or terminal['active_worker_pods']))

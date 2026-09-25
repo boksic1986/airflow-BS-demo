@@ -1,14 +1,18 @@
 """One existing Airflow sensor poll -> durable recovery action; never a loop."""
 from sqlalchemy import select
+from copy import deepcopy
+from datetime import timedelta
+from uuid import uuid4
 
 from app.models import AnalysisRun, RunAction
-from app.cce_recovery_budget import ACTION, FINISHED_ACTIONS, STOPPED
+from app.cce_recovery_budget import ACTION, FINISHED_ACTIONS, STOPPED, _date, reserve_compute_recovery
+from app.cce_recovery_evidence import validate_schema2_recovery_evidence
 from app.cce_recovery_service import reserve_monitored_recovery
 from app.cce_compute_dispatch import dispatch_due_recovery
 
 
 def poll_compute_recovery(*, session, settings, airflow_client, analysis_id, attempt,
-                          pipeline, dag_run_id, resume_action_id, now):
+                          pipeline, dag_run_id, resume_action_id, now, worker_observation=None):
     run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id==analysis_id)
         .with_for_update().execution_options(populate_existing=True))
     if (not run or run.attempt!=attempt or run.pipeline_name!=pipeline
@@ -68,7 +72,11 @@ def poll_compute_recovery(*, session, settings, airflow_client, analysis_id, att
         if 'original_dag_run_id' not in action.payload_json:
             action.payload_json = dict(action.payload_json,original_dag_run_id=dag_run_id,
                 original_resume_action_id=resume_action_id)
+        wait = _worker_wait(session=session,run=run,action=action,monitor=monitor,
+            observation=worker_observation,now=now)
         session.commit()  # Sensor reschedule/process restart sees exactly this action.
+        if wait is not None:
+            return wait
         result = dispatch_due_recovery(session=session,settings=settings,airflow_client=airflow_client,
             analysis_id=analysis_id,attempt=attempt,action_id=action.payload_json['action_id'],now=now)
         if result['status']=='queued':
@@ -83,3 +91,59 @@ def poll_compute_recovery(*, session, settings, airflow_client, analysis_id, att
                 action.message='Automatic recovery requires manual review'
         session.commit()
         return dict(status='needs_attention')
+
+
+def _worker_wait(*, session, run, action, monitor, observation, now):
+    """One bounded observation per existing sensor poll; no sleeping or dispatch."""
+    data = action.payload_json
+    wait = deepcopy(data.get('worker_wait'))
+    if not wait or data.get('dispatch_state') in {'post_intent','confirmed'}:
+        return None
+    reserve_compute_recovery(session=session,analysis_id=run.analysis_id,attempt=run.attempt,
+        source_execution_id=data['source_execution_id'],source_master_uid=data['source_master_uid'],now=now)
+    deadline = _date(wait['deadline'])
+    if (deadline != min(_date(wait['started_at'])+timedelta(seconds=600),_date(data['original_deadline']))
+            or wait.get('state') not in {'waiting','ready'}):
+        raise ValueError('invalid persisted Worker wait')
+    if wait['state']=='ready':
+        return None
+    if now >= deadline:
+        raise ValueError('Worker wait deadline exhausted')
+    bound = data['evidence_binding']
+    if (monitor is None or monitor.status!='failed' or monitor.execution_id!=bound['monitor_execution_id']
+            or monitor.generation!=bound['monitor_generation'] or monitor.request_hash!=bound['monitor_request_hash']):
+        raise ValueError('Worker wait monitor superseded')
+    challenge = wait.get('probe')
+    if observation is not None:
+        if not isinstance(observation,dict) or not isinstance(observation.get('nonce'),str):
+            raise ValueError('invalid Worker observation')
+        if challenge and observation.get('nonce')==challenge['nonce']:
+            if any(observation.get(k)!=v for k,v in challenge.items()):
+                raise ValueError('Worker observation request identity differs')
+            original = monitor.terminal_payload_json['cce_recovery_evidence']
+            proof = observation.get('cce_recovery_evidence')
+            binding = monitor.terminal_payload_json['cce_master_binding']
+            result = validate_schema2_recovery_evidence(binding=binding,evidence=proof,
+                expected_platform=binding['platform_execution'],allow_active_workers=True)
+            # Only live counts may evolve. Never replace the immutable failure
+            # cause, FINAL digest, selected Master, phase or submission identity.
+            normalized = deepcopy(proof)
+            for key in ('active_worker_jobs','active_worker_pods'):
+                normalized['terminal'][key] = original['terminal'][key]
+            if normalized != original:
+                raise ValueError('Worker observation changed the failure proof')
+            wait['last_nonce'] = challenge['nonce']
+            wait.pop('probe',None)
+            if not result['workers_active']:
+                wait.update(state='ready',finished_at=now.isoformat())
+                action.payload_json = dict(data,worker_wait=wait)
+                return None
+        elif observation.get('nonce') != wait.get('last_nonce'):
+            raise ValueError('Worker observation is not the issued probe')
+        # A duplicate consumed reply does not change wait start/deadline or state.
+    if 'probe' not in wait:
+        wait['probe'] = dict(nonce=uuid4().hex,execution_id=monitor.execution_id,
+            generation=monitor.generation,request_hash=monitor.request_hash)
+    action.payload_json = dict(data,worker_wait=wait)
+    return dict(status='waiting',action_id=data['action_id'],reason='workers_active',
+        worker_probe=wait['probe'],worker_wait_deadline=wait['deadline'])

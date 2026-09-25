@@ -7,10 +7,11 @@ The caller owns the transaction and must roll it back on error, commit before
 external actions, and recheck fences/quiescence at dispatch.
 """
 from copy import deepcopy
+from datetime import timedelta
 
 from sqlalchemy import select
 
-from app.cce_recovery_budget import ACTION, reserve_compute_recovery
+from app.cce_recovery_budget import ACTION, reserve_compute_recovery, _date
 from app.cce_recovery_reader import read_recovery_evidence
 from app.cce_recovery_evidence import validate_schema2_recovery_evidence
 from app.models import AnalysisRun, PipelineStageExecution, RunAction, WgsStageExecution
@@ -91,7 +92,8 @@ bindings in historical releases reject; no backfill or invented identity.
             stage=source.stage_code,execution_id=source.execution_id,generation=source.generation,
             request_hash=source.request_hash)
         validated = validate_schema2_recovery_evidence(binding=binding,
-            evidence=_payload(monitor).get('cce_recovery_evidence'),expected_platform=platform)
+            evidence=_payload(monitor).get('cce_recovery_evidence'),expected_platform=platform,
+            allow_active_workers=True)
     else:
         # Preserve the earlier fixed-scope internal contract; it cannot fall back
         # from a missing/mismatched schema2 receipt or invent new legacy evidence.
@@ -133,5 +135,9 @@ bindings in historical releases reject; no backfill or invented identity.
     if action is None:
         raise ValueError("reserved recovery action is unavailable")
     action.payload_json = dict(action.payload_json, evidence_binding=evidence_binding)
+    if validated.get('workers_active') and 'worker_wait' not in action.payload_json:
+        action.payload_json = dict(action.payload_json, worker_wait=dict(state='waiting',
+            started_at=now.isoformat(), deadline=min(now+timedelta(seconds=600),
+                _date(receipt['original_deadline'])).isoformat()))
     session.flush()
     return deepcopy(action.payload_json)

@@ -1,5 +1,30 @@
 # Workflow runtime integration
 
+## Task6 fresh Worker wait observations (2026-09-25, source only)
+
+The automatic failure collector may report known same-owner active Worker
+Job/Pod counts from complete live inventories alongside the original native FINAL.
+This is wait evidence only: the normal replacement probe remains strict and still
+rejects active workloads, unknown ownership, pagination, changed UIDs or missing
+terminal proof. The Master and its Pods must already be terminal.
+
+Both restricted wrappers recognize the fixed command:
+`--recovery-probe ANALYSIS_ID ATTEMPT GENERATION REQUEST_HASH NONCE`.
+It reads the current registered failed Step3 request/receipt, validates the
+operator-pinned runtime, selected native producer, directory owner, retained
+lineage and complete fresh Job/Pod inventory. It returns only the bound challenge
+and verified failure evidence. It does not call Step3 execution, touch START,
+create/delete Jobs, rewrite the failed receipt/FINAL or register a generation.
+
+Existing Airflow action persists wait start/deadline and probe nonce; zero-active
+evidence alone is insufficient if FINAL/candidate/producer changed. Wait is at
+most600s and never exceeds the original compute deadline. No automatic Worker
+kill or new scheduler. If a Worker disappears without its persisted terminal
+proof, observation remains ineligible even if it may have finished successfully.
+Production wrappers/policies and accepted Task5 artifacts are NOT updated here.
+BS10610 final focused17 backend/producer +2 restricted entries +4 Airflow cases
+passed; full Task6 and live rollout gates remain open.
+
 ## Task6 original deadline consumption (2026-09-25, source only)
 
 The authenticated `cce_recovery_deadline` is now consumed by both restricted
@@ -21,8 +46,8 @@ This is a controller/monitor deadline, not a new Kubernetes cleanup policy:
 expiry raises a manual-reconciliation failure, retaining journals/evidence and
 any already-created Job. It does not kill Master/Worker, patch Job native
 activeDeadlineSeconds, alter frozen biological inputs or enable recovery policy.
-Bounded natural Worker wait remains open and must use the existing Airflow
-persistent action; active/uncertain Workers still prohibit replacement.
+Bounded natural Worker wait is covered by the subsequent checkpoint above;
+active/uncertain Workers still prohibit replacement.
 BS10610 targeted22 GREEN16.25s; Task5 artifacts remain unchanged.
 
 ## Task6 initial deadline registration (2026-09-25, source only)

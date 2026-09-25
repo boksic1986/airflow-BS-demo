@@ -1,5 +1,23 @@
 # Current state
 
+## 2026-09-25 Task6 bounded Worker wait checkpoint
+
+Known same-owner active Workers now produce a waiting candidate, not replacement
+authority. The existing Airflow recovery action persists wait start/deadline
+(max600s capped by original compute deadline), one slot and current-monitor nonce.
+Existing sensors call a fixed restricted read-only probe and return its evidence
+to the existing internal POST. Only unchanged FINAL/producer/cause plus fresh
+zero-active evidence clears waiting; native replacement independently rechecks.
+Stop, expiry or changed evidence blocks dispatch. No Worker kill or failed receipt
+rewrite; missing terminal evidence after reclamation remains blocked.
+
+BS10610 final focused17 backend/producer (5.52s),2 restricted entry (5.27s),4 real
+Airflow sensor cases (3.03s) passed. Boundary preflight unchanged; no service changes.
+Platform isolated branch only; native d7bd741/plugin c0b266b and Task5 artifacts
+unchanged. No main/production merge, push, build, install, activation or real rerun.
+Task6 still OPEN: remaining exact failure classes, Step4 reconciliation, existing
+UI projections, PG/final integration and separately authorized live cloud gates.
+
 ## 2026-09-25 Task6 controller deadline checkpoint
 
 Original registered Step3 deadline now reaches native replacement and both

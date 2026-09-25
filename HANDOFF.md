@@ -1,5 +1,68 @@
 # Handoff
 
+## 2026-09-25 Task6 continuation / bounded natural Worker wait
+
+User: continue the next approved Task6 step, preserve scope and avoid redundant
+tests. BASE platform7d9f1f8/native d7bd741/plugin c0b266b. Only the existing platform
+branch jiucheng/runtime/CR01-cce-recovery-20260922 changed. Native/plugin trees
+remain clean; Task5 artifacts unchanged. No push, merge, build, installed policy,
+production access, real rerun, deployment or service/scan/dispatch changes.
+
+Completed within this slice: existing automatic RunAction persists worker_wait
+start/deadline/state and one nonce-bound monitor probe. It consumes one existing
+compute slot and caps wait at min600s/original deadline. Duplicate consumed replies
+cannot clear the next challenge. Direct due-dispatch cannot bypass waiting;
+stop/expiry/changed proof rejects an untransmitted action. Failed monitor receipts
+and FINAL are immutable. Existing Step3 sensors call one fixed read-only restricted
+probe per poke; timeout/nonzero/malformed response only reschedules. The restricted
+reader rechecks registered request, exact failed receipt, selected native producer,
+operator writer/directory owner, retained lineage and complete live inventories.
+Only active counts may change. Normal native replacement remains strict and does
+its own fresh quiescence check before side effects. No automatic kill.
+
+Files: backend cce_recovery_{evidence,service,poll}, cce_compute_dispatch, existing
+main.py internal request/route; dags/cce_worker_wait.py plus existing bio_wgs/gatk;
+scripts/cce_recovery_workloads/failure, cce_paired_runtime and both restricted
+gate entries. New backend waiting test and focused existing runtime/DAG fixtures.
+Docs04/05/07/08, implementation plan, CURRENT_STATE/TASKS and this handoff updated.
+No new DB table/migration, public route, scheduler, DAG node, frontend or native code.
+
+Validation: backend new10 RED (missing worker_observation) ->10 GREEN3.17s.
+One attempted runtime selection ran ZERO tests because the runner splits arguments
+and the quoted '-k A or B' expression was split; no source defect or side effect.
+Corrected to exact node IDs/single-token filter, not a broad rerun. Runtime strict
+Master/active-worker checks7 GREEN5.09s; actual failed-monitor/probe2 GREEN5.43s;
+real Airflow six scoped cases GREEN3.05s. After the final nonce replay/direct
+dispatch/entry guards, final commands via ignored task6.ps1 were:
+
+- -Mode test -Test '/task/platform/backend/tests/test_cce_worker_wait.py
+  /task/platform/backend/tests/test_cce_recovery_dispatch.py::test_due_action_keeps_single_budget_and_uses_existing_resume_generation
+  /task/platform/backend/tests/test_cce_recovery_dispatch.py::test_uncertain_post_is_get_only_even_after_deadline_and_stop
+  /task/platform/scripts/tests/test_p02_failure_evidence.py::test_final_active_worker_is_wait_only_then_fresh_terminal_proof'
+  -Log worker-wait-backend-final:17 passed5.52s.
+- -Mode test -Test '/task/platform/scripts/tests/test_p02_selected_monitor.py
+  -k recoverable_failure' -Log worker-wait-entry-final:2 passed5.27s.
+- -Mode dag -Test '/task/platform/dags/tests/test_cce_recovery_poll.py::test_existing_sensor_runs_one_bounded_read_only_probe'
+  -Log worker-wait-airflow-final:4 passed3.03s.
+
+Every remote invocation verified BS10610/server10610 and existing control/current
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260912-opt-4d3d24e6;
+backend36ff21f87356 RO/app from20260923-step7-ae416fa/backend/backend, RO/config from
+current, scanner/automatic dispatch false. Evidence uid6708 confined to
+/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/p02-task6-20260925. Containers
+cached only, network none, source RO, task scratch RW,1CPU/1GiB. Live services and
+release/rollback pointers untouched. No local runtime tests, full suite, real
+Kubernetes/SSH probe execution against a run, PostgreSQL contention or TTL test;
+those require the remaining Task6/separate activation gates, not this checkpoint.
+
+Known boundary: a reclaimed Worker without exact persisted terminal proof remains
+ineligible, even if it might have completed. Query/unknown evidence never authorizes
+replacement; persisted wait eventually exhausts to manual review. No claims of
+whole Task6/P0 completion or end-to-end production readiness. Next: exact remaining
+failure classifications then Step4 uncertain-SSH same-operation reconciliation,
+CR04 existing UI and PG/final integration per plan. Rollback source checkpoint by
+reviewed revert before activation; no data/service rollback needed for this turn.
+
 ## 2026-09-25 Task6 continuation / original controller deadline
 
 User: next approved Task6 step, no expanded scope/redundant tests. BASE platform

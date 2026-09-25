@@ -1264,6 +1264,10 @@ def start(analysis_id: str, attempt: int, stage: str,
 
 
 def main() -> None:
+    if sys.argv[1:2] == ['--recovery-probe']:
+        from cce_paired_runtime import worker_probe_command
+        print(json.dumps(worker_probe_command(sys.argv[1:],gate=sys.modules[__name__],pipeline='gatk'),sort_keys=True))
+        return
     if len(sys.argv) not in {5, 6} or sys.argv[1] not in {"gatk-runtime", "_worker"}:
         raise SystemExit(
             "usage: gatk_runtime_gate.py gatk-runtime ANALYSIS_ID ATTEMPT STAGE [GENERATION]"

@@ -3170,6 +3170,10 @@ def main() -> int:
         if worker_mode or reattach_mode
         else os.getenv("SSH_ORIGINAL_COMMAND", "") or " ".join(sys.argv[1:])
     )
+    if command.split()[:1] == ['--recovery-probe'] and not (worker_mode or reattach_mode):
+        from cce_paired_runtime import worker_probe_command
+        print(json.dumps(worker_probe_command(command.split(),gate=sys.modules[__name__],pipeline='wgs'),sort_keys=True))
+        return 0
     analysis_id, attempt, stage = parse_command(command)
     payload = load_request(analysis_id, attempt, stage)
     CCE_PIPELINE_BIN = select_release_runtime(payload, default_cli=CCE_PIPELINE_BIN)

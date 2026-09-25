@@ -1,5 +1,16 @@
 # Airflow DAG specification
 
+## Task6 natural Worker wait (2026-09-25, source only)
+
+The same WGS/GATK Step3 sensor performs at most one fixed read-only SSH probe per
+poke when compute_recovery returns a Worker challenge. Existing runner alias,
+SSH config and restricted wrapper are reused; probe timeout is at most30s and
+capped by the returned wait deadline. The backend owns the persistent action,
+600s/original-deadline limit and compute budget, not the sensor or SSH process.
+Successful observation is returned to that same POST; SSH timeout/nonzero/invalid
+response reschedules without another local retry. Delegation still skips the
+old chain before observer deactivation. No DAG nodes/pools/retry counts changed.
+
 ## Task6 automatic sensor handoff (2026-09-25, source only)
 
 WGS/GATK existing Step3 reschedule sensors call compute_recovery only when their
@@ -14,8 +25,9 @@ No DAG nodes, stage ordering, pools or retry counts changed. WGS idempotent
 recovery reconciliation shares its existing bounded stage-query transport retry
 classification; GATK uses its existing backend transport classification. Default-off,
 legacy and mismatched-attempt policies do not call the automatic operation.
-Native deadline enforcement, Worker wait and Step4 reconciliation remain open;
-this sensor wiring is not whole Task6 acceptance or rollout authorization.
+Native deadline enforcement and bounded Worker wait are covered by subsequent
+checkpoints. Step4 and remaining Task6 integration remain open; this sensor wiring
+is not whole Task6 acceptance or rollout authorization.
 
 ## P0-2 GATK manual recovery selection (2026-09-24, source only)
 

@@ -161,10 +161,9 @@ def stage_ready(stage: str, **context: Any) -> bool:
     )
     policy = dict(dict(conf.get('params') or {}).get('cce_recovery_policy') or {})
     if stage == 'step3_monitor' and policy.get('enabled') is True and policy.get('attempt') == conf['attempt']:
-        recovery = _backend_json(
-            f"/api/internal/gatk/runs/{conf['analysis_id']}/stages/compute_recovery",
-            method='POST', payload=dict(attempt=conf['attempt'], adapter='gatk-runtime-200',
-                dag_run_id=context['dag_run'].run_id, resume_action_id=conf.get('resume_action_id')))
+        from cce_worker_wait import poll_recovery
+        recovery = poll_recovery(_backend_json,pipeline='gatk',conf=conf,
+            dag_run_id=context['dag_run'].run_id)
         if recovery.get('status') in {'waiting', 'uncertain'}:
             return False
         if recovery.get('status') in {'delegated', 'superseded'}:

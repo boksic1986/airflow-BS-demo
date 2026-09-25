@@ -1,11 +1,29 @@
 # API contract
 
+## Task6 internal Worker observation (2026-09-25, source only)
+
+Existing authenticated compute_recovery POST optionally accepts worker_observation
+from its Airflow service caller. This is not a public evidence upload. A waiting
+response may include worker_probe {nonce,execution_id,generation,request_hash}
+and worker_wait_deadline. Airflow obtains cce_recovery_evidence from the fixed
+restricted --recovery-probe command and echoes these four identities plus that
+evidence as worker_observation on the same endpoint. No caller-supplied path,
+deadline, recovery budget or policy is accepted.
+
+The backend revalidates the current action, original failed monitor and exact
+schema2 proof: only active_worker_jobs/pods may differ from the immutable failure
+receipt. Altered FINAL/candidate/binding, wrong nonce or expired wait rejects the
+untransmitted action to needs_attention; duplicate consumed replies cannot clear
+a newer probe. A ready observation resumes the existing due-dispatch path, with
+another native live-quiescence check before replacement. Missing/failed probes
+remain waiting until the persisted bound expires. Default-off behavior unchanged.
+
 ## Task6 existing stage-control polling (2026-09-25, source only)
 
 The existing internal POST /api/internal/{wgs|gatk}/runs/{analysis_id}/stages/{stage}
 accepts stage=compute_recovery with its existing adapter, attempt, actual
 dag_run_id and optional resume_action_id fields. Internal service authentication
-and adapter gates are unchanged. There is no new public API or user-provided
+and adapter gates are unchanged. There is no new public API or browser-provided
 evidence/deadline. This operation locks and validates the current run/action,
 consumes trusted receipt evidence and calls the same due dispatcher. Read-only
 stage-status GET does not reserve/dispatch recovery.

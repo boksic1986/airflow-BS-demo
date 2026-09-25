@@ -14,8 +14,10 @@ from snakemake_interface_logger_plugins.common import LogEvent
 @pytest.fixture
 def failed_master(view_inputs, monkeypatch, request):
     h, context = view_inputs
+    active = getattr(request,'param',None) == 'active_worker'
+    created = None
     platform = dict(pipeline=context['pipeline'], analysis_id=context['analysis_id'], attempt=1,
-        stage=getattr(request,'param','step2_master'), execution_id=context['execution_id'], generation=8, request_hash='b'*64)
+        stage='step3_monitor' if active else getattr(request,'param','step2_master'), execution_id=context['execution_id'], generation=8, request_hash='b'*64)
     selected = h.bundle.parent/'selected'
     runtime._prepare_recovery_view(h.bundle, selected, h.contract, context=context, platform_execution=platform)
     record = dict(runtime._handoff_binding(selected,h.contract), **h.contract['identity'],
@@ -30,20 +32,25 @@ def failed_master(view_inputs, monkeypatch, request):
         env=runtime._recovery_phase_start(phase);root=Path(env['SNAKEMAKE_CCE_SUBMIT_EVIDENCE_DIR'])
         ctx=json.loads(Path(env['SNAKEMAKE_CCE_SUBMIT_CONTEXT_FILE']).read_bytes())
         clock=plugin_tests.Clock()
-        manager=SubmissionManager(ctx,root,plugin_tests.API(root,[plugin_tests.admission()]*3),
+        manager=SubmissionManager(ctx,root,plugin_tests.API(root,(['success'] if active and phase=='analysis' else [])+[plugin_tests.admission()]*3),
             monotonic=clock.monotonic,sleep=clock.sleep)
         manager.claim_executor()
         audit=FailureSummary(root/'submit-context.json',root)
         event=logging.LogRecord('synthetic',logging.INFO,'synthetic',1,'',(),None)
         event.event=LogEvent.WORKFLOW_STARTED;audit.emit(event)
         if phase=='analysis':
+            if active:
+                requested = plugin_tests.body();requested.metadata.namespace=ctx['namespace']
+                created=manager.submit(requested,1)
+            requested=plugin_tests.body();requested.metadata.name='snakejob-absent'
             with pytest.raises(plugin_tests.module().SubmissionFailure):
-                manager.submit(plugin_tests.body(),1)
+                manager.submit(requested,1)
             event=logging.LogRecord('synthetic',logging.ERROR,'synthetic',1,'',(),None)
             event.event=LogEvent.ERROR;event.exception='SubmissionFailure';audit.emit(event)
         audit.close();runtime._recovery_phase_finished(phase,1 if phase=='analysis' else 0)
     base=Path(h.contract['paths']['run_dir'])/'evidence'/record['run_id']
-    (base/'jobs.ndjson').write_text('')
+    (base/'jobs.ndjson').write_text(json.dumps(dict(schema_version=2,external_jobid=created.metadata.name,
+        kubernetes_uid=created.metadata.uid,attempt=1))+'\n' if created else '')
     terminal=runtime._bind_master_terminal(dict(schema_version=1,state='FAILED',failed_stage='analysis',
         exit_code=1,exit_codes=dict(preflight=0,analysis=1,final_dryrun=None),finished_epoch=1500))
     snapshot=json.loads((base/'recovery-final.json').read_bytes())
@@ -57,11 +64,46 @@ def failed_master(view_inputs, monkeypatch, request):
         source_bundle=str(h.bundle),selected_bundle=str(selected))
     master=dict(kind='Job',metadata=dict(name='master',uid='master-uid',namespace=native['namespace'],
         labels={'cce.biosan.cn/run-id':'synthetic-run'}),status=dict(conditions=[dict(type='Failed',status='True')]))
+    worker = dict(kind='Job',metadata=dict(name=created.metadata.name,uid=created.metadata.uid,
+        namespace=native['namespace'],labels={'cce.biosan.cn/run-id':'synthetic-run'}),status=dict(active=1)) if created else None
+    pod = dict(kind='Pod',metadata=dict(name='worker-pod',uid='worker-pod-uid',namespace=native['namespace'],
+        ownerReferences=[dict(kind='Job',name=created.metadata.name,uid=created.metadata.uid,controller=True)]),
+        spec=dict(containers=[dict(name='worker')]),status=dict(phase='Running')) if created else None
+    h.wait_worker, h.wait_pod = worker, pod
     def query(config,kind,*args):
-        if kind=='job':return copy.deepcopy(master) if args[0]=='master' else None
-        return dict(kind='JobList' if kind=='jobs' else 'PodList',metadata={},items=[copy.deepcopy(master)] if kind=='jobs' else [])
+        if kind=='job':return copy.deepcopy(master if args[0]=='master' else worker if worker and args[0]==worker['metadata']['name'] else None)
+        items = [v for v in (master,worker) if v] if kind=='jobs' else [pod] if pod and args[1] in (
+            'cce.biosan.cn/run-id=synthetic-run','job-name='+worker['metadata']['name']) else []
+        return dict(kind='JobList' if kind=='jobs' else 'PodList',metadata={},items=copy.deepcopy(items))
     monkeypatch.setattr(runtime,'_recovery_query',query)
     return h,selected,binding,evidence,master
+
+
+@pytest.mark.parametrize('failed_master',['active_worker'],indirect=True)
+def test_final_active_worker_is_wait_only_then_fresh_terminal_proof(failed_master):
+    from scripts.cce_recovery_failure import collect_failure_evidence
+    from scripts.cce_recovery_inventory import lineage_workers
+    from scripts.cce_recovery_workloads import probe_final_workloads
+    h,selected,binding,_,_=failed_master
+    def collect():
+        return collect_failure_evidence(runtime=runtime,selected=selected,contract=h.contract,
+            config=h.config,run_label='synthetic-run',binding=binding)
+    before={str(p):p.read_bytes() for p in selected.rglob('*') if p.is_file()}
+    first=collect()
+    assert first['terminal']['active_worker_jobs']==first['terminal']['active_worker_pods']==1
+    workers=lineage_workers(runtime,h.contract,selected,runtime._recovery_final_evidence(selected,h.contract,'master-uid'),())
+    with pytest.raises(ValueError):
+        probe_final_workloads(runtime=runtime,config=h.config,namespace=binding['native']['namespace'],
+            run_label='synthetic-run',master_job='master',master_job_uid='master-uid',master_state='FAILED',workers=workers)
+    h.wait_worker['status']=dict(conditions=[dict(type='Complete',status='True')])
+    h.wait_pod['status']=dict(phase='Succeeded',containerStatuses=[dict(name='worker',state=dict(terminated=dict(exitCode=0)))])
+    second=collect()
+    assert second['terminal']['active_worker_jobs']==second['terminal']['active_worker_pods']==0
+    second['terminal'].update(active_worker_jobs=1,active_worker_pods=1)
+    assert second==first
+    h.wait_pod['metadata']['ownerReferences'][0]['uid']='foreign'
+    with pytest.raises(ValueError):collect()
+    assert before=={str(p):p.read_bytes() for p in selected.rglob('*') if p.is_file()}
 
 
 @pytest.mark.parametrize('change',[None,'mixed_rule','incomplete','native_identity','platform_identity','active_master'])

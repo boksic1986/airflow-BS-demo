@@ -339,6 +339,7 @@ class WgsRuntimeStageRequest(BaseModel):
     force_new_generation: bool = False
     resume_action_id: str | None = Field(default=None, max_length=128)
     dag_run_id: str | None = Field(default=None, min_length=1, max_length=250)
+    worker_observation: dict[str, Any] | None = None
 
 
 class GatkRuntimeStageRequest(BaseModel):
@@ -347,6 +348,7 @@ class GatkRuntimeStageRequest(BaseModel):
     adapter: str = Field(pattern="^gatk-runtime-200$")
     dag_run_id: str | None = Field(default=None, min_length=1, max_length=250)
     resume_action_id: str | None = Field(default=None, min_length=1, max_length=128)
+    worker_observation: dict[str, Any] | None = None
 
 
 class GatkDagTerminalRequest(BaseModel):
@@ -2103,7 +2105,8 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 return poll_compute_recovery(session=session, settings=get_settings(),
                     airflow_client=get_airflow_client(), analysis_id=analysis_id, attempt=request.attempt,
                     pipeline='wgs', dag_run_id=request.dag_run_id,
-                    resume_action_id=request.resume_action_id, now=datetime.now(timezone.utc))
+                    resume_action_id=request.resume_action_id, now=datetime.now(timezone.utc),
+                    worker_observation=request.worker_observation)
             if stage_name in {"release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
                 from app.cce_recovery_budget import require_current_dag_cleanup
                 run = require_current_dag_cleanup(session=session, analysis_id=analysis_id,
@@ -2743,7 +2746,8 @@ def internal_gatk_runtime_stage(
                 return poll_compute_recovery(session=session, settings=settings,
                     airflow_client=get_airflow_client(), analysis_id=analysis_id, attempt=request.attempt,
                     pipeline='gatk', dag_run_id=request.dag_run_id,
-                    resume_action_id=request.resume_action_id, now=datetime.now(timezone.utc))
+                    resume_action_id=request.resume_action_id, now=datetime.now(timezone.utc),
+                    worker_observation=request.worker_observation)
             def authorize():
                 from app.cce_resume_dispatch import authorize_recovery_stage
                 run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)

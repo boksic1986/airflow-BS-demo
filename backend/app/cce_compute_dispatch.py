@@ -63,6 +63,8 @@ def dispatch_due_recovery(*, session, settings, airflow_client, analysis_id,
     # this exact DagRun by GET. Never recreate an action or spend a second slot.
     if data.get('dispatch_state') not in {'post_intent','confirmed'}:
         check_before_post(run, action)
+        if data.get('worker_wait') and data['worker_wait'].get('state') != 'ready':
+            return dict(action_id=action_id,status='waiting',reason='workers_active')
         if now < _date(data['next_retry_at']):
             return dict(action_id=action_id,status='waiting',next_retry_at=data['next_retry_at'])
     if 'dag_run_id' not in data:

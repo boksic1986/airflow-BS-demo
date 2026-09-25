@@ -19,10 +19,13 @@
 - [x] Original registered deadline consumed by native replacement and WGS/GATK
   monitor loops; capped handoff, immutable replay, expiry fencing and unchanged
   untagged manual native ABI. BS10610 focused22 GREEN16.25s (2026-09-25).
+- [x] Same-owner Worker natural wait via existing durable Airflow action,
+  max600s/original deadline, fixed read-only probe, immutable failed receipt,
+  nonce/identity/FINAL check, one compute slot and strict native dispatch fence.
+  BS10610 final17+2+4 targeted cases GREEN (2026-09-25), source only.
 - [ ] Complete remaining automatic runtime enforcement, Step4 reconciliation,
   existing UI projections and focused PostgreSQL/integration acceptance.
-  Next: Airflow-owned persistent bounded Worker wait (max600s/original deadline)
-  and exact remaining source classifications; then Step4/UI/PG and
+  Next: exact remaining source classifications and Step4; then UI/PG and
   full automatic lifecycle integration. The source caller is not rollout approval.
 - [ ] Separately authorized live TTL/capacity/AOM/alerts gates remain closed.
 

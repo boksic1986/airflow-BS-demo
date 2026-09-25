@@ -371,7 +371,7 @@ def test_fresh_monitor_uses_selected_master_and_rejects_stale_authority(register
                 if fault=='reconnect':paired.prepare_monitor_registered(payload,binding=monitor_binding,gate=gate,pipeline=pipeline)
                 value=paired.monitor_registered(payload,binding=json.loads((bundle.parent/'batch-binding.json').read_bytes()),
                     gate=gate,pipeline=pipeline)
-                status='success' if value['master_state']=='SUCCEEDED' else 'running'
+                status={'SUCCEEDED':'success','FAILED':'failed'}.get(value['master_state'],'running')
                 if pipeline=='wgs':gate._write_status(payload,status,master=value)
                 else:gate._write_status(path,payload,status,'monitoring',master=value)
             answer={'status':value,'receipt':json.loads(path.with_suffix('.status.json').read_bytes()),'pid':os.getpid()}
@@ -399,6 +399,16 @@ def test_fresh_monitor_uses_selected_master_and_rejects_stale_authority(register
             assert proof['terminal']['generation']==3
             assert proof['binding']['platform_execution']['generation']==8
             assert proof['terminal']['executor_failure_count']==1
+            before_receipt=path.with_suffix('.status.json').read_bytes()
+            before_mutations=(state.creates,state.deletes,state.starts,state.copies,copy.deepcopy(state.cms))
+            observed=paired.worker_probe_command(['--recovery-probe',current['analysis_id'],str(current['attempt']),
+                str(current['generation']),current['request_hash'],'a'*32],gate=gate,pipeline=pipeline)
+            assert observed['cce_recovery_evidence']==proof
+            assert path.with_suffix('.status.json').read_bytes()==before_receipt
+            assert (state.creates,state.deletes,state.starts,state.copies,state.cms)==before_mutations
+            with pytest.raises(ValueError):
+                paired.probe_waiting_workers(json.loads(path.read_bytes()),binding=monitor_binding,
+                    gate=gate,pipeline=pipeline,generation=current['generation']+1,request_hash=current['request_hash'],nonce='a'*32)
     if fault in ('downstream','reconnect_downstream'):
         monkeypatch.setattr(runtime,'_release_batch_lock',REAL_RELEASE)
         calls=[]

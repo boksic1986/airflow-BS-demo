@@ -346,10 +346,15 @@ assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
   refuse further replacement/start after expiry, preserve untagged manual ABI.
   BS10610 focused22 GREEN16.25s (2026-09-25). Controller deadline only: no kill,
   Job native-deadline mutation, Task5 artifact rebuild or production activation.
+- [x] Bounded same-owner Worker natural wait in the existing Airflow action:
+  immutable start/deadline (min600s/original deadline), current-monitor challenge,
+  fixed read-only restricted probe and exact FINAL/producer revalidation. One
+  action/slot across retries; no kill, receipt rewrite, new scheduler or public API.
+  Native replacement keeps strict fresh quiescence. BS10610 final17+2+4 targeted
+  cases GREEN (2026-09-25). Reclaimed-without-proof stays blocked; no activation.
 - [ ] Continue CR-02/03 actual automatic dispatch using existing reservations,
   two shared slots60/180s, control fences and Step4 uncertain-dispatch reconciliation.
-  Next: bounded Worker natural wait owned by the existing Airflow persistent
-  action (max600s and original deadline); remaining source classes and full
+  Next: remaining exact source classes and Step4 reconciliation; full
   automatic lifecycle integration remain open. Do not count the source caller
   or manual P0-2 closure as automatic completion.
 - [ ] CR-04 reuses existing Tracker/detail waiting/recovering/exhausted/stale fields; no new page.
