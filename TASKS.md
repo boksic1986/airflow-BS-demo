@@ -1,5 +1,18 @@
 # Active test-branch tasks
 
+## 2026-09-25 items2/3 execution handoff
+
+- [x] P0-FINAL-PLUGIN: owner delivered5ffcb07 /0.6.4+bs8.dev2, actual wheel4 pass;
+  record docs/releases/2026-09-25-p0-final-candidates.md. No installation.
+- [x] P0-FINAL-NATIVE: d84bace /0.8.5+p02.dev2 plus WGS/GATK Master images;
+  TTL3 passed, missing terminal6 passed against final candidate; both smokes pass.
+  Receipts, actual hashes and prior failures checked; no installation or push.
+- [ ] P0-OPS-GATES: same owner requested read-only environment/capacity/AOM audit;
+  exact cloud mutation/notification/activation scope still requires confirmation.
+
+This supersedes the previous turn's "not dispatched" status, not its permission
+boundaries. No artifact or live gate is closed merely by dispatching these tasks.
+
 ## 2026-09-25 documentation coordination / owner handoff
 
 - [x] Reconcile total ledger, runbook and Task6 source closure; preserve historical

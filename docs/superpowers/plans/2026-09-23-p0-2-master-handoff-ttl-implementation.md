@@ -420,8 +420,14 @@ assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
 2026-09-25 coordination: source closure, historical Task5 artifacts, final-artifact
 handoff and live gates are tracked separately in the
 [current total ledger](2026-09-22-p0-joint-recovery-progress.md).
-Successor wheel/Master work belongs to corresponding repository agents; current
-turn is documentation only, no execution dispatched. Permission or environment
+Successor wheel/Master work belongs to corresponding repository agents. After
+documentation checkpointcbb74e7, items2/3 were dispatched to the plugin/native
+owners. Final plugin/native/Master candidates accepted with exact provenance;
+TTL3 and corrected final-image terminal6 checks plus two image smokes passed.
+Earlier skipped coverage/import failure retained; no rebuild or broad rerun.
+Read-only operational preflight is partial; live gates remain open. Exact status:
+[candidate record](../../releases/2026-09-25-p0-final-candidates.md).
+No install or cloud/service change is implied. Permission or environment
 failures must be reported, never bypassed with another Docker/Compose invocation.
 
 2026-09-25 current checkpoint: platform6f03dd6 / native1bc67fd / plugin81132cf.

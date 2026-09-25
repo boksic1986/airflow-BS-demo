@@ -1,5 +1,120 @@
 # Handoff
 
+## 2026-09-25 final offline artifact acceptance / operational stop checkpoint
+
+Goal: complete delegated items2/3 without coordinator builds or unauthorized
+installation. Host Operator testing/installation is nipttest only; WGS is not an
+installation target. Compatible Master/executor environment remains separate.
+
+Plugin owner delivered5ffcb07 /0.6.4+bs8.dev2, docs4f10c27: actual-wheel4 passed,
+10 source files matched. Coordinator read receipt/provenance and checked clean
+Git/version-only diff. Native owner source d84bace /0.8.5+p02.dev2 likewise changes
+only two version strings, clean. Full hashes/paths are recorded in
+docs/releases/2026-09-25-p0-final-candidates.md.
+
+Native harness failures, not business-code changes: attempt1 build/lib in RO
+source (exit1); attempt2 nonexistent package_source_commit import after wheel
+build (exit1). Original RW task scratch and real source_commit API restored.
+Attempt3 verify-only reused wheel SHA0b873742..., TTL3 passed but terminal module
+skipped without CCE_PLUGIN_SOURCE. Owner then built/smoked both Master images.
+Supplement failed collection with ModuleNotFoundError for submission_recovery:
+it imported the old base-image plugin. Coordinator had sent an execution-time
+warning to use final image, exact plugin/native imports and only6 missing cases.
+Ordered an immediate stop on further runs and requested timing/script/hash/log
+reconciliation; no rebuild/install/extra test or cloud action is authorized by
+this checkpoint. Subsequent receipt reconciliation confirms the corrected run
+had already completed: final WGS candidate,6 passed/0 skipped in3.78s after the
+old-base failure. The message chronology had lagged execution; exact message
+receipt timestamp unavailable. Raw failure log preserved, pre-correction script
+not separately hashed. Coordinator read original logs/provenance and recomputed
+wheel/provenance/log/script SHA values, all matching. Native TTL3+terminal6 and
+both image smokes now accepted as offline artifacts; no repeated checks needed.
+
+OPS read-only receipt confirms namespace/storage binding and a178-Job/20-Pod
+snapshot, not all-writer compatibility/provider capacity/AOM acceptance. Two TTL
+canary authorization and approved cloud read-only entry questions remain unanswered.
+No cloud writes, historical resource edits or deployment. Rollback: keep old
+artifacts selected; new candidates unactivated. No data removed.
+
+Coordinator modifications are documentation only: CURRENT_STATE, TASKS, HANDOFF,
+runbook, both plan ledgers and the new candidate record. No SSH/Docker/Compose or
+runtime test run by coordinator. Local documentation target/link check and
+git diff --check passed. Remaining commands: live TTL/other gates after scoped
+authorization. Already accepted source suites are not to be repeated.
+
+## 2026-09-25 final artifact / operational owner dispatch
+
+User re-confirmed the existing installation boundary: test Operator installation
+uses nipttest, never the host WGS environment/repository. Both owners notified;
+confirmation of any installation actions requested. CLOUD_DEPENDENCIES separates
+Operator nipttest from Master/executor (historical Python3.9 versus executor3.11);
+do not upgrade nipttest or force incompatible plugin installation. Actual package
+validation must retain its approved compatible environment; ask on ambiguity.
+
+Native owner reported and stopped on an apparent tool-version mismatch, then
+withdrew it after checking the actual Task5 paths: host WGS metadata84/0.48 was
+the wrong comparison, not evidence of drift in the approved build. Original
+nipttest RO deps remain setuptools80.10.2/wheel0.47.0, poetry-core1.9.1 cached;
+both locked base image IDs match. Owner confirms only read-only preflight,
+no pip/install, run/build, environment change or evidence-directory write.
+Coordinator supplied the existing script's path contract, not an alternate
+privilege/entry workaround. Plugin receipt and deeper OPS evidence still pending.
+
+Plugin owner stopped its first candidate build/check with exit1: in the cached
+image plus PYTHONPATH=/poetry:/testdeps, build-check.py line17 asserted Snakemake
+9.24.0+biosan1 before wheel construction. Actual version/path not printed; root
+cause unconfirmed at this point. Command: ssh BS10610 'bash
+/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/smk-k8s-group/p0-final-plugin-20260925/build.sh'.
+Log: same evidence root/build-and-check.log. No wheel or installation produced.
+Reported promptly to user/native owner; requested read-only metadata/path check
+against original Task5 build-only versus clean image smoke separation. No blind
+retry, dependency upgrade or ignored assertion authorized.
+
+Plugin read-only diagnosis confirmed /testdeps Snakemake7.32.4 shadowed the
+cached image's9.24.0+biosan1; both metadata and import paths were checked.
+Approved only the owner's harness correction within original build/verify
+separation: build-tool checks remain, actual-wheel process prioritizes wheel-site
+then image site-packages before RO pytest helpers; strict version/import path
+assertions retained. Four artifact-focused cases and byte comparison only, not
+a source-suite rerun. Original failure log retained; no dependency installation.
+
+A second harness-only failure occurred after wheel generation: the new checker
+looked for failure_summary under executor instead of logger. git ls-files
+confirmed snakemake_logger_plugin_rule_status/failure_summary.py. Owner stopped,
+reported exit1 and retained wheel SHA4adf2595794b3f08cc22b506173c33e99dcad795102417079f8a2d042a828b1a.
+Approved two path corrections and verification-only of that exact existing wheel,
+not rebuild/overwrite. It is not accepted for Master consumption until checks pass.
+
+OPS owner reports test backend still on20260923-step7-ae416fa RO, current pointer
+20260912-opt-4d3d24e6, scanner/dispatch false and recovery env unset. WGS profile
+declares old cce-pipeline0.8.4, namespace/storage mappings but live PVC/PV UID
+not yet verified. Heavy11/25 is not cluster capacity proof. AOM/SMN evidence
+unconfirmed (not proof of absence). Requested user permission for existing
+Operator read-only cluster checks plus two data-free TTL canaries and exact
+failure cleanup; no answer yet, so cloud mutations remain on hold.
+
+User now requests completion of items2/3 after documentation coordinationcbb74e7.
+Coordinator sent P0-FINAL-PLUGIN to existing task WGS-cloud-plugins
+019f9d79-be3f-7701-af33-3595d72bbfac: isolated plugin81132cf, distinct successor
+wheel, exact provenance and minimal actual-artifact checks; no shared install.
+Sent P0-FINAL-NATIVE and read-only P0-OPS-GATES preflight to huawei-cloude
+019f8355-2b77-7413-9553-6670c35a1a2f, requiring ownership confirmation before
+execution. Native1bc67fd; dependency on the new plugin wheel is explicit.
+
+Both owners explicitly accepted their scopes. Plugin owner confirmed clean
+81132cf and plans independent0.6.4+bs8.dev2 metadata only. Native owner confirmed
+clean1bc67fd and ownership of wheel/Master plus read-only operational preflight.
+Environment acceptance and artifacts are pending. Coordinator does not build
+or use Docker/Compose. Owners do not edit the coordinator's platform documents.
+Owners must stop/report denied permissions or drift, never ask the coordinator
+to bypass the restriction or substitute another entry. BS10610 is the artifact
+target; no production DB, real batches, installed CLI/service changes or push.
+Operational checks start read-only; exact live TTL Job, AOM cost/enablement,
+notification and activation scope must be returned before mutations.
+No fresh remote fingerprint is claimed by this dispatch. Source acceptance and
+old artifact hashes remain unchanged. Next: receive owner reports and record
+only proven artifact/environment results; no repeated broad source tests.
+
 ## 2026-09-25 documentation and progress coordination only
 
 User instruction: wheel/Master operations belong to corresponding repository

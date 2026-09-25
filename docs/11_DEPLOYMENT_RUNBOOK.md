@@ -7,17 +7,28 @@ GATK_CCE_RECOVERY_ENABLED both default false. No Compose/environment/production
 change accompanies their source addition. Original-deadline enforcement, bounded
 Worker wait, planned error classes, Step4 reconciliation, integration/PG and final
 source review are accepted in isolated BS10610 evidence. Do not turn them on yet:
-final Task6 artifacts and installed-writer/storage/live TTL/capacity/AOM/alert
-acceptance are still outstanding. Source acceptance is not rollout approval.
+final Task6 offline artifacts are now accepted, but installed-writer/storage/live
+TTL/capacity/AOM/alert acceptance is still outstanding. Neither source nor offline
+artifact acceptance is rollout approval. Exact artifact pins and prior harness
+failures: [final candidate record](releases/2026-09-25-p0-final-candidates.md).
 Later authorized rollout must pair backend and DAG versions and the already
 required native/plugin/writer registration gates. Enabling later affects new
 runs only; never edit old params_json or freeze fresh quotas for failed history.
 Task5 wheels/images are unchanged and do not contain Task6 additions. Their
 successor wheels/Master images belong to the corresponding repository agents,
-not the coordinator. Current authorization is documentation coordination only;
-no Docker/Compose or remote execution. Permission/environment failures must be
+not the coordinator. After documentation checkpointcbb74e7, the user requested
+items2/3: corresponding owners now handle isolated candidates and read-only
+operational preflight. No install, service/Compose change or cloud mutation is
+authorized by this handoff. Permission/environment failures must be
 reported before proceeding, not worked around. See the
 [current owner handoff](superpowers/plans/2026-09-22-p0-joint-recovery-progress.md).
+
+User-confirmed test installation boundary: Operator tests use the existing
+`/sg2/33.chenjiucheng/software/miniforge3/envs/nipttest` contract, never install
+into the host WGS environment/repository. Master/executor dependencies are a
+separate image layer, not a reason to upgrade nipttest. The original Task5 build
+used cached-image Python and read-only nipttest build dependencies; do not
+compare host WGS package versions as though they were that build environment.
 
 ## P0 paired runtime rollout remains closed (source accepted, 2026-09-25)
 

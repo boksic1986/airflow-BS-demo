@@ -1,5 +1,24 @@
 # Current state
 
+## 2026-09-25 item2 offline artifacts accepted; item3 operational gate still closed
+
+Plugin successor accepted:5ffcb07 /0.6.4+bs8.dev2, actual wheel4 pass and10 Python
+payload files matched. Native wheel d84bace /0.8.5+p02.dev2 and two Master images
+were built by their owner. Native TTL3 passed and the missing terminal6 passed
+against the final WGS image, with no skips in the supplement; both image smokes
+passed. Prior harness failures retained; execution ordering/receipts reconciled.
+No further runtime tests, installation, deployment or activation authorized.
+OPS preflight proves WGS live storage binding but not all writers,
+provider capacity or AOM/alerts. TTL writes and cloud-console entry await user
+response. Receipt: docs/releases/2026-09-25-p0-final-candidates.md.
+
+After cbb74e7 documentation coordination, user requested items2/3. Plugin final
+wheel dispatched to WGS-cloud-plugins; native/Master and read-only operational
+preflight sent to huawei-cloude with ownership confirmation required. Actual
+remaining environment evidence pending. No coordinator build/Compose
+or remote operation. No production enablement, install, service change or push.
+Latest HANDOFF records task IDs, dependencies and permission-stop boundaries.
+
 ## 2026-09-25 documentation coordination only
 
 Tasks1–6 source/synthetic acceptance is complete within its recorded scope;

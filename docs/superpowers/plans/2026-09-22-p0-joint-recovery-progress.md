@@ -1,5 +1,27 @@
 # P0 joint recovery implementation ledger
 
+## 2026-09-25 item2 离线制品已验收，item3 现场门禁未完成
+
+Plugin owner 已交付5ffcb07 /0.6.4+bs8.dev2，实际wheel4 passed、10个Python文件
+与源码一致。Native owner 已生成d84bace /0.8.5+p02.dev2及两款Master镜像；
+TTL3 passed，terminal模块首次skip、补验旧base导入失败均保留记录；修正后只补
+缺失terminal6项，在最终WGS镜像上6 passed/0 skipped，两镜像smoke通过。
+协调方已核对执行次序、原始日志/回执、wheel及脚本哈希，不再运行测试或安装。
+详见 [最终候选记录](../../releases/2026-09-25-p0-final-candidates.md)。
+现场只读核查完成部分存储身份/容量快照；真实TTL及AOM等门禁仍未完成。
+
+用户重申：测试 Operator 安装沿用 `nipttest`，不得在宿主 WGS 环境/仓库安装。
+与镜像内 Master/executor 环境分层，不为装插件擅自升级 nipttest/Python/依赖。
+两位 owner 已收到此限制；发现版本或权限冲突须先报告，不能自行换环境。
+
+用户在文档协调提交 `cbb74e7` 后要求完成2/3。P0-FINAL-PLUGIN 已派发既有任务
+`WGS-cloud-plugins`（019f9d79-be3f-7701-af33-3595d72bbfac）；P0-FINAL-NATIVE
+与 P0-OPS-GATES 只读前置核查已发送 `huawei-cloude`
+（019f8355-2b77-7413-9553-6670c35a1a2f），要求先确认对应仓库 ownership。
+平台协调方不代做构建/Compose；具体验收结果以本节和候选记录为准。
+此项只更新下方“尚未派发”的历史状态，不表示制品/部署/现场验收已完成。
+真实 TTL Job、AOM 启用/费用、通知发送与版本切换须先回报明确范围再确认。
+
 ## 2026-09-25 当前总进度与责任交接（文档协调，不执行构建）
 
 本节覆盖下方历史检查点中的“未开始 / next / OPEN”进度描述，不覆盖安全边界。
@@ -10,7 +32,7 @@
 | Tasks1–4 源码与隔离验收 | 已完成 | handoff、目录锁、Worker 终态、WGS/GATK 手动续跑及下游回执 |
 | Task5 原版制品验收 | 已完成，历史版本保留 | 2026-09-24 wheel13 / Master image smoke2；不包含后续 Task6 |
 | Task6 源码与隔离验收 | 已完成 | PG contention10、自动/手动 lifecycle4、deadline/owner4；最终审查修复后 affected13 |
-| 包含 Task6 的最终 wheel / Master 制品 | 待对应 owner 执行 | 新版本身份、精确源码 pin、实际制品最小核验及 provenance 未交付 |
+| 包含 Task6 的最终 wheel / Master 制品 | 离线候选已验收 | plugin4、native TTL3+terminal6、Master smoke2；未安装/推送/部署 |
 | 实际运行环境验收与启用 | 未完成、未启用 | 全部 writer/存储映射、真实 TTL、集群容量、AOM 数据和通知证据 |
 
 不将“6 个源码 task 已验收”换算为整体发布 100%。原 Task5 不重开、不覆盖；
