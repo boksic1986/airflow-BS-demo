@@ -1,5 +1,21 @@
 # Frontend specification
 
+## Task6 recovery presentation checkpoint (2026-09-25, source only)
+
+Reuse existing Run Tracker current-stage cell and RunDetail Current progress;
+both consume the same optional recovery object. No new page, retry button or
+browser decision logic. Show waiting/checking, confirmed recovering, stopped
+automatic recovery/manual attention, stale monitoring and completed-with-log-error
+messages plus available next-check/last-confirmed times. Dispatch acceptance alone
+is not running. Existing underlying status/history is not rewritten by this view.
+While waiting/checking/stale/needs_attention, keep last measured rule/byte counts
+and percentage with a last-confirmed label; no advancing linear estimate, live
+speed or ETA. Missing measured evidence uses an empty neutral bar, not 100% failed
+or complete. Confirmed current execution returns normal progress. Successful
+analysis with degraded log capture remains successful with a separate notice.
+Finite-reconnect producer integration is still open; degraded is not fabricated
+as "正在重连" without evidence that a reconnect is actually underway.
+
 ## 2026-09-18 imported sampleinfo configuration review
 
 After creating or restoring a run, Step2 restores `params.use_reference` from

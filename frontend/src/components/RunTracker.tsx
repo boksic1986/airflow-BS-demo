@@ -7,6 +7,7 @@ import {compactPipelineName, displayTimeZoneLabel, formatBytes, formatDate, form
 import {isActiveStatus, normalizeStatus} from "../lib/status";
 import {runStageLabel} from "../lib/runProgress";
 import {RunProgressBar} from "./RunProgressBar";
+import {RecoveryNotice, recoveryPending, recoveryProgress} from "./RecoveryNotice";
 import {EstimatedStageProgress} from "./EstimatedStageProgress";
 import {StatusBadge} from "./StatusBadge";
 import {OperationProjectCell, OperationRuntimeCell} from "./OperationCells";
@@ -159,6 +160,7 @@ function RunTrackerRow({
   const cancelled = ["cancelled", "canceled"].includes(status);
   const currentStep = cancelled ? "提交已取消" : runStageLabel(row.status, row.current_stage_label || (row.not_in_airflow ? `Preparing ${pipelineName} batch` : `${pipelineName} stage unavailable`));
   const note = row.note || progressNote(row);
+  const pending = recoveryPending(row.recovery);
   const terminalAt = row.pipeline_finished_at || row.ended_at;
   const terminalAge = ["success", "failed", "terminated"].includes(status)
     ? formatRelativeAge(terminalAt, relativeNow)
@@ -182,17 +184,17 @@ function RunTrackerRow({
       <td className="tracker-centered-cell">
         <div className="current-stage-cell">
           <strong>{currentStep}</strong>
-          {terminalAge ? (
+          {row.recovery ? <RecoveryNotice value={row.recovery} /> : terminalAge ? (
             <span className="terminal-age" title={`${formatDate(terminalAt)} ${displayTimeZoneLabel()}`}>{terminalAge}</span>
           ) : <span>{row.stage_status || row.status}</span>}
         </div>
       </td>
       <td className="tracker-centered-cell tracker-progress-cell">
-        {cancelled ? <span className="muted">提交已取消</span> : row.stage_progress?.estimate_model === "stage_median_linear_v1" || !row.stage_progress?.available && row.stage_progress?.estimated_progress_percent != null ? <EstimatedStageProgress stage={row.stage_progress} status={row.stage_status || row.status} compact /> : <RunProgressBar analysisId={row.analysis_id} compact progress={{percent: row.stage_progress?.percent ?? row.percent ?? 0, available: row.stage_progress?.available ?? row.progress_available ?? false, label: row.stage_progress?.percent == null ? "Progress pending" : formatPercent(row.stage_progress.percent), currentStep, note, notInAirflow: row.not_in_airflow, status: row.stage_status || row.status}} />}
-        {!cancelled && row.stage_progress?.available ? <small>{formatProgressUnits(row.stage_progress.completed_units, row.stage_progress.total_units, row.stage_progress.unit)}{row.stage_progress.speed_bps ? ` · ${formatBytes(row.stage_progress.speed_bps)}/s` : ""}{row.stage_progress.eta_seconds != null ? ` · ETA ${formatSecondsDuration(row.stage_progress.eta_seconds)}` : ""}</small> : null}
+        {cancelled ? <span className="muted">提交已取消</span> : pending ? <RunProgressBar analysisId={row.analysis_id} compact progress={recoveryProgress({percent:row.stage_progress?.percent ?? row.percent ?? 0,available:row.stage_progress?.available ?? row.progress_available ?? false,label:'',currentStep,note,notInAirflow:row.not_in_airflow})} /> : row.stage_progress?.estimate_model === "stage_median_linear_v1" || !row.stage_progress?.available && row.stage_progress?.estimated_progress_percent != null ? <EstimatedStageProgress stage={row.stage_progress} status={row.stage_status || row.status} compact /> : <RunProgressBar analysisId={row.analysis_id} compact progress={{percent: row.stage_progress?.percent ?? row.percent ?? 0, available: row.stage_progress?.available ?? row.progress_available ?? false, label: row.stage_progress?.percent == null ? "Progress pending" : formatPercent(row.stage_progress.percent), currentStep, note, notInAirflow: row.not_in_airflow, status: row.stage_status || row.status}} />}
+        {!cancelled && row.stage_progress?.available ? <small>{formatProgressUnits(row.stage_progress.completed_units, row.stage_progress.total_units, row.stage_progress.unit)}{!pending && row.stage_progress.speed_bps ? ` · ${formatBytes(row.stage_progress.speed_bps)}/s` : ""}{!pending && row.stage_progress.eta_seconds != null ? ` · ETA ${formatSecondsDuration(row.stage_progress.eta_seconds)}` : ""}</small> : null}
       </td>
       <td className="tracker-centered-cell">
-        <OperationRuntimeCell elapsedSeconds={row.elapsed_seconds} estimatedRemainingSeconds={row.estimated_remaining_seconds} status={row.status} submitted={Boolean(row.native_monitor_only ? row.started_at : row.submitted_at)} />
+        {pending ? <div className="runtime-cell"><strong>Elapsed {formatSecondsDuration(row.elapsed_seconds)}</strong><span>ETA 暂不可用</span></div> : <OperationRuntimeCell elapsedSeconds={row.elapsed_seconds} estimatedRemainingSeconds={row.estimated_remaining_seconds} status={row.status} submitted={Boolean(row.native_monitor_only ? row.started_at : row.submitted_at)} />}
       </td>
       <td className="tracker-centered-cell tracker-time-cell" title={`${row.native_monitor_only ? 'Native execution start' : 'Airflow handoff time'}, displayed in ${displayTimeZoneLabel()}`}><CompactDate value={row.native_monitor_only ? row.started_at : row.submitted_at} fallback={row.native_monitor_only ? 'Waiting to start' : 'Not submitted'} /></td>
       <td className="tracker-centered-cell tracker-time-cell" title={`Pipeline completion time, displayed in ${displayTimeZoneLabel()}`}><CompactDate value={row.pipeline_finished_at || row.ended_at} fallback={isActiveStatus(normalizeStatus(row.status)) ? "In progress" : "Not captured"} /></td>

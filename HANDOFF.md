@@ -1,5 +1,59 @@
 # Handoff
 
+## 2026-09-25 Task6 continuation / existing recovery UI
+
+Goal: CR-04 existing Tracker/RunDetail projection, BASE5257b77 on isolated
+jiucheng/runtime/CR01-cce-recovery-20260922. No new pages, controls, retry policy,
+native/plugin changes, production access, merge/push or artifact rebuild.
+
+Completed: shared read-only recovery_views bulk-reads current-attempt actions and
+latest stage generation. It projects waiting/checking/recovering/needs_attention/
+stale/completed_degraded with allowlisted messages, due time and last healthy
+observation time; no raw path/error/action conf exposed. Queued/running controller
+alone cannot imply started Master; schema2 platform identity, native Job/Pod UID
+and action match are required. Old attempt/generation/manual-action/user-stop
+fences apply. The successful run can retain a Step3 log-health warning after
+finalize. Historical workflow/action status and budgets are never changed by GET.
+
+Real-consumer check found running binding/health were not retained. Added a small
+UI-only cce_monitor_observation in existing execution JSON after existing identity
+gates; no terminal receipt/hash is invented. WGS/GATK preserve newer observations
+against old healthy replays. Snapshot contains only time/health and reduced binding.
+CurrentProgressPanel/RunTracker reuse existing bars, retain measured values and
+disable estimated advancement/live speed/ETA for uncertain or stopped recovery.
+Healthy reattachment removes the overlay; actual started recovery uses normal
+progress. The old failure remains history, not rewritten to success/running.
+
+Files: new backend cce_recovery_projection/cce_monitor_observation and projection
+tests; existing dashboard_service/run_service and WGS/GATK status ingestion;
+frontend API types, shared RecoveryNotice, RunTracker/CurrentProgressPanel and
+their tests; docs04/05/06 and state/plan/handoff. No runtime producer or DAG edits.
+
+Validation: BS10610 preflight server10610; control
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/current -> releases/20260912-opt-4d3d24e6;
+backend36ff21f87356 /app and /config RO mounts unchanged, scan/dispatch disabled.
+Task-specific evidence under
+/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/p02-task6-20260925.
+Cached backend image a0112f0b8ef0 and frontend builder25e83a56052d; network-none,
+read-only root, uid6708, isolated scratch only; no service changes/dependency download.
+RED: projection16 failures before implementation; UI3 expected failures; actual
+ingestion2 failures after correcting fixture's required v2 envelope. GREEN:
+pytest test_cce_recovery_projection.py test_cce_recovery_receipt_projection.py
+26 passed3.03s (ui-projection-final2.log); vitest RunTracker/CurrentProgressPanel
+13 passed6.17s (ui-components-final.log); npm run build (tsc -b + vite) exit0
+(ui-build-final.log). One intermediate frontend test failed because a loose text
+selector matched label and explanation; narrowed selector, no product workaround.
+No local runtime tests/full-suite repetition/browser or live synthetic run.
+
+Remaining: CR-04 finite-reconnect versus exhausted producer-to-UI distinction
+must be verified in final integration. This checkpoint only projects actual
+persisted health/actions; degraded alone does not prove an active reconnect loop.
+Next focused PG contention and full automatic lifecycle integration, then one
+fresh whole-plan review. Separately authorized live TTL/capacity/AOM/alerts gates
+remain closed; Task6/P0 are NOT fully complete or production-ready.
+Rollback: revert this source checkpoint; optional response/snapshot fields are
+additive with no migration. Original native d7bd741/plugin81132cf unchanged.
+
 ## 2026-09-25 Task6 continuation / Step4 actual caller
 
 Goal: connect the accepted Step4 probe/budget to existing WGS/GATK registration,

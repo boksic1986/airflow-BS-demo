@@ -20,6 +20,16 @@ const row: DashboardRunTrackerRow = {
   not_in_airflow: false,
 };
 
+it('shows recovery waiting and an unknown empty bar, never Stage failed or running ETA', () => {
+  render(<MemoryRouter><RunTracker rows={[{...row,status:'failed',stage_status:'failed',
+    recovery:{state:'waiting',message:'自动续跑等待中（1/2）',reason:'等待当前恢复执行确认启动'},
+    stage_progress:{available:false,percent:null}}]} total={1} limit={10} offset={0} filter="all" keyword="" onFilterChange={()=>undefined} onKeywordChange={()=>undefined} onPageChange={()=>undefined} onSubmit={()=>undefined}/></MemoryRouter>);
+  expect(screen.getByRole('status')).toHaveTextContent('自动续跑等待中（1/2）');
+  expect(screen.queryByText('Stage failed')).not.toBeInTheDocument();
+  expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuetext','最后确认进度未采集');
+  expect(screen.getByRole('progressbar').firstElementChild).toHaveStyle({width:'0%'});
+});
+
 it.each([['local','node-96','node96'],['local','node-97','node97'],['sge','sge-default','SGE']])('shows %s execution target %s', (mode,target,label) => {
   render(<MemoryRouter><RunTracker rows={[{...row,native_monitor_only:true,execution_mode:mode,execution_target:target}]} total={1} limit={10} offset={0} filter="all" keyword="" onFilterChange={()=>undefined} onKeywordChange={()=>undefined} onPageChange={()=>undefined} onSubmit={()=>undefined}/></MemoryRouter>);
   expect(screen.getByText(label)).toBeInTheDocument();

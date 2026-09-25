@@ -31,7 +31,11 @@
   durable begin/check/finish/poll, exact-generation/hash sends, control/manual
   resume fences, normal successful receipt before downstream. BS10610 final
   backend/runtime90 GREEN7.11s + actual-Airflow20 GREEN3.04s (2026-09-25).
-- [ ] Complete existing UI projections, focused PostgreSQL contention and full
+- [x] Existing Tracker/detail recovery projection checkpoint: durable waiting,
+  uncertain, exact started Master, exhausted/expired, stale and completed-degraded
+  labels; retain measured progress without advancing estimates. Real WGS/GATK
+  ingestion retains scoped observation. BS10610 backend26/frontend13/build GREEN.
+- [ ] Complete finite-reconnect producer/UI distinctions, focused PostgreSQL contention and full
   automatic lifecycle integration/whole-plan review. The source caller is not
   rollout approval; native/plugin artifacts and default-off policy unchanged.
 - [ ] Separately authorized live TTL/capacity/AOM/alerts gates remain closed.

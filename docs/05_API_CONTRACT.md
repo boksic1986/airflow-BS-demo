@@ -1,5 +1,24 @@
 # API contract
 
+## Task6 recovery view (2026-09-25, source only)
+
+Existing authenticated run detail and dashboard/runs item responses gain optional
+`recovery` (null/absent for ordinary, unsupported and native-only runs). Object:
+state=waiting|checking|recovering|needs_attention|stale|completed_degraded,
+message, reason, stage_code, generation, ordinal, limit=2, next_retry_at,
+last_confirmed_at. Nullable evidence/times stay null, not guessed from page reads.
+Compute ordinal1/2 is the current attempt reservation; publish ordinal0/1/2 is
+the separate existing dispatch sequence (0 initial, not a consumed retry).
+
+Read-only bulk projection from existing actions/latest executions: GET never
+reserves, dispatches, calls remote files/services or changes business status.
+Exact current identity and started-Master binding, not DagRun acceptance, enables
+recovering. Monitor-only failures remain state-unconfirmed unless authoritative
+compute-terminal failure exists. Old attempt/generation/manual recovery/user stop
+cannot revive an old action. No raw errors, filesystem paths or action conf are
+included. Finite reconnect loops with no explicit persisted signal are not
+invented; their producer-to-view integration remains a Task6 acceptance item.
+
 ## Task6 Step4 stage-control caller (2026-09-25, source only)
 
 Supersedes the unwired checkpoint below. Existing service-token-only

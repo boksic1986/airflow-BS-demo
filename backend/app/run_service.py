@@ -263,6 +263,7 @@ def _run_list_order(*, session: Session, sort: str):
 
 
 def _run_detail_payload(session: Session, run: AnalysisRun) -> dict:
+    from app.cce_recovery_projection import recovery_views
     payload = _run_payload(
         run,
         sample_count=session.scalar(
@@ -272,6 +273,7 @@ def _run_detail_payload(session: Session, run: AnalysisRun) -> dict:
     payload.update(
         {
             "mode": run.mode,
+            "recovery": recovery_views(session=session, runs=[run]).get(run.analysis_id),
             "sample_sheet_path": run.sample_sheet_path,
             "airflow_url": run.airflow_url,
             "error_summary": run.error_summary,

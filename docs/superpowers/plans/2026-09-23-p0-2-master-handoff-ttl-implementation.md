@@ -370,6 +370,13 @@ assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
   Full automatic lifecycle integration remains open. Do not count the source caller
   or manual P0-2 closure as automatic completion.
 - [ ] CR-04 reuses existing Tracker/detail waiting/recovering/exhausted/stale fields; no new page.
+  2026-09-25 projection checkpoint: common read-only action/current-generation
+  view and existing UI connected; running binding/health retained by real WGS/GATK
+  consumers. Pending display freezes measured progress/estimates; exact Master
+  proof required for recovering, completed log-health warning retained.
+  BS10610 backend26/frontend13/build GREEN. Finite-reconnect producer-to-UI
+  distinction remains for final integration; do not claim a retry from degraded
+  health alone. No new business status, page, control or policy activation.
 - [ ] CR-05 focused PostgreSQL contention and final integration tests, no real biological analysis. Respect WGS/GATK per-adapter enablement.
 - [ ] Separate production authorization: real synthetic Complete/Failed TTL checks, all-entry Pod capacity accounting, AOM data freshness and alert notification record. Missing evidence keeps production gate closed; no invented managed metrics or self-hosted monitoring service.
 

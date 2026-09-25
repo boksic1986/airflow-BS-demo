@@ -434,6 +434,8 @@ def sync_gatk_stage_status(
             raise ValueError("GATK stage sidecar identity mismatch")
         state = str(value.get("status") or "running").lower()
         if state in {"running", "success", "failed", "canceled"} and row.status not in {"success", "failed", "canceled"}:
+            from app.cce_monitor_observation import KEY as MONITOR_KEY, retain_monitor_observation
+            previous_monitor = (row.terminal_payload_json or {}).get(MONITOR_KEY)
             now = datetime.now(timezone.utc)
             row.status = state
             row.message = str(value.get("message") or "") or None
@@ -447,6 +449,7 @@ def sync_gatk_stage_status(
                 row.receipt_hash = str(value.get("receipt_hash") or _canonical_hash(value))
                 snapshot = (row.terminal_payload_json or {}).get(KEY)
                 row.terminal_payload_json = {**value, **({KEY: snapshot} if snapshot is not None else {})}
+            retain_monitor_observation(row, value, pipeline='gatk', previous=previous_monitor)
             _upsert_gatk_stage_state(
                 session,
                 analysis_id=analysis_id,

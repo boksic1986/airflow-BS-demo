@@ -1,5 +1,25 @@
 # Current state
 
+## 2026-09-25 Task6 recovery UI checkpoint
+
+Existing Tracker and RunDetail now consume the same optional read-only recovery
+projection: waiting/checking/recovering/needs_attention/stale/completed_degraded.
+Accepted/queued dispatch is not proof of a started replacement Master. Exact
+current monitor schema2 identity plus Job/Pod UID and recovery action are required.
+Existing status history/budgets remain unchanged. Pending/uncertain display keeps
+last measured progress, disables time-based estimates/ETA and never fills a failed
+or complete bar without evidence. No new page, control action or scheduler.
+
+The existing WGS/GATK status consumers retain an allowlisted current-monitor
+observation in existing execution JSON; newer degraded evidence cannot be cleared
+by an older healthy replay. This closes the real running-evidence ingestion gap,
+not only a fixture-only UI path. No schema migration or producer changes.
+BS10610 final backend26 GREEN3.03s, frontend13 GREEN6.17s and tsc/Vite build GREEN.
+Source-only, original P0 branch; no production, merge/push, image build or activation.
+Task6 remains OPEN: finite-reconnect producer-to-UI distinctions, focused PG
+contention, final automatic lifecycle integration and whole-plan review. An absent
+explicit reconnect signal remains state-unconfirmed, never an invented retry.
+
 ## 2026-09-25 Task6 Step4 caller checkpoint
 
 The existing WGS/GATK Step4 runner and reschedule sensor now consume the original

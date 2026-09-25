@@ -1,5 +1,18 @@
 # 04 数据库设计
 
+## Task6 monitor UI observation (2026-09-25, source only)
+
+No table/migration. Existing WgsStageExecution/PipelineStageExecution
+terminal_payload_json optionally contains cce_monitor_observation for Step3:
+observed_at, monitoring_health, last_success_at and a reduced cce_master_binding
+(schema2 exact platform identity; native Job/Pod UID and recovery_context).
+The existing trusted status consumer writes it only after current execution
+identity checks. Older/equal timestamps cannot replace a newer observation.
+Degraded observations retain the last healthy time, never the current GET time.
+It is UI evidence only, NOT a terminal receipt or recovery permission; execution
+status, receipt_hash, estimate baseline and action budgets keep existing semantics.
+Public reads expose only allowlisted display fields, not this private binding.
+
 ## Task6 Step4 caller persistence (2026-09-25, source only)
 
 First eligible Step4 adds params_json.cce_publish_deadline for the exact frozen
