@@ -13,6 +13,12 @@ component manifests; owner was asked to trace old-release consumers before any
 apply. That compatibility finding is unresolved, not authority to change code.
 Resume only on explicit user direction.0.8.6/SWR/r2 completion is unchanged.
 
+Post-pause owner summaries received: WGS performed read-only BS10610 checks of
+client0.8.6, r2 SHA4a016a2d..., payload09da0287..., resource manifest67713468...
+and source3b1dae5; no new remote writes/upload/apply/switch/cleanup. Infra only
+read docs and parsed local ssh configuration, no remote connection or mutation.
+SFS publication remains undone; no new publication receipt exists.
+
 ## 2026-09-26 R1 resumed by user
 
 User request: "先完成1" after the four-step outline. Scope is WGS4.2.2 SFS
