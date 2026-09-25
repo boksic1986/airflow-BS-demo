@@ -9,6 +9,11 @@ WGS4.2.2/P0 test-release plan, not BS96 deployment, GATK testing or real runs.
 ACTIVE_ASSETS consumer impact remains a pre-write gate. No deployment success
 is inferred from authorization; individual owner receipts are still required.
 
+Pre-integration correction: test781877e has equivalent Step7 code via255be59.
+`git diff ae416fa 781877e -- backend dags scripts config frontend` is empty.
+The earlier ancestry-only statement did not mean the fix was absent; preserve
+this code without a duplicate cherry-pick. P0 still needs bounded integration.
+
 ## 2026-09-25 replacement four-step WGS4.2.2/P0 rollout plan
 
 User requests a new sequence: WGS4.2.2 SFS publication with WGS-pipeline owner,

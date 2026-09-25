@@ -17,6 +17,24 @@ Only local plan/state documentation changed so far; runtime results and test
 commands will be appended from owner receipts. Evidence stays task-scoped under
 WGS_test; no redundant full-suite tests. Local docs rollback is a Git revert.
 
+R4 read-only preparation found a plan-input correction: ae416fa is not an
+ancestor of test781877e, but255be59 contains the equivalent Step7 patch. Exact
+diff across backend/dags/scripts/config/frontend is empty (exit0). Both planned
+maintenance and shared-transfer test files and selected test functions exist
+on781877e. Do not cherry-pick ae416fa again. This changes integration mechanics,
+not scope or the need to preserve those fixes when merging P0. Initial rg in
+the P0 worktree returned exit1 because those newer tests are on the test branch;
+git show confirms their presence there. No runtime tests or remote writes by
+coordinator. Authorization docs committed a0961d6; R1/R2 owners dispatched.
+
+Non-mutating integration preview: `git merge-tree --write-tree --name-only
+781877e fdace86` returned exit1 for expected conflicts (no checkout/ref changed).
+Only two code files conflict: wgs_observer.py must retain P0 row refresh/locking
+and Step7 projection; wgs_runtime_gate.py must keep Step7 request/command guards
+alongside P0 publish/probe handling. Remaining conflicts are contracts/design/
+state docs. main.py auto-merges but its combined API behavior still needs the
+planned targeted verification. This is preparation, not R4 deployment acceptance.
+
 ## 2026-09-25 WGS4.2.2/P0 replacement plan; no implementation
 
 User asks for four ordered steps and explicit cooperation with WGS-pipeline

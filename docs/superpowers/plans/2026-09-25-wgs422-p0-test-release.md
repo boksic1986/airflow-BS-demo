@@ -44,7 +44,7 @@
 | WGS Master候选 | 本地image ID `sha256:05888c3ac82e1a9b149c2bbd42788d227269787d5042c1af3287daa6d16be367` | 不是SWR RepoDigest；R2推送后填写真实digest |
 | 平台P0 | 功能fdace86；当前工作分支jiucheng/runtime/CR01-cce-recovery-20260922 | 保留最终P0修复，不直接整包覆盖测试 |
 | main/生产分支 | 本轮git ls-remote均43cd0c51a0ff44cc368579a397ba5ddb5ebc611a | 执行整合前fetch并冻结最新refs；这不是本轮生产主机验收 |
-| 远端测试分支 | jiucheng/test/wgs-local-main-sync-20260917，781877e8a862bbe7a4bf2924e817d3657d81468f | 包含43cd0c5，但不包含ae416fa |
+| 远端测试分支 | jiucheng/test/wgs-local-main-sync-20260917，781877e8a862bbe7a4bf2924e817d3657d81468f | 包含43cd0c5；ae416fa不是祖先，但255be59已纳入其代码，backend/dags/scripts/config/frontend与ae416fa一致，不重复合入 |
 | 实际测试挂载 | 后端20260923-step7-ae416fa；WGS DAG/common来自20260915-main-359df11 | 必须保留ae416fa测试修复；按服务挂载核对，不只看current链接 |
 
 ## R1：先发布WGS4.2.2代码和资源
@@ -95,7 +95,7 @@
 
 **关键文件：** `backend/app/main.py`、`config.py`、`cce_*.py`、WGS注册/恢复/观察/Step7/transfer服务；`dags/bio_wgs.py`、`bio_wgs_maintenance.py`、`cce_publish_dispatch.py`、`cce_worker_wait.py`；`scripts/wgs_runtime_gate.py`、paired/recovery/resume完整依赖；R3候选catalog/profile。保留已有前端与非冲突修改，不整文件选择ours/theirs。
 
-- [ ] fetch并冻结测试、main/生产、P0、ae416fa修复的commit。先保留测试历史并补齐未包含的生产修复和ae416fa，再合并P0；若生产refs或实际部署记录有未纳入修复，明确来源后同批整合，不猜。
+- [ ] fetch并冻结测试、main/生产、P0、ae416fa修复的commit。先保留测试历史并补齐真正未包含的生产修复，再合并P0。781877e已通过255be59包含ae416fa代码，不能只看祖先关系重复合入；若refs更新，重新比较内容后确认。
 - [ ] 只处理真实合并冲突：保留P0身份/代次/锁/预算/失败回执保护，同时保留Step7独立维护DAG、冻结target/前次action、观测接口、上传/下载waiting进度与workspace证据。
 - [ ] 整合R3候选条目，固定最终集成源码hash。P0已有代码共享GATK部分保留，但不修改GATK外部gate/profile/image、不运行其参数化测试。
 - [ ] 在BS10610隔离验证中仅运行下表；不得本地运行测试。发现合并造成的新故障，只补对应回归用例。
@@ -118,7 +118,7 @@
 - R1：源文件原地更新但版本名不变时按内容hash处理，VCF与tbi配对；不能套用9/22旧摘要。
 - R2：SFS外载不等于base一定兼容；共享nipttest安装不能影响未识别消费者。
 - R3：候选profile部署不等于可供旧平台启动；不可变SWR digest和资源READY必须配套。
-- R4：测试Git分支不包含所有实际部署修复，尤其ae416fa；合并保留两侧语义而不是回退线上修复。
+- R4：按内容而非仅提交祖先识别已纳入修复；781877e已有ae416fa等价代码，合并保留其语义而不是回退或重复合入。
 - R4：小范围用例证明所测链路，不冒充全局启用、真实云端恢复或WES验收。
 
 四项均有owner回执、最终测试分支commit和最小验证结果后才标记本计划完成。当前已获执行授权，R1启动核对与发布，R2–R4尚未执行。
