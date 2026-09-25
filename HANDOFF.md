@@ -1,5 +1,14 @@
 # Handoff
 
+## 2026-09-25 native owner documentation receipt
+
+After platform checkpoint1557bf1, native owner committed artifact/failed-attempt
+records as8c722dc (parent artifact sourced84bace), only HANDOFF and
+docs/operations/p0-final-native-20260925.md. Coordinator read the record,
+checked two-file diff, diff --check and clean worktree; no runtime rerun.
+Added exact owner documentation pin to the candidate record. No permission,
+artifact identity or operational gate change; next remains scoped OPS acceptance.
+
 ## 2026-09-25 final offline artifact acceptance / operational stop checkpoint
 
 Goal: complete delegated items2/3 without coordinator builds or unauthorized

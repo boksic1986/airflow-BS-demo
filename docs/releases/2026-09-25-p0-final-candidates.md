@@ -39,6 +39,9 @@ Operator testing follows nipttest; compatible Master/executor image is separate.
 Owner `huawei-cloude`, task019f8355-2b77-7413-9553-6670c35a1a2f.
 Native source `d84bace615a8f0c9b16f8e9d8c3f7f58a50ab2ee` changes only two version
 strings from accepted1bc67fd; version `0.8.5+p02.dev2`. Worktree checked clean.
+Native documentation commit `8c722dc65d0e7a68b58a29deb09fcb332d874c01`
+adds `docs/operations/p0-final-native-20260925.md` and HANDOFF only; coordinator
+read the record and checked the two-file diff/whitespace and clean worktree.
 Wheel SHA256 `0b8737425f52ffb6e41a11afe5d706c810ab0d8a51a8d83c17ea784c6b61d0e5`.
 Remote evidence root:
 `/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/p0-final-native-20260925`;
