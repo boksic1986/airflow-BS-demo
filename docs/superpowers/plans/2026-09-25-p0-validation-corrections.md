@@ -37,16 +37,16 @@ Owner: existing huawei-cloude native/Infra task. Files: native
 src/cce_pipeline/assets/cce_writer_guard.py and cce_batch_runtime.py; platform
 scripts/cce_paired_runtime.py selector/guard integration only, plus affected tests.
 
-- [ ] Fix V01 with external deployment-managed role-scoped bootstrap, not policy
+- [x] Fix V01 with external deployment-managed role-scoped bootstrap, not policy
   self-authorization, EUID trust or global username/group allowlist. Permit only
   explicitly approved interpreter link targets and maintain absent-policy legacy.
-- [ ] V02: exact PVC/PV read support with correct scope through existing owner.
-- [ ] V04/V05: once-per-serialized-operation fresh storage proof; bounded history;
+- [x] V02: exact PVC/PV read support with correct scope through existing owner.
+- [x] V04/V05: once-per-serialized-operation fresh storage proof; bounded history;
   UID-fenced cleanup reconciliation instead of false identity-change/instant-GC.
-- [ ] V06: only relevant policy/binding changes invalidate this writer.
-- [ ] Inspect P0 shared journal/lock/receipt/probe output creation, atomic replace,
+- [x] V06: only relevant policy/binding changes invalidate this writer.
+- [x] Inspect P0 shared journal/lock/receipt/probe output creation, atomic replace,
   umask and reader Job identity; fix only root/private-mode regressions within P0.
-- [ ] Minimal RED/GREEN cases for each corrected behavior and affected negatives;
+- [x] Minimal RED/GREEN cases for each corrected behavior and affected negatives;
   remote test identity must exercise actual validator, not bypass it. Report source
   commits, exact changed files, test command/results and artifact consumption map.
 
@@ -57,7 +57,7 @@ scripts/cce_recovery_workloads.py, cce_recovery_failure.py, cce_paired_runtime.p
 automatic failure-evidence path, dags/cce_worker_wait.py and affected tests only;
 backend polling only if existing receipt retry path needs a bounded correction.
 
-- [ ] V03: classify transient inventory movement separately from invalid evidence;
+- [x] V03: classify transient inventory movement separately from invalid evidence;
   bounded fresh observation before final ineligibility. Do not create authority
   from missing/ambiguous proof or silently extend compute deadlines/budgets.
 - Implementation boundary: at most three complete workload observations for
@@ -65,7 +65,7 @@ backend polling only if existing receipt retry path needs a bounded correction.
   compute deadline comes from `deadline_epoch(payload)` and hashed registered
   `cce_recovery_deadline`, not the native Master handoff deadline. Conflicting
   UID/owner, pagination and absent-without-terminal remain immediate refusal.
-- [ ] V07: align finite inner/outer probe budgets and reduce duplicate historical
+- [x] V07: align finite inner/outer probe budgets and reduce duplicate historical
   queries while retaining inventory completeness, UID/owner and absence proof.
 - Keep direct workload probe budget120s; outer Worker SSH is min(150s, remaining
   persisted worker_wait_deadline). Present Workers may use the complete validated
@@ -76,12 +76,12 @@ backend polling only if existing receipt retry path needs a bounded correction.
   original compute deadline, not a claimed new120s wall-clock cap. No query-owner
   bypass or new state/hook API. Extremely large inventories may still exceed
   finite budgets; that must not authorize recovery with incomplete proof.
-- [ ] Focused synthetic tests for same-UID completion/GC, conflicting UID and
+- [x] Focused synthetic tests for same-UID completion/GC, conflicting UID and
   exhausted observation deadline, without full workflow reruns.
 
 ## Task 3 — owner rollout continuation
 
-- [ ] Review combined corrections once; resolve consequential findings with only
+- [x] Review combined corrections once; resolve consequential findings with only
   affected tests. Keep prior passing plugin/TTL evidence.
 - [ ] Native owner packages only changed consumed payload; do not assume both
   Masters consume Operator-only changes. Preserve old tags/hash records.
@@ -99,6 +99,15 @@ outputs retaining intended group/default ACL access without changing secrets.
 
 ## Execution ledger
 
+- Source acceptance: native ae90b654, paired base297bcee plus the follow-up in
+  this platform commit. Three Task1 review findings and two Task2 conflict
+  boundaries were fixed and individually reviewed, not a repeated whole-P0 audit.
+  Native final affected111 passed; platform final affected34 passed/two fixture
+  errors, then only those two passed after the new synthetic shared parent was
+  aligned. DAG8 passed. Coordinator read original logs; native final SHA256
+  877ee284ab54c18c3a3f075deb9f657b053e0bbd4c88feff7a0cc30bcc9fbee3 matched.
+  Source/static review acceptance does not close Task3 deployment gates.
+
 - Preflight: platform4a4ed3c with previous audit docs uncommitted; nativef44619d.
   Existing isolated branches retained. Task1/Task2 share cce_paired_runtime.py,
   therefore sequence code edits rather than simultaneous ownership.
@@ -106,6 +115,14 @@ outputs retaining intended group/default ACL access without changing secrets.
   bootstrap and validation scope. Task2 consumes it; tests must not replace trust
   checks merely to admit fixtures. Task3 consumes accepted exact source/artifacts.
 - No implementation or runtime acceptance is implied by this plan entry.
+- Permission integration finding: plugin `submission/<phase>` is a private
+  live-process spool (executor claim, submission journal/checkpoint and phase
+  markers), not the cross-account output contract. Native exports its bound
+  final snapshot to shared `recovery-final.json`; platform/replacement Master
+  consume that snapshot, not the private spool. Keep this internal spool0700/
+  0600 without weakening the plugin; shared output remains2770/0660. First
+  Task2 RED stopped during fixture setup after shared-mode changes reached this
+  private directory. Native owner corrected the split; affected GREEN is pending.
 - Task2 read-only call-chain preparation complete. Decision: retain120s inner and
   give150s outer startup/receipt allowance rather than shrinking every probe to15s;
   shrinking would make large valid histories less likely to complete. Existing

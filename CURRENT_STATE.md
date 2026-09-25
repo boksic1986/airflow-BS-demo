@@ -1,6 +1,16 @@
 # Current state
 
-## 2026-09-25 P0 corrections in progress
+## 2026-09-25 P0 corrections source accepted; installation pending
+
+Native ae90b65 is frozen; paired non-root selector297bcee plus the current
+follow-up closes Tasks1/2. Coordinator verified original native final111-pass
+log/hash and platform34-pass/two-fixture-error log plus only those two corrected
+fixture rechecks passing; DAG8 passed. Focused review findings are closed.
+Private plugin process state remains separate from shared final output; existing
+legacy directories are neither chmodded nor blocked by the generic writer.
+Original native/Infra owner is preparing the affected one wheel/two Master
+artifacts and exact nipttest/paired test rollback plan. No installation, test
+service switch, production change or automatic recovery activation is accepted.
 
 User authorized V01–V07 fixes and continuation of the blocked step; shared
 outputs must not be forced to root or0600. Native/Infra owner is executing Task1
@@ -8,7 +18,7 @@ in the existing isolated native/platform entry scope. Platform observation
 independent files are now assigned separately; paired entry edits wait for the
 native owner's explicit handoff. No overlapping edits. Plan:
 docs/superpowers/plans/2026-09-25-p0-validation-corrections.md.
-No correction, installation or activation is accepted merely by dispatch.
+No installation or activation is accepted merely by source acceptance.
 
 ## 2026-09-25 P0 source validation audit; fixes not implemented
 

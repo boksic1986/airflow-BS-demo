@@ -22,8 +22,10 @@ task retries and the compute budget are unchanged. No production activation.
 
 The same WGS/GATK Step3 sensor performs at most one fixed read-only SSH probe per
 poke when compute_recovery returns a Worker challenge. Existing runner alias,
-SSH config and restricted wrapper are reused; probe timeout is at most30s and
-capped by the returned wait deadline. The backend owns the persistent action,
+SSH config and restricted wrapper are reused; probe timeout is at most150s and
+capped by the returned wait deadline (2026-09-25 V07 correction). The inner
+workload probe retains its120s budget; a result arriving after the persisted wait
+deadline is not submitted. The backend owns the persistent action,
 600s/original-deadline limit and compute budget, not the sensor or SSH process.
 Successful observation is returned to that same POST; SSH timeout/nonzero/invalid
 response reschedules without another local retry. Delegation still skips the

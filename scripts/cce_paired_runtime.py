@@ -45,7 +45,7 @@ def _acl_write_principals(path):
 
 
 def _validate_writers(path,info,uids,gids):
-    if (info.st_mode&0o002 or (info.st_mode&0o200 and info.st_uid not in uids)
+    if (info.st_uid not in uids or info.st_mode&0o002 or (info.st_mode&0o200 and info.st_uid not in uids)
             or (info.st_mode&0o020 and info.st_gid not in gids)):
         raise RuntimeError('deployment trust path has an unapproved writer')
     users,groups=_acl_write_principals(path)
@@ -98,6 +98,15 @@ def _trusted_path(value,interpreter=False):
         resolved=path
     try:resolved.relative_to(root)
     except ValueError as error:raise RuntimeError('deployment trust target escapes its root') from error
+    current=resolved.parent
+    while True:
+        info=current.lstat()
+        if not stat.S_ISDIR(info.st_mode) or current.is_symlink():
+            raise RuntimeError('deployment trust ancestry is not canonical')
+        _validate_writers(current,info,uids,gids)
+        if current==root:break
+        if root not in current.parents:raise RuntimeError('deployment trust target escapes its root')
+        current=current.parent
     target_info=resolved.lstat()
     if not stat.S_ISREG(target_info.st_mode):raise RuntimeError('deployment trust target must be a regular file')
     _validate_writers(resolved,target_info,uids,gids)
@@ -596,12 +605,15 @@ def _automatic_failure_evidence(payload, value, *, runtime, bundle, selected, co
         return None
     if __package__:
         from .cce_recovery_failure import collect_failure_evidence
+        from .cce_recovery_deadline import deadline_epoch
     else:
         from cce_recovery_failure import collect_failure_evidence
+        from cce_recovery_deadline import deadline_epoch
     try:
         return collect_failure_evidence(runtime=runtime,selected=selected,contract=contract,config=config,
             run_label=run_label,binding=exported,
-            history_bundles=_source_history(request_root,pipeline,runtime,bundle,contract,selected))
+            history_bundles=_source_history(request_root,pipeline,runtime,bundle,contract,selected),
+            original_deadline_epoch=deadline_epoch(payload))
     except (ValueError, RuntimeError, OSError, KeyError, TypeError):
         # Missing/mixed/unknown evidence is ineligible, not a reason to erase the
         # ordinary failed status or change the existing manual recovery path.

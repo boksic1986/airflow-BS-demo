@@ -1,5 +1,26 @@
 # Workflow runtime integration
 
+## P0 correction interface (2026-09-25, isolated source accepted)
+
+Checkpoint297bcee replaces UID-0 selection with fixed code-adjacent
+`cce-paired-deployment-v1.json` beside the platform entry and installed native
+guard. Deployment, not a business request/environment override, declares the
+policy and per-component maintainer UID/GID roots plus the approved canonical
+interpreter. Schema2 source pins and per-directory execution binding remain.
+Absence of the bootstrap retains legacy selection; a present invalid deployment
+does not silently fall back. Native/platform bootstrap contents must agree.
+
+Shared P0 directories/files use collaborator permissions; private plugin live
+claim/journal state is exported by the same Master as shared final evidence.
+No historical project permission migration is implied. Native ae90b65 and the
+paired follow-up close interpreter-target ancestry, owner authority and existing
+legacy-directory compatibility findings. The original registered compute deadline
+bounds at most three fresh observations of typed same-identity inventory movement;
+UID/owner/run-label/terminal conflicts remain immediate refusal. Present Worker
+Jobs reuse the complete Job LIST, but exact missing-Job GETs and every job-name
+Pod LIST remain. This is source acceptance, not installation/activation. The older
+UID-0 source-gap entry below is historical.
+
 ## P0 non-root entry correction (2026-09-25, documentation contract)
 
 The user-confirmed multi-account deployment does not require root-owned Python,

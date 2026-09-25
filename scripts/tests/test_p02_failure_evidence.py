@@ -73,10 +73,11 @@ def failed_master(view_inputs, monkeypatch, request):
     worker = dict(kind='Job',metadata=dict(name=created.metadata.name,uid=created.metadata.uid,
         namespace=native['namespace'],labels={'cce.biosan.cn/run-id':'synthetic-run'}),status=dict(active=1)) if created else None
     pod = dict(kind='Pod',metadata=dict(name='worker-pod',uid='worker-pod-uid',namespace=native['namespace'],
+        labels={'cce.biosan.cn/run-id':'synthetic-run'},
         ownerReferences=[dict(kind='Job',name=created.metadata.name,uid=created.metadata.uid,controller=True)]),
         spec=dict(containers=[dict(name='worker')]),status=dict(phase='Running')) if created else None
     h.wait_worker, h.wait_pod = worker, pod
-    def query(config,kind,*args):
+    def query(config,kind,*args,**kwargs):
         if kind=='job':return copy.deepcopy(master if args[0]=='master' else worker if worker and args[0]==worker['metadata']['name'] else None)
         items = [v for v in (master,worker) if v] if kind=='jobs' else [pod] if pod and args[1] in (
             'cce.biosan.cn/run-id=synthetic-run','job-name='+worker['metadata']['name']) else []
@@ -110,6 +111,135 @@ def test_final_active_worker_is_wait_only_then_fresh_terminal_proof(failed_maste
     h.wait_pod['metadata']['ownerReferences'][0]['uid']='foreign'
     with pytest.raises(ValueError):collect()
     assert before=={str(p):p.read_bytes() for p in selected.rglob('*') if p.is_file()}
+
+
+@pytest.mark.parametrize('failed_master',['active_worker'],indirect=True)
+def test_same_uid_completion_is_reobserved_before_original_deadline(failed_master,monkeypatch):
+    import time
+    from scripts.cce_recovery_failure import collect_failure_evidence
+    h,selected,binding,_,_=failed_master
+    original=runtime._recovery_query
+    worker=h.wait_worker['metadata']['name']
+    changed=False
+    full_lists=0
+    def query(config,kind,*args,**kwargs):
+        nonlocal changed,full_lists
+        if kind=='jobs':full_lists+=1
+        if kind=='pods' and args[1]=='job-name='+worker and not changed:
+            h.wait_worker['status']={'conditions':[{'type':'Complete','status':'True'}]}
+            h.wait_pod['status']={'phase':'Succeeded','containerStatuses':[{'name':'worker',
+                'state':{'terminated':{'exitCode':0}}}]}
+            changed=True
+        return original(config,kind,*args,**kwargs)
+    monkeypatch.setattr(runtime,'_recovery_query',query)
+    result=collect_failure_evidence(runtime=runtime,selected=selected,contract=h.contract,
+        config=h.config,run_label='synthetic-run',binding=binding,
+        original_deadline_epoch=time.time()+120)
+    assert result['terminal']['active_worker_jobs']==0
+    assert result['terminal']['active_worker_pods']==0
+    assert full_lists==2
+
+
+@pytest.mark.parametrize('failed_master',['active_worker'],indirect=True)
+def test_paired_failed_monitor_reuses_hashed_original_deadline_for_reobservation(failed_master,monkeypatch,tmp_path):
+    import time
+    from datetime import datetime,timezone
+    from scripts import cce_paired_runtime as paired
+    h,selected,binding,_,_=failed_master
+    worker=h.wait_worker['metadata']['name']
+    original=runtime._recovery_query
+    changed=False
+    def query(config,kind,*args,**kwargs):
+        nonlocal changed
+        if kind=='pods' and args[1]=='job-name='+worker and not changed:
+            h.wait_worker['status']={'conditions':[{'type':'Complete','status':'True'}]}
+            h.wait_pod['status']={'phase':'Succeeded','containerStatuses':[{'name':'worker',
+                'state':{'terminated':{'exitCode':0}}}]}
+            changed=True
+        return original(config,kind,*args,**kwargs)
+    monkeypatch.setattr(runtime,'_recovery_query',query)
+    monkeypatch.setattr(paired,'_source_history',lambda *args:())
+    deadline=datetime.fromtimestamp(time.time()+120,timezone.utc).isoformat()
+    proof=paired._automatic_failure_evidence(
+        {'stage':'step3_monitor','cce_recovery_deadline':deadline},
+        {'master_state':'FAILED'},runtime=runtime,bundle=h.bundle,selected=selected,
+        contract=h.contract,config=h.config,run_label='synthetic-run',exported=binding,
+        request_root=tmp_path,pipeline=binding['platform_execution']['pipeline'])
+    assert changed and proof['terminal']['active_worker_jobs']==0
+
+
+@pytest.mark.parametrize('failed_master',['active_worker'],indirect=True)
+def test_same_uid_master_gc_is_reobserved_from_fresh_lists(failed_master,monkeypatch):
+    import time
+    from scripts.cce_recovery_failure import collect_failure_evidence
+    h,selected,binding,_,_=failed_master
+    original=runtime._recovery_query
+    removed=False
+    full_lists=0
+    def query(config,kind,*args,**kwargs):
+        nonlocal removed,full_lists
+        if kind=='jobs':
+            full_lists+=1
+            value=original(config,kind,*args,**kwargs)
+            if removed:value['items']=[item for item in value['items'] if item['metadata']['name']!='master']
+            return value
+        if kind=='job' and args[0]=='master':
+            removed=True
+            return None
+        return original(config,kind,*args,**kwargs)
+    monkeypatch.setattr(runtime,'_recovery_query',query)
+    proof=collect_failure_evidence(runtime=runtime,selected=selected,contract=h.contract,
+        config=h.config,run_label='synthetic-run',binding=binding,
+        original_deadline_epoch=time.time()+120)
+    assert removed and full_lists==2 and proof['terminal']['active_worker_jobs']==1
+
+
+@pytest.mark.parametrize('failed_master',['active_worker'],indirect=True)
+def test_persistent_same_uid_movement_stops_after_three_fresh_lists(failed_master,monkeypatch):
+    import time
+    from scripts.cce_recovery_failure import collect_failure_evidence
+    from scripts.cce_recovery_workloads import InventoryMoved
+    h,selected,binding,_,_=failed_master
+    original=runtime._recovery_query
+    full_lists=0
+    def query(config,kind,*args,**kwargs):
+        nonlocal full_lists
+        if kind=='jobs':full_lists+=1
+        if kind=='job' and args[0]=='master':return None
+        return original(config,kind,*args,**kwargs)
+    monkeypatch.setattr(runtime,'_recovery_query',query)
+    with pytest.raises(InventoryMoved):
+        collect_failure_evidence(runtime=runtime,selected=selected,contract=h.contract,
+            config=h.config,run_label='synthetic-run',binding=binding,
+            original_deadline_epoch=time.time()+120)
+    assert full_lists==3
+
+
+@pytest.mark.parametrize('failed_master',['active_worker'],indirect=True)
+def test_reobservation_never_accepts_after_original_deadline(failed_master,monkeypatch):
+    import time
+    from scripts.cce_recovery_failure import collect_failure_evidence
+    h,selected,binding,_,_=failed_master
+    original=runtime._recovery_query
+    worker=h.wait_worker['metadata']['name']
+    clock=[time.time()]
+    full_lists=0
+    def query(config,kind,*args,**kwargs):
+        nonlocal full_lists
+        if kind=='jobs':full_lists+=1
+        if kind=='pods' and args[1]=='job-name='+worker:
+            clock[0]+=2
+            h.wait_worker['status']={'conditions':[{'type':'Complete','status':'True'}]}
+            h.wait_pod['status']={'phase':'Succeeded','containerStatuses':[{'name':'worker',
+                'state':{'terminated':{'exitCode':0}}}]}
+        return original(config,kind,*args,**kwargs)
+    monkeypatch.setattr(runtime,'_recovery_query',query)
+    monkeypatch.setattr(time,'time',lambda:clock[0])
+    with pytest.raises(ValueError):
+        collect_failure_evidence(runtime=runtime,selected=selected,contract=h.contract,
+            config=h.config,run_label='synthetic-run',binding=binding,
+            original_deadline_epoch=clock[0]+1)
+    assert full_lists==1
 
 
 @pytest.mark.parametrize('change',[None,'mixed_rule','incomplete','native_identity','platform_identity','active_master'])

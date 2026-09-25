@@ -1,5 +1,27 @@
 # Deployment runbook
 
+## 2026-09-25 corrected paired entry rollout gate
+
+Native ae90b65 and the paired selector/observation correction have affected
+synthetic and source-review acceptance; old dev2 artifacts are not the corrected
+build. The original native/Infra owner handles the required new native wheel and
+two Master images (both consume the changed standalone assets); unchanged
+plugin/Worker images and WGS rules are not rebuilt. No new TTL validation.
+
+Keep Operator installation in nipttest, from its writable node005 view only.
+Before installation freeze the final platform/native commits, wheel/image pins,
+byte-for-byte package/dist-info rollback and exact test catalog/profile release.
+Both fixed `cce-paired-deployment-v1.json` files sit beside their respective code,
+point to one test policy and declare per-component approved roots/maintainers and
+canonical Python target. Confirm the absolute paths from each actual consumer,
+not only NFS inode equality. Shared journals/output roots require the approved
+effective group/default ACL; private plugin process spool is separate.
+
+Do not overlay the current release or assume changing its symlink updates a
+container mount. Record exact existing-service actions before any test switch;
+no new service/Compose, production change, real workflow or automatic recovery
+activation is included. Source/artifact/installation/activation remain distinct.
+
 ## 2026-09-25 non-root deployment requirement correction
 
 Do not seek root-owned interpreter/script landing points to satisfy the current

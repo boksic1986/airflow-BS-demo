@@ -36,7 +36,9 @@ def poll_recovery(backend, *, pipeline, conf, dag_run_id):
             os.getenv(prefix+'_RUNNER_200_COMMAND','/home/ctapa/.config/airflow-'+pipeline+'/forced-command.sh'),
             '--recovery-probe',aid,str(attempt),str(generation),probe['request_hash'],probe['nonce']]
         result = subprocess.run(command,stdin=subprocess.DEVNULL,capture_output=True,text=True,
-            check=False,timeout=min(30,remaining))
+            check=False,timeout=min(150,remaining))
+        if datetime.now(timezone.utc) >= deadline:
+            return answer
         if result.returncode or len(result.stdout) > 2*1024*1024:
             return answer
         observation = json.loads(result.stdout)

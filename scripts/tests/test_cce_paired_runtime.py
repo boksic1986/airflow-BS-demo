@@ -3,9 +3,32 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import stat
 import sys
+from types import SimpleNamespace
 
 import pytest
+
+
+def test_deployment_trust_rejects_unapproved_owner_even_when_currently_read_only(monkeypatch):
+    from scripts import cce_paired_runtime as module
+    monkeypatch.setattr(module,'_acl_write_principals',lambda path:(set(),set()))
+    info=SimpleNamespace(st_mode=stat.S_IFREG|0o440,st_uid=os.getuid()+100000,
+        st_gid=os.getgid())
+    with pytest.raises(RuntimeError,match='unapproved writer'):
+        module._validate_writers('/synthetic',info,{os.getuid()},{os.getgid()})
+
+
+def test_interpreter_target_ancestry_cannot_be_writable(tmp_path):
+    from scripts import cce_paired_runtime as module
+    mutable=tmp_path/'mutable';mutable.mkdir();mutable.chmod(0o777)
+    target=mutable/'python-real';target.write_text('synthetic');target.chmod(0o555)
+    link=tmp_path/'python';link.symlink_to(target)
+    trust={'path':str(link),'trust_root':str(tmp_path),
+        'maintainer_uids':[os.getuid()],'maintainer_gids':[os.getgid()],
+        'canonical_path':str(target.resolve())}
+    with pytest.raises(RuntimeError,match='unapproved writer'):
+        module._trusted_path(trust,True)
 
 
 @pytest.fixture

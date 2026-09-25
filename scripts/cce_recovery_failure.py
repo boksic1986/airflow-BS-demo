@@ -6,14 +6,16 @@ remain mandatory. Never infer zero errors from missing logger events.
 """
 import hashlib
 import json
+import math
+import time
 from pathlib import Path
 
 if __package__:
     from .cce_recovery_inventory import lineage_workers
-    from .cce_recovery_workloads import probe_final_workloads
+    from .cce_recovery_workloads import InventoryMoved, probe_final_workloads
 else:
     from cce_recovery_inventory import lineage_workers
-    from cce_recovery_workloads import probe_final_workloads
+    from cce_recovery_workloads import InventoryMoved, probe_final_workloads
 
 
 def _require(ok):
@@ -26,7 +28,11 @@ def _digest(value):
         ensure_ascii=False, allow_nan=False).encode()).hexdigest()
 
 
-def collect_failure_evidence(*, runtime, selected, contract, config, run_label, binding, history_bundles=()):
+def collect_failure_evidence(*, runtime, selected, contract, config, run_label, binding,
+                             history_bundles=(), original_deadline_epoch=None):
+    if original_deadline_epoch is not None:
+        _require(type(original_deadline_epoch) in {int,float}
+            and math.isfinite(original_deadline_epoch))
     selected = Path(selected)
     _require(binding.get('schema_version') == 2 and binding.get('selected_bundle') == str(selected))
     native = binding['native']
@@ -73,10 +79,25 @@ def collect_failure_evidence(*, runtime, selected, contract, config, run_label, 
     # independently cover all phases, retained ancestors and live Jobs/Pods.
     workers = lineage_workers(runtime, contract, selected, value, history_bundles)
     _require(all(worker['terminal_state'] != 'FAILED' for worker in workers))
-    observed = probe_final_workloads(runtime=runtime, config=config,
-        namespace=native['namespace'],run_label=run_label,master_job=native['job_name'],
-        master_job_uid=native['job_uid'],master_state=final['state'],workers=workers,
-        allow_active_workers=True)
+    # Only a validated, same-identity movement permits a fresh whole inventory.
+    # Without an authenticated original deadline, retain the one-shot behavior.
+    for attempt in range(3 if original_deadline_epoch is not None else 1):
+        remaining = original_deadline_epoch-time.time() if original_deadline_epoch is not None else None
+        if remaining is not None and remaining <= 0:
+            raise ValueError('original compute deadline exhausted before workload observation')
+        try:
+            observed = probe_final_workloads(runtime=runtime, config=config,
+                namespace=native['namespace'],run_label=run_label,master_job=native['job_name'],
+                master_job_uid=native['job_uid'],master_state=final['state'],workers=workers,
+                timeout_seconds=min(120,max(1,math.ceil(remaining))) if remaining is not None else 120,
+                allow_active_workers=True)
+        except InventoryMoved:
+            if original_deadline_epoch is None or attempt == 2:
+                raise
+            continue
+        if original_deadline_epoch is not None and time.time() >= original_deadline_epoch:
+            raise ValueError('original compute deadline exhausted after workload observation')
+        break
     _require(all(worker['job_state'] in {'Complete','absent','Active'} for worker in observed['workers']))
     phase, candidate, counts, control = chosen
     seal = dict(phase['context'], schema='cce.master-terminal.v1',

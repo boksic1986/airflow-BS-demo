@@ -2,9 +2,10 @@
 
 ## 2026-09-25 authorized validation corrections
 
-- [ ] Task1 native/paired trust, cloud query, probe and shared-output corrections.
-  Dispatched to original native/Infra owner; preserve secrets and scope fences.
-- [ ] Task2 platform workload observation and finite probe-budget corrections.
+- [x] Task1 native/paired trust, cloud query, probe and shared-output corrections.
+  Native ae90b65, paired297bcee plus reviewed follow-up; affected111 passed.
+- [x] Task2 platform workload observation and finite probe-budget corrections.
+  Affected34 plus two fixture-only rechecks passed; DAG8 passed. Review closed.
 - [ ] Task3 combined review, affected artifacts and scoped nipttest/paired-test
   continuation with exact preflight and rollback. No production authorization.
   Plan: docs/superpowers/plans/2026-09-25-p0-validation-corrections.md.

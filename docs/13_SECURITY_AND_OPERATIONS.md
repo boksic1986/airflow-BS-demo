@@ -101,14 +101,21 @@ access. This does not relax private credentials, authorize chmod/chown of existi
 trees or make outputs world-writable. Tests must distinguish shared artifacts
 from private secret staging rather than replacing every restrictive mode.
 
-**Audit finding / source gap:** platform `scripts/cce_paired_runtime.py` and
-native `src/cce_pipeline/assets/cce_writer_guard.py` still hardcode UID 0 and
-the `/etc` entry. The platform test fixture substitutes `TRUSTED_UID` and
-`_operator_python`, so its previous success is not acceptance of the real
-multi-account interpreter path. These are implementation/deployment-contract
-defects to correct together, not a request for administrators to change owners.
-This revision changes documentation only; runtime support is not yet fixed.
-Do not activate the existing candidate under a claim of non-root compatibility.
+The plugin's live `submission/<phase>` spool is internal process-control state
+(executor claim, lock, append journal/checkpoint), not a shared output directory.
+It remains owned by the current Master user with0700/0600, with no root-owner
+requirement. The current Master exports its bound final snapshot through the
+shared `recovery-final.json`; platform/replacement readers must use that export,
+not require access to the live private spool. Do not privatize shared evidence
+or widen plugin control-state checks merely to make a test pass.
+
+**Source correction accepted, deployment pending:** native ae90b65 and the
+paired selector now use the fixed code-adjacent deployment bootstrap. Actual
+validator tests cover non-root interpreter links, canonical-target ancestry and
+owner authority; the earlier UID/interpreter fixture bypass is no longer the
+acceptance basis. Source review findings are closed. This does not make the old
+dev2 artifacts compatible or authorize production activation; exact new
+artifacts, install rollback and real consumer permissions remain rollout gates.
 
 Bounded follow-up `P0-NONROOT-ENTRY`: the platform and native owners align the
 existing selector/guard bootstrap and role-scoped path validation, then verify

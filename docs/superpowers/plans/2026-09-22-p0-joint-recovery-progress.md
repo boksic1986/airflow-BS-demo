@@ -1,5 +1,16 @@
 # P0 joint recovery implementation ledger
 
+## 2026-09-25 已授权校验修正源码完成；安装继续准备
+
+用户要求修复 V01–V07 并继续被阻碍的 nipttest/成对测试接入；输出不得强制
+root/0600。新增修正计划见
+[validation corrections](2026-09-25-p0-validation-corrections.md)，不是重做原 Tasks1–6。
+平台非 root selector 检查点297bcee及后续修正、native ae90b65已完成源码验收。
+私有插件进程台账与共享最终证据分开；观察竞态/有限预算和审查发现均已修正。
+协调方核验native111通过原始日志/哈希；平台34通过加两项fixture单独补验通过，
+DAG8通过。源码验收不代表新制品或安装完成。原SWR/TTL历史回执保留，不重复验证。
+尚未修改 nipttest、生产或启用自动恢复；后续制品仍由原 native/Infra owner完成。
+
 ## 2026-09-25 非 root 部署契约纠正（本轮仅文档）
 
 用户明确：Airflow 由 chenjc 部署，分析由 ctapa 执行，WGS 仓库属 chenjx。

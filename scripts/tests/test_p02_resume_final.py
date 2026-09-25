@@ -110,8 +110,10 @@ def adapter(mirrored_final,tmp_path,monkeypatch):
     aid=record['recovery_context']['analysis_id']
     request_root=tmp_path/'requests'
     control=request_root/aid/'attempt-1';control.mkdir(parents=True)
+    os.chmod(control,0o2770)  # Fresh synthetic shared parent for the native recovery view.
     bundle=tmp_path/'runs'/aid/'attempt-1'/'cce'
     shutil.copytree(view,bundle)
+    os.chmod(bundle.parent,0o2770)
     runtime._write_mirror_evidence(bundle,record['run_id'],evidence,project=record['project'],batch=record['batch'])
     manifest=yaml.safe_load((bundle/'master-job.yaml').read_bytes())
     master=copy.deepcopy(manifest)
@@ -123,7 +125,7 @@ def adapter(mirrored_final,tmp_path,monkeypatch):
     state=SimpleNamespace(job=master,worker=worker,cms={},creates=0,deletes=0,starts=0,copies=0,
         lose=False,hide=False,unknown=False,page=False,surviving=False,allowed=True,confirmation=None,
         maintenance=False)
-    def query(config,kind,*args):
+    def query(config,kind,*args,**kwargs):
         if kind=='job':
             if args[0]=='cleanup' and state.maintenance:return {'status':{'active':1}}
             return copy.deepcopy(state.job if args[0]=='master' else state.worker if args[0]==worker_name else None)

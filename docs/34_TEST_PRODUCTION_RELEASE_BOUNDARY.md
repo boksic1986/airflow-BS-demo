@@ -170,6 +170,9 @@ Never copy test runtime, evidence, credentials or database to production.
   0700 directories on shared P0 outputs. Honor approved effective group/default
   ACL access, including atomic replacements; directories need traverse access.
   This does not authorize existing-tree permission rewrites or secret widening.
+- Internal plugin process-control spool is not a shared output: its current
+  Master-owned claim/lock/journal remains private, while the bound final snapshot
+  exported for platform/replacement readers follows the shared permissions above.
 - FASTQ, workflow source, references and input projects are mounted read-only.
   Only approved runtime, result, log, binding and spool roots are writable.
 - Never use `chmod 777`, recursively widen `/sg2` or `/bi`, or follow symlinks

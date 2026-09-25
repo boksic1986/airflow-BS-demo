@@ -39,10 +39,16 @@ def registered(adapter,tmp_path,monkeypatch):
         if k not in excluded},sort_keys=True,separators=(',',':')).encode()).hexdigest()
     request=gate._request_path(payload['analysis_id'],1,payload['stage'])
     request.write_text(json.dumps(payload))
+    shared_root=(tmp_path/'requests').resolve()
+    current=request.parent
+    while current==shared_root or shared_root in current.parents:
+        current.chmod(0o2770)
+        if current==shared_root:break
+        current=current.parent
     storage=tmp_path/'storage';storage.mkdir();(storage/'project').mkdir()
     native_path=Path(h.contract['paths']['run_dir'])
     (storage/native_path.name).symlink_to(storage/'project',target_is_directory=True)
-    journal=tmp_path/'writer-journal';journal.mkdir()
+    journal=tmp_path/'writer-journal';journal.mkdir();journal.chmod(0o2770)
     python_target=tmp_path/'python-real';python_target.write_text('synthetic');python_target.chmod(0o755)
     python_link=tmp_path/'python';python_link.symlink_to(python_target)
     def pin(path):return {'path':str(path),'sha256':hashlib.sha256(Path(path).read_bytes()).hexdigest()}
@@ -65,13 +71,14 @@ def registered(adapter,tmp_path,monkeypatch):
             parent for parent in path.parents if parent.name in {'native','platform'})
         return {'path':str(path),'trust_root':str(root),
             'maintainer_uids':[os.getuid()],'maintainer_gids':[os.getgid()]}
-    bootstrap=tmp_path/'cce-paired-deployment-v1.json'
+    deployment=tmp_path/'deployment';deployment.mkdir();deployment.chmod(0o700)
+    bootstrap=deployment/'cce-paired-deployment-v1.json'
     bootstrap.write_text(json.dumps({'schema_version':1,'policy':trust(policy),
         'writers':{'cli':trust(Path(runtime.__file__)),'platform':trust(Path(paired.__file__))},
         'runtime_guard':trust(Path(guard.__file__)),
         'operator_python':{**trust(python_link),'canonical_path':str(python_target.resolve())}}))
     bootstrap.chmod(0o600)
-    monkeypatch.setattr(guard,'DEPLOYMENT_TRUST_ROOT',tmp_path)
+    monkeypatch.setattr(guard,'DEPLOYMENT_TRUST_ROOT',deployment)
     monkeypatch.setattr(guard,'DEPLOYMENT_TRUST_PATH',bootstrap)
     monkeypatch.setattr(paired,'load_runtime',lambda:runtime)
     monkeypatch.setattr(runtime,'_operator_paired_activation',True,raising=False)

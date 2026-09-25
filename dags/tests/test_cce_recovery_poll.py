@@ -75,3 +75,41 @@ def test_existing_sensor_runs_one_bounded_read_only_probe(pipeline,lost):
                 else:
                     with pytest.raises(AirflowSkipException):module.stage_ready('step3_monitor',**context)
     assert execute.call_count==1 and len(posts)==(1 if lost else 2)
+
+
+def test_worker_probe_allows_inner_budget_plus_ssh_startup_but_not_late_result():
+    from cce_worker_wait import poll_recovery
+    challenge=dict(nonce='a'*32,execution_id='monitor',generation=1,request_hash='b'*64)
+    observation=dict(challenge,cce_recovery_evidence={'synthetic':'proof'})
+    posts=[]
+    def api(path,**kwargs):
+        posts.append(kwargs['payload'])
+        return dict(status='waiting',worker_probe=challenge,
+            worker_wait_deadline=(datetime.now(timezone.utc)+timedelta(seconds=180)).isoformat())
+    def ssh(command,**kwargs):
+        assert 120 < kwargs['timeout'] <= 150
+        return SimpleNamespace(returncode=0,stdout=json.dumps(observation),stderr='')
+    with patch('cce_worker_wait.subprocess.run',side_effect=ssh):
+        poll_recovery(api,pipeline='wgs',conf=dict(analysis_id='SYNTHETIC',attempt=1),dag_run_id='old')
+    assert len(posts)==2
+
+
+def test_worker_probe_discards_response_after_persisted_deadline():
+    from cce_worker_wait import poll_recovery
+    challenge=dict(nonce='a'*32,execution_id='monitor',generation=1,request_hash='b'*64)
+    observation=dict(challenge,cce_recovery_evidence={'synthetic':'proof'})
+    posts=[]
+    deadline=(datetime.now(timezone.utc)+timedelta(seconds=120)).isoformat()
+    def api(path,**kwargs):
+        posts.append(kwargs['payload'])
+        return dict(status='waiting',worker_probe=challenge,worker_wait_deadline=deadline)
+    class LateClock(datetime):
+        calls=0
+        @classmethod
+        def now(cls,tz=None):
+            cls.calls+=1
+            return datetime.now(tz)+timedelta(seconds=180 if cls.calls>1 else 0)
+    with patch('cce_worker_wait.datetime',LateClock),patch('cce_worker_wait.subprocess.run',
+            return_value=SimpleNamespace(returncode=0,stdout=json.dumps(observation),stderr='')):
+        poll_recovery(api,pipeline='wgs',conf=dict(analysis_id='SYNTHETIC',attempt=1),dag_run_id='old')
+    assert len(posts)==1

@@ -1,5 +1,52 @@
 # Handoff
 
+## 2026-09-25 V01–V07 source correction acceptance
+
+Goal: fix excessive/incompatible validation and then continue the blocked test
+entry, without root/private shared outputs, feature expansion or production work.
+Native owner froze ae90b654; platform selector base297bcee plus this follow-up
+contains role-scoped trust and bounded observation/budget corrections. Source
+review closed canonical-target ancestry, owner authority, legacy permission
+compatibility, terminal regression and same-UID run-label conflict findings.
+
+Changed scope: paired selector, workload/failure collector, Worker wait DAG
+helper, their focused tests and the required security/runtime/deployment/state
+docs. No API/schema, WGS rules, frontend or production changes. Shared outputs
+are2770/0660 where created; no recursive existing-tree chmod or root chown.
+Internal plugin live spool stays private and exports shared bound final evidence.
+
+Verification: native final111 passed (ae90b65), source review only rechecked its
+three findings. Platform final34 passed/two synthetic shared-parent errors;
+fixture-only correction was followed by only those two passing (3.25s). DAG8
+passed (3.14s). Coordinator read raw logs, matched native final hash and ran
+`git diff --check`; no coordinator runtime retest. Commands and intermediate
+failures are retained in docs/reviews/2026-09-25-p0-platform-corrections-result.md
+and D:/pipeline/task-artifacts/p0-final-native-ops-20260925/TASK1_SOURCE_HANDOFF.md.
+
+Remaining: affected one native wheel/two Master images, new immutable paired
+test release and bootstrap/catalog/profile installation, all by original owner
+after exact consumer-path/permission/rollback preflight. Plan is at
+D:/pipeline/task-artifacts/p0-final-native-ops-20260925/NIPTTEST_PAIRED_PLAN_V2.md.
+No build/install/switch is inferred from passing source checks. Keep recovery,
+scan and dispatch disabled; no new service/Compose, TTL, biological run or BS96.
+Before activation rollback is retaining current runtime; installation rollback
+must preserve package/dist-info bytes, metadata and exact release/profile links.
+
+## 2026-09-25 permission integration gate during corrections
+
+Task2's BS10610 preflight passed, but four selected tests stopped in native/plugin
+fixture setup: `SubmissionManager` rejected group-accessible internal submission
+spool. No new assertion ran; this is not a valid RED or accepted correction.
+See docs/reviews/2026-09-25-p0-platform-corrections-result.md for the exact log.
+Native owner confirmed the private live-process claim/journal directory is read
+by the current Master only; it exports shared bound `recovery-final.json` for
+platform/replacement consumption. Owner restored the private/shared separation
+without changing the plugin. Affected remote GREEN is pending before Task2 resumes.
+No root ownership, shared-output0600, recursive permission changes or alternate
+test environment workaround. Shared-root group/default-ACL preflight also needs
+explicit verification before installation; setgid on a new child alone does not
+prove its first inherited group is the intended collaboration group.
+
 ## 2026-09-25 validation corrections authorized; shared output requirement added
 
 User requests fixing reviewed issues then continuing the blocked step, explicitly
