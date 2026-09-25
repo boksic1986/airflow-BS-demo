@@ -1,5 +1,60 @@
 # P0 joint recovery implementation ledger
 
+## 2026-09-25 当前总进度与责任交接（文档协调，不执行构建）
+
+本节覆盖下方历史检查点中的“未开始 / next / OPEN”进度描述，不覆盖安全边界。
+依据三个隔离仓库的最新 HANDOFF、Task6 最终审查及既有验收记录汇总；本次未重跑测试。
+
+| 交付层 | 当前状态 | 依据 / 尚缺内容 |
+| --- | --- | --- |
+| Tasks1–4 源码与隔离验收 | 已完成 | handoff、目录锁、Worker 终态、WGS/GATK 手动续跑及下游回执 |
+| Task5 原版制品验收 | 已完成，历史版本保留 | 2026-09-24 wheel13 / Master image smoke2；不包含后续 Task6 |
+| Task6 源码与隔离验收 | 已完成 | PG contention10、自动/手动 lifecycle4、deadline/owner4；最终审查修复后 affected13 |
+| 包含 Task6 的最终 wheel / Master 制品 | 待对应 owner 执行 | 新版本身份、精确源码 pin、实际制品最小核验及 provenance 未交付 |
+| 实际运行环境验收与启用 | 未完成、未启用 | 全部 writer/存储映射、真实 TTL、集群容量、AOM 数据和通知证据 |
+
+不将“6 个源码 task 已验收”换算为整体发布 100%。原 Task5 不重开、不覆盖；
+缺口是后续源码的最终制品及运行环境验收，而不是重做已通过的开发测试。
+
+### 已核对的源码交接点
+
+- 平台：`jiucheng/runtime/CR01-cce-recovery-20260922`，本次编辑前 HEAD
+  `4c0454553cca7d87174b3bb5175c251305db316f`（文档），runtime checkpoint `6f03dd6`。
+- cce-pipeline：`jiucheng/runtime/p02-master-handoff-20260923`，
+  `1bc67fd56bed31b67ee25d4454d5179ebb60928e`。
+- Kubernetes 插件：`jiucheng/runtime/p02-worker-terminal-20260923`，
+  `81132cf591e1dc5b6df7ce3212d0db325c31b297`。
+- 三个工作树在本次文档编辑前均无未提交修改。这里只核对本地 Git/交接记录；
+  没有核对远端安装版本，不将上述源码提交视为已部署版本。
+
+### 下一阶段责任卡（交接清单，尚未派发执行）
+
+| 卡片 | 唯一责任方 | 交付与最小验收 | 依赖 / 当前状态 |
+| --- | --- | --- | --- |
+| P0-FINAL-PLUGIN | Kubernetes 插件仓库负责 agent | 包含 Task6 的独立 wheel；版本、源码 SHA、wheel SHA256；实际 wheel 的受影响契约检查 | 源码81132cf；待 owner 确认构建环境和权限 |
+| P0-FINAL-NATIVE | cce-pipeline 仓库负责 agent | native wheel 与 WGS/GATK Master 制品；版本、源码 SHA、wheel hash、image config ID；实际制品加载/依赖检查 | 使用已交付插件 wheel；待 owner 执行；镜像操作由该 owner 与获授权 Infra 协调 |
+| P0-OPS-GATES | Infra / 发布负责 agent | 全入口 CLI/platform pin 与 namespace/PVC/PV/目录映射；Complete/Failed TTL 及 Pod 回收；总容量；AOM 新鲜度与通知记录 | 最终制品后进行；具体云端操作、成本/通知、版本切换需确认，不由协调 agent 代做 |
+| P0-COORD | airflow-demo 协调 agent | 接收各 owner 的来源/权限/结果/失败回报，更新总表与发布门禁 | 本次仅完成此卡的文档汇总；其他卡未派发、未开始 |
+
+各 owner 先读本仓库指令、最新交接和
+[Task5 历史制品记录](../../releases/2026-09-24-p02-task5-offline-artifacts.md)，
+核对当前源码和获准构建方式；版本号由对应 owner 确认，协调方不自行修改。
+历史版本/tag/hash 保持不变；local image config ID 不冒充 SWR manifest digest。
+新制品记录必须区分本地构建、仓库发布、安装和启用，不能以其中一步代替其余步骤。
+
+### 操作与阻碍反馈边界
+
+用户最新要求：先完成文档协调；wheel/Master 操作交给对应 agent。
+本轮不连接 SSH、不执行 Docker/Compose、不构建/安装/测试、不启用策略或修改云资源。
+文档和历史成功命令均不是本次运行授权。后续 owner 遇权限不足、Compose 不可用、
+环境指纹不符，立即停止并反馈命令、退出码、stderr 摘要、影响和所需授权；
+不提权、不换入口绕过、不自行重试替代方案。不得改动运行中流程、旧批次或共享服务。
+已有 synthetic 证据复用，只对最终实际制品做必要检查；不重复全套测试或最终审查。
+未安装前回退方式为不选用新制品，保留旧制品/证据；启用后的回退须单独制定，
+不能删除 v2 锁策略或假定能恢复已被 TTL 回收的 Job。
+
+## Historical checkpoints（以下不是当前待办）
+
 ## 2026-09-24 Task4 manual source acceptance complete; Task5 next
 
 Existing authenticated WGS/GATK service → actual DAG methods → registered native
@@ -92,7 +147,7 @@ This supersedes the earlier external-scope hold, not the production boundary.
 No main/production updates, BS96 access, real analysis or shared install.
 No unrelated regression suite. Preserve the original worktree's dirty files.
 
-## Current progress
+## Historical source progress (superseded by 2026-09-25 summary)
 
 - P0-2 Task2 SOURCE PRIMITIVES COMPLETE: plugin5b5d7ee/0.6.4+bs8.dev1 from
   accepted25297f9; cce-pipeline7926496 after Task1c33740d. Exact Worker terminal

@@ -1,5 +1,45 @@
 # Handoff
 
+## 2026-09-25 documentation and progress coordination only
+
+User instruction: wheel/Master operations belong to corresponding repository
+agents; report permission/Compose problems instead of trying workarounds. Current
+request is only documentation/progress coordination. No build task dispatched.
+
+Read AGENTS, boundary, planning/handoff skills, latest three-repo HANDOFFs,
+CURRENT_STATE/TASKS, P0-2 plan/ledger, Task5 artifact receipt and deployment gates.
+Reconciled the stale Task4-only ledger and runbook's unfinished source gates with
+Task6 final acceptance. Preserved historical evidence; no tests re-executed or
+new success inferred. Fixed duplicate unfinished PG/lifecycle/review checklist
+and current native pin. Added owner cards for plugin wheel, native wheel/Master
+and operational acceptance; all execution cards remain pending, not dispatched.
+
+Changed only CURRENT_STATE.md, TASKS.md, HANDOFF.md,
+docs/superpowers/plans/2026-09-22-p0-joint-recovery-progress.md,
+docs/superpowers/plans/2026-09-23-p0-2-master-handoff-ttl-implementation.md,
+docs/releases/2026-09-24-p02-task5-offline-artifacts.md and
+docs/11_DEPLOYMENT_RUNBOOK.md. No changes to native/plugin trees or build scripts.
+
+Local read-only git status/log: platform4c04545, native1bc67fd, plugin81132cf;
+all three clean before edits. Platform runtime checkpoint remains6f03dd6.
+Validation: git diff --check passed; all checked relative Markdown file links
+resolved; diff contained only the seven documents listed above. Source pins and
+task-status review matched the recorded acceptance. No pytest/npm/Docker/Compose/
+build commands appropriate or run for this change.
+No remote command, so hostname/current release/mount/permission/scanner state
+were NOT freshly verified; prior BS10610 observations are historical only.
+No production/BS96, DB, real workflow, cloud Job, installation, service restart,
+policy activation, merge or push. Services/data/old artifacts preserved untouched.
+
+Open: actual final artifacts and operational acceptance. Next: hand owner cards
+to corresponding repository agents under confirmed environment/permission scope;
+only their artifact evidence closes those gates. On denied access or drift,
+report command/exit/stderr/impact and ask, without alternate-entry or privilege
+workarounds. No new functionality, repeated broad tests or second source review.
+This entry does not establish whether an earlier Compose permission incident
+occurred; it records the user's restriction, not an unaudited incident finding.
+Rollback: revert this documentation-only change; no runtime/data rollback needed.
+
 ## 2026-09-25 Task6 final source review and bounded correction
 
 Source acceptance complete; operational acceptance still open. Fresh read-only

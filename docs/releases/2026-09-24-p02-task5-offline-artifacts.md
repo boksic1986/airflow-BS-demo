@@ -1,5 +1,12 @@
 # P0-2 Task5 — offline source/artifact acceptance
 
+> 2026-09-25 coordination note: this is an immutable historical acceptance record.
+> These artifacts predate Task6 and are not final P0 candidates. Successor wheel
+> and Master work is assigned by repository ownership in the
+> [current ledger](../superpowers/plans/2026-09-22-p0-joint-recovery-progress.md),
+> not yet dispatched by this documentation turn. No build/install permission is
+> granted by the commands or prior environment observations below.
+
 2026-09-24. **Accepted for isolated development only, not production.**
 Task4 manual acceptance remains intact. Task6 automatic dispatch and operational
 gates are not closed by this record. No live Kubernetes TTL controller was tested.

@@ -1,5 +1,24 @@
 # Current state
 
+## 2026-09-25 documentation coordination only
+
+Tasks1–6 source/synthetic acceptance is complete within its recorded scope;
+Task5's original offline artifacts remain accepted historical artifacts, not
+Task6 release candidates. Final successor wheels/Master images and operational
+acceptance remain open. The total ledger and runbook now distinguish these layers.
+
+Owner handoff: plugin agent owns its wheel; cce-pipeline agent owns native wheel
+and WGS/GATK Master artifacts with authorized Infra assistance; release/Infra owns
+actual writer/storage, TTL, capacity and AOM/alert gates. Coordinator only records
+dependencies/evidence and reports blockers. These are planned owner cards, not
+executed dispatches. See docs/superpowers/plans/2026-09-22-p0-joint-recovery-progress.md.
+
+Locally checked clean source pins before editing: platform4c04545 (runtime6f03dd6),
+native1bc67fd and plugin81132cf. No installed-version claim or fresh remote check.
+User narrowed this turn to docs/progress coordination: no Docker/Compose, build,
+runtime test, SSH, service/CLI/policy change, cloud action, production or push.
+Permission/environment problems must be reported immediately; no bypass attempt.
+
 ## 2026-09-25 Task6 source acceptance after final review
 
 Task6 source and BS10610 synthetic acceptance are complete. Whole-plan fresh

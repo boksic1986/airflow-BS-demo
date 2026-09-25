@@ -417,7 +417,14 @@ assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
 
 ## Progress / current status
 
-2026-09-25 current checkpoint: platform6f03dd6 / nativefd43f88 / plugin81132cf.
+2026-09-25 coordination: source closure, historical Task5 artifacts, final-artifact
+handoff and live gates are tracked separately in the
+[current total ledger](2026-09-22-p0-joint-recovery-progress.md).
+Successor wheel/Master work belongs to corresponding repository agents; current
+turn is documentation only, no execution dispatched. Permission or environment
+failures must be reported, never bypassed with another Docker/Compose invocation.
+
+2026-09-25 current checkpoint: platform6f03dd6 / native1bc67fd / plugin81132cf.
 Tasks1–5 retain their accepted scope. Task6 automatic/manual lifecycle4,
 PostgreSQL contention10 and selected-monitor deadline/owner denial4 have passed
 on BS10610. Final fresh review found one Important terminal-conflict issue,

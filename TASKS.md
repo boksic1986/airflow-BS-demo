@@ -1,5 +1,21 @@
 # Active test-branch tasks
 
+## 2026-09-25 documentation coordination / owner handoff
+
+- [x] Reconcile total ledger, runbook and Task6 source closure; preserve historical
+  Task5 acceptance and mark it as pre-Task6, not a final release candidate.
+- [x] Record source pins and owner/deliverable/dependency/permission-stop boundaries
+  in docs/superpowers/plans/2026-09-22-p0-joint-recovery-progress.md.
+- [ ] P0-FINAL-PLUGIN: plugin owner produces successor wheel and provenance.
+- [ ] P0-FINAL-NATIVE: cce-pipeline owner produces successor wheel and WGS/GATK
+  Master artifacts using the accepted successor plugin; authorized Infra assists.
+- [ ] P0-OPS-GATES: release/Infra owner verifies live writer/storage mapping,
+  real TTL, capacity, AOM and alerts under confirmed operational scope.
+
+Owner cards are a handoff plan, not dispatched jobs. This turn is local docs/Git
+only: no remote preflight, Docker/Compose, build, runtime test, install or rollout.
+Permission or environment failures require immediate reporting, not workarounds.
+
 ## Task6 source accepted; operational gates open — 2026-09-25
 
 - [x] One fresh whole-plan review: one Important selected terminal conflict,
@@ -73,25 +89,26 @@
   distinguish query exhaustion/control from analysis failure in GATK ingestion,
   callback/periodic projection and existing UI. Do not wrap CREATE/START or an
   entire stage; no second retry budget. Preserve last confirmed progress.
-- [ ] Complete focused PostgreSQL contention and full
-  automatic lifecycle integration/whole-plan review. The source caller is not
-  rollout approval; native/plugin artifacts and default-off policy unchanged.
+- [x] Focused PostgreSQL contention, full automatic/manual lifecycle and whole-plan
+  review completed in the latest source acceptance above. Native/plugin artifacts
+  and default-off policy unchanged; this is not rollout approval.
 - [ ] Separately authorized live TTL/capacity/AOM/alerts gates remain closed.
 
 Task6 prerequisite accepted: final focused28 GREEN35.59s on BS10610. The selected
 monitor and normal immutable receipt reach the existing reservation owner;
 source classification/receipt acceptance is not automatic dispatch acceptance.
-Task6 implementation is in progress under the user's “补齐，然后继续”.
-This does not authorize production, installed policy, real reruns or operational gates.
+This prerequisite entry is historical; Task6 source implementation and acceptance
+are complete as recorded above. It does not authorize production, installed policy,
+real reruns or operational gates.
 
-## Task5 accepted — 2026-09-24
+## Historical Task5 accepted — 2026-09-24 (pre-Task6 artifacts)
 
 - TTL source and targeted BS10610 matrix accepted; distinct offline wheels and
   WGS/GATK Master images built. Actual-wheel13 passed, image smokes2 passed.
   Provenance: docs/releases/2026-09-24-p02-task5-offline-artifacts.md.
   Task6 next; no production activation or live TTL/controller acceptance.
 
-## Current authoritative status — 2026-09-24
+## Historical authoritative status — 2026-09-24 (superseded above)
 
 - [x] P0-2 Task4 manual closure: authenticated service and real DAG methods,
   actual restricted WGS/GATK runtime, fresh-process monitoring and normal Step4–6

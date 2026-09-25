@@ -1,23 +1,31 @@
 # Deployment runbook
 
-## Task6 policy/caller checkpoint — do not activate (2026-09-25)
+## Task6 source accepted — activation gate remains closed (2026-09-25)
 
 New backend-only environment switches WGS_CCE_RECOVERY_ENABLED and
 GATK_CCE_RECOVERY_ENABLED both default false. No Compose/environment/production
-change accompanies their source addition. Do not turn them on yet: native
-original-deadline enforcement, bounded Worker wait, remaining error classes,
-Step4 reconciliation and Task6 integration/PG gates are incomplete.
+change accompanies their source addition. Original-deadline enforcement, bounded
+Worker wait, planned error classes, Step4 reconciliation, integration/PG and final
+source review are accepted in isolated BS10610 evidence. Do not turn them on yet:
+final Task6 artifacts and installed-writer/storage/live TTL/capacity/AOM/alert
+acceptance are still outstanding. Source acceptance is not rollout approval.
 Later authorized rollout must pair backend and DAG versions and the already
 required native/plugin/writer registration gates. Enabling later affects new
 runs only; never edit old params_json or freeze fresh quotas for failed history.
-Task5 wheels/images are unchanged and do not contain this source checkpoint.
+Task5 wheels/images are unchanged and do not contain Task6 additions. Their
+successor wheels/Master images belong to the corresponding repository agents,
+not the coordinator. Current authorization is documentation coordination only;
+no Docker/Compose or remote execution. Permission/environment failures must be
+reported before proceeding, not worked around. See the
+[current owner handoff](superpowers/plans/2026-09-22-p0-joint-recovery-progress.md).
 
-## P0 paired runtime rollout remains closed (source only, 2026-09-24)
+## P0 paired runtime rollout remains closed (source accepted, 2026-09-25)
 
-Do not install writers-v2.json from the current Task4 source checkpoint. Native
-cloud identity and restricted entry selection are tested offline, but per-run
-trusted registration, selected-view normal receipts and final lifecycle release
-are not accepted. Later authorized paired rollout must install the runtime and
+Do not install writers-v2.json based only on source acceptance. Native cloud
+identity, restricted entry selection, per-run trusted registration, selected-view
+normal receipts and final lifecycle release have passed isolated acceptance;
+actual installed writer and storage identity coverage is not established by it.
+Later authorized paired rollout must install the runtime and
 sibling guard together, pin scripts/cce_paired_runtime.py, use an operator-owned
 Python and exact namespace/PVC/PV identities, and cover every CLI/platform writer.
 Invalid activation fails closed; removing policy while v2 owners remain is not
