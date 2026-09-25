@@ -3199,7 +3199,7 @@ def test_prepare_analysis_status_waits_for_final_sampleinfo_nfs_visibility(
         assert [item.sample_id for item in samples] == ["SAMPLE-1"]
 
 
-@pytest.mark.parametrize('version', ['V4.2.0', 'V4.2.1'])
+@pytest.mark.parametrize('version', ['V4.2.0', 'V4.2.1', 'V4.2.2'])
 def test_prepare_status_waits_for_required_handoff(tmp_path, monkeypatch, version):
     monkeypatch.setenv('WGS_RUNTIME_ADAPTER_ENABLED', 'true')
     client, sessions, _ = make_client(tmp_path, monkeypatch)

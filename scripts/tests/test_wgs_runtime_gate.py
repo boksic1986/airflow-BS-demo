@@ -547,6 +547,27 @@ def test_release_repository_validation_does_not_require_git(
     ) == repo.resolve()
 
 
+def test_wgs_422_immutable_release_is_preparable_but_unknown_version_is_fenced(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    release_id = "wgs-4.2.2-3b1dae5"
+    assert gate.DEFAULT_RELEASE_ROOTS[release_id] == (
+        "/bi/biodevrwbi/33.chenjiucheng/project/wgs-releases/"
+        "20260926.1-wgs422/wgs-4.2.2-3b1dae5"
+    )
+    repo = tmp_path / release_id
+    (repo / "prepare").mkdir(parents=True)
+    (repo / "prepare" / "prepare_wgs_batch.py").write_text("# synthetic\n")
+    monkeypatch.setattr(gate, "WGS_REPO_ROOT", repo)
+    payload = {"pipeline_release_id": release_id, "wgs_version": "V4.2.2"}
+    assert gate.validate_release_repository(payload) == repo.resolve()
+    assert gate._uses_prepare_handoff({**payload, "stage": "prepare_sampleinfo"})
+    with pytest.raises(RuntimeError, match="historical WGS release"):
+        gate.validate_release_repository({**payload, "wgs_version": "V4.2.3"})
+    assert not gate._uses_prepare_handoff({**payload, "wgs_version": "V4.2.3", "stage": "prepare_sampleinfo"})
+
+
 def test_historical_release_cannot_be_reprepared_without_frozen_binding(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
