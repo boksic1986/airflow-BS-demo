@@ -1,5 +1,18 @@
 # Handoff
 
+## 2026-09-26 R1 paused again before completion
+
+During resumed R1, original WGS owner sent the newer direct user request "先暂停".
+Coordinator notified WGS and native/Infra owners to stop uploads/apply/switching/
+cleanup and requested only a summary of already-performed actions, no new probes.
+Owner first report had confirmed old13payload/SOURCE_READY candidate existed,
+old metadata boundr1, and SFS had not yet been applied; this is not a final live
+post-pause check. No coordinator remote mutations. R1 remains incomplete/paused.
+Local audit identified asset_status checks sharedACTIVE_ASSETS and current
+component manifests; owner was asked to trace old-release consumers before any
+apply. That compatibility finding is unresolved, not authority to change code.
+Resume only on explicit user direction.0.8.6/SWR/r2 completion is unchanged.
+
 ## 2026-09-26 R1 resumed by user
 
 User request: "先完成1" after the four-step outline. Scope is WGS4.2.2 SFS

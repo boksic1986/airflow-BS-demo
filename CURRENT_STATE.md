@@ -1,5 +1,13 @@
 # Current state
 
+## 2026-09-26 R1 paused again by latest user direction
+
+Original WGS owner relayed a newer direct user request, "先暂停", during R1.
+Coordinator stopped advancing publication and notified both original owners:
+no further uploads, assets apply, switching or cleanup. Existing0.8.6/SWR/r2
+results remain accepted. Owner report of any actions already taken is pending;
+R1 is not marked complete. Await explicit user resumption.
+
 ## 2026-09-26 R1 SFS publication resumed
 
 User authorized only next step1: publish WGS4.2.2 to SFS. Original WGS owner
