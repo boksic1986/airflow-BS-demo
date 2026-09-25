@@ -46,6 +46,53 @@ before installation. Image labels are inherited old metadata; compatibility
 must use R1 actual runtime contract, not require a rebuild just for a label.
 No installation/push/profile/service change; R1 has not published yet.
 
+R1 partial execution receipt: task-artifacts/wgs-422-update-20260925/R1_STATUS.md,
+SHA256 f611c2c752400936130aaa690d642757097961f510eaf3bad1129275fff883bc
+read and matched. New candidate20260925.1-wgs422/source3b1dae5 packages130 files,
+121 resource keys,115 inherited. Asset manifest163e653b73cab11011ea97e5bdd14869eb8797955785f870e6f8c894470b4374;
+upload plan510f2ea684257189cfcd42397d0076740b7480381a56b17cd804fc76493dbaa4.
+Owner reports13 objects708270164 bytes and SOURCE_READY verified on node005.
+This is staged/uploaded acceptance only, NOT SFS publication.
+
+Failure: BS10610 installed0.8.5 assets validate, _validate_source_ready ->
+_obsutil_cat, raises SOURCE_READY unavailable after unsuccessful OBS read;
+direct same-object read with same private config timed out after25s, whereas
+node005 succeeds. Original Infra owner is reviewing existing split-host support
+without repeating network checks. No apply, ACTIVE_ASSETS write, route change,
+credential copy or new publisher. Old4.2.1 selected by production catalog/profile;
+asset_status pointer mismatch is separate status semantics, not a runtime selector.
+Current support-path finding will decide continuation vs reporting external blocker.
+No runtime tests requested yet; R2–R4 deployment remains pending R1.
+
+Infra source review resolved the supported execution location:0.8.5 assets
+validate only reads OBS on its caller; assets apply repeats that local read,
+then uses configured hosts.cce_admin_ssh for remote kubectl. Continue on node005
+for BOTH validate/apply, provided existing admin SSH resolves to BS10610 with
+configured usable kubectl/kubeconfig and readable frozen profile/manifest.
+Owner was dispatched to check only those prerequisites and continue R1; no
+new publisher, OBS credential copy, routing change or SOURCE_READY bypass.
+If the existing configuration does not satisfy them, report the exact missing
+precondition rather than inventing credentials. Source references: native
+docs/architecture/cce-pipeline-0.8.0-workflow-asset-release.md section13 and
+docs/operations/cce-release.md. BS10610 remains the CCE executor, node005 OBS.
+
+Final blocker confirmed by WGS owner: node005 `ssh -o BatchMode=yes BS10610
+hostname` fails `Could not resolve hostname bs10610`; ssh -G leaves literal
+bs10610. Existing server10610 access needs an explicit task known-hosts file,
+not the current operator's default SSH invocation. The configured remote
+kubectl and kubeconfig were previously proven on server10610; OBS and frozen
+input readability on node005 are also proven. Do not repeat these checks.
+No home SSH edit, key copy, host-key bypass, routing modification or custom
+wrapper was attempted. Coordinator will request direction for original Infra
+owner to repair only the managed admin alias/verified host-key prerequisite.
+R1/R2 owners told to hold writes; no SFS/profile/image/environment activation.
+Updated local R1_STATUS receipt read and SHA matched:
+8c38daf1d04a2da823c8db3d7d3c7d7de1986e17130f67f15dbf68b3ed0b74d1.
+All R2 installation/push and R3/R4 work remains pending; no remote test suite run.
+Progress docs and integration preview are committed locally; no main/production
+push. Once the SSH prerequisite is explicitly resolved, reuse the same staged
+candidate, not a new upload/rebuild, then follow R1 through R4 in order.
+
 ## 2026-09-25 WGS4.2.2/P0 replacement plan; no implementation
 
 User asks for four ordered steps and explicit cooperation with WGS-pipeline

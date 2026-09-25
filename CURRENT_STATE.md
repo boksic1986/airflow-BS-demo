@@ -21,6 +21,19 @@ preparation received and hash-verified at task-artifacts/p0-final-native-ops-
 is a confirmed nipttest consumer, and installed native remains0.8.5. No install,
 push or profile activation has occurred; R2 compatibility still consumes R1.
 
+R1 candidate20260925.1-wgs422 is now staged and OBS SOURCE_READY verified from
+node005 (13 objects,708270164 bytes); SFS is NOT published. BS10610 reading the
+same ready object times out. Original Infra owner is checking the existing
+supported split-host entry; no route/credential workaround is authorized.
+R1_STATUS.md receipt SHA f611c2c752400936130aaa690d642757097961f510eaf3bad1129275fff883bc
+was read and verified by coordinator. Old4.2.1 paths/ACTIVE_ASSETS remain unchanged.
+
+Final precondition blocker: supported node005 validate/apply delegates kubectl
+over configured admin SSH, but node005's configured BS10610 alias cannot resolve.
+No alias/host-key change is made without direction. Updated R1_STATUS SHA
+8c38daf1d04a2da823c8db3d7d3c7d7de1986e17130f67f15dbf68b3ed0b74d1 verified.
+Both owners instructed to retain staged artifacts and hold environment writes.
+
 ## 2026-09-25 replacement four-step WGS4.2.2/P0 rollout plan
 
 User requests a new sequence: WGS4.2.2 SFS publication with WGS-pipeline owner,
