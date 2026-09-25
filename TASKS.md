@@ -2,8 +2,8 @@
 
 ## 2026-09-26 current slice: R1 SFS publication only
 
-PAUSED: WGS owner relayed newer user "先暂停" during this slice. Stop remaining
-publication actions; record only existing evidence until user explicitly resumes.
+ACTIVE: user corrected the relayed pause as historical and reaffirmed publication.
+Both original owners resumed; only R1 is authorized for the current slice.
 
 - [x] Resume original WGS owner under explicit step1 authorization and deliver
   accepted0.8.6/Master/r2 binding evidence.

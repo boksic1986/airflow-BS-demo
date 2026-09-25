@@ -1,8 +1,18 @@
 # Handoff
 
+## 2026-09-26 chronology correction: complete R1 publication
+
+User corrected the cross-task pause as an older instruction and explicitly
+reaffirmed "先完成发布". Coordinator had incorrectly treated message arrival
+as instruction recency. Original WGS and native/Infra owners now notified to
+resume R1 only and not replay historical pause state. Reuse accepted checks,
+payloads and0.8.6/SWR/r2; continue metadata binding and safe SFS publication.
+No additional scope, Airflow/BS96 switch, source changes or clinical submission.
+Earlier pause entries are history of that error, not active authorization.
+
 ## 2026-09-26 R1 paused again before completion
 
-During resumed R1, original WGS owner sent the newer direct user request "先暂停".
+During resumed R1, original WGS owner relayed "先暂停" (later corrected as old).
 Coordinator notified WGS and native/Infra owners to stop uploads/apply/switching/
 cleanup and requested only a summary of already-performed actions, no new probes.
 Owner first report had confirmed old13payload/SOURCE_READY candidate existed,

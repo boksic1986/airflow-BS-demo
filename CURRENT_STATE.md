@@ -1,8 +1,15 @@
 # Current state
 
-## 2026-09-26 R1 paused again by latest user direction
+## 2026-09-26 R1 active: stale pause corrected
 
-Original WGS owner relayed a newer direct user request, "先暂停", during R1.
+User explicitly corrected the relayed pause as an OLD instruction and reaffirmed
+"先完成发布". Resume R1 SFS publication only. Both original WGS/native owners
+notified; no repeated wheel/image work or expansion to Airflow/BS96. The paused
+entry below records a coordinator chronology error, not current authority.
+
+## 2026-09-26 historical erroneous pause (superseded)
+
+Original WGS owner relayed "先暂停", incorrectly treated as newer during R1.
 Coordinator stopped advancing publication and notified both original owners:
 no further uploads, assets apply, switching or cleanup. Existing0.8.6/SWR/r2
 results remain accepted. Both owners confirmed only read-only checks, no new
