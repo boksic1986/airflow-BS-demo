@@ -1,5 +1,26 @@
 # Current state
 
+## 2026-09-25 Task6 PostgreSQL and automatic lifecycle checkpoint
+
+BS10610 disposable PostgreSQL acceptance: 10 passed (7.42s). Actual blocked
+backend PIDs were observed via pg_stat_activity; repeated automatic reservation,
+manual/automatic competition, duplicate manual dispatch and committed user stop
+retain one owner. No existing service database or shared network was used.
+
+Real fatal producer/FINAL -> backend automatic reservation -> lost Airflow POST
+reconciled by GET -> actual DAG registration -> restricted replacement -> fresh
+monitor after Job reclamation -> Step4/5/6 -> normal finalize: WGS/GATK automatic
+and existing authenticated manual flows all passed (4 cases, 94.49s). External
+Kubernetes/OBS/HTTP/SSH transports are synthetic; actual source services, native
+receipts, locks and DAG callables are used. This is not live cloud TTL acceptance.
+
+Integration exposed and fixed two bounded reader gaps: same confirmed Step3
+action must observe its replacement after TTL, not re-enter replacement against
+the old source; selected-journal equality must include the registered producer's
+original compute deadline. No new budget, attempt, deadline or recovery path.
+Native fd43f88/plugin81132cf unchanged. Task6 remains open for final whole-plan
+review and separately authorized operational gates. No production/merge/push.
+
 ## 2026-09-25 Task6 manual monitor handoff checkpoint
 
 Automatic polling no longer treats a failed query-only observer as terminal

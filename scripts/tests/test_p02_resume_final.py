@@ -191,7 +191,11 @@ def adapter(mirrored_final,tmp_path,monkeypatch):
         old=json.loads(current['data']['lock'])
         return {'object_uid':current['metadata']['uid'],'resource_version':current['metadata']['resourceVersion'],
                 'identity':old['identity'],'owner':old['owner']}
-    cap=RecoveryCapability(bundle=bundle,expected_job_uid='master-uid',context=context,authorize=authorize,verify_lock=mapper)
+    platform=record.get('platform_execution')
+    if platform is not None:
+        platform=dict(platform,execution_id=context['execution_id'])
+    cap=RecoveryCapability(bundle=bundle,expected_job_uid='master-uid',context=context,authorize=authorize,
+        verify_lock=mapper,platform_execution=platform)
     cap.bind(runtime,h.contract,h.config,run_label='synthetic-run',pipeline=pipeline,
         analysis_id=aid,attempt=1,action='new-action')
     old_context={**cap.lock_context(),'generation':record['execution_generation'],

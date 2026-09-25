@@ -285,15 +285,24 @@ def test_direct_step3_replacement_and_observation(registered,monkeypatch):
 @pytest.mark.parametrize('view_inputs',[{'pipeline':'wgs','analysis_id':'WGS_20260924_000000_AAAAAA'},
     {'pipeline':'gatk','analysis_id':'GATK_20260924_000000_AAAAAA'}],indirect=True)
 @pytest.mark.parametrize('fault',[None,'receipt_uid','old_terminal','journal_view','lock_owner','gate',
-    'old_marker','reclaimed_success','reclaimed_failure','recoverable_failure','downstream','reconnect','reconnect_downstream'])
+    'old_marker','reclaimed_success','reclaimed_failure','recoverable_failure','downstream','reconnect','reconnect_downstream','journal_deadline'])
 def test_fresh_monitor_uses_selected_master_and_rejects_stale_authority(registered,monkeypatch,fault):
     state,launch,gate,submit,request,policy,bundle,h=registered
+    if fault=='journal_deadline':
+        from datetime import timedelta
+        submit['cce_recovery_deadline']=(datetime.now(timezone.utc)+timedelta(hours=1)).isoformat()
+        submit['request_hash']=paired._request_digest(submit,'wgs' if gate is wgs_runtime_gate else 'gatk')
+        request.write_text(json.dumps(submit))
     original={str(p.relative_to(bundle)):p.read_bytes() for p in bundle.rglob('*') if p.is_file()}
     receipt=launch()
     monkeypatch.setattr(paired,'selected_runtime',lambda:(Path(runtime.__file__),'/operator/python'))
     selected=Path(state.new_view)
     receipt_path=request.with_suffix('.status.json')
     pipeline='wgs' if gate is wgs_runtime_gate else 'gatk'
+    if fault=='journal_deadline':
+        journal=request.parent/('recovery-new-action.json' if pipeline=='wgs' else 'resume-master-uid.json')
+        value=json.loads(journal.read_bytes());value['recovery_v2']['compute_deadline']+=1
+        journal.write_text(json.dumps(value))
     if fault=='receipt_uid':
         receipt['cce_master_binding']['native']['job_uid']='foreign-uid'
         if pipeline=='gatk':
@@ -308,10 +317,11 @@ def test_fresh_monitor_uses_selected_master_and_rejects_stale_authority(register
         cm=next(iter(state.cms.values()));value=json.loads(cm['data']['lock'])
         value['owner']['master_uid']='foreign-uid';cm['data']['lock']=json.dumps(value)
     current={k:v for k,v in json.loads(request.read_bytes()).items() if k!='request_hash'}
-    current.update(stage='step3_monitor',generation=1,
-        execution_id=submit['analysis_id']+'-a1-step3_monitor-g1',
-        predecessor_execution_id=submit['execution_id'],
-        predecessor_receipt_hash=hashlib.sha256(receipt_path.read_bytes()).hexdigest() if pipeline=='wgs' else receipt['receipt_hash'])
+    if not hasattr(h,'register_stage'):
+        current.update(stage='step3_monitor',generation=1,
+            execution_id=submit['analysis_id']+'-a1-step3_monitor-g1',
+            predecessor_execution_id=submit['execution_id'],
+            predecessor_receipt_hash=hashlib.sha256(receipt_path.read_bytes()).hexdigest() if pipeline=='wgs' else receipt['receipt_hash'])
     excluded=set() if pipeline=='gatk' else {'execution_id','generation','predecessor_execution_id',
         'predecessor_generation','predecessor_receipt_hash'}
     current['request_hash']=hashlib.sha256(json.dumps({k:v for k,v in current.items() if k not in excluded},
@@ -339,6 +349,18 @@ def test_fresh_monitor_uses_selected_master_and_rejects_stale_authority(register
                 pod['status']['conditions']=[{'type':'Ready','status':'True'}]
         return result
     monkeypatch.setattr(runtime,'_kubectl_json',ready_pods)
+    if getattr(h,'real_query_transport',False):
+        native_transport=runtime._run
+        def read_transport(command,**kw):
+            if command[5]!='get':return native_transport(command,**kw)
+            args=command[6:command.index('-o')]
+            args=[v for v in args if v not in {'--ignore-not-found','--chunk-size=0'}]
+            value=ready_pods(h.config,*args)
+            if value is not None and args[0]=='pods':value.update(kind='PodList',metadata={})
+            return subprocess.CompletedProcess(command,0,json.dumps(value).encode() if value is not None else b'',b'')
+        monkeypatch.setattr(runtime,'_run',read_transport)
+        monkeypatch.setattr(runtime,'_recovery_query',REAL_QUERY)
+        monkeypatch.setattr(runtime,'_kubectl_json',REAL_LEGACY_QUERY)
     evidence={'analysis.log':'2 of 10 steps (20%) done\n','START_CONFIRMED.json':state.confirmation}
     if fault=='old_terminal':evidence['RUN_FAILED.json']=state.evidence['RUN_FAILED.json']
     if fault in ('old_marker','reclaimed_success','downstream','reconnect_downstream'):
@@ -402,7 +424,7 @@ def test_fresh_monitor_uses_selected_master_and_rejects_stale_authority(register
                 monkeypatch.setattr(gate.time,'sleep',stop_after_observation)
                 try:
                     if pipeline=='wgs':wgs_resume.run_resume_stage(payload,gate=gate)
-                    else:gate._execute_stage(submit['analysis_id'],1,'step3_monitor',1)
+                    else:gate._execute_stage(submit['analysis_id'],1,'step3_monitor',current['generation'])
                 except ObservedRunning:pass
                 current_receipt=json.loads(path.with_suffix('.status.json').read_bytes())
                 value=current_receipt['master'] if pipeline=='wgs' else {
@@ -417,7 +439,7 @@ def test_fresh_monitor_uses_selected_master_and_rejects_stale_authority(register
                 else:gate._write_status(path,payload,status,'monitoring',master=value)
             answer={'status':value,'receipt':json.loads(path.with_suffix('.status.json').read_bytes()),'pid':os.getpid()}
         except Exception as error:
-            answer={'error':type(error).__name__+': '+str(error)}
+            answer={'error':type(error).__name__+': '+str(error),'traceback':traceback.format_exc()}
         with os.fdopen(write_fd,'w') as stream:json.dump(answer,stream)
         os._exit(0)
     os.close(write_fd)
@@ -426,7 +448,7 @@ def test_fresh_monitor_uses_selected_master_and_rejects_stale_authority(register
     if fault not in (None,'gate','old_marker','reclaimed_success','reclaimed_failure','recoverable_failure','downstream','reconnect','reconnect_downstream'):
         assert 'error' in answer and not answer['error'].startswith('AttributeError'),answer
     else:
-        assert 'error' not in answer,answer
+        if 'error' in answer:pytest.fail(answer.get('traceback',answer['error']))
         assert answer['pid']!=os.getpid()
         assert answer['status']['master_state']=={'reclaimed_success':'SUCCEEDED','downstream':'SUCCEEDED','reconnect_downstream':'SUCCEEDED','reclaimed_failure':'FAILED','recoverable_failure':'FAILED'}.get(fault,'RUNNING')
         assert answer['status']['completed']==(10 if fault in ('reclaimed_success','downstream','reconnect_downstream') else 2)

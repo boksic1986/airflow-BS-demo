@@ -2,6 +2,13 @@
 
 ## Task6 active — 2026-09-25
 
+- [x] PostgreSQL row-lock contention: 10 focused cases on disposable BS10610 PG,
+  verified pg_stat_activity lock waits; no service DB connection.
+- [x] Automatic/manual lifecycle: 4 WGS/GATK source-level integration cases reach
+  Step6 and normal finalize, original attempt and one automatic slot retained.
+  Actual DAG/producer/native/consumer code; external transports synthetic.
+  Fix same-action reclaimed-Master re-entry and deadline-bearing journal reader.
+
 - [x] Finite query owner wired through real selected WGS/GATK monitors and existing
   status persistence; outer failures retain marker, backend/view distinguish
   unconfirmed execution, callback and periodic Airflow sync cannot mark analysis
@@ -13,8 +20,8 @@
   successor retains attempt/budget/deadline; GATK deadline inheritance repaired.
   Existing detail confirmation reused for query attention. BS10610 backend82,
   frontend2 pass (2026-09-25); no production or source-artifact rebuild.
-- [ ] Complete final automatic lifecycle and focused
-  PostgreSQL contention before CR-04/Task6 closure and whole-plan fresh review.
+- [ ] Final whole-plan fresh review before CR-04/Task6 source closure; operational
+  cloud TTL/capacity/AOM acceptance remains separately authorized.
 - [x] Inspect Task4/5 producer versus existing automatic-recovery consumer.
 - [x] User approved necessary wrapper/logger failure-summary addition before extending
   runtime source; preserve existing biological workflow and accepted artifacts.

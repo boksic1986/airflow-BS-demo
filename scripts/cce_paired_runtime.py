@@ -705,6 +705,18 @@ def prepare_monitor_registered(payload, *, binding, gate, pipeline):
     if source.get('resume_action_id') == payload['resume_action_id']:
         _registered_request(source, gate, pipeline)
         return
+    runtime = load_runtime()
+    bundle = Path(binding['cce_bundle'])
+    contract, _, _ = runtime._load(bundle, None)
+    if any(saved.get('recovery_state') == 'started'
+            and saved.get('recovery_v2', {}).get('context', {}).get('action') == payload['resume_action_id']
+            for _, saved, _, _ in _journal_views(path.parent, pipeline, runtime, bundle, contract)):
+        # A confirmed replacement is observed even if its Job has been reclaimed.
+        # The journal is only a locator: revalidate registration, native handoff,
+        # frozen inputs and current owner before the ordinary monitor reads FINAL.
+        _selected_registered(payload, binding=binding, gate=gate, pipeline=pipeline,
+            runtime=runtime, operation=lambda *args: {})
+        return
     result = resume_registered(payload, binding=binding, gate=gate, pipeline=pipeline)
     payload['_cce_master_result'] = result
 
@@ -1054,6 +1066,13 @@ def _selected_registered(payload, *, binding, gate, pipeline, operation=None, ru
         else:
             expected = dict(expected_job_uid=old['job_uid'], context=context, original=original,
                 view=str(selected), platform_execution=platform)
+            if __package__:
+                from .cce_recovery_deadline import deadline_epoch
+            else:
+                from cce_recovery_deadline import deadline_epoch
+            compute_deadline = deadline_epoch(source)
+            if compute_deadline is not None:
+                expected['compute_deadline'] = compute_deadline
             journal_matches = journal.get('recovery_state') == 'started' and journal.get('recovery_v2') == expected
             journal_uid = journal.get('replacement_uid')
         selected_binding = runtime._handoff_binding(selected, contract)

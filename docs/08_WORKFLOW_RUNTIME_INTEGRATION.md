@@ -1,5 +1,16 @@
 # Workflow runtime integration
 
+## Task6 confirmed Step3 re-entry (2026-09-25, source only)
+
+An exact current Step3 action whose native recovery journal is already started
+reconstructs its selected Master through the existing read-only validator.
+It does not require a reclaimed Job to reappear or retry replacement/START.
+The journal is only a locator: registered source hash, complete native handoff,
+frozen inputs, original producer compute deadline and current directory owner
+must all agree. The subsequent ordinary monitor still verifies terminal evidence;
+absent Job/FINAL is not success. Partial/uncertain handoffs retain the existing
+reconciliation path. No untrusted journal grants a new owner or resets deadline.
+
 ## Task6 manual observer boundary (2026-09-25, source only)
 
 Failed query observers do not settle automatic compute actions. Explicit existing

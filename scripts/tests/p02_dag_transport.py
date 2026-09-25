@@ -9,13 +9,15 @@ from unittest.mock import patch
 
 
 def main():
-    value=json.load(sys.stdin)
+    value=json.loads(sys.stdin.readline())
+    wire=sys.stdout
     with redirect_stdout(io.StringIO()):
         dag=importlib.import_module('bio_'+value['pipeline'])
         calls=[];commands=[]
         def backend(path,**kw):
             calls.append({'path':path,**kw})
-            return value['registration']
+            wire.write(json.dumps({'backend':{'path':path,**kw}})+'\n');wire.flush()
+            return json.loads(sys.stdin.readline())
         def ssh(command,**kw):
             commands.append(command)
             return SimpleNamespace(returncode=0,stdout='',stderr='')
@@ -25,7 +27,8 @@ def main():
             for stage in ('prepare','step1_upload'):
                 run(stage,**context)
             assert not calls and not commands
-            run(value['stage'],**context)
+            if value['stage']=='finalize_run':dag.register_stage(value['stage'],**context)
+            else:run(value['stage'],**context)
     print(json.dumps({'calls':calls,'commands':commands}))
 
 

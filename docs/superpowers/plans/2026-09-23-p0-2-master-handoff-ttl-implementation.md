@@ -367,8 +367,10 @@ assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
   Superseded by 2026-09-25 caller checkpoint: existing registration/runner/sensor
   now wired with frozen marker/deadline, committed intents and hash-pinned sends.
   BS10610 backend/runtime90 and actual-Airflow20 pass. No enabled deployment.
-  Full automatic lifecycle integration remains open. Do not count the source caller
-  or manual P0-2 closure as automatic completion.
+  Superseded by 2026-09-25 lifecycle acceptance: WGS/GATK automatic and manual
+  cases4 pass through actual fatal evidence, durable dispatch, DAG registration,
+  restricted replacement, reclaimed-Master monitor, Step4–6 and normal finalize.
+  HTTP/SSH/cloud transports remain synthetic; final whole-plan review is pending.
 - [ ] CR-04 reuses existing Tracker/detail waiting/recovering/exhausted/stale fields; no new page.
   2026-09-25 projection checkpoint: common read-only action/current-generation
   view and existing UI connected; running binding/health retained by real WGS/GATK
@@ -391,7 +393,10 @@ assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
   Native fd43f88; BS10610 regression113 plus final affected16/selected4 pass.
   No new controls/statuses; verify manual reconnect versus pending automatic
   action and full lifecycle in final integration before closing CR-04.
-- [ ] CR-05 focused PostgreSQL contention and final integration tests, no real biological analysis. Respect WGS/GATK per-adapter enablement.
+- [x] CR-05 focused PostgreSQL contention: disposable BS10610 PostgreSQL10 pass,
+  actual pg_stat_activity lock waits prove serialization. Automatic/manual
+  WGS/GATK lifecycle4 pass (94.49s), no real biological analysis or activation.
+  Full-plan final review remains a separate source closure gate.
 - [x] Manual/automatic observer handoff checkpoint (2026-09-25): query-only
   monitor failure never settles compute; existing explicit Step3 Resume retires
   only exact confirmed ended observer authority and commits its successor under

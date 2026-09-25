@@ -1,5 +1,68 @@
 # Handoff
 
+## 2026-09-25 Task6 PostgreSQL and automatic lifecycle acceptance
+
+Goal: continue Task6 from platform7963428; nativefd43f88/plugin81132cf unchanged.
+Production code change is confined to scripts/cce_paired_runtime.py: an exact
+started direct-Step3 action uses the existing selected-Master reader on re-entry;
+that reader now compares compute_deadline from the registered producer too.
+No replacement/takeover shortcut, budget reset or workflow change.
+
+Added backend/tests/test_cce_recovery_postgres.py and
+scripts/tests/test_p02_automatic_flow.py. Extended the existing manual/native
+test harness and DAG HTTP transport to exchange actual backend responses, so
+opted-in Step4 begin/check/finish and normal finalize are exercised. Config/cloud
+transport is synthetic; no forged post-seal failure proof or fake stage body.
+
+BS10610 runner: .superpowers/sdd/2026-09-23-p0-2-master-handoff-ttl-implementation/task6.ps1
+- Mode pg, backend/tests/test_cce_recovery_postgres.py:
+  pg-contention-final.log, 10 passed7.42s.
+- Mode integrated, scripts/tests/test_p02_automatic_flow.py and
+  scripts/tests/test_p02_manual_flow.py: automatic-manual-lifecycle-final.log,
+  4 passed94.49s. Actual services/DAG callables/native gates, SQLite lifecycle DB;
+  PostgreSQL contention is separately tested above.
+- Mode integrated, selected-monitor journal_deadline/lock_owner × WGS/GATK:
+  automatic-final-fences.log, 4 passed8.11s; changed deadline and foreign owner
+  remain rejected. git diff --check passed.
+- Initial PG run failed before tests because the original cached Python image
+  could not import psycopg2._psycopg. Switched to already-cached compatible
+  Airflow image58195672 (psycopg2 2.9.9); no dependency installation/service update.
+- Intermediate lifecycle fixture errors: missing producer platform identity,
+  wrong DNS label/control workdir, read-only Airflow HOME, missing normal launch
+  archival/query transport, missing synthetic finalization catalog. Fixed only
+  fixture boundaries; no weakened native checks. These are NOT behavioral RED.
+- Behavioral RED: automatic-lifecycle-context.log (confirmed replacement Job
+  absent on same-action re-entry); automatic-lifecycle-reentry.log (reader did
+  not account for producer compute_deadline). Both now covered by final4 GREEN.
+
+Preflight each call: server10610 uid6708; control airflow-WGS/current points to
+20260912-opt-4d3d24e6; backend36ff21f87356 /app RO20260923-step7-ae416fa and /config
+RO20260912-opt-4d3d24e6; scanner/auto-dispatch false. Evidence is retained under
+/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/p02-task6-20260925.
+No local runtime tests, broad test rerun, real workflow, BS96 access, image build,
+CLI/runtime installation, source merge/push or deployment. Rollback is source
+revert only. Remaining: final whole-plan fresh review; separate cloud TTL,
+Pod capacity and AOM/alert evidence must not be inferred from synthetic tests.
+
+### Disposable PostgreSQL cleanup authorization and results
+
+User requested continuation; scope is isolated synthetic validation only.
+Plan: use cached postgres image9943612906a8 in one uniquely named task container,
+network none/no published ports, localhost only, tmpfs database and Unix socket.
+Test container joins only that container's network namespace. No shared service
+database/network/volume or host data is used. Runner records exact generated
+container name/ID and stops only that owned labeled container in finally;
+auto-removal discards its temporary synthetic database (intentionally no backup).
+Evidence stays under the existing BS10610 p02-task6-20260925 task root.
+
+Only these task-created online temporary containers/tmpfs databases were removed:
+- p02-task6-pg-5028356e8ab2 (f07fef93d07e): failed driver preparation; removed.
+- p02-task6-pg-577164160828 (3e40294d8ca7): passing PG contention; removed.
+- p02-task6-pg-6ec4ea5d0a4b (e47dd670e5db): initial lifecycle fixture run; removed.
+Each deletion verified generated name/owner label/full ID first. No backup; this
+synthetic temporary DB data is not recoverable. No host directory, real input,
+pending, results, service volume/database or retained evidence was deleted.
+
 ## 2026-09-25 Task6 continuation / explicit monitor handoff
 
 Goal: continue approved automatic/manual interaction from platform728f098,
