@@ -1,5 +1,23 @@
 # Current state
 
+## 2026-09-26 runtime-first slice complete; profile inactive
+
+cce-pipeline0.8.6 installed in nipttest, source dcc1698; minimal version hardcode
+fix accepted with RED then3 GREEN cases. WGS Master pushed with RepoDigest
+dc22c919d83ee5354b51b650666c9609ce05dc3ebcfb283acac16a3b3fa62597; new shared
+profile wgs-4.2.2/r2 SHA4a016a2d0c1006b013a1e66efc147e29275e0ce8dcd2b086f1488bed8c44d6ed.
+Unified owner receipt, actual wheel metadata/hash and embedded file hashes,
+source diff and profile bytes independently reviewed. See
+docs/releases/2026-09-26-cce086-wgs-profile.md for exact evidence and paths.
+No Master rebuild: its embedded runtime assets are unchanged by client-only fix.
+No old installed-package backup was made under the user's direct-install
+instruction; old dev3 wheel remains, not a byte-for-byte environment backup.
+
+WGS/SFS still paused, new profile inactive. Old R1 manifest/SOURCE_READY binds r1,
+so future publication must produce metadata matching r2; current payload hashes
+remain frozen. Airflow/BS96 and existing batches unchanged. Main/production
+integration, API/dashboard updates and SFS publication remain later work.
+
 ## 2026-09-25 minimal native release fix authorized
 
 User approved removing the fixed0.8.5 clause from release binding while keeping
@@ -7,7 +25,9 @@ catalog/actual version equality and all asset identity/integrity checks. Origina
 native owner will provide a successor artifact, minimal remote regression evidence
 and update the active installation/push/profile receipt. No direct installed-code
 patch or automatic Master rebuild; unchanged embedded assets allow image reuse.
-This supersedes dev3 as final install pin only after the successor is evidenced.
+User subsequently explicitly selected version0.8.6 for this corrected artifact;
+do not use a dev4 local version or overwrite dev3. This supersedes dev3 as final
+install pin only after the successor is evidenced.
 
 ## 2026-09-25 runtime-first slice resumed; WGS/SFS remains paused
 

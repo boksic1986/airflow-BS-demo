@@ -1,5 +1,42 @@
 # Handoff
 
+## 2026-09-26 runtime-first slice accepted
+
+Original owner completed0.8.6 install, WGS Master SWR push and inactive r2 profile.
+Source dcc1698fb5da955d2c481a735021f0cfac2b8119 checked/clean; four changed files
+are version metadata, release.py and its tests. Fixed-version restriction removed,
+actual-version equality and all remaining checks unchanged. Receipt records
+RED1 failure then GREEN3/3, build and pip exit0, CLI0.8.6. No extra tests run here.
+
+Read/hashed R2_R3_086_EXECUTION_RECEIPT.md (a9e378835d1cb5c5d792e4f361b16a1f52801633b687f89130aa2bd332dd6d8e).
+Read/hashed local wgs-4.2.2-r2.yaml (4a016a2d0c1006b013a1e66efc147e29275e0ce8dcd2b086f1488bed8c44d6ed).
+Read-only scp downloaded exact119603-byte0.8.6 wheel from BS10610 task evidence,
+exit0. Local static ZIP/metadata inspection matches wheel SHA3e77f7b4892a086b977e7ff072860f70a9344160be1949b413a12f6228b843da,
+release.py a403d72a..., runtime63d3f178..., guard4009e7c5.... No local runtime test.
+SWR push/inspect digestdc22c919... and profile validate exit0 documented in owner
+receipt. Embedded assets unchanged, so existing accepted Master reused, not rebuilt.
+
+Canonical record: docs/releases/2026-09-26-cce086-wgs-profile.md. Also updated
+CURRENT_STATE, TASKS and release plan; git diff --check is the local docs check.
+No separate old installed package backup per user's direct-install instruction;
+dev3 wheel retained for explicit reinstall, not an exact environment restore.
+Old profile/image remain. New r2 is inactive; no SFS apply, Airflow service change,
+BS96 access, main/production merge, clinical run or automatic recovery enablement.
+
+Next: keep WGS/SFS paused until resumed; when authorized, bind asset manifest and
+SOURCE_READY to r2 SHA before publishing, then integrate API/dashboard and the
+already-authorized Airflow branches. Do not use old r1 READY as proof of r2.
+
+## 2026-09-26 user selects cce-pipeline0.8.6
+
+User explicitly chooses0.8.6 for the approved minimal release-version fix.
+Original native/Infra owner informed to use0.8.6 consistently in source metadata,
+successor wheel, install receipt and profile companion release binding; no dev4,
+no overwrite of accepteddev3 artifact. Continue current two-case regression work,
+do not restart full verification. Master reuse still depends on unchanged embedded
+asset hashes, not on making image labels cosmetically match the client version.
+Installation of0.8.6 and SWR/profile completion remain pending actual receipts.
+
 ## 2026-09-25 approved release-version hardcode correction
 
 User agreed to remove only the fixed0.8.5 restriction in native release binding.

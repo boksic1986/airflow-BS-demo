@@ -2,23 +2,23 @@
 
 ## 2026-09-25 current slice: runtime installation, image, profile
 
-User confirmed the pause is only WGS/SFS. Native/Infra has been redispatched
-for these three steps; use existing frozen WGS evidence without resuming WGS
-publication. Completion is pending actual receipts.
+User confirmed the pause is only WGS/SFS. Runtime-first slice completed2026-09-26;
+source/wheel/profile/owner receipt reviewed, with no SFS or platform activation.
 
-- [ ] R2a-fix: native owner removes fixed0.8.5 release restriction, retains version
-  equality; minimal remote matched/mismatched-version tests, successor artifact.
-- [ ] R2a: original native/Infra owner verifies SOP target and installs the fixed
-  successor to0.8.5+p02.dev3 without unrelated dependency changes; retain rollback.
-- [ ] R2b: push the accepted WGS Master to a new SWR tag and record RepoDigest.
-- [ ] R3a: bind a new immutable inactive WGS4.2.2 profile to the accepted image,
+- [x] R2a-fix: native owner removes fixed0.8.5 release restriction, retains version
+  equality; minimal remote matched/mismatched-version tests, user-selected0.8.6.
+- [x] R2a: original native/Infra owner verifies SOP target and installs the fixed
+  0.8.6 successor to0.8.5+p02.dev3 without unrelated dependency changes.
+- [x] R2b: push the accepted WGS Master to a new SWR tag and record RepoDigest.
+- [x] R3a: bind a new immutable inactive WGS4.2.2 profile to the accepted image,
   native version and frozen source/resource contract; record path/SHA.
 - [ ] Later: R1 SFS publication, R4 Airflow API/dashboard/test integration, then
   authorized Airflow main/production-branch synchronization and minimal tests.
 
 Latest scope prioritizes the first three items only. Existing R1-first dependency
 below is historical and superseded by the latest section in the release plan.
-Dispatch is done; actual installation/push/profile completion is not yet evidenced.
+Exact receipts: docs/releases/2026-09-26-cce086-wgs-profile.md. Future SFS release
+must rebind manifest/SOURCE_READY to r2; existing r1 readiness does not apply.
 
 ## 2026-09-25 new WGS4.2.2 / P0 four-step plan
 

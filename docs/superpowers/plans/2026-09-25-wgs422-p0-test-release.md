@@ -17,7 +17,9 @@ R3 可以绑定预定不可变 SFS 路径，但必须明确资产未就绪、can
 - 本轮暂不执行 SFS apply、Airflow 服务更新或分支合并。用户已授权后续 Airflow main/生产分支同步；这不是 BS96 服务部署授权，也不是另外两个 P0 仓库的主线合并授权。
 - 本节覆盖下文旧的“R1 发布后才能 R2”及“最终不合 main/生产”限制；其他数据保护、旧批次冻结和范围限制不变。
 
-当前三步状态：已派发原负责人，安装、推送、profile 均待实际回执；不以派发代替完成。
+当前三步状态（2026-09-26）：**已完成**，详见 `../../releases/2026-09-26-cce086-wgs-profile.md`。
+最终客户端0.8.6/dcc1698，WGS Master RepoDigest dc22c919...，候选profile wgs-4.2.2/r2。
+协调端已核对原owner回执、源码、实际wheel及profile摘要；不重复测试。SFS及平台未启用。
 
 暂停范围已由用户回复“确认”：只暂停 WGS/SFS，恢复本轮安装/push/profile 三步。
 原 native/Infra owner 已重新派发；使用已冻结的 WGS 合同，不唤醒被暂停 WGS 任务，不执行 SFS apply。
@@ -25,6 +27,7 @@ R3 可以绑定预定不可变 SFS 路径，但必须明确资产未就绪、can
 用户随后批准必要最小修复：native release.py 去掉固定0.8.5限制，仍要求记录版本等于实际版本，
 其他身份/摘要/PASS门禁不变。原owner做匹配/不匹配两个定向回归并交付新commit和后继wheel版本，
 不得覆盖dev3或直接改已安装包。安装pin以新回执为准；若Master嵌入资产不变，比较后复用既有镜像。
+用户随后明确后继版本为 **0.8.6**，源码/wheel/安装与配套发布记录使用该版本，不使用dev4。
 
 **Architecture:** WGS owner 管不可变流程/资源，native/Infra owner 管 wheel/Master 和实际部署，平台负责把已有生产修复、测试专有修复及 P0 合为同一测试版本。发布制品与切换运行选择分开；第3步交付候选 profile，第4步完成版本配套后才用于测试。
 
