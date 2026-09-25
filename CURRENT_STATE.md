@@ -13,10 +13,15 @@ current R4 status. No BS96 deployment or main/production merge is in this slice.
   document handoff `a8f9bc4`. Bounded merge review found no Critical/Important issue.
 - R1 SFS release `20260926.1-wgs422`, runtime0.8.6 and WGS Master/profile r2 are
   complete; do not rebuild, reinstall or republish them for R4.
-- Eleven focused synthetic cases are assigned to original Infra on BS10610,
-  against exact functional source0af8367. No local runtime tests or full suites.
-- Candidate registration waits for the WGS owner's immutable host-side3b1dae5
-  source paths. Actual private catalog current34bfcbf differs from the example;
+- Original Infra reports eleven focused synthetic cases PASS on BS10610,
+  against exact functional source0af8367 (backend10,DAG1). No local/full suites.
+  Two new4.2.2 binding regressions reproduced RED inbeba26a and passed GREEN
+  in954045a. Total13 focused cases; no repeat of the baseline11. The patch adds
+  only the frozen4.2.2 directory mapping and three explicit version sets.
+- Candidate payload and immutable host-side3b1dae5 source are delivered.
+  Actual node200 traversal/read and writable deployment entry remain blocked
+  by its route timeout; user was asked for the existing approved login route.
+  Actual private catalog current34bfcbf differs from the example;
   preserve existing entries, register and CAS-select only the new test release.
 - Service rollout, test selection and final smoke are not yet claimed complete.
   Scanning, dispatch and global automatic recovery remain off. No real batches.

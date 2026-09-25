@@ -1,5 +1,17 @@
 # Workflow runtime integration
 
+## WGS 4.2.2 frozen prepare binding (R4, 2026-09-26)
+
+The existing WGS restricted gate allowlists only the exact
+`wgs-4.2.2-3b1dae5` immutable source under
+`/bi/biodevrwbi/33.chenjiucheng/project/wgs-releases/20260926.1-wgs422/`.
+Version `V4.2.2` uses the same generation-scoped prepare handoff request and
+validated receipt path as 4.2.0/4.2.1. Backend stage-status must keep
+`prepare_sampleinfo`/`prepare_analysis` artifact-pending until that receipt
+exists; unknown versions remain rejected by the gate. Candidate registration
+alone neither activates the release nor proves node200 can read the source.
+See [R4 integration receipt](releases/2026-09-26-wgs422-p0-r4-integration.md).
+
 ## Step7 restricted reconciliation (2026-09-22 test candidate)
 
 The existing runner accepts wgs-step7-status and wgs-step7-start followed by

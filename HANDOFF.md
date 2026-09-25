@@ -12,8 +12,20 @@ wgs_runtime_gate.py); independent scoped review found no Critical/Important issu
 Step7 observation and upload/download waiting behavior are preserved.
 
 Commands/checks: git fetch, ancestor/log comparison, merge and diff whitespace
-check succeeded. No local tests (repository boundary); original Infra assigned
-eleven named synthetic tests against exact0af8367 on BS10610. Results pending.
+check succeeded. No local tests (repository boundary); original Infra reports
+eleven named synthetic tests PASS against exact0af8367 on BS10610 (backend10,
+DAG1). First backend run passed6; four cases stopped at missing/config mount,
+not business assertions. Only those four were rerun after mounting same-source
+config, then4/4 PASS. DAG image lackedpytest; the native task user explicitly
+allowed task-scoped install; selected DAG case1pass in2.97s. No services changed.
+Two new binding tests inbeba26a reproduced missing4.2.2 map and a skipped
+required-handoff wait. Both passed on954045a (gate0.21s,backend1.48s,exit0;
+only Starlette deprecation warning). Total13 unique selected cases; original11
+not repeated. Exact source archive SHA for954045a:
+`b6740abcdce74c5eef838531398401054970dffc0d99e38217db2d5eed3137c1`.
+Coordinator read original Infra's local R4_SYNTHETIC_TEST_RECEIPT.md.
+WGS owner statically confirmed frozen3b1dae5
+supports --handoff-request and both v1 receipts; no WGS code changes required.
 R1/R2/R3 artifacts remain accepted, no rebuild or republish. R4 handoffa8f9bc4
 documents source pins and catalog boundary. Only test branch will be pushed.
 
@@ -27,8 +39,11 @@ WGS owner is supplying immutable3b1dae5 host-side source; node200 readability
 remains to be verified using approved routes. Do not use the forced-command key
 for arbitrary shell or treat a BS10610 /bi alias as node200 acceptance.
 
-Next: finish candidate data, remote focused tests, paired test rollout and
-API/DAG/mount smoke. Infra retains exact rollback mounts/config before changes;
+Candidate registration data is complete; no actual registration/activation yet.
+Next: resolve node200's approved writable release entry and read/traverse,
+then paired test rollout and API/DAG/mount smoke. User has been asked for the
+existing approved node200 route; no SSH permission bypass/new login attempts.
+Infra retains exact rollback mounts/config before changes;
 DB/Redis/unrelated services and all analysis data remain unchanged. Global scan,
 dispatch/recovery stay off. WGS4.2.2 QC/options provenance remains unaudited,
 not a fabricated equivalent4.2.1 policy. Detailed receipt:

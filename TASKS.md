@@ -5,8 +5,10 @@
 - [x] Fetch current production/main/test and confirm production43cd0c5 is included.
 - [x] Integrate P0fd9a008 with test781877e as0af8367; preserve Step7/waiting fixes.
 - [x] Bounded independent executable-conflict review; no Critical/Important issue.
-- [ ] Receive immutable3b1dae5 host repo paths and prepare candidate registration.
-- [ ] Run the eleven selected BS10610 synthetic cases once; no GATK/local tests.
+- [x] Receive immutable3b1dae5 host repo paths and prepare candidate registration.
+- [x] Run the eleven selected BS10610 synthetic cases; Infra reports11/11 PASS.
+- [x] Complete two targeted4.2.2 version-binding RED/GREEN cases and minimal fix954045a.
+- [ ] Verify actual node200 read/traverse and approved writable release entry (route timeout).
 - [ ] Deploy existing test services and WGS gate/paired dependencies as one set.
 - [ ] Register/CAS-select WGS4.2.2/0.8.6/r2; check API/DAG/mounts/default-off state.
 - [ ] Record actual results and push integrated test history; no BS96/main promotion.

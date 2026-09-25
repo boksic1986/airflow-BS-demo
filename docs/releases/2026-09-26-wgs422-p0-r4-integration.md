@@ -14,13 +14,13 @@ batch submission, or a new WGS/native artifact build.
   not cherry-picked again.
 - Merged the P0 source/documentation tip
   `fd9a008d687dafd56649d1f43a0992019042176e` with two parents into local
-  commit `0af836706d77617131f9c5222ddf50fab886ae2d`. No push performed.
+  commit `0af836706d77617131f9c5222ddf50fab886ae2d`.
 - Resolved the two executable conflicts block by block. WGS runtime gate keeps
   Step7 exact-request and stopped-predecessor fences alongside the P0 Step4
   publish guard and restricted recovery/publish commands. WGS runtime receipt
   ingestion keeps a row lock and refresh of the current AnalysisRun for both
   Step7 and P0 projection. Documentation conflicts retain both historical
-  Step7 and P0 sections; the coordinator will refresh state/task/handoff tops.
+  Step7 and P0 sections; the coordinator refreshed state/task/handoff tops.
 - `git diff --check` passed on the merged range. No local runtime tests were
   run, per this R4 instruction. Original Infra owner reports the agreed
   BS10610 focused set **11/11 PASS** (backend 10, DAG 1; DAG node 2.97 s).
@@ -135,10 +135,35 @@ two BS10610 RED results: restricted gate `KeyError` for missing exact
 for a successful prepare marker without a handoff receipt. The correction adds
 that exact immutable source path and `V4.2.2` to the gate's repository and
 handoff version sets, plus the backend's required-receipt version set. Unknown
-versions remain rejected. The same two GREEN results are pending; the 11
+versions remain rejected. The same two GREEN results passed; the 11
 baseline cases are not rerun.
 - Original Infra owner reported 11/11 PASS for the agreed WGS P0/Step7
   backend+DAG nodes with the receipt path above. A separate two-node 4.2.2
-  binding GREEN remains pending; it is not part of 11/11.
+  binding GREEN passed; it is not part of 11/11.
 - No local tests, test-service deployment, profile activation, production
   deployment, real samples, or main/production branch merge is claimed here.
+
+## Final focused source acceptance (deployment still pending)
+
+Functional4.2.2 binding commit `954045a987efcb55ff817c2b0a01aa3be83a9a0a`
+adds one immutable directory map and explicitly includes4.2.2 in three existing
+version sets. Both tests were RED onbeba26a: missing release map and missing
+required-handoff wait. Both passed on954045a: gate1pass/0.21s/exit0,
+backend1pass/1.48s/exit0 (one Starlette deprecation warning). The baseline11
+were not rerun. Total13 unique focused assertions passed; this is not a full
+suite, real-cloud recovery or deployed-platform acceptance.
+
+Archive SHA256 `b6740abcdce74c5eef838531398401054970dffc0d99e38217db2d5eed3137c1`
+matched locally and onBS10610. Exact remote evidence root:
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/wgs422-p0-integration-20260926`.
+Coordinator read the original Infra's `R4_SYNTHETIC_TEST_RECEIPT.md`.
+
+Fresh final fetch still found production/main43cd0c5 and test781877e; all
+production changes are in this integration. Source may now be pushed only to
+the integration and existing test branches. No main/production push is included.
+Deployment remains blocked on the approved node200 writable release route and
+actual source/profile read/traverse check; its existing direct route timed out.
+The user was asked for the existing approved route. Do not replace this gate
+with guessed SSH identities or forced-command shell access. No actual catalog
+registration or activation has occurred. Preserve old test mounts/configuration
+until the paired rollout and final API/DAG/default-off checks can be completed.
