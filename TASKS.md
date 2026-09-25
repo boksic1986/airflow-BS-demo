@@ -12,7 +12,8 @@
 - [ ] R4: integrate production fixes + deployedae416fa + P0 into test branch,
   preserve both sets of fixes, deploy paired test consumers and verify narrowly.
 Plan: docs/superpowers/plans/2026-09-25-wgs422-p0-test-release.md.
-This supersedes the directfdace86 rollout sequence below; execution awaits review.
+This supersedes the directfdace86 rollout sequence below. User authorized execution
+on 2026-09-25; R1 is in progress with the original owner; R2–R4 remain pending.
 
 ## 2026-09-25 WGS-only rollout continuation
 

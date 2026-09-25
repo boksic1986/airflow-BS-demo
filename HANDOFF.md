@@ -1,5 +1,22 @@
 # Handoff
 
+## 2026-09-25 approved four-step release: R1 execution starts
+
+User authorization: "继续完成，开始执行" applies to the reviewed WGS4.2.2/P0
+test-release plan. Existing WGS-pipeline owner executes R1; original native/Infra
+owner takes R2/R3 after its contract, then paired test deployment in R4. This
+supersedes prior hold-for-review entries, not the plan's consumer/rollback gates.
+No production activation, GATK test, clinical submission, deletion or new service
+is authorized. Coordinator does not take over wheel/Master builds.
+
+Preflight decision: R1 manifests feed R2 compatibility and R3 profile pins; R3
+is a candidate until R4's paired backend/DAG/gate deployment. Keep old assets and
+frozen batches. Existing assets apply changes ACTIVE_ASSETS; unresolved consumer
+impact stops publication rather than allowing a hand-edited pointer workaround.
+Only local plan/state documentation changed so far; runtime results and test
+commands will be appended from owner receipts. Evidence stays task-scoped under
+WGS_test; no redundant full-suite tests. Local docs rollback is a Git revert.
+
 ## 2026-09-25 WGS4.2.2/P0 replacement plan; no implementation
 
 User asks for four ordered steps and explicit cooperation with WGS-pipeline

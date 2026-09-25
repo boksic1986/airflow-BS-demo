@@ -1,5 +1,14 @@
 # Current state
 
+## 2026-09-25 four-step rollout execution authorized
+
+User explicitly says to continue and start execution. R1 is assigned to the
+existing WGS-pipeline owner; R2/R3 wait for its refreshed publication contract.
+Coordinator retains platform integration and state docs. Scope is the approved
+WGS4.2.2/P0 test-release plan, not BS96 deployment, GATK testing or real runs.
+ACTIVE_ASSETS consumer impact remains a pre-write gate. No deployment success
+is inferred from authorization; individual owner receipts are still required.
+
 ## 2026-09-25 replacement four-step WGS4.2.2/P0 rollout plan
 
 User requests a new sequence: WGS4.2.2 SFS publication with WGS-pipeline owner,
