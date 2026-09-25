@@ -1,5 +1,21 @@
 # Handoff
 
+## 2026-09-25 R1 staging cleanup receipt supplement; no new remote action
+
+WGS owner clarified its earlier cleanup: exact deleted path was
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/wgs-422-update-20260925/publication.failed-python`.
+This was this turn's approximately674MiB incomplete staging copy, created when
+stage_release.py used hashlib.file_digest unavailable on the server Python.
+It was removed only after the corrected staging generated publication/SUMMARY.json.
+It can be regenerated from frozen3b1dae5, the seven resource sources and4.2.1
+baseline; it was not a clinical project, original resource or successful candidate.
+Successful publication staging, OBS receipts, source databases and4.2.1 assets
+are retained. No further cleanup or remote operation was performed for this
+supplement. Local R1_STATUS now has SHA256
+547a9fed0e5fd73aa31877c8ce3174c215bd74858af6717932c65514f9363ce3;
+the remote status copy intentionally remains the previous version. SSH alias
+repair and R1 apply still await user direction; R2–R4 are not deployed.
+
 ## 2026-09-25 approved four-step release: R1 execution starts
 
 User authorization: "继续完成，开始执行" applies to the reviewed WGS4.2.2/P0
