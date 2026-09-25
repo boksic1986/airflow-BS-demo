@@ -7,8 +7,10 @@ import hashlib
 import importlib.util
 import json
 import os
+import errno
 from pathlib import Path
 import stat
+import struct
 import sys
 from contextlib import ExitStack, contextmanager, nullcontext, redirect_stdout
 import io
@@ -16,65 +18,164 @@ import fcntl
 import re
 from types import SimpleNamespace
 
-POLICY_PATH = Path('/etc/cce-pipeline/writers-v2.json')
-TRUST_ROOT = Path('/etc/cce-pipeline')
-TRUSTED_UID = 0
 PLATFORM_SOURCE = Path(__file__).resolve()
+DEPLOYMENT_TRUST_ROOT = PLATFORM_SOURCE.parent
+DEPLOYMENT_TRUST_PATH = DEPLOYMENT_TRUST_ROOT / 'cce-paired-deployment-v1.json'
 COMMANDS = dict(step1_upload='step1-upload', step2_master='step2-run',
     step3_monitor='step3-status', step4_publish='step4-publish',
     step5_download='step5-download', step6_materialize='step6-materialize')
 
 
-def _operator_path(path):
-    path = Path(path)
-    if not path.is_absolute():
-        raise RuntimeError('paired runtime path must be absolute')
-    info = path.lstat()
-    if not stat.S_ISREG(info.st_mode) or info.st_uid != TRUSTED_UID or info.st_mode & 0o022:
-        raise RuntimeError('paired runtime files must be operator-owned')
-    for parent in path.parents:
-        info = parent.lstat()
-        if not stat.S_ISDIR(info.st_mode) or info.st_uid != TRUSTED_UID or info.st_mode & 0o022:
-            raise RuntimeError('paired runtime ancestry must be operator-owned')
-        if parent == TRUST_ROOT:
-            break
-    return path
+def _acl_write_principals(path):
+    try:
+        raw=os.getxattr(path,'system.posix_acl_access',follow_symlinks=False)
+    except OSError as error:
+        unsupported={errno.ENODATA,errno.ENOTSUP}
+        if hasattr(errno,'EOPNOTSUPP'):unsupported.add(errno.EOPNOTSUPP)
+        if error.errno in unsupported:return set(),set()
+        raise RuntimeError('deployment trust ACL cannot be inspected') from error
+    if len(raw)<4 or int.from_bytes(raw[:4],'little')!=2 or (len(raw)-4)%8:
+        raise RuntimeError('deployment trust ACL is invalid')
+    entries=[struct.unpack_from('<HHI',raw,offset) for offset in range(4,len(raw),8)]
+    masks=[permissions for tag,permissions,_ in entries if tag==0x10]
+    if len(masks)>1:raise RuntimeError('deployment trust ACL is invalid')
+    mask=masks[0] if masks else 0o7
+    return ({identity for tag,permissions,identity in entries if tag==0x02 and permissions&mask&0o2},
+            {identity for tag,permissions,identity in entries if tag==0x08 and permissions&mask&0o2})
 
 
-def _pin(pin):
+def _validate_writers(path,info,uids,gids):
+    if (info.st_mode&0o002 or (info.st_mode&0o200 and info.st_uid not in uids)
+            or (info.st_mode&0o020 and info.st_gid not in gids)):
+        raise RuntimeError('deployment trust path has an unapproved writer')
+    users,groups=_acl_write_principals(path)
+    if not users.issubset(uids) or not groups.issubset(gids):
+        raise RuntimeError('deployment trust ACL has an unapproved writer')
+
+
+def _trust_entry(value,interpreter=False):
+    keys={'path','trust_root','maintainer_uids','maintainer_gids'}
+    if interpreter:keys.add('canonical_path')
+    if not isinstance(value,dict) or set(value)!=keys:
+        raise RuntimeError('invalid deployment trust entry')
+    uids=value['maintainer_uids'];gids=value['maintainer_gids']
+    if (not isinstance(uids,list) or not uids or not isinstance(gids,list)
+            or any(type(item) is not int or item<0 for item in [*uids,*gids])):
+        raise RuntimeError('invalid deployment trust maintainers')
+    return value,set(uids),set(gids)
+
+
+def _trusted_path(value,interpreter=False):
+    value,uids,gids=_trust_entry(value,interpreter)
+    path,root=Path(value['path']),Path(value['trust_root'])
+    if not path.is_absolute() or not root.is_absolute():
+        raise RuntimeError('deployment trust paths must be absolute')
+    try:
+        root_info=root.lstat()
+        if not stat.S_ISDIR(root_info.st_mode) or root.is_symlink() or root.resolve(strict=True)!=root:
+            raise RuntimeError('deployment trust root is not canonical')
+        path.relative_to(root)
+    except (OSError,ValueError) as error:
+        raise RuntimeError('deployment trust path escapes its root') from error
+    _validate_writers(root,root_info,uids,gids)
+    current=path.parent
+    while True:
+        info=current.lstat()
+        if not stat.S_ISDIR(info.st_mode) or current.is_symlink():
+            raise RuntimeError('deployment trust ancestry is not canonical')
+        _validate_writers(current,info,uids,gids)
+        if current==root:break
+        if root not in current.parents:raise RuntimeError('deployment trust path escapes its root')
+        current=current.parent
+    info=path.lstat()
+    if interpreter and stat.S_ISLNK(info.st_mode):
+        if info.st_uid not in uids:raise RuntimeError('deployment interpreter link owner is unapproved')
+        resolved=path.resolve(strict=True)
+        if resolved!=Path(value['canonical_path']):raise RuntimeError('deployment interpreter target changed')
+    else:
+        if not stat.S_ISREG(info.st_mode) or path.resolve(strict=True)!=path:
+            raise RuntimeError('deployment trust source must be a canonical file')
+        resolved=path
+    try:resolved.relative_to(root)
+    except ValueError as error:raise RuntimeError('deployment trust target escapes its root') from error
+    target_info=resolved.lstat()
+    if not stat.S_ISREG(target_info.st_mode):raise RuntimeError('deployment trust target must be a regular file')
+    _validate_writers(resolved,target_info,uids,gids)
+    return resolved if interpreter else path
+
+
+def _read_regular(path,limit=16*1024*1024):
+    descriptor=os.open(path,os.O_RDONLY|os.O_NOFOLLOW)
+    try:
+        info=os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode) or info.st_size>limit:
+            raise RuntimeError('deployment trust file is invalid')
+        raw=os.read(descriptor,limit+1)
+        if len(raw)>limit:raise RuntimeError('deployment trust file is too large')
+        return raw
+    finally:os.close(descriptor)
+
+
+def _load_deployment_trust():
+    try:DEPLOYMENT_TRUST_PATH.lstat()
+    except FileNotFoundError:return None
+    root,path=DEPLOYMENT_TRUST_ROOT,DEPLOYMENT_TRUST_PATH
+    if path.parent!=root or not root.is_absolute():raise RuntimeError('deployment trust entry is not code-anchored')
+    root_info,path_info=root.lstat(),path.lstat()
+    if (not stat.S_ISDIR(root_info.st_mode) or root.is_symlink()
+            or not stat.S_ISREG(path_info.st_mode) or path.is_symlink()
+            or path_info.st_uid!=root_info.st_uid or root_info.st_mode&0o022 or path_info.st_mode&0o022):
+        raise RuntimeError('deployment trust entry is not maintained by the code owner')
+    if any(_acl_write_principals(item)[index] for item in (root,path) for index in (0,1)):
+        raise RuntimeError('deployment trust entry has mutable ACL authority')
+    try:value=json.loads(_read_regular(path))
+    except (UnicodeDecodeError,json.JSONDecodeError) as error:raise RuntimeError('invalid deployment trust document') from error
+    if (not isinstance(value,dict) or value.get('schema_version')!=1
+            or set(value)!={'schema_version','policy','writers','runtime_guard','operator_python'}
+            or set(value.get('writers',{}))!={'cli','platform'}):
+        raise RuntimeError('invalid deployment trust document')
+    _trusted_path(value['policy']);_trusted_path(value['writers']['cli'])
+    _trusted_path(value['writers']['platform']);_trusted_path(value['runtime_guard'])
+    _trusted_path(value['operator_python'],True)
+    return value
+
+
+def _pin(pin,trust):
     if not isinstance(pin, dict) or set(pin) != {'path','sha256'}:
         raise RuntimeError('invalid paired runtime pin')
-    path = _operator_path(pin['path'])
-    if path.stat().st_size > 16*1024*1024 or hashlib.sha256(path.read_bytes()).hexdigest() != pin['sha256']:
+    path = _trusted_path(trust)
+    if Path(pin['path'])!=path:
+        raise RuntimeError('paired runtime pin differs from deployment trust')
+    if hashlib.sha256(_read_regular(path)).hexdigest() != pin['sha256']:
         raise RuntimeError('paired runtime source pin changed')
     return path
 
 
-def _operator_python(value):
-    path = _operator_path(value)
+def _operator_python(value,trust):
+    path = _trusted_path(trust,True)
+    if Path(value).resolve(strict=True)!=path:
+        raise RuntimeError('paired runtime Python differs from deployment trust')
     if not os.access(path, os.X_OK):
         raise RuntimeError('paired runtime Python is unavailable')
     return str(path)
 
 
 def selected_runtime():
-    try:
-        POLICY_PATH.lstat()
-    except FileNotFoundError:
+    trust=_load_deployment_trust()
+    if trust is None:
         return None
-    path = _operator_path(POLICY_PATH)
-    if path.stat().st_size > 16*1024*1024:
-        raise RuntimeError('paired runtime policy is too large')
-    policy = json.loads(path.read_bytes())
+    path=_trusted_path(trust['policy'])
+    try:policy=json.loads(_read_regular(path))
+    except (UnicodeDecodeError,json.JSONDecodeError) as error:raise RuntimeError('invalid paired runtime activation') from error
     if (not isinstance(policy, dict) or policy.get('schema_version') != 2
             or set(policy.get('writers', {})) != {'cli','platform'}):
         raise RuntimeError('invalid paired runtime activation')
-    source = _pin(policy['writers']['cli'])
-    platform = _pin(policy['writers']['platform'])
-    guard = _pin(policy.get('runtime_guard'))
+    source = _pin(policy['writers']['cli'],trust['writers']['cli'])
+    platform = _pin(policy['writers']['platform'],trust['writers']['platform'])
+    guard = _pin(policy.get('runtime_guard'),trust['runtime_guard'])
     if platform != PLATFORM_SOURCE or guard != source.with_name('cce_writer_guard.py'):
         raise RuntimeError('unpaired platform or guard entry')
-    return source, _operator_python(policy['operator_python'])
+    return source, _operator_python(policy['operator_python'],trust['operator_python'])
 
 
 def stage_command(bundle, stage, *arguments, payload=None, gate=None, pipeline=None):
@@ -173,7 +274,11 @@ def _request_digest(registered,pipeline):
 
 @contextmanager
 def _exclusive(path):
-    fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_RDWR | os.O_NOFOLLOW, 0o660)
+        os.fchmod(fd, 0o660)
+    except FileExistsError:
+        fd = os.open(path, os.O_RDWR | os.O_NOFOLLOW)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         yield

@@ -43,22 +43,36 @@ def registered(adapter,tmp_path,monkeypatch):
     native_path=Path(h.contract['paths']['run_dir'])
     (storage/native_path.name).symlink_to(storage/'project',target_is_directory=True)
     journal=tmp_path/'writer-journal';journal.mkdir()
+    python_target=tmp_path/'python-real';python_target.write_text('synthetic');python_target.chmod(0o755)
+    python_link=tmp_path/'python';python_link.symlink_to(python_target)
     def pin(path):return {'path':str(path),'sha256':hashlib.sha256(Path(path).read_bytes()).hexdigest()}
     context={**old_cap.lock_context(),'generation':2,'action':state.record['recovery_context']['action'],
         'master_uid':'master-uid'}
     policy=tmp_path/'writers-v2.json'
     policy.write_text(json.dumps({'schema_version':2,'namespace':'synthetic',
         'writers':{'cli':pin(runtime.__file__),'platform':pin(paired.__file__)},
+        'runtime_guard':pin(guard.__file__),'operator_python':str(python_link),
         'storage':{'native_root':str(native_path.parent),'mounted_root':str(storage),
             'canonical_root':'/storage/synthetic','root_inode':storage.stat().st_ino,
             'filesystem_id':os.statvfs(storage).f_fsid},
         'journal_root':str(journal),'bindings':[{'bundle':str(bundle),
             'contract_sha256':hashlib.sha256((bundle/'BATCH_RUNTIME.yaml').read_bytes()).hexdigest(),
             'files_sha256':runtime._handoff_binding(bundle,h.contract)['files_sha256'],'context':context}]}))
-    # Operator ownership/source selection is covered at its existing boundary;
-    # frozen registration, physical mapping, native evidence and lock CAS remain real.
-    monkeypatch.setattr(guard,'POLICY_PATH',policy)
-    monkeypatch.setattr(guard,'_operator_file',lambda path:Path(path).read_bytes())
+    policy.chmod(0o600)
+    def trust(path):
+        path=Path(path)
+        root=tmp_path if path.is_relative_to(tmp_path) else next(
+            parent for parent in path.parents if parent.name in {'native','platform'})
+        return {'path':str(path),'trust_root':str(root),
+            'maintainer_uids':[os.getuid()],'maintainer_gids':[os.getgid()]}
+    bootstrap=tmp_path/'cce-paired-deployment-v1.json'
+    bootstrap.write_text(json.dumps({'schema_version':1,'policy':trust(policy),
+        'writers':{'cli':trust(Path(runtime.__file__)),'platform':trust(Path(paired.__file__))},
+        'runtime_guard':trust(Path(guard.__file__)),
+        'operator_python':{**trust(python_link),'canonical_path':str(python_target.resolve())}}))
+    bootstrap.chmod(0o600)
+    monkeypatch.setattr(guard,'DEPLOYMENT_TRUST_ROOT',tmp_path)
+    monkeypatch.setattr(guard,'DEPLOYMENT_TRUST_PATH',bootstrap)
     monkeypatch.setattr(paired,'load_runtime',lambda:runtime)
     monkeypatch.setattr(runtime,'_operator_paired_activation',True,raising=False)
     monkeypatch.setattr(gate,'_load_binding',lambda p:binding)
