@@ -161,6 +161,8 @@ Coordinator read the original Infra's `R4_SYNTHETIC_TEST_RECEIPT.md`.
 Fresh final fetch still found production/main43cd0c5 and test781877e; all
 production changes are in this integration. Source may now be pushed only to
 the integration and existing test branches. No main/production push is included.
+Atomic push succeeded for both test branches through0ca80a8 (exit0);
+existing primary test branch advanced from781877e, without force.
 Deployment remains blocked on the approved node200 writable release route and
 actual source/profile read/traverse check; its existing direct route timed out.
 The user was asked for the existing approved route. Do not replace this gate

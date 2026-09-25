@@ -25,6 +25,9 @@ current R4 status. No BS96 deployment or main/production merge is in this slice.
   preserve existing entries, register and CAS-select only the new test release.
 - Service rollout, test selection and final smoke are not yet claimed complete.
   Scanning, dispatch and global automatic recovery remain off. No real batches.
+- Accepted source/docs through0ca80a8 were atomically pushed to both the new
+  integration branch and existing `jiucheng/test/wgs-local-main-sync-20260917`.
+  Main and production refs were not changed.
 
 Detailed evidence and outstanding gates:
 `docs/releases/2026-09-26-wgs422-p0-r4-integration.md`.

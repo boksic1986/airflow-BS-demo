@@ -29,6 +29,11 @@ supports --handoff-request and both v1 receipts; no WGS code changes required.
 R1/R2/R3 artifacts remain accepted, no rebuild or republish. R4 handoffa8f9bc4
 documents source pins and catalog boundary. Only test branch will be pushed.
 
+Push completed: `git push --atomic origin` fast-forwarded the existing primary
+test branch781877e→0ca80a8 and created the integration test branch at0ca80a8.
+Exit0; no force, no main/production update. Functional source is954045a;
+later commits are documentation only. Runtime deployment remains pending.
+
 Target preflight: BS10610/server10610, controlroot
 `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS`;
 backend still mounts20260923-step7-ae416fa, /config20260912-opt-4d3d24e6,

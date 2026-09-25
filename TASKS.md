@@ -11,7 +11,7 @@
 - [ ] Verify actual node200 read/traverse and approved writable release entry (route timeout).
 - [ ] Deploy existing test services and WGS gate/paired dependencies as one set.
 - [ ] Register/CAS-select WGS4.2.2/0.8.6/r2; check API/DAG/mounts/default-off state.
-- [ ] Record actual results and push integrated test history; no BS96/main promotion.
+- [x] Record source verification and push integrated test history (0ca80a8); no BS96/main promotion.
 
 R1/R2/R3 completed receipts are retained; old design-only checklists below are
 historical milestones, not instructions to redo accepted P0 implementation.
