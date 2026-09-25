@@ -1,5 +1,36 @@
 # Handoff
 
+## 2026-09-25 WGS4.2.2/P0 replacement plan; no implementation
+
+User asks for four ordered steps and explicit cooperation with WGS-pipeline
+(01a09149-ad9d-7e92-b98a-16d9cae075e2). Read its existing release plans and request
+local-record handoffs from that owner and huawei-cloude native/Infra owner. New
+plan: docs/superpowers/plans/2026-09-25-wgs422-p0-test-release.md. Coordinator
+maintains docs; original owners retain release/artifact duties. No new agents.
+
+Confirmed planning inputs: remote Git refs main/production43cd0c5, test781877e;
+test contains main but not deployedStep7ae416fa. New plan preserves all three
+baselines plus P0, not whole-directory replacement. WGS owner records source
+ca71cd6/CCE3b1dae5 and independent4.2.2 SFS roots; execution must fresh-freeze
+HEAD. September22 staging omitted later changed whitelist/index, so rebuild
+manifest/resource-map/READY instead of applying stale hashes. Native dev3 Master
+overlay reads WGS from SFS; base compatibility still needs owner verification.
+Do not expand to five-group Worker/logger upgrades from an older WGS plan.
+
+Important publication caveat: existingasset apply writes sharedACTIVE_ASSETS.
+Publishing new roots is not the same as activating the platform/profile, but
+cannot be claimed to preserve that pointer. Verify consumers and old-status
+semantics before writing; unresolved impact means stop, not manual pointer edits.
+Plan preserves old4.2.1 roots/profiles/batches and does not deployBS96.
+
+Commands: local docs/source reads, git ls-remote for three named refs, ancestry
+checks (test includesmain exit0; notae416fa exit1), and git diff --check. No SSH,
+pytest, package install, SFS/SWR write, source integration, Docker or service
+change. Tests not run because this is a plan-only request. Changed plan and three
+state docs only; local docs rollback is revert, runtime remains unchanged. Next:
+user review, then R1 with existing WGS owner; record published/installed/selected
+statuses separately, reuse existing acceptance and only affected checks in R4.
+
 ## 2026-09-25 WGS rollout held on verified test-baseline divergence
 
 Owner performed read-only BS10610/node200 preflight: BS10610 backend consumes

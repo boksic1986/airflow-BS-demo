@@ -1,5 +1,18 @@
 # Current state
 
+## 2026-09-25 replacement four-step WGS4.2.2/P0 rollout plan
+
+User requests a new sequence: WGS4.2.2 SFS publication with WGS-pipeline owner,
+nipttest/dev3 WGS Master publication, new profile, then production/test fixes +
+P0 integration into the test branch and limited verification. Plan:
+docs/superpowers/plans/2026-09-25-wgs422-p0-test-release.md. Both original owners
+provided local-record handoff; no remote operation or implementation this turn.
+Old4.2.2 staging must incorporate changed whitelist VCF/index; assets apply updates
+shared ACTIVE_ASSETS, so consumer impact must be checked separately from platform
+activation. Test branch781877e includes main43cd0c5 but not deployedae416fa fixes.
+GATK testing and five-group Worker/logger upgrade are excluded. R1–R4 execution
+is not started; source/artifact historical acceptance is unchanged.
+
 ## 2026-09-25 WGS rollout preflight: divergent test baseline, no writes
 
 Original owner reports BS10610 backend mounted20260923-step7-ae416fa lacks

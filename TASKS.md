@@ -1,5 +1,19 @@
 # Active test-branch tasks
 
+## 2026-09-25 new WGS4.2.2 / P0 four-step plan
+
+- [x] Coordinate original WGS/native owners and document exact sequence, baseline
+  preservation, permissions, candidate activation and minimal verification.
+- [ ] R1: freeze refreshed4.2.2 source/resources (including whitelist/index), audit
+  ACTIVE_ASSETS consumers, publish and verify SFS with existing owner.
+- [ ] R2: compatibility check, exact rollback, nipttest dev3 install and WGS Master
+  SWR publication; no GATK or unnecessary rebuild.
+- [ ] R3: versioned4.2.2 profile/catalog candidate with frozen hashes/digest.
+- [ ] R4: integrate production fixes + deployedae416fa + P0 into test branch,
+  preserve both sets of fixes, deploy paired test consumers and verify narrowly.
+Plan: docs/superpowers/plans/2026-09-25-wgs422-p0-test-release.md.
+This supersedes the directfdace86 rollout sequence below; execution awaits review.
+
 ## 2026-09-25 WGS-only rollout continuation
 
 - [x] Record user approval: WGS only, GATK/WES deferred and not a blocker.
