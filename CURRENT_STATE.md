@@ -1,5 +1,15 @@
 # Current state
 
+## 2026-09-26 R1 SFS publication resumed
+
+User authorized only next step1: publish WGS4.2.2 to SFS. Original WGS owner
+01a09149-ad9d-7e92-b98a-16d9cae075e2 resumed with the accepted0.8.6/r2 contract.
+Rebind asset manifest/SOURCE_READY to r2 without overwriting the old candidate;
+reuse unchanged payloads. Audit ACTIVE_ASSETS consumers before apply and retain
+old4.2.1/frozen batches. Receipt pending; no SFS completion claim yet.
+Airflow integration, main/production merges, BS96 deployment, real analyses and
+automatic enablement are not part of this slice.
+
 ## 2026-09-26 runtime-first slice complete; profile inactive
 
 cce-pipeline0.8.6 installed in nipttest, source dcc1698; minimal version hardcode

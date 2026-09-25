@@ -6,6 +6,11 @@
 
 ## 最新执行裁定（2026-09-25，优先于下方历史顺序）
 
+2026-09-26追加：runtime-first三步完成后，用户明确“先完成1”，现恢复R1 WGS4.2.2
+SFS发布；仅撤销WGS/SFS暂停，不进入R4或生产切换。原WGS owner负责新r2配套
+manifest/SOURCE_READY及既有SFS发布流程，协调原Infra必要操作。复用未变payload，
+先完成ACTIVE_ASSETS消费者核对；确有发布回执后再标R1完成。
+
 用户最后收窄本轮为：**先完成 cce-pipeline 安装 → 新 WGS Master 推送 SWR → 新 profile 绑定**。
 保留原任务编号避免丢失交接，实际先执行 R2，再执行 R3 的候选绑定部分；R1 的 SFS 发布放在后面。
 R2 不再依赖 R1 已成功发布，只依赖已冻结的 WGS4.2.2 源码/资源合同和兼容性核对。

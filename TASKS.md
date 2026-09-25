@@ -1,5 +1,16 @@
 # Active test-branch tasks
 
+## 2026-09-26 current slice: R1 SFS publication only
+
+- [x] Resume original WGS owner under explicit step1 authorization and deliver
+  accepted0.8.6/Master/r2 binding evidence.
+- [ ] Rebind candidate publication metadata, audit ACTIVE_ASSETS compatibility,
+  publish independent4.2.2 SFS paths and obtain minimal publication receipt.
+- [ ] Review exact manifests/READY/paths and record accepted R1 result.
+
+Do not execute R4, activate profiles on Airflow, merge shared branches or deploy
+BS96 in this slice. Runtime-first completion below remains valid.
+
 ## 2026-09-25 current slice: runtime installation, image, profile
 
 User confirmed the pause is only WGS/SFS. Runtime-first slice completed2026-09-26;

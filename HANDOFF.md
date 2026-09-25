@@ -1,5 +1,19 @@
 # Handoff
 
+## 2026-09-26 R1 resumed by user
+
+User request: "先完成1" after the four-step outline. Scope is WGS4.2.2 SFS
+publication only, using accepted client0.8.6/Master/r2; no platform deployment.
+Original WGS task resumed via send_message_to_thread. Owner must retain old
+candidate/payloads, generate matching metadata, inspect shared ACTIVE_ASSETS
+consumers and stop if old-version safety cannot be established. Existing Infra
+owner may perform necessary assets apply per SOP; no duplicate build/testing.
+Requested R1_SFS_PUBLICATION_RECEIPT with exact commits, SHA values, paths,
+command exit results, ACTIVE_ASSETS before/after and old-version evidence.
+No remote mutation performed by coordinator; publication receipt pending.
+Rollback boundary: do not delete old SFS/OBS or change frozen runs; new immutable
+assets are not Airflow activation. Preserve BS96 and existing4.2.1 selection.
+
 ## 2026-09-26 runtime-first slice accepted
 
 Original owner completed0.8.6 install, WGS Master SWR push and inactive r2 profile.
