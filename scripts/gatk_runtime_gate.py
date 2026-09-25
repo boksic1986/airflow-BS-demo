@@ -977,11 +977,15 @@ def _execute_stage(
         if stage == "step3_monitor":
             if __package__:
                 from .cce_paired_runtime import monitor_registered, prepare_monitor_registered
+                from .cce_recovery_deadline import monitor_wait
             else:
                 from cce_paired_runtime import monitor_registered, prepare_monitor_registered
+                from cce_recovery_deadline import monitor_wait
             binding = _load_binding(payload)
+            monitor_wait(payload, 0)
             prepare_monitor_registered(payload, binding=binding, gate=sys.modules[__name__], pipeline='gatk')
             while True:
+                monitor_wait(payload, 0)
                 state = monitor_registered(payload, binding=binding, gate=sys.modules[__name__], pipeline='gatk')
                 paired = state is not None
                 if not paired:
@@ -1024,7 +1028,7 @@ def _execute_stage(
                     monitoring_health="degraded" if monitoring_error else "healthy",
                     **progress,
                 )
-                time.sleep(int(os.environ.get("GATK_MONITOR_INTERVAL_SECONDS", "30")))
+                time.sleep(monitor_wait(payload, int(os.environ.get("GATK_MONITOR_INTERVAL_SECONDS", "30"))))
         elif stage == "step1_upload":
             _run_step1_with_progress(payload, environment)
             _write_status(

@@ -16,10 +16,13 @@
   existing authenticated stage POST/Airflow sensor handoff; terminal compute
   lifecycle across two shared slots and old/current DagRun cleanup identity.
   BS10610 backend19 GREEN4.70s + real-Airflow5 GREEN3.00s (2026-09-25).
-- [ ] Complete automatic runtime enforcement, Step4 reconciliation,
+- [x] Original registered deadline consumed by native replacement and WGS/GATK
+  monitor loops; capped handoff, immutable replay, expiry fencing and unchanged
+  untagged manual native ABI. BS10610 focused22 GREEN16.25s (2026-09-25).
+- [ ] Complete remaining automatic runtime enforcement, Step4 reconciliation,
   existing UI projections and focused PostgreSQL/integration acceptance.
-  Next: enforce original deadline in native replacement/monitoring, bounded
-  Worker wait and exact remaining source classifications; then Step4/UI/PG and
+  Next: Airflow-owned persistent bounded Worker wait (max600s/original deadline)
+  and exact remaining source classifications; then Step4/UI/PG and
   full automatic lifecycle integration. The source caller is not rollout approval.
 - [ ] Separately authorized live TTL/capacity/AOM/alerts gates remain closed.
 

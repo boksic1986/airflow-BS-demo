@@ -368,7 +368,7 @@ class RecoveryCapability:
     callbacks. This consumer independently verifies native bytes and live work;
     callbacks cannot assert Worker finality in place of those checks.
     """
-    def __init__(self, *, bundle, expected_job_uid, context, authorize, verify_lock, platform_execution=None, origin_bundle=None, history_bundles=()):
+    def __init__(self, *, bundle, expected_job_uid, context, authorize, verify_lock, platform_execution=None, origin_bundle=None, history_bundles=(), compute_deadline=None):
         _require(callable(authorize) and callable(verify_lock) and _text(expected_job_uid,UID))
         self.bundle=Path(bundle)
         _require(self.bundle.is_absolute() and self.bundle.resolve(strict=True)==self.bundle)
@@ -377,6 +377,7 @@ class RecoveryCapability:
         self.expected_job_uid=expected_job_uid
         self.context=_json(json.dumps(context))
         self.platform_execution=_json(json.dumps(platform_execution)) if platform_execution is not None else None
+        self.compute_deadline=compute_deadline
         self.authorize=authorize
         self.verify_lock=verify_lock
         self._scope=None

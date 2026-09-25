@@ -341,7 +341,17 @@ assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
   Exact current compute terminal lifecycle permits the second shared slot and
   current cleanup without releasing stale DagRun authority. BS10610 backend19
   GREEN4.70s and actual-Airflow5 GREEN3.00s (2026-09-25).
-- [ ] Continue CR-02/03 actual automatic dispatch using existing reservations, two shared slots60/180s, original deadline, control fences and Step4 uncertain-dispatch reconciliation. Native deadline enforcement, bounded Worker wait, remaining source classes and full automatic lifecycle integration remain open. Do not count the source caller or manual P0-2 closure as automatic completion.
+- [x] Consume the registered original deadline in native replacement and both
+  Step3 monitors. Persist it in the recovery journal, cap handoff without reset,
+  refuse further replacement/start after expiry, preserve untagged manual ABI.
+  BS10610 focused22 GREEN16.25s (2026-09-25). Controller deadline only: no kill,
+  Job native-deadline mutation, Task5 artifact rebuild or production activation.
+- [ ] Continue CR-02/03 actual automatic dispatch using existing reservations,
+  two shared slots60/180s, control fences and Step4 uncertain-dispatch reconciliation.
+  Next: bounded Worker natural wait owned by the existing Airflow persistent
+  action (max600s and original deadline); remaining source classes and full
+  automatic lifecycle integration remain open. Do not count the source caller
+  or manual P0-2 closure as automatic completion.
 - [ ] CR-04 reuses existing Tracker/detail waiting/recovering/exhausted/stale fields; no new page.
 - [ ] CR-05 focused PostgreSQL contention and final integration tests, no real biological analysis. Respect WGS/GATK per-adapter enablement.
 - [ ] Separate production authorization: real synthetic Complete/Failed TTL checks, all-entry Pod capacity accounting, AOM data freshness and alert notification record. Missing evidence keeps production gate closed; no invented managed metrics or self-hosted monitoring service.

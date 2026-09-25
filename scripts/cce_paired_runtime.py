@@ -587,10 +587,13 @@ def resume_registered(payload, *, binding, gate, pipeline):
         raise RuntimeError('trusted per-run writer registration required')
     if __package__:
         from .cce_recovery_inventory import RecoveryCapability
+        from .cce_recovery_deadline import deadline_epoch, monitor_wait
         from . import wgs_resume, gatk_resume
     else:
         from cce_recovery_inventory import RecoveryCapability
+        from cce_recovery_deadline import deadline_epoch, monitor_wait
         import wgs_resume, gatk_resume
+    monitor_wait(payload, 0)
     with ExitStack() as stack:
         # Exclude launches as well as execution. The current worker lock is
         # owned by the restricted gate, so it must not be acquired twice.
@@ -673,6 +676,7 @@ def resume_registered(payload, *, binding, gate, pipeline):
 
         capability = RecoveryCapability(bundle=source, origin_bundle=bundle, expected_job_uid=old_uid, context=context,
             authorize=authorize, verify_lock=verify_lock, platform_execution=platform,
+            compute_deadline=deadline_epoch(payload),
             history_bundles=_source_history(path.parent,pipeline,runtime,bundle,contract,source))
         if pipeline == 'wgs':
             result = wgs_resume.resume_master(payload=payload, binding=binding, runtime=runtime, recovery=capability)

@@ -240,7 +240,8 @@ def resume(*, analysis_id, attempt, expected_job_uid, expected_binding_sha256,
                 journal=journal,save_journal=lambda value:_save(journal_path,value),check=check,
                 claim=recovery.claim,authorize=recovery._authorized,
                 before_handoff=lambda:_guard_maintenance_and_obs(runtime,contract,config,modules),execute=execute,
-                platform_execution=recovery.platform_execution)
+                platform_execution=recovery.platform_execution,
+                **({'compute_deadline':recovery.compute_deadline} if recovery.compute_deadline is not None else {}))
             return recovery.export_result({**identity,**result,'replacement_job_uid':result['master_uid'],
                     'status':'succeeded' if result['mode']=='succeeded' else 'ready' if result['mode']=='ready' else 'completed'})
         job = _query(runtime, config, 'job', names['master_job'])

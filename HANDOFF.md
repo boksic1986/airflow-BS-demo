@@ -1,5 +1,52 @@
 # Handoff
 
+## 2026-09-25 Task6 continuation / original controller deadline
+
+User: next approved Task6 step, no expanded scope/redundant tests. BASE platform
+72809ac / nativeffe51d4; original isolated branches retained. No production,
+real rerun, main merge, push, installed policy, image/wheel build or activation.
+Native source committed as d7bd741; plugin remains c0b266b. First native commit
+failed because user identity was unset; command-local git -c used the existing
+verified platform/history identity, without changing global Git configuration.
+
+Changes: scripts/cce_recovery_deadline.py parses authenticated absolute deadline
+and bounds poll sleeps; cce_paired_runtime validates before active-Master handoff
+and passes the epoch via RecoveryCapability. Both Resume adapters pass the new
+native keyword only when tagged, preserving the accepted Task5 manual ABI.
+Native cce_batch_runtime._advance_recovery_view binds compute_deadline in its
+existing journal and gates replacement entry/DELETE/CREATE/handoff, capping
+handoff by the original budget. WGS/GATK Step3 loops no longer grant a fresh
+budget after process restart. Focused new test file plus docs08/plan/state/task.
+
+RED:11 tests exposed unconsumed deadline/absent helper, then11 GREEN6.33s.
+Boundary/real-monitor checks18 GREEN12.91s. Active-Master entry2 RED showed the
+deadline check must precede the reuse/handoff path (not just replacement).
+Fixed that ordering;20 GREEN14.22s. Review retained old native call signature
+for untagged manual Resume. Final exact selection22 passed16.25s:
+task6.ps1 -Mode test -Test '/task/platform/scripts/tests/test_p02_compute_deadline.py
+/task/platform/scripts/tests/test_p02_selected_monitor.py::test_direct_step3_replacement_and_observation'
+-Log compute-deadline-final. These are scoped remote synthetic cases, no full
+suite/local runtime tests. Duplicate final log name contains latest22 result.
+
+Each remote run verified ssh BS10610 -> server10610; control/current still
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260912-opt-4d3d24e6;
+backend36ff21f87356 RO/app from20260923-step7-ae416fa/backend/backend and RO/config
+from current release, scanner/auto-dispatch false. UID6708 evidence confined to
+/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/p02-task6-20260925.
+Cached imagea0112f0b, network none/read-only/nonroot/1CPU/1GiB. No service changes.
+
+Deadline is controller/monitor budget: no Master/Worker kill or Job native
+activeDeadlineSeconds change. Existing bounded query may return after deadline;
+no subsequent recovery operation/poll receives a renewed budget. Timeout may
+retain an existing intent/Job and must go to reconciliation, not auto-cleanup.
+Tagged recovery requires the paired updated native source; old/default-off
+manual paths remain compatible. Revert these two source commits together to
+rollback development; no runtime rollback needed. Task5 artifacts/plugin remain
+unchanged. Task6 OPEN: next implement max600s/original-deadline natural Worker
+wait via existing Airflow persistent actions, not a gate-owned retry engine;
+then exact remaining classes, Step4, UI, PG/final integration and authorized
+live cloud gates. No repeated Task1–5 validation.
+
 ## 2026-09-25 Task6 continuation / frozen policy and sensor handoff
 
 User: continue the approved P0 Task6, narrow scope and minimal tests. BASEf5c82e0

@@ -1,5 +1,23 @@
 # Current state
 
+## 2026-09-25 Task6 controller deadline checkpoint
+
+Original registered Step3 deadline now reaches native replacement and both
+WGS/GATK monitor loops. Native journal identity retains the absolute deadline;
+DELETE/CREATE/handoff check remaining time and handoff is capped by it. Monitor
+restart/replay cannot extend the deadline. Invalid present values fail closed;
+absent values retain historical/default-off behavior and Task5 native ABI.
+Expiry preserves all evidence and Jobs for reconciliation; no workload kill or
+Job activeDeadlineSeconds change, biological change or frozen bundle rewrite.
+
+BS10610 offline focused22 passed16.25s, compute-deadline-final.log. Existing
+control/current/RO mounts and disabled scanner/dispatcher preflight passed.
+Only original platform/native isolated branches changed (natived7bd741); pluginc0b266b and
+Task5 artifacts preserved. No push/main merge/install/build/production/rerun.
+Task6 remains OPEN. Next: Airflow-owned persistent bounded Worker wait, then
+remaining exact failure classes, Step4 reconciliation, existing UI, PG/final
+integration and separate authorized live cloud gates.
+
 ## 2026-09-25 Task6 policy and Airflow polling checkpoint
 
 New WGS/GATK CCE creation now freezes its own default-off policy/zero budget.

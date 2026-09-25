@@ -2225,9 +2225,11 @@ def _sync_rule_evidence(
 
 def _monitor_step3(payload: dict[str, Any]) -> None:
     from cce_paired_runtime import monitor_registered
+    from cce_recovery_deadline import monitor_wait
     started = time.monotonic()
     binding = _load_binding(payload)
     while True:
+        monitor_wait(payload, MONITOR_INTERVAL_SECONDS)
         value = monitor_registered(payload, binding=binding, gate=sys.modules[__name__], pipeline='wgs')
         paired = value is not None
         if not paired:
@@ -2240,7 +2242,7 @@ def _monitor_step3(payload: dict[str, Any]) -> None:
                 if "kubectl query failed" in message:
                     if time.monotonic() - started > MONITOR_TIMEOUT_SECONDS:
                         raise TimeoutError("Step3 status query remained unavailable until monitor timeout")
-                    time.sleep(MONITOR_INTERVAL_SECONDS)
+                    time.sleep(monitor_wait(payload, MONITOR_INTERVAL_SECONDS))
                     continue
                 raise RuntimeError(message)
             value = parse_step3_status_output(completed.stdout)
@@ -2273,7 +2275,7 @@ def _monitor_step3(payload: dict[str, Any]) -> None:
             raise RuntimeError(value["message"] or "Master Job failed")
         if time.monotonic() - started > MONITOR_TIMEOUT_SECONDS:
             raise TimeoutError("Step3 monitoring timed out")
-        time.sleep(MONITOR_INTERVAL_SECONDS)
+        time.sleep(monitor_wait(payload, MONITOR_INTERVAL_SECONDS))
 
 
 def _wait_step4(payload: dict[str, Any]) -> None:

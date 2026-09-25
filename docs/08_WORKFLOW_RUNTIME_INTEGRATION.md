@@ -1,5 +1,30 @@
 # Workflow runtime integration
 
+## Task6 original deadline consumption (2026-09-25, source only)
+
+The authenticated `cce_recovery_deadline` is now consumed by both restricted
+Step3 monitor loops and passed through the internal RecoveryCapability to native
+replacement. It is a timezone-aware absolute timestamp, never initialized or
+extended by a controller restart. Invalid present values fail closed; absent
+values preserve historical/default-off manual behavior, including the accepted
+Task5 native call signature.
+
+Native recovery journals bind `compute_deadline` separately from the handoff
+deadline. Replacement entry, old-Master DELETE, new CREATE and handoff check the
+remaining budget. The original handoff deadline is capped at the lesser of its
+600-second allowance and the original compute deadline; journal replay cannot
+change either. WGS/GATK poll sleeps use only remaining time and restart does not
+grant a fresh timeout. Existing individual query timeouts remain in effect; no
+new asynchronous interruption or kill is introduced.
+
+This is a controller/monitor deadline, not a new Kubernetes cleanup policy:
+expiry raises a manual-reconciliation failure, retaining journals/evidence and
+any already-created Job. It does not kill Master/Worker, patch Job native
+activeDeadlineSeconds, alter frozen biological inputs or enable recovery policy.
+Bounded natural Worker wait remains open and must use the existing Airflow
+persistent action; active/uncertain Workers still prohibit replacement.
+BS10610 targeted22 GREEN16.25s; Task5 artifacts remain unchanged.
+
 ## Task6 initial deadline registration (2026-09-25, source only)
 
 Enabled new CCE runs freeze the monitor timeout at creation and set matching
@@ -7,9 +32,8 @@ policy/budget original_deadline on their first Step3 registration. Its registere
 request includes cce_recovery_deadline in the canonical hash. WGS replay inserts
 the same field before hashing; GATK replay keeps its existing registered request.
 Legacy/manual different-attempt registrations receive no fresh automatic budget.
-The deadline is carried to replacement requests, not yet consumed by native
-replacement/monitor loops. That enforcement remains the next Task6 gate; caller
-wiring must not be treated as permission to enable automatic recovery.
+The deadline is carried to replacement requests and consumed as described above.
+Caller wiring must not be treated as permission to enable automatic recovery.
 
 ## Task6 due-dispatch source boundary (2026-09-25)
 
@@ -21,8 +45,8 @@ downstream stages are selected; same attempt/config/directory/output preserved.
 One cce_compute_recovery action owns both reservation and dispatch (not a nested
 resume_stage action). A prepared crash must revalidate its source receipt.
 WGS/GATK recovery requests carry cce_recovery_deadline from original_deadline.
-Native consumption/enforcement and Airflow polling/policy freeze remain future
-Task6 wiring; no installed runtime/automatic capability is enabled here.
+Subsequent Task6 checkpoints added native deadline consumption and Airflow
+polling/policy freeze; no installed runtime/automatic capability is enabled here.
 
 ## Task5 accepted offline Job TTL contract (2026-09-24)
 
