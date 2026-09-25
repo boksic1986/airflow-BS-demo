@@ -18,6 +18,216 @@ Internal service authentication protects two new routes beneath
 Successful exact receipts override timeout callbacks. Unknown execution is
 reported as failed monitoring with a state-unconfirmed message, not perpetual
 queued and not permission to blindly delete. No database migration.
+## Task6 manual monitor reconnect (2026-09-25, source only)
+
+Reuse `POST /api/runs/{analysis_id}/actions/resume-stage`, same operator/CSRF,
+adapter capability, attempt, stage and idempotency key contract. No new endpoint.
+For Step3, a new explicit key may replace the exact current failed query observer
+after blocked/exhausted scoped observation and confirmed original dispatch.
+Retire its existing action and bind the successor atomically, retaining history,
+attempt, frozen inputs/workdir, compute retry count and original deadline.
+Same key or concurrent clicks while the successor is active reuse that operation.
+Reserved/uncertain dispatch, active reconnect, identity mismatch, pending other
+actions and user stops retain their fences; a failure is not forced to success.
+New monitor generation does not imply new Master: existing runtime liveness and
+ownership checks must decide reattachment or allowed same-attempt continuation.
+
+## Task6 recovery view (2026-09-25, source only)
+
+Existing authenticated run detail and dashboard/runs item responses gain optional
+`recovery` (null/absent for ordinary, unsupported and native-only runs). Object:
+state=waiting|checking|recovering|needs_attention|stale|completed_degraded,
+message, reason, stage_code, generation, ordinal, limit, next_retry_at,
+last_confirmed_at. Nullable evidence/times stay null, not guessed from page reads.
+Compute ordinal1/2 is the current attempt reservation; publish ordinal0/1/2 is
+the separate existing dispatch sequence (0 initial, not a consumed retry).
+Their limit remains2. A validated current monitor_reconnect observation uses
+limit6 and ordinal0..6 (consumed extra GET retries), checking while bounded
+reconnect is active, needs_attention after blocked/exhausted/deadline. It states
+execution is unconfirmed, not analysis failed, and preserves measured progress.
+Complete confirmed observation removes this query overlay. No new public route
+or business status; existing manual confirmation is reused as described above.
+Query counters do not reset compute counters.
+
+Read-only bulk projection from existing actions/latest executions: GET never
+reserves, dispatches, calls remote files/services or changes business status.
+Exact current identity and started-Master binding, not DagRun acceptance, enables
+recovering. Monitor-only failures remain state-unconfirmed unless authoritative
+compute-terminal failure exists. Old attempt/generation/manual recovery/user stop
+cannot revive an old action. No raw errors, filesystem paths or action conf are
+included. Finite reconnect is displayed only from the persisted scoped producer
+signal, not inferred from degraded log health. Failure callbacks and periodic
+Airflow reconciliation do not overwrite the last confirmed analysis state from
+this monitor-only failure. Full automatic/manual lifecycle remains a Task6 gate.
+
+## Task6 Step4 stage-control caller (2026-09-25, source only)
+
+Supersedes the unwired checkpoint below. Existing service-token-only
+POST /api/internal/{wgs|gatk}/runs/{analysis_id}/stages/publish_recovery accepts
+attempt, fixed adapter, actual dag_run_id, current resume_action_id and
+publish_operation=begin|poll|check|finish. finish/check require the returned
+publish_execution_id and publish_sequence0..2; poll may echo the issued
+publish_observation. There is no browser route or caller-supplied path, policy,
+deadline or retry budget. Backend derives all authority from the exact registered
+request and latest execution, revalidates hash/release/workdir and controls.
+It commits its action/challenge before replying. A repeated/lost begin cannot
+grant another initial send; a lost poll permit remains in-flight/uncertain.
+
+First opted-in Step4 registration freezes publish_dispatch_version=1 and
+publish_deadline into the canonical hash. Repeated initial registration,
+including a lost failed-terminal reply, reuses the original execution. No legacy
+marker/deadline is backfilled. Initial registration and each dispatch recheck
+the current DagRun, recovery identity, control/maintenance fences. Pending publish
+also blocks manual Resume through the existing manual-recovery fence (never the
+user stop path). check is a final control recheck for the already granted sequence,
+not a second send grant; finish only acknowledges that exact local SSH exit.
+Probe success does not synthesize a successful stage receipt or release downstream.
+
+## Task6 Step4 internal source boundary (2026-09-25)
+
+No new HTTP route or request field is enabled by this checkpoint. Internal
+cce_publish_recovery begin/finish/poll helpers are transaction-scoped contracts,
+not browser endpoints. The subsequent existing stage-control caller must derive
+the original Step4 deadline from trusted stage configuration and freeze
+publish_dispatch_version=1 into the canonical registered request hash before
+first send. It must commit intent before SSH, acknowledge only the exited exact
+dispatch sequence and recheck controls at dispatch. Repeated begin returns no
+second initial-send permission. These helpers do not register a new execution.
+
+Probe replies bind schema cce.publish-observation.v1, pipeline, analysis_id,
+attempt, stage=step4_publish, execution_id, generation, request_hash and nonce;
+status is not_started/running/success/failed/canceled/uncertain (normal complete/
+succeeded aliases normalize to success). Only the trusted internal Airflow
+caller may supply probe results in the future wiring. Public arbitrary evidence,
+paths, deadlines and budget changes must remain rejected. This is not deployed.
+
+## Task6 internal Worker observation (2026-09-25, source only)
+
+Existing authenticated compute_recovery POST optionally accepts worker_observation
+from its Airflow service caller. This is not a public evidence upload. A waiting
+response may include worker_probe {nonce,execution_id,generation,request_hash}
+and worker_wait_deadline. Airflow obtains cce_recovery_evidence from the fixed
+restricted --recovery-probe command and echoes these four identities plus that
+evidence as worker_observation on the same endpoint. No caller-supplied path,
+deadline, recovery budget or policy is accepted.
+
+The backend revalidates the current action, original failed monitor and exact
+schema2 proof: only active_worker_jobs/pods may differ from the immutable failure
+receipt. Altered FINAL/candidate/binding, wrong nonce or expired wait rejects the
+untransmitted action to needs_attention; duplicate consumed replies cannot clear
+a newer probe. A ready observation resumes the existing due-dispatch path, with
+another native live-quiescence check before replacement. Missing/failed probes
+remain waiting until the persisted bound expires. Default-off behavior unchanged.
+
+## Task6 existing stage-control polling (2026-09-25, source only)
+
+The existing internal POST /api/internal/{wgs|gatk}/runs/{analysis_id}/stages/{stage}
+accepts stage=compute_recovery with its existing adapter, attempt, actual
+dag_run_id and optional resume_action_id fields. Internal service authentication
+and adapter gates are unchanged. There is no new public API or browser-provided
+evidence/deadline. This operation locks and validates the current run/action,
+consumes trusted receipt evidence and calls the same due dispatcher. Read-only
+stage-status GET does not reserve/dispatch recovery.
+
+Results: waiting/uncertain reschedule the existing sensor; delegated means the
+replacement was confirmed and stops the old chain; superseded stops an obsolete
+caller; complete allows current successful compute to continue; not_eligible or
+needs_attention retains the normal terminal-failure behavior. Repeated calls,
+including an old sensor after a lost response, cannot allocate another action or
+repeat an ambiguous POST. GATK cleanup forwards the current resume_action_id to
+the shared identity fence. Automatic policy remains default-off pending Task6.
+
+## P0-2 Task4 adapter routing checkpoint (2026-09-24, source only)
+
+The existing `POST /api/runs/{analysis_id}/actions/resume-stage` now requires the
+registered pipeline's `resume` capability and calls its own adapter. Operator and
+CSRF checks are unchanged. WGS execution gates remain WGS-only; GATK checks its
+own execution gate. GATK capability is deliberately NOT added to deployed config
+before native/all-writer Task4 acceptance; this source checkpoint is not activation.
+
+GATK uses PipelineStageExecution and its own canonical request hash, profile,
+bundle and predecessor receipts. A resumed request preserves the prior JSON in
+request-history and adds resume_action_id/resume_previous_execution to the new
+generation. Airflow dispatch reuses the same RunAction protocol described below.
+`GatkRuntimeStageRequest` adds optional resume_action_id. Once an action is current,
+every registration (including acquire/finalize) requires that action and actual
+dag_run_id; missing identity cannot fall back to ordinary registration. Slot
+acquisition and finalization recheck after helpers that can commit/ingest evidence.
+No new public endpoint, table, policy enable or production migration.
+
+## P0-2 Task4 WGS dispatch checkpoint (2026-09-24, source only)
+
+Existing authenticated `POST /api/runs/{analysis_id}/actions/resume-stage`
+keeps operator/CSRF checks and the same attempt, frozen request and RunAction.
+RunAction.payload_json now journals `dispatch_state=not_started` before dispatch,
+`post_intent` durably before POST, and `confirmed` only after the exact DagRun ID
+AND conf are observed. An uncertain transmitted POST is GET-only on replay,
+including subsequent 404s. Legacy actions without this journal are also GET-only;
+do not backfill `not_started` or mint a fresh action to bypass uncertainty.
+An initial lookup failure before any POST leaves `not_started` eligible for its
+first submission. Late responses must not regress current control/progress.
+
+All WGS recovery stage registrations require the actual current `dag_run_id`
+together with `resume_action_id`, not just cleanup calls. Stage/slot selection
+is constrained by persisted resume_stages; prepare is denied.
+Finalization is allowed for the current action while still requiring the existing
+Step6 success receipt, including when successful Step6 is reused rather than run.
+Slot acquisition commits internally; re-lock/recheck before projecting acquired.
+If superseded after that commit, retain the committed lease, do not blindly release.
+Before POST confirmation, only a persisted post_intent permits the already
+started DagRun to register. Existing validation errors remain HTTP400 for the
+internal stage endpoint; the public Resume endpoint remains HTTP409.
+No public endpoint, schema migration, automatic policy or GATK activation added.
+Pair the DAG payload update with this backend tightening; old recovery DAG code
+omitting its ID now fails closed. This checkpoint is NOT trusted native binding,
+all-writer lock activation or end-to-end Task4 completion.
+
+## P0 DagRun cleanup identity (2026-09-23, source only)
+
+Existing WGS/GATK stage requests accept optional dag_run_id (1..250 chars).
+The release_input_transfer_slot, release_result_transfer_slot and release_leases
+handlers require current pipeline/attempt and reject superseded DagRun identity.
+Current automatic-recovery history requires a DagRun ID; reserved or unbound
+actions deny cleanup, queued/uncertain exact current target can clean up. WGS
+continues to require its current resume_action_id for manual recovery.
+
+WGS observer lifecycle requests additionally accept dag_run_id and
+resume_action_id; these are checked on deactivate, not activation. A refusal
+uses each endpoint's existing validation error, not a successful no-op, and
+does not drain the observer or update the run. Identity-less legacy calls remain
+compatible only without current recovery. Authentication is unchanged.
+
+Current identity does not override transfer terminal proof. Lease release
+primitive/receipt ingestion remain unchanged. WGS partial release may commit an
+already-terminal slot, then must re-lock/recheck before projecting retained-slot
+state; a subsequent refusal does not undo that earlier valid release. Backend
+API before DAG deployment (older GATK extra-forbid model rejects the new field).
+No public API, schema, new lifecycle status or automatic enablement.
+
+## P0 failed DagRun callback identity (2026-09-23, source only)
+
+Existing internal GATK dag-terminal accepts optional dag_run_id (1..250 chars),
+sent from the actual Airflow DagRun, not user conf. WGS already carries it.
+Both services return current status with ignored=true and a safe reason when
+the DagRun is superseded or automatic-recovery lineage is pending/unbound.
+No run, sample, rule, failure history or end time is changed on that response.
+Current recovery requires identity even after its action finishes; legacy calls
+without any current recovery retain prior behavior. Exact current queued/uncertain
+replacement identity preserves existing terminal projection, not blanket silence.
+Existing authentication and WGS resume_action_id checks remain. No public route,
+automatic enablement or clinical data changes. Deploy backend before new GATK DAG
+because the older GATK request model forbids unknown fields.
+
+## P0 WGS manual retry conflict (2026-09-23, source only)
+
+Existing actions/resume and actions/rerun_failed refuse an unfinished current-
+attempt cce_compute_recovery action before release/attempt/state changes or
+Airflow submission. Missing/ill-typed action attempt identity also refuses.
+Uses the existing ValueError validation response (400/VALIDATION_ERROR), no new
+endpoint/request field. Completed automatic action history does not block manual
+retry and is not cleared. resume_stage shares the same guard under a refreshed
+AnalysisRun row lock. Cancel keeps its prior behavior/CCE restrictions and is not
+blocked by this retry guard. Source-only; no policy activation or deployment.
 
 ## WGS ebf1f4b Phase mapping (2026-09-18, test sync)
 
@@ -817,6 +1027,12 @@ match. Preparation/maintenance and client-supplied paths/commands are rejected.
 Response is `{analysis_id, attempt, stage, generation, action_id, status}`.
 
 RunAction retains original and deterministic recovery DagRun identities.
+P0 source-only guard (2026-09-23): an unfinished same-attempt
+`cce_compute_recovery` action blocks resume-stage before request mutation or
+Airflow calls, even when the run still says failed. Unclassifiable unfinished
+automatic-action attempt metadata also blocks. Finished automatic actions do
+not prevent manual resume or reset their existing history/budget. No new route
+or request/response field is added; automatic recovery remains unwired/off.
 Analysis, attempt, release and workdir are preserved. Repeated keys and identical
 active operations dedupe; different active stages conflict. An uncertain dispatch
 stays visibly recoverable and reconciles the same DagRun before any new POST.

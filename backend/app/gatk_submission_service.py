@@ -388,6 +388,8 @@ def confirm_gatk_submission(
         submitted_by=submitted_by,
         current_stage="validate_request",
     )
+    from app.cce_recovery_policy import freeze_new_attempt
+    freeze_new_attempt(run=run,settings=settings)
     session.add(run)
     session.add(RunAttempt(analysis_id=analysis_id, attempt=1, execution_mode="cce", status="created"))
     for sample_id in preview["samples"]:

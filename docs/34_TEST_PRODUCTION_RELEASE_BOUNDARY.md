@@ -149,6 +149,14 @@ Never copy test runtime, evidence, credentials or database to production.
 
 ## Permission contract
 
+- User clarification (2026-09-25): Airflow is deployed by `chenjc`, analysis runs
+  as `ctapa`, and the WGS repository belongs to `chenjx`. These are distinct roles,
+  not an instruction to change ownership; live UID/GID/ACLs remain preflight facts.
+  Root ownership/execution and identical owners across those components are not
+  platform prerequisites. P0's newly hardcoded UID-0 policy contradicts this
+  contract and must be adapted, not satisfied through sudo/chown or new services.
+  See [the non-root correction](13_SECURITY_AND_OPERATIONS.md#p0-non-root-deployment-correction-2026-09-25-user-confirmed).
+
 - The production workflow identity is `ctapa:bioinfo`. The control root may be
   administered by a separate approved owner; do not infer workflow authority
   from the owner of `/data/airflow-WGS`.
@@ -158,6 +166,13 @@ Never copy test runtime, evidence, credentials or database to production.
 - Mutable runtime, evidence, results and shared roots use group `bioinfo`,
   setgid 2770 where isolation is required, and explicit default ACLs for the
   named runtime users.
+- User clarification (2026-09-25): do not force root ownership or0600 files/
+  0700 directories on shared P0 outputs. Honor approved effective group/default
+  ACL access, including atomic replacements; directories need traverse access.
+  This does not authorize existing-tree permission rewrites or secret widening.
+- Internal plugin process-control spool is not a shared output: its current
+  Master-owned claim/lock/journal remains private, while the bound final snapshot
+  exported for platform/replacement readers follows the shared permissions above.
 - FASTQ, workflow source, references and input projects are mounted read-only.
   Only approved runtime, result, log, binding and spool roots are writable.
 - Never use `chmod 777`, recursively widen `/sg2` or `/bi`, or follow symlinks

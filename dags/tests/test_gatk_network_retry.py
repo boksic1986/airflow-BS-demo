@@ -23,10 +23,10 @@ class GatkNetworkRetryTests(unittest.TestCase):
             "analysis_id": "GATK_SYNTHETIC", "attempt": 2,
         })}
 
-    def test_only_status_polling_has_bounded_backoff(self):
+    def test_only_status_and_idempotent_slot_polling_have_bounded_backoff(self):
         dag = self.ns["dag"]
         polling = {task.task_id for task in dag.tasks
-                   if task.python_callable.__name__ == "stage_ready"}
+                   if task.python_callable.__name__ in {"stage_ready", "acquire_transfer_slot"}}
         self.assertIn("wait_step3_analysis", polling)
         for task in dag.tasks:
             if task.task_id in polling:
@@ -85,6 +85,28 @@ class GatkNetworkRetryTests(unittest.TestCase):
         with patch.dict(self.ready.__globals__, {"urlopen": response}):
             self.assertTrue(self.ready("step3_monitor", **self.context))
         self.assertEqual(requests, [("GET", "http://backend:8000/api/internal/gatk/runs/GATK_SYNTHETIC/stage-status?attempt=2&stage=step3_monitor", None)])
+
+    def test_slot_retry_reuses_identity_and_rejects_permanent_errors(self):
+        fn = self.ns['acquire_transfer_slot']
+        for kind in ('input', 'result'):
+            requests = []
+            def response(request, **kwargs):
+                requests.append((request.method, request.full_url, request.data))
+                if len(requests) == 1:
+                    raise RemoteDisconnected('response lost after slot acquisition')
+                return BytesIO(b'{"acquired":true}')
+            with patch.dict(fn.__globals__, {'urlopen': response}):
+                with self.assertRaises(AirflowException) as raised:
+                    fn(kind, **self.context)
+                self.assertNotIsInstance(raised.exception, AirflowFailException)
+                self.assertTrue(fn(kind, **self.context))
+            self.assertEqual(requests[0], requests[1])
+            self.assertEqual(requests[1][1], f'http://backend:8000/api/internal/gatk/runs/GATK_SYNTHETIC/stages/acquire_{kind}_transfer_slot')
+            for code in (401, 403, 409):
+                error = HTTPError('http://synthetic', code, 'rejected', {}, BytesIO(b'private'))
+                with patch.dict(fn.__globals__, {'urlopen': lambda *a, **kw: (_ for _ in ()).throw(error)}):
+                    with self.assertRaises(AirflowFailException):
+                        fn(kind, **self.context)
 
 
 if __name__ == "__main__":

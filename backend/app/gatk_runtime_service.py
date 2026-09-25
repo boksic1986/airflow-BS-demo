@@ -3,16 +3,20 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import hashlib
 import json
+import secrets
 from pathlib import Path
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.cce_recovery_budget import dag_failure_fence_reason, require_no_pending_compute_recovery
+from app.cce_resume_dispatch import dispatch_recovery
 from app.gatk_stage_contract import gatk_stage_definition
 from app.diagnostics_service import sync_sample_statuses
 from app.models import (
     AnalysisRun,
+    RunAction,
     PipelineStageExecution,
     RuleState,
     RunStageState,
@@ -73,7 +77,8 @@ def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def register_gatk_stage(
-    *, session: Session, settings, analysis_id: str, attempt: int, stage: str
+    *, session: Session, settings, analysis_id: str, attempt: int, stage: str,
+    recovery_action=None, commit: bool = True
 ) -> dict[str, Any]:
     if stage not in STAGES:
         raise ValueError("unsupported GATK runtime stage")
@@ -81,7 +86,7 @@ def register_gatk_stage(
         select(AnalysisRun).where(
             AnalysisRun.analysis_id == analysis_id,
             AnalysisRun.pipeline_name == "gatk",
-        ).with_for_update()
+        ).with_for_update().execution_options(populate_existing=True)
     )
     if run is None or run.attempt != attempt:
         raise ValueError("unknown active GATK attempt")
@@ -112,7 +117,18 @@ def register_gatk_stage(
         .order_by(PipelineStageExecution.generation.desc())
         .limit(1)
     )
-    if latest is not None and latest.status in {"accepted", "running", "success"}:
+    if recovery_action:
+        if stage not in recovery_action.payload_json['resume_stages']:
+            raise ValueError('stage is outside the GATK recovery action')
+        path = _request_path(settings, analysis_id, attempt, stage)
+        saved = json.loads(path.read_text()) if path.is_file() else None
+        if latest and saved and saved.get('resume_action_id') == recovery_action.payload_json['action_id']:
+            _validate_recovery_request(run, latest, saved)
+            return _execution_payload(latest)
+    opted_publish = (stage == 'step4_publish' and (run.params_json or {}).get('cce_publish_deadline')
+        and ((run.params_json or {}).get('cce_recovery_policy') or {}).get('enabled') is True
+        and ((run.params_json or {}).get('cce_recovery_policy') or {}).get('attempt') == attempt)
+    if not recovery_action and latest is not None and (latest.status in {"accepted", "running", "success"} or opted_publish):
         return _execution_payload(latest)
     reopening_terminal_stage = latest is not None and latest.status in {
         "failed",
@@ -147,6 +163,38 @@ def register_gatk_stage(
             "predecessor_execution_id": predecessor.execution_id if predecessor else None,
             "predecessor_receipt_hash": predecessor.receipt_hash if predecessor else None,
         }
+        if recovery_action:
+            frozen = recovery_action.payload_json['frozen_request']
+            if saved:
+                _validate_recovery_request(run, latest, saved)
+                history = request_path.parent / 'request-history' / stage / f'generation-{latest.generation}.json'
+                if history.exists() and json.loads(history.read_text()) != saved:
+                    raise ValueError('GATK request history differs')
+                if not history.exists():
+                    _atomic_json(history, saved)
+            for key in ('runtime_workdir', 'cce_bundle', 'profile_id', 'profile_revision'):
+                request[key] = frozen[key]
+            request['resume_action_id'] = recovery_action.payload_json['action_id']
+            if recovery_action.action == 'cce_compute_recovery':
+                request['cce_recovery_deadline'] = recovery_action.payload_json['original_deadline']
+            elif stage == 'step3_monitor' and 'cce_recovery_deadline' in (saved or frozen):
+                request['cce_recovery_deadline'] = (saved or frozen)['cce_recovery_deadline']
+            if latest:
+                request['resume_previous_execution'] = {key: getattr(latest, key)
+                    for key in ('execution_id', 'generation', 'request_hash')}
+                if latest.status in {'accepted', 'running'}:
+                    latest.status = 'canceled'
+                    latest.ended_at = datetime.now(timezone.utc)
+        if (stage == 'step3_monitor' and latest is None
+                and ((run.params_json or {}).get('cce_recovery_policy') or {}).get('attempt') == attempt):
+            from app.cce_recovery_policy import start_monitor_deadline
+            deadline = start_monitor_deadline(run=run,now=datetime.now(timezone.utc))
+            if deadline is not None:
+                request['cce_recovery_deadline'] = deadline
+        if stage == 'step4_publish':
+            from app.cce_publish_recovery import freeze_publish_request
+            freeze_publish_request(run=run,request=request,latest=latest,
+                now=datetime.now(timezone.utc),timeout_seconds=48*3600)
         request_hash = _canonical_hash(request)
         request["request_hash"] = request_hash
     execution = PipelineStageExecution(
@@ -168,14 +216,17 @@ def register_gatk_stage(
     )
     session.add(execution)
     resuming_failed_run = run.status == "failed"
-    run.status = "running"
-    run.current_stage = stage
-    run.started_at = run.started_at or datetime.now(timezone.utc)
-    if reopening_terminal_stage or resuming_failed_run:
-        run.ended_at = None
-        run.pipeline_finished_at = None
-        run.error_summary = None
-    sync_sample_statuses(session=session, analysis_id=analysis_id, run_status="running")
+    if recovery_action and stage == 'step4_publish':
+        run.current_stage = stage
+    if not recovery_action:
+        run.status = "running"
+        run.current_stage = stage
+        run.started_at = run.started_at or datetime.now(timezone.utc)
+        if reopening_terminal_stage or resuming_failed_run:
+            run.ended_at = None
+            run.pipeline_finished_at = None
+            run.error_summary = None
+        sync_sample_statuses(session=session, analysis_id=analysis_id, run_status="running")
     if stage != "prepare":
         _atomic_json(request_path, request)
     _upsert_gatk_stage_state(
@@ -193,8 +244,96 @@ def register_gatk_stage(
         progress_source="gatk-runtime",
         reopen_terminal=reopening_terminal_stage,
     )
-    session.commit()
+    if commit:
+        session.commit()
+    else:
+        session.flush()
     return _execution_payload(execution)
+
+
+def _latest_gatk(session, run, stage):
+    return session.scalar(select(PipelineStageExecution).where(
+        PipelineStageExecution.pipeline_name == 'gatk',
+        PipelineStageExecution.analysis_id == run.analysis_id,
+        PipelineStageExecution.attempt == run.attempt,
+        PipelineStageExecution.stage_code == stage)
+        .order_by(PipelineStageExecution.generation.desc()).limit(1))
+
+
+def _validate_recovery_request(run, execution, payload):
+    params = run.params_json or {}
+    if (not execution or payload.get('pipeline') != 'gatk'
+            or payload.get('analysis_id') != run.analysis_id or payload.get('attempt') != run.attempt
+            or payload.get('stage') != execution.stage_code
+            or payload.get('orchestration_contract_version') != 2
+            or payload.get('profile_id') != params.get('runtime_profile_id')
+            or payload.get('profile_revision') != params.get('runtime_profile_revision')
+            or any(payload.get(key) != getattr(execution, key) for key in ('execution_id', 'generation', 'request_hash'))
+            or _canonical_hash({key: value for key, value in payload.items() if key != 'request_hash'}) != execution.request_hash):
+        raise ValueError('GATK recovery requires an exact frozen v2 execution request')
+
+
+def request_gatk_resume_stage(*, session, settings, airflow_client, analysis_id,
+                              attempt, stage, idempotency_key, requested_by):
+    if not settings.gatk_execution_enabled:
+        raise ValueError('GATK execution is disabled')
+    if stage not in STAGES[1:] or not idempotency_key or len(idempotency_key) > 128:
+        raise ValueError('a canonical Step1–6 stage and idempotency key are required')
+    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        .with_for_update().execution_options(populate_existing=True))
+    if not run or run.pipeline_name != 'gatk' or run.attempt != attempt or run.execution_mode != 'cce':
+        raise ValueError('unknown current GATK CCE attempt')
+    from app.cce_resume_dispatch import interrupted_monitor_action, record_monitor_handoff
+    handoff = interrupted_monitor_action(session=session,run=run,monitor=_latest_gatk(session,run,stage),
+        stage=stage,idempotency_key=idempotency_key)
+    require_no_pending_compute_recovery(session=session, run=run, monitor_handoff=handoff)
+    action = None
+    for previous in session.scalars(select(RunAction).where(RunAction.analysis_id == analysis_id,
+            RunAction.action == 'resume_stage').order_by(RunAction.id.desc())):
+        if handoff is not None and previous.id == handoff.id:
+            continue
+        data = previous.payload_json
+        if data.get('attempt') != attempt:
+            continue
+        active = previous.result_status in {'reserved', 'uncertain'} or (
+            previous.result_status == 'queued' and run.status not in {'failed','success','canceled','cancelled','terminated'})
+        if data.get('idempotency_key') == idempotency_key or active:
+            if data['stage'] != stage:
+                raise ValueError('another GATK recovery stage owns this action')
+            action = previous
+            break
+    if action is None:
+        execution = _latest_gatk(session, run, stage)
+        if not execution or execution.status == 'success':
+            raise ValueError('stage has no interrupted GATK execution')
+        frozen = json.loads(_request_path(settings, analysis_id, attempt, stage).read_text())
+        _validate_recovery_request(run, execution, frozen)
+        action_id = 'resume_' + secrets.token_hex(12)
+        stages = [code for code in STAGES[STAGES.index(stage):]
+            if not (_latest_gatk(session, run, code) and _latest_gatk(session, run, code).status == 'success')]
+        data = dict(action_id=action_id, attempt=attempt, stage=stage, idempotency_key=idempotency_key,
+            original_dag_run_id=run.dag_run_id, dag_run_id=f'{analysis_id}-a{attempt}-{action_id}',
+            resume_stages=stages, frozen_request=frozen, dispatch_state='not_started')
+        action = RunAction(analysis_id=analysis_id, action='resume_stage', requested_by=requested_by,
+            payload_json=data, result_status='reserved')
+        session.add(action)
+        run.params_json = dict(run.params_json or {}, resume_action_id=action_id)
+        payload = register_gatk_stage(session=session, settings=settings, analysis_id=analysis_id,
+            attempt=attempt, stage=stage, recovery_action=action, commit=False)
+        data = dict(data)
+        data['generation'] = payload['generation']
+        data['conf'] = dict(analysis_id=analysis_id, attempt=attempt, pipeline='gatk', execution_mode='cce',
+            workdir=run.workdir, params=run.params_json, resume_stage=stage,
+            resume_action_id=action_id, resume_stages=stages)
+        action.payload_json = dict(data)
+        run.dag_run_id, run.current_stage = data['dag_run_id'], stage
+        record_monitor_handoff(handoff, action_id)
+        session.commit()
+    action = dispatch_recovery(session=session, run=run, action=action,
+        airflow_client=airflow_client, latest_execution=_latest_gatk)
+    data = action.payload_json
+    return dict(analysis_id=analysis_id, attempt=attempt, stage=stage, generation=data['generation'],
+        action_id=data['action_id'], status=action.result_status)
 
 
 def record_gatk_transfer_wait(*, session: Session, analysis_id: str, attempt: int,
@@ -242,6 +381,16 @@ def sync_gatk_stage_status(
 ) -> dict[str, Any]:
     if stage in {"step1_upload", "step3_monitor", "step5_download", "step6_materialize"}:
         _ingest_gatk_evidence(session=session, settings=settings, analysis_id=analysis_id, attempt=attempt)
+    # Evidence ingestion above owns separate sessions. Take the shared run lock
+    # afterwards and retain it through execution validation and state projection.
+    run = session.scalar(
+        select(AnalysisRun).where(
+            AnalysisRun.analysis_id == analysis_id,
+            AnalysisRun.pipeline_name == "gatk",
+        ).with_for_update().execution_options(populate_existing=True)
+    )
+    if run is None or run.attempt != attempt:
+        raise ValueError("unknown active GATK attempt")
     row = session.scalar(
         select(PipelineStageExecution)
         .where(
@@ -252,6 +401,7 @@ def sync_gatk_stage_status(
         )
         .order_by(PipelineStageExecution.generation.desc())
         .limit(1)
+        .execution_options(populate_existing=True)
     )
     if row is None:
         return {"status": "pending", "ready": False, "failed": False}
@@ -292,6 +442,8 @@ def sync_gatk_stage_status(
             raise ValueError("GATK stage sidecar identity mismatch")
         state = str(value.get("status") or "running").lower()
         if state in {"running", "success", "failed", "canceled"} and row.status not in {"success", "failed", "canceled"}:
+            from app.cce_monitor_observation import KEY as MONITOR_KEY, retain_monitor_observation
+            previous_monitor = (row.terminal_payload_json or {}).get(MONITOR_KEY)
             now = datetime.now(timezone.utc)
             row.status = state
             row.message = str(value.get("message") or "") or None
@@ -305,6 +457,14 @@ def sync_gatk_stage_status(
                 row.receipt_hash = str(value.get("receipt_hash") or _canonical_hash(value))
                 snapshot = (row.terminal_payload_json or {}).get(KEY)
                 row.terminal_payload_json = {**value, **({KEY: snapshot} if snapshot is not None else {})}
+            retain_monitor_observation(row, value, pipeline='gatk', previous=previous_monitor)
+            from app.cce_monitor_observation import query_unconfirmed
+            if query_unconfirmed(row):
+                # The observer/control task ended, not necessarily the analysis.
+                # Keep measured stage/run projections and let the sensor stop.
+                session.commit()
+                return {**_execution_payload(row), 'ready': False,
+                    'failed': row.status in {'failed','canceled'}, 'message': row.message}
             _upsert_gatk_stage_state(
                 session,
                 analysis_id=analysis_id,
@@ -321,19 +481,12 @@ def sync_gatk_stage_status(
                 progress_source="gatk-runtime",
             )
             if state in {"failed", "canceled"}:
-                run = session.scalar(
-                    select(AnalysisRun).where(
-                        AnalysisRun.analysis_id == analysis_id,
-                        AnalysisRun.pipeline_name == "gatk",
-                    )
-                )
-                if run is not None and run.attempt == attempt:
-                    run.status = "failed" if state == "failed" else "terminated"
-                    run.current_stage = stage
-                    run.error_summary = row.message
-                    run.pipeline_finished_at = run.pipeline_finished_at or now
-                    run.ended_at = run.ended_at or now
-                    run.progress_updated_at = now
+                run.status = "failed" if state == "failed" else "terminated"
+                run.current_stage = stage
+                run.error_summary = row.message
+                run.pipeline_finished_at = run.pipeline_finished_at or now
+                run.ended_at = run.ended_at or now
+                run.progress_updated_at = now
             session.commit()
     _reconcile_terminal_transfer(session=session, row=row)
     failed = row.status in {"failed", "canceled"}
@@ -435,7 +588,8 @@ def _ingest_gatk_evidence(
 
 
 def finalize_gatk_run(
-    *, session: Session, settings, analysis_id: str, attempt: int
+    *, session: Session, settings, analysis_id: str, attempt: int,
+    resume_action_id: str | None = None, dag_run_id: str | None = None
 ) -> dict[str, Any]:
     status = sync_gatk_stage_status(
         session=session,
@@ -450,10 +604,14 @@ def finalize_gatk_run(
         select(AnalysisRun).where(
             AnalysisRun.analysis_id == analysis_id,
             AnalysisRun.pipeline_name == "gatk",
-        )
+        ).with_for_update().execution_options(populate_existing=True)
     )
     if run is None or run.attempt != attempt:
         raise ValueError("unknown active GATK attempt")
+    if resume_action_id or (run.params_json or {}).get('resume_action_id'):
+        from app.cce_resume_dispatch import authorize_recovery_stage
+        authorize_recovery_stage(session=session, run=run, action_id=resume_action_id,
+            dag_run_id=dag_run_id, stage='finalize_run')
     now = datetime.now(timezone.utc)
     run.status = "success"
     run.current_stage = "finalize_run"
@@ -473,6 +631,7 @@ def mark_gatk_dag_failed(
     analysis_id: str,
     attempt: int,
     failed_task_ids: list[str],
+    dag_run_id: str | None = None,
     timestamp: datetime | None = None,
 ) -> dict[str, Any]:
     """Close GATK projections when Airflow reaches a terminal failure."""
@@ -483,10 +642,15 @@ def mark_gatk_dag_failed(
             AnalysisRun.pipeline_name == "gatk",
         )
         .with_for_update()
+        .execution_options(populate_existing=True)
     )
     if run is None or run.attempt != attempt:
         raise ValueError("unknown active GATK attempt")
 
+    reason = dag_failure_fence_reason(session=session, run=run, dag_run_id=dag_run_id)
+    if reason:
+        return {'analysis_id': analysis_id, 'attempt': attempt, 'status': run.status,
+                'ignored': True, 'reason': reason}
     failures = sorted(
         {str(task_id).strip() for task_id in failed_task_ids if str(task_id).strip()}
     )

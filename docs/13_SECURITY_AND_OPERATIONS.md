@@ -54,6 +54,79 @@ they never fall back to arbitrary host paths.
 
 ## Filesystem and execution authority
 
+### P0 non-root deployment correction (2026-09-25, user-confirmed)
+
+Airflow deployment, workflow execution and repository maintenance are separate
+roles, not one root identity. The user identifies their current owners as
+`chenjc`, `ctapa` and `chenjx` respectively. Keep those spellings distinct;
+this statement is user-supplied deployment context, not a fresh host UID audit.
+Resolve actual UID/GID, ACL and mount access at an authorized deployment.
+
+The following P0 requirements are withdrawn:
+
+- UID 0 ownership of every policy, interpreter, runtime script and ancestor.
+- One identical owner for the control plane, interpreter and workflow source.
+- `/etc/cce-pipeline/writers-v2.json` as the only permitted policy location.
+  A fixed, deployment-managed non-root location is valid; do not select it from
+  a business request, project config or untrusted environment override.
+- Requiring sudo/chown, a new root-owned runtime, or a new service/container to
+  fit that assumption. Keep the agreed Operator test environment `nipttest`;
+  do not install into WGS or upgrade Python/dependencies to overcome this issue.
+
+Replace these assumptions with role-scoped deployment trust. The approved
+deployment declares which maintainer controls each policy/code/interpreter root;
+the analysis identity only needs the intended read/execute and scoped output
+write access. Maintainers may update their own software through the release
+process. No global username whitelist, current-EUID shortcut or blanket trust
+of the shared `bioinfo` group is implied. A policy being validated must not
+authorize its own owner or root: the bootstrap authority comes from the existing
+trusted deployment/restricted entry, outside the submitted project.
+
+Keep paired CLI/platform/guard pins, fixed executable selection, namespace and
+physical storage identity, authenticated registration, attempt/generation fences,
+receipt validation and invalid-activation rejection. Check effective access to
+the selected files and their containing paths (including relevant ACL/mount and
+replacement permissions), not identical ownership of every ancestor up to `/`.
+Read-only inputs and writable result/evidence roots remain separate; do not apply
+code-root restrictions to the existing scoped runtime/output write permissions.
+Normal interpreter links may resolve to an approved canonical interpreter; an
+unapproved target or path escape is still rejected. Do not globally allow links.
+
+User clarification (2026-09-25 implementation follow-up): P0 shared output,
+runtime, evidence, derived bundle and journal paths must not be forced to root
+ownership or owner-only 0600 files/0700 directories. Use the authorized execution
+identity and existing approved shared group/default ACLs. Directories require
+traverse permission; atomic file replacement must preserve intended collaborator
+access. This does not relax private credentials, authorize chmod/chown of existing
+trees or make outputs world-writable. Tests must distinguish shared artifacts
+from private secret staging rather than replacing every restrictive mode.
+
+The plugin's live `submission/<phase>` spool is internal process-control state
+(executor claim, lock, append journal/checkpoint), not a shared output directory.
+It remains owned by the current Master user with0700/0600, with no root-owner
+requirement. The current Master exports its bound final snapshot through the
+shared `recovery-final.json`; platform/replacement readers must use that export,
+not require access to the live private spool. Do not privatize shared evidence
+or widen plugin control-state checks merely to make a test pass.
+
+**Source correction accepted, deployment pending:** native ae90b65 and the
+paired selector now use the fixed code-adjacent deployment bootstrap. Actual
+validator tests cover non-root interpreter links, canonical-target ancestry and
+owner authority; the earlier UID/interpreter fixture bypass is no longer the
+acceptance basis. Source review findings are closed. This does not make the old
+dev2 artifacts compatible or authorize production activation; exact new
+artifacts, install rollback and real consumer permissions remain rollout gates.
+
+Bounded follow-up `P0-NONROOT-ENTRY`: the platform and native owners align the
+existing selector/guard bootstrap and role-scoped path validation, then verify
+the actual non-root interpreter without substituting its validator. Minimum
+affected cases: different approved maintainer/execution roles pass; unapproved
+writer/path/pin/policy changes reject; absent activation preserves legacy behavior.
+Reuse prior recovery/TTL evidence; do not rerun the whole P0 suite. Packaging of
+changed native bytes belongs to its owner; do not rebuild both Masters or the
+plugin unless the changed payload is actually consumed there. Installation,
+activation and production release remain separately authorized operations.
+
 - The production control/release root is `/data/airflow-WGS`; runtime and
   workflow-source roots come only from the active production release contract.
 - Runtime adapters accept only registered `analysis_id + attempt + stage`

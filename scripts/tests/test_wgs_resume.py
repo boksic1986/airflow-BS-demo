@@ -99,3 +99,132 @@ def test_old_mirror_terminal_cannot_override_new_master_identity():
     live={'metadata':{'uid':'new-uid','resourceVersion':'20'},'status':{'active':1}}
     result=m.fence_master_status(stale,live,expected_uid='new-uid')
     assert result['master_state']=='RUNNING' and result['master_uid']=='new-uid'
+
+
+def test_lost_create_then_absent_master_never_posts_a_second_create(frozen, monkeypatch):
+    m=module(); _,binding,_,state,runtime,payload,_=frozen
+    state['job']=None
+    payload['stage']='step2_master'
+    def uncertain_create(*args):
+        state['submits'].append(args)
+        raise m.subprocess.TimeoutExpired('synthetic-create', 1)
+    monkeypatch.setattr(m,'_submit_frozen_master',uncertain_create)
+    for _ in range(2):
+        with pytest.raises(RuntimeError):
+            m.resume_master(payload=payload,binding=binding,runtime=runtime)
+    # A later 404 cannot distinguish never-created from already-created/reclaimed.
+    assert len(state['submits'])==1
+    assert not state['deletes']
+
+
+def test_missing_started_replacement_never_reopens_create_permission(frozen, monkeypatch):
+    m=module(); _,binding,_,state,runtime,payload,replace=frozen
+    state['job']=None
+    payload['stage']='step2_master'
+    journal=Path(payload['control_workdir'])/('recovery-'+payload['resume_action_id']+'.json')
+    journal.parent.mkdir()
+    journal.write_text(json.dumps({'state':'started','replacement_uid':'gone-uid'}))
+    monkeypatch.setattr(m,'_submit_frozen_master',replace)
+    monkeypatch.setattr(m,'_finish_handoff',lambda *a:None)
+    with pytest.raises(RuntimeError):
+        m.resume_master(payload=payload,binding=binding,runtime=runtime)
+    assert not state['submits'] and not state['deletes']
+
+
+def test_master_resource_version_change_during_worker_check_prevents_delete(frozen, monkeypatch):
+    m=module(); _,binding,_,state,runtime,payload,replace=frozen
+    def changed_after_inventory(*args,**kwargs):
+        state['job']['metadata']['resourceVersion']='11'
+    def delete(*args):
+        state['deletes'].append(args)
+        state['job']=None
+    runtime._require_no_active_workers=changed_after_inventory
+    monkeypatch.setattr(m,'_require_inactive_master_pods',lambda *a:None)
+    monkeypatch.setattr(m,'_delete_master',delete)
+    monkeypatch.setattr(m,'_submit_frozen_master',replace)
+    monkeypatch.setattr(m,'_finish_handoff',lambda *a:None)
+    with pytest.raises(RuntimeError):
+        m.resume_master(payload=payload,binding=binding,runtime=runtime)
+    assert not state['deletes'] and not state['submits']
+
+
+def test_paginated_empty_master_pods_do_not_prove_quiescence(frozen):
+    m=module(); _,_,_,_,runtime,_,_=frozen
+    runtime._kubectl_json=lambda *a: {
+        'kind':'PodList','metadata':{'continue':'next-page'},'items':[]}
+    with pytest.raises(RuntimeError):
+        m._require_inactive_master_pods(runtime,{},
+            {'namespace':'mock','master_job':'master-mock'},'old-uid')
+
+
+def test_lost_create_delayed_failed_replacement_does_not_reopen_same_action(frozen, monkeypatch):
+    m=module(); _,binding,manifest,state,runtime,payload,replace=frozen
+    state['job']=None
+    payload['stage']='step2_master'
+    def uncertain_create(*args):
+        state['submits'].append(args)
+        raise m.subprocess.TimeoutExpired('synthetic-create',1)
+    monkeypatch.setattr(m,'_submit_frozen_master',uncertain_create)
+    with pytest.raises(RuntimeError):
+        m.resume_master(payload=payload,binding=binding,runtime=runtime)
+    # The first exact GET was absent; the same submitted Job becomes visible
+    # only after it failed, before its UID could be journalled locally.
+    delayed=copy.deepcopy(manifest)
+    delayed['metadata'].update(uid='delayed-uid',resourceVersion='30')
+    delayed['status']={'conditions':[{'type':'Failed','status':'True'}]}
+    state['job']=delayed
+    def delete(*args):
+        state['deletes'].append(args)
+        state['job']=None
+    monkeypatch.setattr(m,'_delete_master',delete)
+    monkeypatch.setattr(m,'_submit_frozen_master',replace)
+    monkeypatch.setattr(m,'_require_inactive_master_pods',lambda *a:None)
+    monkeypatch.setattr(m,'_finish_handoff',lambda *a:None)
+    with pytest.raises(RuntimeError):
+        m.resume_master(payload=payload,binding=binding,runtime=runtime)
+    assert len(state['submits'])==1 and not state['deletes']
+
+
+@pytest.mark.parametrize('verified', [True, False])
+def test_complete_job_requires_native_success_before_resume_advances(frozen, verified):
+    m=module(); _,binding,_,state,runtime,payload,_=frozen
+    state['job']['status']={'conditions':[{'type':'Complete','status':'True'}]}
+    calls=[]
+    def success(*args):
+        calls.append(args[-1])
+        if not verified:
+            raise RuntimeError('native success unavailable')
+        return {'state':'SUCCEEDED','job_uid':'old-uid'}
+    runtime._recovery_native_success=success
+    if verified:
+        assert m.resume_master(payload=payload,binding=binding,runtime=runtime)['mode']=='reused'
+    else:
+        with pytest.raises(RuntimeError):
+            m.resume_master(payload=payload,binding=binding,runtime=runtime)
+    assert calls==['old-uid'] and not state['submits'] and not state['deletes']
+
+
+@pytest.mark.parametrize('change', ['active', 'contradictory'])
+def test_ambiguous_master_terminal_never_advances_or_replaces(frozen, change):
+    m=module(); _,binding,_,state,runtime,payload,_=frozen
+    state['job']['status']={'conditions':[{'type':'Complete','status':'True'}]}
+    if change=='active':state['job']['status']['active']=1
+    else:state['job']['status']['conditions'].append({'type':'Failed','status':'True'})
+    runtime._recovery_native_success=lambda *a:{'state':'SUCCEEDED','job_uid':'old-uid'}
+    with pytest.raises(RuntimeError):m.resume_master(payload=payload,binding=binding,runtime=runtime)
+    assert not state['submits'] and not state['deletes']
+
+
+def test_v2_missing_master_with_old_deletion_journal_cannot_create(frozen, monkeypatch):
+    m=module(); bundle,binding,manifest,state,runtime,payload,replace=frozen
+    manifest['metadata']['annotations']={'cce-pipeline/handoff-version':'2'}
+    (bundle/'master-job.yaml').write_text(yaml.safe_dump(manifest))
+    state['job']=None
+    path=Path(payload['control_workdir'])/('recovery-'+payload['resume_action_id']+'.json')
+    path.parent.mkdir(); path.write_text(json.dumps({'state':'deleted','old_uid':'old-uid'}))
+    before=path.read_bytes()
+    monkeypatch.setattr(m,'_submit_frozen_master',replace)
+    monkeypatch.setattr(m,'_finish_handoff',lambda *a:None)
+    with pytest.raises(RuntimeError,match='recovery view'):
+        m.resume_master(payload=payload,binding=binding,runtime=runtime)
+    assert not state['submits'] and not state['deletes'] and path.read_bytes()==before

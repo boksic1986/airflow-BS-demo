@@ -59,6 +59,7 @@ class PipelineAdapter:
     project_config: Callable[..., dict[str, Any] | None] | None = None
     submit_run: Callable[..., dict[str, Any] | None] | None = None
     reanalyze_run: Callable[..., dict[str, Any] | None] | None = None
+    resume_stage: Callable[..., dict[str, Any]] | None = None
     project_qc: Callable[..., dict[str, Any] | None] | None = None
     project_run_detail: Callable[..., dict[str, Any] | None] | None = None
     project_samples: Callable[..., dict[str, Any]] | None = None

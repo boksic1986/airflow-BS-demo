@@ -1,5 +1,6 @@
 import logging
 import json
+from typing import Any
 import os
 from pathlib import Path
 import secrets
@@ -338,12 +339,25 @@ class WgsRuntimeStageRequest(BaseModel):
     maintenance_action_id: str | None = Field(default=None, max_length=128)
     force_new_generation: bool = False
     resume_action_id: str | None = Field(default=None, max_length=128)
+    dag_run_id: str | None = Field(default=None, min_length=1, max_length=250)
+    worker_observation: dict[str, Any] | None = None
+    publish_operation: str | None = Field(default=None, pattern='^(begin|finish|poll|check)$')
+    publish_execution_id: str | None = Field(default=None, max_length=128)
+    publish_sequence: int | None = Field(default=None, ge=0, le=2)
+    publish_observation: dict[str, Any] | None = None
 
 
 class GatkRuntimeStageRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     attempt: int = Field(ge=1)
     adapter: str = Field(pattern="^gatk-runtime-200$")
+    dag_run_id: str | None = Field(default=None, min_length=1, max_length=250)
+    resume_action_id: str | None = Field(default=None, min_length=1, max_length=128)
+    worker_observation: dict[str, Any] | None = None
+    publish_operation: str | None = Field(default=None, pattern='^(begin|finish|poll|check)$')
+    publish_execution_id: str | None = Field(default=None, max_length=128)
+    publish_sequence: int | None = Field(default=None, ge=0, le=2)
+    publish_observation: dict[str, Any] | None = None
 
 
 class GatkDagTerminalRequest(BaseModel):
@@ -351,10 +365,13 @@ class GatkDagTerminalRequest(BaseModel):
     attempt: int = Field(ge=1)
     status: str = Field(pattern="^failed$")
     failed_task_ids: list[str] = Field(default_factory=list, max_length=64)
+    dag_run_id: str | None = Field(default=None, min_length=1, max_length=250)
 
 
 class WgsObserverLifecycleRequest(BaseModel):
     attempt: int = Field(ge=1)
+    dag_run_id: str | None = Field(default=None, min_length=1, max_length=250)
+    resume_action_id: str | None = Field(default=None, max_length=128)
 
 
 class WgsDagTerminalRequest(BaseModel):
@@ -376,12 +393,18 @@ class WgsResumeStageRequest(BaseModel):
 @app.post('/api/runs/{analysis_id}/actions/resume-stage')
 def resume_wgs_stage(analysis_id: str, request: WgsResumeStageRequest,
                      user: AuthenticatedUser = Depends(operator_user)):
-    from app.wgs_resume_service import request_resume_stage
-    if not _wgs_platform_execution_enabled() or not _wgs_runtime_adapter_enabled():
-        raise HTTPException(status_code=409, detail='WGS execution is disabled')
     try:
         with get_sessionmaker()() as session:
-            return request_resume_stage(session=session, settings=get_settings(), airflow_client=get_airflow_client(),
+            pipeline = session.scalar(select(AnalysisRun.pipeline_name).where(AnalysisRun.analysis_id == analysis_id))
+            if pipeline is None:
+                raise ValueError('unknown analysis')
+            if pipeline == 'wgs' and (not _wgs_platform_execution_enabled() or not _wgs_runtime_adapter_enabled()):
+                raise ValueError('WGS execution is disabled')
+            settings = get_settings()
+            adapter = get_pipeline_registry(settings).require(pipeline, capability='resume').adapter
+            if adapter.resume_stage is None:
+                raise ValueError('Pipeline does not provide same-attempt Resume')
+            return adapter.resume_stage(session=session, settings=settings, airflow_client=get_airflow_client(),
                 analysis_id=analysis_id, attempt=request.attempt, stage=request.stage,
                 idempotency_key=request.idempotency_key, requested_by=user.username)
     except (ValueError, OSError) as error:
@@ -2096,17 +2119,45 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
         raise HTTPException(status_code=409, detail={"code": "WGS_RUNTIME_DISABLED", "message": "WGS execution is disabled; Step7 was not registered."})
     try:
         with get_sessionmaker()() as session:
-            run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs"))
+            if stage_name == 'publish_recovery':
+                from app.cce_publish_recovery import control_publish_dispatch
+                return control_publish_dispatch(session=session,settings=get_settings(),pipeline='wgs',
+                    analysis_id=analysis_id,attempt=request.attempt,dag_run_id=request.dag_run_id,
+                    resume_action_id=request.resume_action_id,operation=request.publish_operation,
+                    execution_id=request.publish_execution_id,sequence=request.publish_sequence,
+                    observation=request.publish_observation,now=datetime.now(timezone.utc))
+            if stage_name == 'compute_recovery':
+                from app.cce_recovery_poll import poll_compute_recovery
+                return poll_compute_recovery(session=session, settings=get_settings(),
+                    airflow_client=get_airflow_client(), analysis_id=analysis_id, attempt=request.attempt,
+                    pipeline='wgs', dag_run_id=request.dag_run_id,
+                    resume_action_id=request.resume_action_id, now=datetime.now(timezone.utc),
+                    worker_observation=request.worker_observation)
+            if stage_name in {"release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
+                from app.cce_recovery_budget import require_current_dag_cleanup
+                run = require_current_dag_cleanup(session=session, analysis_id=analysis_id,
+                    attempt=request.attempt, pipeline='wgs', dag_run_id=request.dag_run_id,
+                    resume_action_id=request.resume_action_id)
+            else:
+                run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs")
+                    .with_for_update().execution_options(populate_existing=True))
             if run is None or run.attempt != request.attempt:
                 raise ValueError("unknown active WGS attempt")
+            if stage_name == 'step4_publish':
+                from app.cce_publish_recovery import authorize_publish_registration
+                authorize_publish_registration(session=session,run=run,dag_run_id=request.dag_run_id,
+                    resume_action_id=request.resume_action_id)
             if request.resume_action_id:
-                from app.wgs_resume_service import STAGES, recovery_action, register_recovery_stage
-                action = recovery_action(session, run, request.resume_action_id)
+                from app.wgs_resume_service import STAGES, authorize_recovery_stage, register_recovery_stage
+                action = authorize_recovery_stage(session=session, run=run, action_id=request.resume_action_id,
+                    dag_run_id=request.dag_run_id, stage=stage_name)
                 if stage_name in STAGES:
                     if request.command != f'wgs-runtime {analysis_id} {request.attempt} {stage_name}':
                         raise ValueError('runtime command differs from recovery stage')
                     payload = register_recovery_stage(session=session, settings=get_settings(), run=run,
                         stage=stage_name, action=action)
+                    if stage_name == 'step4_publish':
+                        run.current_stage = stage_name
                     session.commit()
                     return {'analysis_id': analysis_id, 'attempt': request.attempt, 'stage': stage_name,
                         'status': 'accepted', 'generation': payload['generation'], 'execution_id': payload['execution_id']}
@@ -2157,6 +2208,15 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 )
                 if slot is None:
                     return {"analysis_id": analysis_id, "attempt": request.attempt, "stage": stage_name, "status": "waiting", "acquired": False}
+                if request.resume_action_id:
+                    # The lease helper commits. Re-acquire the run lock before
+                    # projecting success; newer controls/actions may now exist.
+                    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id,
+                        AnalysisRun.pipeline_name == "wgs").with_for_update().execution_options(populate_existing=True))
+                    if run is None or run.attempt != request.attempt:
+                        raise ValueError('unknown current recovery attempt')
+                    authorize_recovery_stage(session=session, run=run, action_id=request.resume_action_id,
+                        dag_run_id=request.dag_run_id, stage=stage_name)
                 run.current_stage = stage_name
                 session.commit()
                 return {"analysis_id": analysis_id, "attempt": request.attempt, "stage": stage_name, "status": "acquired", "acquired": True, "slot": slot}
@@ -2175,6 +2235,12 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                     transfer_kind=transfer_kind,
                 )
                 if release_result["retained"]:
+                    if release_result["released"]:
+                        # Partial release commits in the lease primitive. Re-lock
+                        # before projecting retained-slot state onto the run.
+                        run = require_current_dag_cleanup(session=session, analysis_id=analysis_id,
+                            attempt=request.attempt, pipeline='wgs', dag_run_id=request.dag_run_id,
+                            resume_action_id=request.resume_action_id)
                     mark_execution_needs_recovery(
                         session=session,
                         analysis_id=analysis_id,
@@ -2711,6 +2777,37 @@ def internal_gatk_runtime_stage(
         )
     try:
         with get_sessionmaker()() as session:
+            if stage_name == 'publish_recovery':
+                from app.cce_publish_recovery import control_publish_dispatch
+                return control_publish_dispatch(session=session,settings=settings,pipeline='gatk',
+                    analysis_id=analysis_id,attempt=request.attempt,dag_run_id=request.dag_run_id,
+                    resume_action_id=request.resume_action_id,operation=request.publish_operation,
+                    execution_id=request.publish_execution_id,sequence=request.publish_sequence,
+                    observation=request.publish_observation,now=datetime.now(timezone.utc))
+            if stage_name == 'compute_recovery':
+                from app.cce_recovery_poll import poll_compute_recovery
+                return poll_compute_recovery(session=session, settings=settings,
+                    airflow_client=get_airflow_client(), analysis_id=analysis_id, attempt=request.attempt,
+                    pipeline='gatk', dag_run_id=request.dag_run_id,
+                    resume_action_id=request.resume_action_id, now=datetime.now(timezone.utc),
+                    worker_observation=request.worker_observation)
+            def authorize():
+                from app.cce_resume_dispatch import authorize_recovery_stage
+                run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+                    .with_for_update().execution_options(populate_existing=True))
+                if not run or run.pipeline_name != 'gatk' or run.attempt != request.attempt:
+                    raise ValueError('unknown current GATK attempt')
+                if stage_name == 'step4_publish':
+                    from app.cce_publish_recovery import authorize_publish_registration
+                    authorize_publish_registration(session=session,run=run,dag_run_id=request.dag_run_id,
+                        resume_action_id=request.resume_action_id)
+                if request.resume_action_id:
+                    return authorize_recovery_stage(session=session, run=run,
+                        action_id=request.resume_action_id, dag_run_id=request.dag_run_id, stage=stage_name)
+                if (run.params_json or {}).get('resume_action_id'):
+                    raise ValueError('current GATK recovery action identity required')
+                return None
+            recovery_action = authorize()
             if stage_name in {"acquire_input_transfer_slot", "acquire_result_transfer_slot"}:
                 transfer_kind = "input" if stage_name == "acquire_input_transfer_slot" else "result"
                 transfer_id = f"{analysis_id}-a{request.attempt}-{transfer_kind}"
@@ -2721,6 +2818,7 @@ def internal_gatk_runtime_stage(
                     transfer_id=transfer_id,
                     transfer_kind=transfer_kind,
                 )
+                authorize()  # Slot helper commits; recheck controls/DagRun under the run lock.
                 record_gatk_transfer_wait(session=session, analysis_id=analysis_id,
                     attempt=request.attempt, kind=transfer_kind, acquired=bool(slot))
                 return {
@@ -2732,6 +2830,10 @@ def internal_gatk_runtime_stage(
                     "slot": slot,
                 }
             if stage_name in {"release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
+                from app.cce_recovery_budget import require_current_dag_cleanup
+                require_current_dag_cleanup(session=session, analysis_id=analysis_id,
+                    attempt=request.attempt, pipeline='gatk', dag_run_id=request.dag_run_id,
+                    resume_action_id=request.resume_action_id)
                 transfer_kind = None
                 if stage_name == "release_input_transfer_slot":
                     transfer_kind = "input"
@@ -2755,6 +2857,8 @@ def internal_gatk_runtime_stage(
                     settings=settings,
                     analysis_id=analysis_id,
                     attempt=request.attempt,
+                    resume_action_id=request.resume_action_id,
+                    dag_run_id=request.dag_run_id,
                 )
             return register_gatk_stage(
                 session=session,
@@ -2762,6 +2866,7 @@ def internal_gatk_runtime_stage(
                 analysis_id=analysis_id,
                 attempt=request.attempt,
                 stage=stage_name,
+                recovery_action=recovery_action,
             )
     except ValueError as exc:
         raise HTTPException(
@@ -2810,6 +2915,7 @@ def internal_gatk_dag_terminal(
                 analysis_id=analysis_id,
                 attempt=request.attempt,
                 failed_task_ids=request.failed_task_ids,
+                dag_run_id=request.dag_run_id,
             )
     except ValueError as exc:
         raise HTTPException(
@@ -2852,6 +2958,10 @@ def internal_wgs_observer_deactivate(
 ) -> dict[str, object]:
     try:
         with get_sessionmaker().begin() as session:
+            from app.cce_recovery_budget import require_current_dag_cleanup
+            require_current_dag_cleanup(session=session, analysis_id=analysis_id,
+                attempt=request.attempt, pipeline='wgs', dag_run_id=request.dag_run_id,
+                resume_action_id=request.resume_action_id)
             state = request_observer_drain(
                 session, analysis_id=analysis_id, attempt=request.attempt
             )

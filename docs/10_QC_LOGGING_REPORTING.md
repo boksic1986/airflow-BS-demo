@@ -1,5 +1,12 @@
 # QC, logging, and reporting
 
+Task6 source checkpoint (2026-09-25): exact Worker CREATE storage RPC failure
+evidence records category WORKER_CREATE_STORAGE_RPC_UNAVAILABLE and fixed
+operation/http_status/status_reason/transient_reason fields documented in docs08.
+API bodies and private addresses are inspected transiently, never copied into
+failure evidence or submission journals. Native FINAL still seals producer
+evidence; a label alone cannot authorize automatic recovery. No QC changes.
+
 2026-09-17 complete-metrics candidate supersedes column omission: all22 named
 QC criteria remain visible, with missing/inapplicable evidence labelled rather
 than hidden. Native g1 computes SNV/CNV counts but omits them from its exported

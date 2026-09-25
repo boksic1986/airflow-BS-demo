@@ -192,6 +192,7 @@ def test_confirm_rechecks_hash_and_submits_independent_dag(tmp_path: Path) -> No
     sessions = _sessions()
     airflow = RecordingAirflow()
     settings = _settings(tmp_path, allowed_source, fastq_root)
+    settings.gatk_cce_recovery_enabled = True
     with sessions() as session:
         preview = create_gatk_submission_preview(
             session=session,
@@ -213,6 +214,9 @@ def test_confirm_rechecks_hash_and_submits_independent_dag(tmp_path: Path) -> No
     assert result["status"] == "submitted"
     assert airflow.calls[0]["dag_id"] == "bio_gatk"
     assert airflow.calls[0]["conf"]["pipeline"] == "gatk"
+    assert airflow.calls[0]['conf']['params']['cce_recovery_policy']['enabled'] is True
+    assert airflow.calls[0]['conf']['params']['cce_recovery_budget'] == dict(
+        attempt=1,count=0,original_deadline=None)
     with sessions() as session:
         run = session.scalar(select(AnalysisRun))
         assert run is not None

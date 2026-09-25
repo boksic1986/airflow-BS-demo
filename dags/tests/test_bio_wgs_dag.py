@@ -736,7 +736,7 @@ class BioWgsDagTests(unittest.TestCase):
     def test_step3_terminal_status_requests_observer_drain(self) -> None:
         calls = []
         conf = {"analysis_id": "WGS_20260830_010203_A1B2C3", "attempt": 1}
-        context = {"dag_run": type("DagRun", (), {"conf": conf})()}
+        context = {"dag_run": type("DagRun", (), {"conf": conf, "run_id": "synthetic-current"})()}
         original_backend = bio_wgs._backend_json
         original_enabled = bio_wgs._require_runtime_enabled
         try:
@@ -757,7 +757,7 @@ class BioWgsDagTests(unittest.TestCase):
         assert calls[-1] == (
             "/api/internal/wgs/runs/WGS_20260830_010203_A1B2C3/observer/deactivate",
             "POST",
-            {"attempt": 1},
+            {"attempt": 1, "dag_run_id": "synthetic-current", "resume_action_id": None},
         )
 
     def test_stage_sensor_reschedules_when_backend_transport_is_temporarily_unavailable(
@@ -1022,7 +1022,7 @@ class BioWgsDagTests(unittest.TestCase):
             "dag_run": type(
                 "DagRun",
                 (),
-                {"conf": {"analysis_id": "WGS_20260830_010203_A1B2C3", "attempt": 1}},
+                {"conf": {"analysis_id": "WGS_20260830_010203_A1B2C3", "attempt": 1}, "run_id": "synthetic-current"},
             )()
         }
         original_backend = bio_wgs._backend_json
@@ -1043,15 +1043,15 @@ class BioWgsDagTests(unittest.TestCase):
             bio_wgs._runtime_enabled = original_runtime
 
         assert result == {"released": True, "observer_lifecycle_status": "draining"}
-        assert calls[0][0].endswith("/observer/deactivate")
-        assert calls[-1][0].endswith("/stages/release_leases")
+        assert calls[0][0].endswith("/stages/release_leases")
+        assert calls[-1][0].endswith("/observer/deactivate")
 
     def test_release_leases_fails_closed_when_backend_retains_a_lease(self) -> None:
         context = {
             "dag_run": type(
                 "DagRun",
                 (),
-                {"conf": {"analysis_id": "WGS_20260907_010203_A1B2C3", "attempt": 1}},
+                {"conf": {"analysis_id": "WGS_20260907_010203_A1B2C3", "attempt": 1}, "run_id": "synthetic-current"},
             )()
         }
         original_backend = bio_wgs._backend_json
@@ -1082,7 +1082,7 @@ class BioWgsDagTests(unittest.TestCase):
             "dag_run": type(
                 "DagRun",
                 (),
-                {"conf": {"analysis_id": "WGS_20260907_010203_A1B2C3", "attempt": 1}},
+                {"conf": {"analysis_id": "WGS_20260907_010203_A1B2C3", "attempt": 1}, "run_id": "synthetic-current"},
             )()
         }
         original_backend = bio_wgs._backend_json

@@ -199,6 +199,8 @@ def get_dashboard_runs(
     qc_highlights = qc_highlights_by_run(session=session, runs=page)
     adapters = dict(pipeline_adapters or {})
     lifecycles = _dashboard_lifecycles(session=session, runs=page, adapters=adapters)
+    from app.cce_recovery_projection import recovery_views
+    recovery = recovery_views(session=session, runs=page)
     return {
         "items": [
             _tracker_row(
@@ -211,6 +213,7 @@ def get_dashboard_runs(
                 qc_highlights=qc_highlights.get(run.analysis_id, []),
                 lifecycle=lifecycles.get(run.analysis_id),
                 adapter=adapters.get(run.pipeline_name),
+                recovery=recovery.get(run.analysis_id),
             )
             for run in page
         ],
@@ -232,6 +235,7 @@ def _tracker_row(
     qc_highlights: list[dict[str, Any]],
     lifecycle: dict[str, dict] | None,
     adapter: Any | None,
+    recovery: dict | None = None,
 ) -> dict[str, Any]:
     if (run.params_json or {}).get('native_monitor_only'):
         from app.wgs_onprem_projection import native_tracker_row
@@ -353,6 +357,7 @@ def _tracker_row(
         "note": progress.get("note", "") if progress else "",
         "qc_highlights": qc_highlights,
         "lifecycle": lifecycle,
+        "recovery": recovery,
     }
 
 

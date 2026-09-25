@@ -521,6 +521,19 @@ def _freeze_validation_execution_mode(
 def _write_status(
     payload: dict[str, Any], status: str, message: str = "", **details: Any
 ) -> bool:
+    if payload.get('stage') == 'step3_monitor' and '_monitor_reconnect' in payload:
+        details['monitor_reconnect'] = payload['_monitor_reconnect']
+        if payload['_monitor_reconnect']['phase'] != 'healthy':
+            details['monitoring_health'] = 'degraded'
+        else:
+            details.setdefault('monitoring_health', 'healthy')
+    master_fields = {}
+    if '_cce_master_result' in payload or {'cce_master_binding', 'cce_master_submit_execution_id'}.intersection(details):
+        if __package__:
+            from .cce_recovery_inventory import master_receipt_fields
+        else:
+            from cce_recovery_inventory import master_receipt_fields
+        master_fields = master_receipt_fields(payload, pipeline='wgs', details=details)
     value = {
         "schema_version": STAGE_STATUS_SCHEMA,
         "analysis_id": payload["analysis_id"],
@@ -530,6 +543,7 @@ def _write_status(
         "message": message[-2000:],
         "updated_at": datetime.now(timezone.utc).isoformat(),
         **details,
+        **master_fields,
     }
     if payload.get("maintenance_action_id"):
         value["maintenance_action_id"] = payload["maintenance_action_id"]
@@ -1899,6 +1913,11 @@ def _binding_run_label(binding: dict[str, Any]) -> str:
 
 def _step_command(payload: dict[str, Any], stage: str, *arguments: str) -> list[str]:
     binding = _load_binding(payload)
+    from cce_paired_runtime import stage_command
+    paired = stage_command(Path(str(binding['cce_bundle'])), stage, *arguments,
+        payload=payload, gate=sys.modules[__name__], pipeline='wgs')
+    if paired is not None:
+        return paired
     script = Path(str(binding["cce_bundle"])) / STEP_SCRIPTS[stage]
     if not script.is_file() or script.is_symlink():
         raise FileNotFoundError(f"frozen WGS step is missing: {script.name}")
@@ -2211,36 +2230,37 @@ def _sync_rule_evidence(
 
 
 def _monitor_step3(payload: dict[str, Any]) -> None:
+    from cce_paired_runtime import monitor_registered
+    from cce_recovery_deadline import monitor_wait
     started = time.monotonic()
     binding = _load_binding(payload)
     while True:
-        monitoring_error = _sync_rule_evidence(payload, binding, terminal=False)
-        completed = subprocess.run(
-            _step_command(payload, "step3_monitor", "--output", "json"),
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        if completed.returncode != 0:
-            message = (completed.stderr or completed.stdout)[-2000:]
-            if "kubectl query failed" in message:
-                if time.monotonic() - started > MONITOR_TIMEOUT_SECONDS:
-                    raise TimeoutError(
-                        "Step3 status query remained unavailable until monitor timeout"
-                    )
-                time.sleep(MONITOR_INTERVAL_SECONDS)
-                continue
-            raise RuntimeError(message)
-        value = parse_step3_status_output(completed.stdout)
-        if payload.get('resume_master_uid'):
+        monitor_wait(payload, MONITOR_INTERVAL_SECONDS)
+        value = monitor_registered(payload, binding=binding, gate=sys.modules[__name__], pipeline='wgs')
+        paired = value is not None
+        if not paired:
+            completed = subprocess.run(
+                _step_command(payload, "step3_monitor", "--output", "json"),
+                check=False, capture_output=True, text=True,
+            )
+            if completed.returncode != 0:
+                message = (completed.stderr or completed.stdout)[-2000:]
+                if "kubectl query failed" in message:
+                    if time.monotonic() - started > MONITOR_TIMEOUT_SECONDS:
+                        raise TimeoutError("Step3 status query remained unavailable until monitor timeout")
+                    time.sleep(monitor_wait(payload, MONITOR_INTERVAL_SECONDS))
+                    continue
+                raise RuntimeError(message)
+            value = parse_step3_status_output(completed.stdout)
+        if not paired and payload.get('resume_master_uid'):
             from wgs_resume import _runtime, fence_master_status
             runtime = _runtime(Path(binding['cce_bundle']))
             contract, config, _ = runtime._load(Path(binding['cce_bundle']), None)
             live = runtime._kubectl_json(config, 'job', contract['kubernetes']['master_job'])
             value = fence_master_status(value, live, expected_uid=payload['resume_master_uid'])
         terminal = value["master_state"] in {"SUCCEEDED", "FAILED"}
-        if terminal:
-            monitoring_error = _sync_rule_evidence(payload, binding, terminal=True)
+        evidence_binding = {**binding, 'cce_bundle': payload['_cce_master_result']['bundle']} if paired else binding
+        monitoring_error = _sync_rule_evidence(payload, evidence_binding, terminal=terminal)
         _write_status(
             payload,
             {
@@ -2261,7 +2281,7 @@ def _monitor_step3(payload: dict[str, Any]) -> None:
             raise RuntimeError(value["message"] or "Master Job failed")
         if time.monotonic() - started > MONITOR_TIMEOUT_SECONDS:
             raise TimeoutError("Step3 monitoring timed out")
-        time.sleep(MONITOR_INTERVAL_SECONDS)
+        time.sleep(monitor_wait(payload, MONITOR_INTERVAL_SECONDS))
 
 
 def _wait_step4(payload: dict[str, Any]) -> None:
@@ -2772,6 +2792,13 @@ def run_stage(payload: dict[str, Any]) -> None:
         _run_prepare_analysis(payload)
     elif stage == "step3_monitor":
         _monitor_step3(payload)
+    elif stage == "step2_master":
+        from cce_paired_runtime import submit_registered
+        result = submit_registered(payload, binding=_load_binding(payload), gate=sys.modules[__name__], pipeline='wgs')
+        if result is None:
+            subprocess.run(_step_command(payload, stage), check=True)
+        else:
+            payload['_cce_master_result'] = result
     elif stage == "step4_publish":
         _wait_step4(payload)
     elif stage == "step4_repair_cram":
@@ -2950,6 +2977,14 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
             current_request = load_request(payload['analysis_id'], int(payload['attempt']), 'step7_cleanup')
             if current_request != payload:
                 raise ValueError('Step7 request changed before launch')
+        publish_guard = payload.get('stage') == 'step4_publish' and 'publish_dispatch_version' in payload
+        if publish_guard:
+            if __package__:
+                from .cce_publish_recovery import registered_publish, observe_locked, require_publish_deadline
+            else:
+                from cce_publish_recovery import registered_publish, observe_locked, require_publish_deadline
+            registered_publish(payload, gate=sys.modules[__name__], pipeline='wgs')
+            require_publish_deadline(payload)
         previous = _read_json(state_path)
         if payload['stage'] == 'step7_cleanup' and previous and previous.get('request_sha256') != request_sha:
             old_status = _read_json(_sidecar_path(payload, '.status.json'))
@@ -3006,6 +3041,13 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
         archived_generation = _prepare_contract_generation(
             payload, request_sha=request_sha
         )
+        if publish_guard:
+            observed = observe_locked(payload, gate=sys.modules[__name__], pipeline='wgs')
+            if observed in {'success', 'complete', 'succeeded', 'running'}:
+                return {'status': 'running' if observed == 'running' else 'complete',
+                    'generation': payload['generation'], 'execution_id': payload['execution_id']}
+            if observed != 'not_started':
+                raise RuntimeError('Step4 original dispatcher requires reconciliation')
         previous = _read_json(state_path)
         status = _read_json(_sidecar_path(payload, ".status.json"))
         retry_no = step7_archived_retry
@@ -3151,12 +3193,18 @@ def _finish_reattached_stage(payload):
         expected = payload.get('resume_previous_execution') or {}
         if any(previous.get(key) != expected.get(key) for key in ('execution_id', 'generation', 'request_hash')):
             raise RuntimeError('reattached receipt does not match the original executor')
+        if 'cce_master_binding' in previous or 'cce_master_submit_execution_id' in previous:
+            if __package__:
+                from .cce_paired_runtime import reattach_registered
+            else:
+                from cce_paired_runtime import reattach_registered
+            reattach_registered(payload,previous,binding=_load_binding(payload),gate=sys.modules[__name__],pipeline='wgs')
         terminal = previous.get('status')
         if terminal not in {'success', 'failed'}:
             terminal = 'failed'
             previous['message'] = 'Original executor ended without a terminal receipt; request recovery again'
         _archive_contract_generation(payload, int(expected['generation']))
-        details = {key: value for key, value in previous.items() if key not in {'schema_version', 'analysis_id', 'attempt', 'stage', 'status', 'message', 'updated_at', 'orchestration_contract_version', 'execution_id', 'generation', 'request_hash', 'retry_no'}}
+        details = {key: value for key, value in previous.items() if key not in {'schema_version', 'analysis_id', 'attempt', 'stage', 'status', 'message', 'updated_at', 'orchestration_contract_version', 'execution_id', 'generation', 'request_hash', 'retry_no', 'cce_master_binding', 'cce_master_submit_execution_id'}}
         _write_status(payload, terminal, previous.get('message', ''), retry_no=int(payload['generation']) - 1, **details)
     return 0
 
@@ -3259,6 +3307,18 @@ def main() -> int:
             started = start_async_stage(payload)
             result['status'] = 'success' if started['status'] == 'complete' else 'running'
         print(json.dumps(result, sort_keys=True))
+        return 0
+    if parts[:1] == ['--recovery-probe'] and not (worker_mode or reattach_mode):
+        from cce_paired_runtime import worker_probe_command
+        print(json.dumps(worker_probe_command(parts,gate=sys.modules[__name__],pipeline='wgs'),sort_keys=True))
+        return 0
+    if parts[:1] == ['--publish-probe'] and not (worker_mode or reattach_mode):
+        from cce_publish_recovery import publish_probe_command
+        print(json.dumps(publish_probe_command(parts,gate=sys.modules[__name__],pipeline='wgs'),sort_keys=True))
+        return 0
+    if parts[:1] == ['--publish-dispatch'] and not (worker_mode or reattach_mode):
+        from cce_publish_recovery import publish_dispatch_command
+        print(json.dumps(publish_dispatch_command(parts,gate=sys.modules[__name__],pipeline='wgs'),sort_keys=True))
         return 0
     analysis_id, attempt, stage = parse_command(command)
     payload = load_request(analysis_id, attempt, stage)

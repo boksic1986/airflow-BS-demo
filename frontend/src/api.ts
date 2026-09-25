@@ -103,7 +103,20 @@ export type FailureListResponse = {
   offset: number;
 };
 
+export type RecoveryView = {
+  state: 'waiting' | 'checking' | 'recovering' | 'needs_attention' | 'stale' | 'completed_degraded';
+  message: string;
+  reason?: string | null;
+  stage_code?: string | null;
+  ordinal?: number | null;
+  limit?: number;
+  generation?: number | null;
+  next_retry_at?: string | null;
+  last_confirmed_at?: string | null;
+};
+
 export type RunDetail = {
+  recovery?: RecoveryView | null;
   sample_scope_status?: "legacy" | "preparing" | "ready";
   analysis_id: string;
   pipeline: string;
@@ -960,6 +973,7 @@ export type DashboardAttentionItem = {
 };
 
 export type DashboardRunTrackerRow = {
+  recovery?: RecoveryView | null;
   native_monitor_only?: boolean; execution_mode?: string; execution_target?: string;
   sample_scope_status?: "legacy" | "preparing" | "ready";
   analysis_id: string;

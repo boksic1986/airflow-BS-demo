@@ -14,7 +14,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from airflow import DAG
-from airflow.exceptions import AirflowFailException
+from airflow.exceptions import AirflowFailException, AirflowSkipException
 from airflow.operators.python import BranchPythonOperator, PythonOperator
 from airflow.sensors.python import PythonSensor
 from airflow.utils.task_group import TaskGroup
@@ -241,6 +241,8 @@ def register_stage(stage: str, **context: Any) -> dict[str, Any]:
         "maintenance_action_id": conf.get("maintenance_action_id"),
         "resume_action_id": conf.get("resume_action_id"),
     }
+    if conf.get('resume_action_id') or stage in {"step4_publish", "release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
+        request_payload["dag_run_id"] = context["dag_run"].run_id
     task_instance = context.get("ti") or context.get("task_instance")
     if int(getattr(task_instance, "try_number", 1) or 1) > 1:
         request_payload["force_new_generation"] = True
@@ -273,6 +275,9 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
     if registered.get("skipped"):
         return registered
     runner_stage = effective_runner_stage(stage, conf)
+    from cce_publish_dispatch import enabled, start_publish
+    if runner_stage == 'step4_publish' and enabled(conf):
+        return start_publish(_stage_query_json,pipeline='wgs',conf=conf,dag_run_id=context['dag_run'].run_id)
     command = [
         "ssh",
         "-tt",
@@ -461,6 +466,22 @@ def stage_ready(stage: str, **context: Any) -> bool:
     )
     if payload is None:
         return False
+    policy = dict(dict(conf.get('params') or {}).get('cce_recovery_policy') or {})
+    if runner_stage == 'step4_publish' and policy.get('enabled') is True and policy.get('attempt') == conf['attempt']:
+        from cce_publish_dispatch import poll_publish
+        recovery = poll_publish(_stage_query_json,pipeline='wgs',conf=conf,dag_run_id=context['dag_run'].run_id)
+        if recovery.get('status') != 'success':
+            return False
+    if runner_stage == 'step3_monitor' and policy.get('enabled') is True and policy.get('attempt') == conf['attempt']:
+        # Also reconcile after a lost response: the latest monitor may already
+        # belong to the replacement, not to this sensor's DagRun.
+        from cce_worker_wait import poll_recovery
+        recovery = poll_recovery(_stage_query_json,pipeline='wgs',conf=conf,
+            dag_run_id=context['dag_run'].run_id)
+        if recovery.get('status') in {'waiting', 'uncertain'}:
+            return False
+        if recovery.get('status') in {'delegated', 'superseded'}:
+            raise AirflowSkipException('Compute recovery delegated to the current DagRun')
     if runner_stage == "step3_monitor" and (
         payload.get("failed") or payload.get("ready")
     ):
@@ -468,7 +489,8 @@ def stage_ready(stage: str, **context: Any) -> bool:
             _backend_json(
                 f"/api/internal/wgs/runs/{conf['analysis_id']}/observer/deactivate",
                 method="POST",
-                payload={"attempt": conf["attempt"]},
+                payload={"attempt": conf["attempt"], "dag_run_id": context["dag_run"].run_id,
+                         "resume_action_id": conf.get("resume_action_id")},
             )
         except Exception as error:
             raise AirflowFailException('Observer deactivation outcome requires reconciliation') from error
@@ -508,10 +530,10 @@ def _sensor_backend_json(
         return None
 
 
-def _stage_query_json(path: str) -> dict[str, Any]:
-    """Only read-only CCE stage polling consumes the Airflow retry budget."""
+def _stage_query_json(path: str, *, method: str = 'GET', payload: dict | None = None) -> dict[str, Any]:
+    """Stage polling and idempotent recovery reconciliation share transport retries."""
     try:
-        value = _backend_json(path)
+        value = _backend_json(path, method=method, payload=payload)
         if not isinstance(value, dict):
             raise AirflowFailException('WGS stage query returned a non-object payload')
         return value
@@ -684,13 +706,15 @@ def release_leases(**context: Any) -> dict[str, Any]:
     released = _backend_json(
         f"/api/internal/wgs/runs/{conf['analysis_id']}/stages/release_leases",
         method="POST",
-        payload={"attempt": conf["attempt"], "adapter": "wgs-runtime-200", "resume_action_id": conf.get('resume_action_id')},
+        payload={"attempt": conf["attempt"], "adapter": "wgs-runtime-200",
+                 "dag_run_id": context["dag_run"].run_id, "resume_action_id": conf.get('resume_action_id')},
     )
     _raise_if_transfer_lease_retained(stage="release_leases", response=released)
     observer = _backend_json(
         f"/api/internal/wgs/runs/{conf['analysis_id']}/observer/deactivate",
         method="POST",
-        payload={"attempt": conf["attempt"]},
+        payload={"attempt": conf["attempt"], "dag_run_id": context["dag_run"].run_id,
+                 "resume_action_id": conf.get("resume_action_id")},
     )
     failed_tasks = _upstream_failure_task_ids(context)
     if failed_tasks:

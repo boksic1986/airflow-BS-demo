@@ -1,5 +1,169 @@
 # 04 数据库设计
 
+## Task6 explicit monitor handoff (2026-09-25, source only)
+
+No migration. An exact current confirmed queued RunAction may be retired as
+`canceled` when an operator explicitly replaces its ended query observer.
+`payload_json.monitor_handoff_to` records the successor action ID; do not write
+`compute_terminal=failed` for monitor exhaustion. Cancellation here ends the
+controller's authority, not the remote computation. New action/current DagRun/
+generation and prior-action retirement commit under the same AnalysisRun lock.
+The scoped query snapshot is negative evidence only; it neither proves Master
+failure nor authorizes replacement. Existing frozen request and runtime liveness
+checks remain mandatory. Attempt-level compute count/deadline are unchanged.
+
+## Task6 monitor UI observation (2026-09-25, source only)
+
+No table/migration. Existing WgsStageExecution/PipelineStageExecution
+terminal_payload_json optionally contains cce_monitor_observation for Step3:
+observed_at, monitoring_health, last_success_at and a reduced cce_master_binding
+(schema2 exact platform identity; native Job/Pod UID and recovery_context).
+The existing trusted status consumer writes it only after current execution
+identity checks. Older/equal timestamps cannot replace a newer observation.
+Degraded observations retain the last healthy time, never the current GET time.
+It is UI evidence only, NOT a terminal receipt or recovery permission; execution
+status, receipt_hash, estimate baseline and action budgets keep existing semantics.
+Public reads expose only allowlisted display fields, not this private binding.
+
+Selected monitor query wiring additionally retains reduced monitor_reconnect:
+version1, exact scope(pipeline/analysis_id/attempt/stage/execution_id/generation/
+request_hash), deadline, phase, retries_used0..6, next_retry_at, last_success_at.
+Scope/types are checked after the existing status identity gate. Runtime retains
+the full budget in its stage JSON; this nested DB snapshot is not a retry owner.
+The snapshot now also fences false failure projection from monitor/controller
+errors, including callback and periodic Airflow sync. It does not authorize
+dispatch, prove workload terminality or change the separate compute budget.
+The execution row may be failed (monitor ended) while the analysis preserves its
+last confirmed state with a needs_attention overlay. No table/model migration.
+
+## Task6 Step4 caller persistence (2026-09-25, source only)
+
+First eligible Step4 adds params_json.cce_publish_deadline for the exact frozen
+policy attempt, independently of the compute deadline/count. Its timeout is the
+existing WGS stage contract or GATK48h. The registered request hashes this absolute
+deadline plus publish_dispatch_version=1. Replays/manual same-attempt generations
+cannot slide it. Historical requests with no marker/deadline do not opt in.
+The existing RunAction contract below is now consumed by the authenticated stage
+route and Airflow runner/sensor, with commit before I/O and a final send check.
+No new model/table/migration; compute recovery budget and immutable receipts stay
+unchanged. Source-only acceptance does not authorize deployment or enablement.
+
+## Task6 Step4 dispatch budget (2026-09-25, internal source contract)
+
+No table/migration. RunAction action=cce_publish_dispatch holds one original
+Step4 operation: pipeline/analysis/attempt/stage/execution_id/generation/request_hash,
+action_id, current dag_run_id, release_id, workdir, absolute deadline, sequence
+0(initial)/1/2(redispatch), in_flight, next_retry_at, probe/probe_issued_at,
+last_nonce and started_observed. Same AnalysisRun row lock serializes callers;
+latest Step4 execution, frozen enabled policy and current DagRun are rechecked.
+sequence is separate from params_json.cce_recovery_budget, which is untouched.
+
+Caller must commit intent before SSH; only the exact exited SSH sequence may
+clear in_flight. A caller crash leaves uncertain intent, never an expiring lease.
+Negative remote proof cannot override that flag. Redispatch requires a new
+challenge issued at/after the persisted60/180s due time. Consumed duplicate proof
+cannot authorize another send; restart never moves due time or deadline.
+Recorded started evidence permanently forbids a later not_started retry. Terminal
+results persist across later polls. No stage row/receipt success is fabricated.
+This service is internal and not wired to stage registration/API/Airflow yet.
+
+## Task6 bounded Worker wait (2026-09-25, source only)
+
+No migration/table. The existing cce_compute_recovery RunAction.payload_json
+optionally holds worker_wait {state:waiting|ready,started_at,deadline,probe,
+last_nonce,finished_at}. deadline is exactly min(started_at+600s,original_deadline).
+probe binds a random nonce to the original failed monitor execution_id,
+generation and request_hash. A consumed nonce cannot mark a later probe ready.
+Only validated fresh zero-active evidence sets ready; ordinary due-dispatch
+cannot bypass waiting. Retries/restarts reuse the same action and reserved slot.
+No terminal receipt, FINAL snapshot, successful output or frozen input is updated.
+
+## Task6 policy and compute lifecycle (2026-09-25, source only)
+
+No schema migration. New WGS/GATK creation freezes params_json.cce_recovery_policy
+{version:1,attempt,enabled,monitor_timeout_seconds,original_deadline:null} and
+cce_recovery_budget {attempt,count:0,original_deadline:null}. Only the first
+registered Step3 initializes both deadlines identically. Duplicate creation and
+registration retain identity/quota/deadline. Legacy manual Resume that increments
+attempt retains its old policy/journal without granting a new automatic budget;
+the new manual attempt remains manually executable but automatically ineligible.
+
+The existing automatic action additionally records original_resume_action_id so
+the original sensor can reconcile its own action after lost responses. Only the
+current DagRun and exact registered monitor generation may set compute_terminal
+to success/failed. result_status remains queued to authorize required downstream;
+compute_terminal ends that action's active compute-budget/manual-control fence.
+Older completed compute actions cannot fence cleanup of a newer current action.
+Old DagRun cleanup and callbacks remain rejected. An untransmitted rejected action
+ends with manual review; post_intent uncertainty stays GET-only. PostgreSQL
+contention acceptance remains open; these tests do not prove DB concurrency.
+
+## Task6 internal automatic dispatch journal (2026-09-25, source only)
+
+No table/migration. Existing cce_compute_recovery RunAction keeps its original
+reservation action_id, ordinal, source execution/Master UID, evidence_binding,
+next_retry_at and original_deadline. On due preparation its payload additionally
+stores stage=step3_monitor, original_dag_run_id, deterministic dag_run_id,
+resume_stages, frozen_request and dispatch_state=not_started. This preparation
+commits before request writes. Adapter registration then stores generation/conf.
+AnalysisRun.params_json.resume_action_id points to this SAME automatic action.
+Shared dispatcher commits post_intent before POST and confirms via exact GET;
+uncertain/post_intent never authorizes another POST. Historical missing policy
+or budget is not initialized. No caller/activation or PG concurrency acceptance
+is claimed by this internal service checkpoint.
+
+## P0-2 manual dispatch journal (2026-09-24, source only)
+
+No schema migration. Existing WGS resume_stage RunAction.payload_json adds
+dispatch_state: not_started -> post_intent -> confirmed. Commit post_intent
+before the external POST; result_status uncertain never grants another POST
+unless the explicit journal still proves not_started. Legacy missing journal
+is GET-only. Current attempt/action/DagRun are reloaded under the AnalysisRun
+then RunAction lock order before dispatch/reconciliation projection.
+Existing airflow_dag_failed audit for the same attempt/DagRun prevents a late
+confirmation from clearing a newer failure, even with a stale queued GET.
+No mutation of automatic policy/budget or native cce_master_binding semantics.
+PostgreSQL contention acceptance remains a later gate; SQLite tests do not
+prove database lock concurrency.
+
+## P0 callback lineage fence (2026-09-23, source only)
+
+No schema/migration. Failure callback services refresh AnalysisRun under the
+same row lock as recovery reservation. Existing cce_compute_recovery action
+payload's future dispatch binding `dag_run_id` identifies its replacement;
+reserved actions cannot authorize terminal projection. queued/uncertain allow
+only an exact current bound DagRun. Finished current-attempt recovery history
+still requires callback DagRun identity; malformed attempt lineage fails closed.
+No dispatcher writes this new binding yet. Recovery budgets/history are unchanged.
+WGS airflow_dag_failed payload records dag_run_id; dedup compares it with attempt
+and failed tasks. Distinct DagRuns retain distinct failure entries/end times;
+legacy identity-less replay still deduplicates. No historical backfill/deletion.
+
+## P0 recovery lineage journal (2026-09-23, internal source only)
+
+No columns, tables, migration or historical backfill. Future trusted adapters
+must freeze `cce_master_binding` in the actual Master-submit execution's existing
+terminal_payload_json: `{context, evidence_scope, workdir}`. The context is the
+validated submit-context contract; scope is relative to the adapter-configured
+evidence root. The current Step3 monitor stores `cce_master_submit_execution_id`
+in its own terminal_payload_json. These identities are deliberately distinct.
+The same JSON contract applies to WgsStageExecution and PipelineStageExecution.
+No current adapter writes these proposed bindings yet; arbitrary receipt fields
+are not sufficient authority, and missing historical bindings fail closed.
+
+RunAction action `cce_compute_recovery` adds `evidence_binding` to its existing
+budget journal payload: monitor execution/generation/request hash, submit
+generation/request hash, release_id, category, relative evidence_key and
+evidence_sha256. Source execution and Master UID remain top-level journal fields.
+Replays cannot replace these identities or evidence contents. Reservation and
+WGS manual resume-stage and legacy Resume/Rerun failed use a refreshed
+AnalysisRun row lock; active same-attempt
+automatic actions block manual resume before request-file writes or dispatch.
+Terminal automatic history is retained and does not block manual resume.
+Missing/ill-typed action attempt identity is ambiguous and blocks manual retries;
+cancel does not use this retry fence. No schema, migration or history deletion.
+PostgreSQL concurrency acceptance and other control-entry fences remain pending.
+
 ## Native presentation projections (2026-09-17)
 
 No schema or Sample writes. Existing WgsOnpremExecutionSnapshot.sample_scope_json

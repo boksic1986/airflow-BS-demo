@@ -12,7 +12,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from airflow import DAG
-from airflow.exceptions import AirflowException, AirflowFailException
+from airflow.exceptions import AirflowException, AirflowFailException, AirflowSkipException
 from airflow.operators.python import PythonOperator
 from airflow.sensors.python import PythonSensor
 from airflow.utils.trigger_rule import TriggerRule
@@ -81,12 +81,31 @@ def validate_request(**context: Any) -> dict[str, Any]:
     return {"analysis_id": conf["analysis_id"], "attempt": conf["attempt"]}
 
 
+def stage_should_run(stage: str, conf: dict[str, Any]) -> bool:
+    if not conf.get('resume_action_id'):
+        return True
+    if stage in {'finalize_run', 'release_leases'}:
+        return True
+    required = {'acquire_input_transfer_slot':'step1_upload',
+                'release_input_transfer_slot':'step1_upload',
+                'acquire_result_transfer_slot':'step5_download',
+                'release_result_transfer_slot':'step5_download'}.get(stage, stage)
+    return required in conf.get('resume_stages', [])
+
+
 def register_stage(stage: str, **context: Any) -> dict[str, Any]:
     conf = dict(context["dag_run"].conf or {})
+    if not stage_should_run(stage, conf):
+        return {'stage':stage, 'status':'skipped', 'acquired':True}
+    payload = {"attempt": conf["attempt"], "adapter": "gatk-runtime-200"}
+    if conf.get('resume_action_id'):
+        payload['resume_action_id'] = conf['resume_action_id']
+    if conf.get('resume_action_id') or stage in {"step4_publish", "release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
+        payload["dag_run_id"] = context["dag_run"].run_id
     return _backend_json(
         f"/api/internal/gatk/runs/{conf['analysis_id']}/stages/{stage}",
         method="POST",
-        payload={"attempt": conf["attempt"], "adapter": "gatk-runtime-200"},
+        payload=payload,
     )
 
 
@@ -94,7 +113,12 @@ def run_stage(stage: str, **context: Any) -> dict[str, Any]:
     if stage not in RUNNER_STAGES:
         raise ValueError(f"unsupported GATK runner stage: {stage}")
     registered = register_stage(stage, **context)
+    if registered.get('status') == 'skipped':
+        return registered
     conf = dict(context["dag_run"].conf or {})
+    from cce_publish_dispatch import enabled, start_publish
+    if stage == 'step4_publish' and enabled(conf):
+        return start_publish(_backend_json,pipeline='gatk',conf=conf,dag_run_id=context['dag_run'].run_id)
     command = [
         "ssh",
         "-tt",
@@ -132,10 +156,26 @@ def run_stage(stage: str, **context: Any) -> dict[str, Any]:
 
 def stage_ready(stage: str, **context: Any) -> bool:
     conf = dict(context["dag_run"].conf or {})
+    if not stage_should_run(stage, conf):
+        return True
     query = urlencode({"attempt": conf["attempt"], "stage": stage})
     value = _backend_json(
         f"/api/internal/gatk/runs/{conf['analysis_id']}/stage-status?{query}"
     )
+    policy = dict(dict(conf.get('params') or {}).get('cce_recovery_policy') or {})
+    if stage == 'step4_publish' and policy.get('enabled') is True and policy.get('attempt') == conf['attempt']:
+        from cce_publish_dispatch import poll_publish
+        recovery = poll_publish(_backend_json,pipeline='gatk',conf=conf,dag_run_id=context['dag_run'].run_id)
+        if recovery.get('status') != 'success':
+            return False
+    if stage == 'step3_monitor' and policy.get('enabled') is True and policy.get('attempt') == conf['attempt']:
+        from cce_worker_wait import poll_recovery
+        recovery = poll_recovery(_backend_json,pipeline='gatk',conf=conf,
+            dag_run_id=context['dag_run'].run_id)
+        if recovery.get('status') in {'waiting', 'uncertain'}:
+            return False
+        if recovery.get('status') in {'delegated', 'superseded'}:
+            raise AirflowSkipException('Compute recovery delegated to the current DagRun')
     if value.get("failed"):
         # A terminal runtime receipt is not a transient polling failure.
         raise AirflowFailException(str(value.get("message") or f"GATK stage failed: {stage}"))
@@ -212,6 +252,7 @@ def report_dag_failure(context: dict[str, Any]) -> None:
                 "attempt": attempt,
                 "status": "failed",
                 "failed_task_ids": failed_task_ids,
+                "dag_run_id": dag_run.run_id,
             },
         )
     except Exception:
@@ -270,6 +311,12 @@ with DAG(
         poke_interval=30,
         timeout=48 * 3600,
         pool="wgs_obs_upload",
+        # Same analysis/attempt/transfer identity reclaims its existing slot;
+        # retry this gate only, never the upload or SSH stage itself.
+        retries=6,
+        retry_delay=timedelta(seconds=30),
+        retry_exponential_backoff=True,
+        max_retry_delay=timedelta(minutes=5),
     )
     step1 = _runner_task("start_step1_upload", "step1_upload")
     wait_step1 = _stage_sensor("wait_step1_upload", "step1_upload")
@@ -293,6 +340,10 @@ with DAG(
         poke_interval=30,
         timeout=48 * 3600,
         pool="wgs_obs_download",
+        retries=6,
+        retry_delay=timedelta(seconds=30),
+        retry_exponential_backoff=True,
+        max_retry_delay=timedelta(minutes=5),
     )
     step5 = _runner_task("start_step5_download", "step5_download")
     wait_step5 = _stage_sensor("wait_step5_download", "step5_download")

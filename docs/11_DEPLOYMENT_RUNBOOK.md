@@ -1,5 +1,91 @@
 # Deployment runbook
 
+## 2026-09-25 corrected paired entry rollout gate
+
+Native ae90b65 and the paired selector/observation correction have affected
+synthetic and source-review acceptance; old dev2 artifacts are not the corrected
+build. The original native/Infra owner handles the required new native wheel and
+two Master images (both consume the changed standalone assets); unchanged
+plugin/Worker images and WGS rules are not rebuilt. No new TTL validation.
+
+Keep Operator installation in nipttest, from its writable node005 view only.
+Before installation freeze the final platform/native commits, wheel/image pins,
+byte-for-byte package/dist-info rollback and exact test catalog/profile release.
+Both fixed `cce-paired-deployment-v1.json` files sit beside their respective code,
+point to one test policy and declare per-component approved roots/maintainers and
+canonical Python target. Confirm the absolute paths from each actual consumer,
+not only NFS inode equality. Shared journals/output roots require the approved
+effective group/default ACL; private plugin process spool is separate.
+
+Do not overlay the current release or assume changing its symlink updates a
+container mount. Record exact existing-service actions before any test switch;
+no new service/Compose, production change, real workflow or automatic recovery
+activation is included. Source/artifact/installation/activation remain distinct.
+
+## 2026-09-25 non-root deployment requirement correction
+
+Do not seek root-owned interpreter/script landing points to satisfy the current
+P0 selector. That is a code/contract defect, not a deployment prerequisite.
+Retain chenjc deployment, ctapa analysis and the user-declared chenjx source owner;
+no sudo/chown, new runtime service/container or WGS installation is required.
+Policy may live at a fixed deployment-managed non-root location. Follow
+[the revised trust contract](13_SECURITY_AND_OPERATIONS.md#p0-non-root-deployment-correction-2026-09-25-user-confirmed).
+`P0-NONROOT-ENTRY` must align the two existing readers and pass the small affected
+non-root checks before activation. This correction does not itself change the
+installed CLI, authorize installation or make the old candidate compatible.
+
+## 2026-09-25 publication / limited TTL acceptance, no activation
+
+Two final Master candidate images are published with verified SWR manifest pins;
+the two user-approved no-data success/failure TTL Jobs were auto-reclaimed with
+their owner Pods. See [publication/live-gate receipt](releases/2026-09-25-p0-swr-ttl.md).
+This updates the earlier pending publication/live-canary status, not the paired
+writer/installation/capacity/AOM gates. Test shared nipttest and platform versions
+still require a coordinated rollout; no production or automatic policy activation.
+
+## Task6 source accepted — activation gate remains closed (2026-09-25)
+
+New backend-only environment switches WGS_CCE_RECOVERY_ENABLED and
+GATK_CCE_RECOVERY_ENABLED both default false. No Compose/environment/production
+change accompanies their source addition. Original-deadline enforcement, bounded
+Worker wait, planned error classes, Step4 reconciliation, integration/PG and final
+source review are accepted in isolated BS10610 evidence. Do not turn them on yet:
+final Task6 offline artifacts are now accepted, but installed-writer/storage/live
+TTL/capacity/AOM/alert acceptance is still outstanding. Neither source nor offline
+artifact acceptance is rollout approval. Exact artifact pins and prior harness
+failures: [final candidate record](releases/2026-09-25-p0-final-candidates.md).
+Later authorized rollout must pair backend and DAG versions and the already
+required native/plugin/writer registration gates. Enabling later affects new
+runs only; never edit old params_json or freeze fresh quotas for failed history.
+Task5 wheels/images are unchanged and do not contain Task6 additions. Their
+successor wheels/Master images belong to the corresponding repository agents,
+not the coordinator. After documentation checkpointcbb74e7, the user requested
+items2/3: corresponding owners now handle isolated candidates and read-only
+operational preflight. No install, service/Compose change or cloud mutation is
+authorized by this handoff. Permission/environment failures must be
+reported before proceeding, not worked around. See the
+[current owner handoff](superpowers/plans/2026-09-22-p0-joint-recovery-progress.md).
+
+User-confirmed test installation boundary: Operator tests use the existing
+`/sg2/33.chenjiucheng/software/miniforge3/envs/nipttest` contract, never install
+into the host WGS environment/repository. Master/executor dependencies are a
+separate image layer, not a reason to upgrade nipttest. The original Task5 build
+used cached-image Python and read-only nipttest build dependencies; do not
+compare host WGS package versions as though they were that build environment.
+
+## P0 paired runtime rollout remains closed (source accepted, 2026-09-25)
+
+Do not install writers-v2.json based only on source acceptance. Native cloud
+identity, restricted entry selection, per-run trusted registration, selected-view
+normal receipts and final lifecycle release have passed isolated acceptance;
+actual installed writer and storage identity coverage is not established by it.
+Later authorized paired rollout must install the runtime and
+sibling guard together, pin scripts/cce_paired_runtime.py, use the approved
+deployment-maintained Python (not necessarily root-owned) and exact namespace/PVC/PV
+identities, and cover every CLI/platform writer.
+Invalid activation fails closed; removing policy while v2 owners remain is not
+a safe rollback. No new SFS host mount is required by the approved design.
+
 ## Same-batch / Step2 publication (2026-09-18)
 
 BS96 backend/frontend-nginx use

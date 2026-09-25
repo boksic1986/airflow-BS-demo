@@ -480,6 +480,8 @@ def test_reader_job_mounts_only_workspace_pvc_read_only() -> None:
     pod = reader["spec"]["template"]["spec"]
     assert reader["metadata"]["namespace"] == "snakemake-ns"
     assert reader["spec"]["activeDeadlineSeconds"] == 300
+    assert reader["spec"]["ttlSecondsAfterFinished"] == 100
+    assert "ttlSecondsAfterFinished" not in pod
     assert pod["restartPolicy"] == "Never"
     assert pod["containers"][0]["image"] == "registry/wgs-master@sha256:abc"
     assert pod["containers"][0]["volumeMounts"] == [

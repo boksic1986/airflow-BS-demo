@@ -1,5 +1,17 @@
 # SERVER_INFO.md
 
+## 2026-09-25 P0 candidate publication / bounded TTL only
+
+BS10610/server10610/chenjc published two accepted P0 Master candidates to SWR;
+exact tags/manifest digests/config IDs are in
+docs/releases/2026-09-25-p0-swr-ttl.md. No running Master/profile/Compose switch.
+Two separately authorized data-free TTL Jobs reached Complete/Failed and were
+automatically reclaimed with their owner Pods; no manual or historical cleanup.
+Shared nipttest0.8.5/Python3.9.23/PyYAML6.0.2 is writable from BS/node005 and
+read-only from server10610 (owner observed same inode). Test catalog still
+declares0.8.4. This is a preflight observation, not installed-candidate acceptance.
+Do not install into WGS or silently upgrade nipttest dependencies. No BS96 change.
+
 ## 2026-09-18 same-batch / Step2 release `9ff67d3`
 
 BS96/server96 backend `e177f1eddc01` mounts

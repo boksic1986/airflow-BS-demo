@@ -33,7 +33,7 @@ import {WgsQcTab} from "../features/run-detail/WgsQcTab";
 import {NativeExecutionPanel} from "../features/run-detail/NativeExecutionPanel";
 import type {RulePage, RuleQuery} from "../api";
 import {Step4RepairPanel} from "../features/run-detail/Step4RepairPanel";
-import {ResumeStagePanel} from '../features/run-detail/ResumeStagePanel';
+import {ResumeStagePanel, monitorReconnectAvailable} from '../features/run-detail/ResumeStagePanel';
 import {DataLifecyclePanel} from "../features/run-detail/DataLifecyclePanel";
 import {WgsTransfersTab} from "../features/run-detail/WgsTransfersTab";
 import {ExecutionTargetSelector} from "../features/wgs/ExecutionTargetSelector";
@@ -250,6 +250,8 @@ export function RunDetailPage() {
   const canSubmit = detail?.status === "created" && capabilities.isDeployed(detail.pipeline as DeployedPipeline);
   const pipelineCapabilities = capabilities.pipelines.find((item) => item.id === detail?.pipeline)?.capabilities || [];
   const canResume = pipelineCapabilities.includes("resume");
+  const reconnectMonitor = monitorReconnectAvailable(detail, canResume);
+  const resumeStage = reconnectMonitor ? 'step3_monitor' : bundle.progress?.stage_code;
   const canRerun = pipelineCapabilities.includes("rerun");
   async function runAction(action: "submit" | "resume" | "rerun_failed" | "cancel" | "revalidate" | "repair_step4") {
     if (!analysisId) return;
@@ -309,7 +311,7 @@ export function RunDetailPage() {
           </div>
         </section>
         {actionError ? <div className="inline-error" role="alert">{actionError}</div> : null}
-        {detail.pipeline === 'wgs' && ['failed', 'canceled', 'cancelled', 'terminated', 'interrupted', 'unknown_interrupted', 'needs_recovery'].includes(detail.status) && (detail.execution_dispatch?.desired_mode || detail.execution_mode) === 'cce' && /^step[1-6]_/.test(bundle.progress?.stage_code || '') ? <ResumeStagePanel key={`${analysisId}-${detail.attempt}-${bundle.progress?.stage_code}`} analysisId={analysisId} attempt={detail.attempt || 1} stage={bundle.progress!.stage_code!} canOperate={session.hasRole('operator')} onAccepted={() => void refreshDetail()} /> : null}
+        {(reconnectMonitor || detail.pipeline === 'wgs' && ['failed', 'canceled', 'cancelled', 'terminated', 'interrupted', 'unknown_interrupted', 'needs_recovery'].includes(detail.status)) && (detail.execution_dispatch?.desired_mode || detail.execution_mode) === 'cce' && /^step[1-6]_/.test(resumeStage || '') ? <ResumeStagePanel key={`${analysisId}-${detail.attempt}-${resumeStage}-${detail.recovery?.generation || 0}`} analysisId={analysisId} attempt={detail.attempt || 1} stage={resumeStage!} reconnect={reconnectMonitor} canOperate={session.hasRole('operator')} onAccepted={() => void refreshDetail()} /> : null}
         {detail.pipeline === "wgs" && detail.execution_dispatch ? <ExecutionTargetSelector attempt={detail.attempt || 1} batch={String(detail.params?.batch || detail.params?.sequencing_batch || detail.params?.batch_no || "-")} sampleCount={summary.sample_count} dispatch={detail.execution_dispatch} onSwitch={switchExecutionTarget} onRefresh={refreshDetail} /> : null}
         {detail.step4_repair?.available || detail.step4_repair?.latest_action ? <Step4RepairPanel capability={detail.step4_repair} canOperate={session.hasRole("operator")} acting={acting} onRepair={() => void runAction("repair_step4")} /> : null}
         {detail.status === "needs_review" ? <section className="panel validation-review"><div className="section-heading"><h2>Input needs review</h2><p>Correct the source links or metadata upstream, then revalidate. This page cannot edit sampleinfo.</p></div><WgsTable headers={["Severity", "Code", "Scope", "Message", "Status"]} rows={bundle.validationIssues.map((issue) => [issue.severity, issue.code, issue.sample_id || issue.family_id || issue.file_path || issue.scope_type || "batch", issue.message, issue.status])} empty="No structured issue was returned." /></section> : null}

@@ -10,6 +10,7 @@ import re
 import secrets
 
 from app.airflow_idempotency import ensure_dag_run
+from app.cce_recovery_budget import require_no_pending_compute_recovery
 
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
@@ -117,6 +118,8 @@ def create_wgs_platform_run(*, session: Session, settings, project_name: str, ex
         },
         submitted_by=submitted_by,
     )
+    from app.cce_recovery_policy import freeze_new_attempt
+    freeze_new_attempt(run=run,settings=settings)
     session.add(run)
     snapshot_row = WgsInputSnapshot(analysis_id=analysis_id, attempt=1, batch_no=batch_no, fq_path=canonical_source, manifest_path=str(manifest_path), status="pending")
     session.add(snapshot_row)
@@ -237,7 +240,9 @@ def _refresh_recovery_release(*, run: AnalysisRun, settings) -> dict[str, str]:
 
 
 def action_wgs_run(*, session: Session, settings, airflow_client, analysis_id: str, action: str, requested_by: str) -> dict | None:
-    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs"))
+    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id,
+        AnalysisRun.pipeline_name == "wgs").with_for_update()
+        .execution_options(populate_existing=True))
     if run is None:
         return None
     if (run.params_json or {}).get("native_monitor_only"):
@@ -264,6 +269,7 @@ def action_wgs_run(*, session: Session, settings, airflow_client, analysis_id: s
         return run_payload(session, run)
     if action not in {"resume", "rerun_failed"}:
         raise ValueError("Unsupported WGS action.")
+    require_no_pending_compute_recovery(session=session, run=run)
     if run.status not in {"failed", "cancelled", "unknown_interrupted"}:
         raise ValueError(f"Run status {run.status} cannot be resumed.")
     release_audit = _refresh_recovery_release(run=run, settings=settings)

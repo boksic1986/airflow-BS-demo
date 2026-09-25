@@ -64,6 +64,13 @@ def _save(path, value, *, create=False):
 
 
 def _runtime(bundle):
+    if __package__:
+        from .cce_paired_runtime import load_runtime
+    else:
+        from cce_paired_runtime import load_runtime
+    paired = load_runtime()
+    if paired is not None:
+        return paired
     source = _regular(bundle/'cce_batch_runtime.py')
     spec = importlib.util.spec_from_file_location('gatk_frozen_runtime', source)
     runtime = importlib.util.module_from_spec(spec)
@@ -71,12 +78,19 @@ def _runtime(bundle):
     return runtime
 
 
+def _query(runtime, config, *arguments):
+    reader = getattr(runtime, '_recovery_query', None)
+    return reader(config, *arguments) if callable(reader) else runtime._kubectl_json(config, *arguments)
+
+
 def _master_pods(runtime, config, master_job):
     # The native --ignore-not-found helper may turn an empty List into None.
     # Query a List explicitly: only a successful, valid items=[] proves empty.
+    if callable(getattr(runtime, '_recovery_query', None)):
+        return runtime._recovery_query(config, 'pods', '-l', 'job-name='+master_job, '--chunk-size=0')
     try:
         completed = subprocess.run(
-            runtime._kubectl(config, 'get', 'pods', '-l', 'job-name='+master_job, '-o', 'json'),
+            runtime._kubectl(config, 'get', 'pods', '-l', 'job-name='+master_job, '--chunk-size=0', '-o', 'json'),
             check=True, capture_output=True, timeout=30)
         if completed.returncode:
             raise ResumeGuardError('Master Pod inventory command failed')
@@ -85,6 +99,9 @@ def _master_pods(runtime, config, master_job):
         raise ResumeGuardError('Master Pod inventory unavailable or invalid') from None
     if (not isinstance(value, dict) or value.get('kind') not in {'List', 'PodList'}
             or not isinstance(value.get('items'), list)
+            or not isinstance(value.get('metadata', {}), dict)
+            or value.get('metadata', {}).get('continue')
+            or value.get('metadata', {}).get('remainingItemCount', 0) != 0
             or any(not isinstance(item, dict) for item in value['items'])):
         raise ResumeGuardError('Master Pod inventory is not a valid List')
     return value
@@ -103,23 +120,31 @@ def _guard(runtime, bundle, contract, config, modules, job, archived_workers=Non
            p.get('status', {}).get('phase') not in {'Succeeded', 'Failed'}
            for p in pods['items']):
         raise ResumeGuardError('Master Pod is active or terminating')
-    for key in ('cleanup_job', 'reset_job', 'repair_job'):
-        if not names.get(key):
-            raise ResumeGuardError('frozen maintenance Job identity missing')
-        other = runtime._kubectl_json(config, 'job', names[key])
-        if other:
-            status = other.get('status') or {}
-            terminal = any(c.get('type') in {'Complete', 'Failed'} and c.get('status') == 'True'
-                           for c in status.get('conditions') or [])
-            if not terminal or int(status.get('active') or 0) or other.get('metadata', {}).get('deletionTimestamp'):
-                raise ResumeGuardError('maintenance Job is active or uncertain')
     # Native guard includes historical workers; it refreshes retained evidence.
     runtime._require_no_active_workers(bundle, contract, config, job, include_history=True)
     if archived_workers is not None:
         records = runtime._parse_jobs_ndjson(archived_workers, since_epoch=None, strict=True)
         states = runtime._query_worker_states(config, records)
-        if any(item.get('state') not in {'SUCCEEDED', 'FAILED', 'NOT_FOUND'} for item in states):
+        # Absence is not terminal proof: a reclaimed Job needs exact persisted
+        # terminal evidence before the compatible recovery consumer can allow it.
+        if any(item.get('state') not in {'SUCCEEDED', 'FAILED'} for item in states):
             raise ResumeGuardError('archived Worker Job is active or uncertain')
+    _guard_maintenance_and_obs(runtime,contract,config,modules)
+
+
+def _guard_maintenance_and_obs(runtime,contract,config,modules):
+    names=contract['kubernetes']
+    for key in ('cleanup_job', 'reset_job', 'repair_job'):
+        if not names.get(key):
+            raise ResumeGuardError('frozen maintenance Job identity missing')
+        other = _query(runtime, config, 'job', names[key])
+        if other:
+            status = other.get('status') or {}
+            terminal = {c.get('type') for c in status.get('conditions') or []
+                        if c.get('type') in {'Complete','Failed'} and c.get('status')=='True'}
+            if (len(terminal)!=1 or any(type(status.get(k,0)) is not int or status.get(k,0)!=0
+                                       for k in ('active','terminating')) or other.get('metadata',{}).get('deletionTimestamp')):
+                raise ResumeGuardError('maintenance Job is active or uncertain')
     identity = contract['identity']
     observed = modules[0].inspect_reset_obs(
         obsutil=config['obs']['obsutil_bin'], obsutil_config=config['obs']['config_file'],
@@ -131,7 +156,7 @@ def _guard(runtime, bundle, contract, config, modules, job, archived_workers=Non
 
 
 def resume(*, analysis_id, attempt, expected_job_uid, expected_binding_sha256,
-           expected_contract_sha256, execute=False, runtime=None):
+           expected_contract_sha256, execute=False, runtime=None, recovery=None):
     if not re.fullmatch(r'GATK_[0-9]{8}_[0-9]{6}_[A-F0-9]{6}', analysis_id):
         raise ResumeGuardError('invalid analysis identity')
     if type(attempt) is not int or attempt < 1:
@@ -165,6 +190,8 @@ def resume(*, analysis_id, attempt, expected_job_uid, expected_binding_sha256,
             'attempt':attempt, 'run_id':run_id, 'cce_bundle':str(bundle)}.items()):
             raise ResumeGuardError('binding identity mismatch')
         runtime = runtime or _runtime(bundle)
+        if getattr(runtime, '_operator_paired_activation', False) and recovery is None:
+            raise ResumeGuardError('paired runtime requires a verified recovery capability')
         contract, config, modules = runtime._load(bundle, None)
         names = contract['kubernetes']
         if contract['identity']['run_id'] != run_id or any(names.get(k) != binding.get(k) for k in ('namespace', 'master_job')):
@@ -188,13 +215,69 @@ def resume(*, analysis_id, attempt, expected_job_uid, expected_binding_sha256,
                     'expected_job_uid':expected_job_uid, **hashes}
         if journal and any(journal.get(k) != v for k, v in identity.items()):
             raise ResumeGuardError('resume journal identity mismatch')
-        job = runtime._kubectl_json(config, 'job', names['master_job'])
+        v2 = manifest['metadata'].get('annotations', {}).get('cce-pipeline/handoff-version') == '2'
+        if recovery is not None:
+            if __package__:
+                from .cce_recovery_inventory import RecoveryCapability
+            else:
+                from cce_recovery_inventory import RecoveryCapability
+            if (not isinstance(recovery,RecoveryCapability) or recovery.origin_bundle!=bundle
+                    or recovery.expected_job_uid!=expected_job_uid):
+                raise ResumeGuardError('internal verified recovery capability required')
+            recovery.bind(runtime,contract,config,run_label=binding['run_label'],pipeline='gatk',
+                analysis_id=analysis_id,attempt=attempt,action=recovery.context['action'])
+            def check():
+                observed=recovery.inspect()
+                if observed['terminal']['state']=='FAILED':
+                    _guard_maintenance_and_obs(runtime,contract,config,modules)
+                return observed
+            journal=journal or dict(identity)
+            if journal.get('registered_source', str(recovery.bundle)) != str(recovery.bundle):
+                raise ResumeGuardError('registered recovery source changed')
+            journal['registered_source'] = str(recovery.bundle)
+            result=runtime._advance_recovery_view(recovery.bundle,contract,config,context=recovery.context,
+                expected_job_uid=expected_job_uid,destination=request_dir/('resume-'+expected_job_uid+'-view'),
+                journal=journal,save_journal=lambda value:_save(journal_path,value),check=check,
+                claim=recovery.claim,authorize=recovery._authorized,
+                before_handoff=lambda:_guard_maintenance_and_obs(runtime,contract,config,modules),execute=execute,
+                platform_execution=recovery.platform_execution,
+                **({'compute_deadline':recovery.compute_deadline} if recovery.compute_deadline is not None else {}))
+            return recovery.export_result({**identity,**result,'replacement_job_uid':result['master_uid'],
+                    'status':'succeeded' if result['mode']=='succeeded' else 'ready' if result['mode']=='ready' else 'completed'})
+        job = _query(runtime, config, 'job', names['master_job'])
         if job and job['metadata']['uid'] != expected_job_uid:
-            if journal and journal.get('status') == 'completed' and journal.get('replacement_job_uid') == job['metadata']['uid'] and _subset(manifest, job):
+            if not v2 and journal and journal.get('status') == 'completed' and journal.get('replacement_job_uid') == job['metadata']['uid'] and _subset(manifest, job):
                 return journal
             raise ResumeGuardError('different Master UID; ambiguous replacement must not be deleted')
         if job and not _subset(manifest, job):
             raise ResumeGuardError('live Master does not match frozen manifest/image')
+        if v2 and not job:
+            raise ResumeGuardError('missing v2 Master requires a bound next-generation recovery view before replacement')
+        if v2 and job:
+            conditions = {c.get('type') for c in job.get('status', {}).get('conditions', [])
+                          if c.get('status') == 'True'}
+            terminal = conditions & {'Complete', 'Failed'}
+            if (job['metadata'].get('deletionTimestamp') or len(terminal) > 1
+                    or (terminal and any(type(job.get('status', {}).get(k, 0)) is not int
+                                         or job.get('status', {}).get(k, 0) != 0 for k in ('active', 'terminating')))):
+                raise ResumeGuardError('Master terminal state is ambiguous, active or deleting')
+            if 'Failed' in conditions:
+                raise ResumeGuardError('failed v2 Master requires a bound next-generation recovery view before replacement')
+            if 'Complete' in conditions:
+                success = getattr(runtime, '_recovery_native_success', None)
+                if not callable(success):
+                    raise ResumeGuardError('compatible native success reader is unavailable')
+                terminal = success(bundle, contract, expected_job_uid)
+                if not isinstance(terminal, dict) or terminal.get('state') != 'SUCCEEDED' or terminal.get('job_uid') != expected_job_uid:
+                    raise ResumeGuardError('native success identity is unverified')
+                return {**identity, 'status':'succeeded', 'master_uid':expected_job_uid}
+            finish = getattr(runtime, '_finish_master_handoff', None)
+            if not callable(finish):
+                raise ResumeGuardError('compatible Master confirmation reader is unavailable')
+            if execute:
+                runtime._claim_batch_lock(contract, config)
+                finish(bundle, contract, config, expected_job_uid)
+            return {**identity, 'status':'reused' if execute else 'ready', 'master_uid':expected_job_uid}
         if not job and (not journal or journal.get('status') not in {'deleting', 'deleted'}):
             raise ResumeGuardError('Master absent without a matching deletion journal')
         # Archive old worker evidence before native refresh overwrites snapshots.
@@ -227,7 +310,7 @@ def resume(*, analysis_id, attempt, expected_job_uid, expected_binding_sha256,
             _save(journal_path, journal, create=True)
         runtime._claim_batch_lock(contract, config)
         if job:
-            rechecked = runtime._kubectl_json(config, 'job', names['master_job'])
+            rechecked = _query(runtime, config, 'job', names['master_job'])
             if not rechecked or rechecked['metadata'].get('uid') != expected_job_uid or rechecked['metadata'].get('resourceVersion') != journal['expected_resource_version']:
                 raise ResumeGuardError('Master UID/resourceVersion changed before deletion')
             journal['status'] = 'deleting'; _save(journal_path, journal)
@@ -237,7 +320,7 @@ def resume(*, analysis_id, attempt, expected_job_uid, expected_binding_sha256,
             subprocess.run(runtime._kubectl(config, 'delete', '--raw', path, '-f', '-'),
                            input=json.dumps(delete_options).encode(), check=True, capture_output=True, timeout=60)
         for _ in range(30):
-            if runtime._kubectl_json(config, 'job', names['master_job']) is None:
+            if _query(runtime, config, 'job', names['master_job']) is None:
                 break
             time.sleep(1)
         else:
@@ -248,7 +331,7 @@ def resume(*, analysis_id, attempt, expected_job_uid, expected_binding_sha256,
             raise ResumeGuardError('frozen files changed before replacement')
         journal['status'] = 'submitting'; _save(journal_path, journal)
         runtime.step2(bundle, contract, config, modules)
-        replacement = runtime._kubectl_json(config, 'job', names['master_job'])
+        replacement = _query(runtime, config, 'job', names['master_job'])
         if not replacement or replacement['metadata'].get('uid') == expected_job_uid or not _subset(manifest, replacement):
             raise ResumeGuardError('replacement identity is unverified; manual reconciliation required')
         journal.update(status='completed', replacement_job_uid=replacement['metadata']['uid'])

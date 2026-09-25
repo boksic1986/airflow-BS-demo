@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from contextlib import contextmanager
 import fcntl
 import csv
 import io
@@ -119,6 +120,22 @@ def _write_status(
     message: str,
     **progress: Any,
 ) -> dict[str, Any]:
+    if payload.get('stage') == 'step3_monitor' and '_monitor_reconnect' in payload:
+        progress['monitor_reconnect'] = payload['_monitor_reconnect']
+        if payload['_monitor_reconnect']['phase'] != 'healthy':
+            progress['monitoring_health'] = 'degraded'
+        else:
+            progress.setdefault('monitoring_health', 'healthy')
+    master_fields = {}
+    if '_cce_master_result' in payload or {'cce_master_binding', 'cce_master_submit_execution_id'}.intersection(progress):
+        if __package__:
+            from .cce_recovery_inventory import master_receipt_fields
+        else:
+            from cce_recovery_inventory import master_receipt_fields
+        master_fields = master_receipt_fields(payload, pipeline='gatk', details=progress)
+    if payload.get("stage") in STAGE_SCRIPTS and payload.get("stage") != "step7_cleanup":
+        if request_path.with_suffix(".worker.state.json").exists():
+            _assert_current_dispatch(request_path, payload)
     value = {
         "schema_version": "gatk-runtime.status.v1",
         "analysis_id": payload["analysis_id"],
@@ -134,6 +151,7 @@ def _write_status(
         "message": message[-2000:],
         "updated_at": datetime.now(timezone.utc).isoformat(),
         **progress,
+        **master_fields,
     }
     if status in TERMINAL:
         value["receipt_hash"] = hashlib.sha256(
@@ -280,6 +298,10 @@ def _prepare(payload: dict[str, Any]) -> list[str]:
 
 
 def _step(payload: dict[str, Any], stage: str) -> list[str]:
+    from cce_paired_runtime import stage_command
+    paired = stage_command(_bundle(payload), stage, payload=payload, gate=sys.modules[__name__], pipeline='gatk')
+    if paired is not None:
+        return paired
     script = _bundle(payload) / STAGE_SCRIPTS[stage]
     if not script.is_file() or script.is_symlink():
         raise RuntimeError(f"frozen GATK stage script is unavailable: {script.name}")
@@ -807,6 +829,16 @@ def _run_step5_with_progress(payload: dict[str, Any], environment: dict[str, str
 
 
 def _materialize(payload: dict[str, Any]) -> Path:
+    from cce_paired_runtime import load_runtime, downstream_registered
+    paired = load_runtime()
+    if paired is None:
+        return _materialize_to_approved_root(payload)
+    downstream_registered(payload, binding=_load_binding(payload), gate=sys.modules[__name__], pipeline='gatk',
+        materialize=_materialize_to_approved_root)
+    return _materialize_result_root(payload)
+
+
+def _materialize_to_approved_root(payload: dict[str, Any]) -> Path:
     bundle = _bundle(payload)
     runtime = yaml.safe_load((bundle / "BATCH_RUNTIME.yaml").read_text(encoding="utf-8"))
     if not isinstance(runtime, dict) or runtime.get("schema_version") != 3:
@@ -890,7 +922,7 @@ def _failure_message(error: Exception) -> str:
     return str(error)
 
 
-def _execute(
+def _execute_stage(
     analysis_id: str,
     attempt: int,
     stage: str,
@@ -918,6 +950,29 @@ def _execute(
     if stage in {"step1_upload", "step5_download"}:
         environment.update(_transfer_environment(payload))
     try:
+        if stage == 'step2_master' and not payload.get('resume_action_id'):
+            if __package__:
+                from .cce_paired_runtime import submit_registered
+            else:
+                from cce_paired_runtime import submit_registered
+            result = submit_registered(payload, binding=_load_binding(payload), gate=sys.modules[__name__], pipeline='gatk')
+            if result is not None:
+                payload['_cce_master_result'] = result
+                _write_status(request_path,payload,'success','Verified initial Master handoff completed')
+                return
+        if payload.get('resume_action_id') and stage == 'step2_master':
+            if __package__:
+                from .cce_paired_runtime import resume_registered
+            else:
+                from cce_paired_runtime import resume_registered
+            result = resume_registered(payload, binding=_load_binding(payload),
+                gate=sys.modules[__name__], pipeline='gatk')
+            if result is None:
+                raise RuntimeError('GATK Resume requires paired registered recovery')
+            payload['_cce_master_result'] = result
+            payload['resume_master_uid'] = result['master_uid']
+            _write_status(request_path, payload, 'success', 'Verified Master recovery completed')
+            return
         if stage == "prepare":
             completed = subprocess.run(
                 _prepare(payload), check=True, text=True, capture_output=True, env=environment
@@ -926,16 +981,31 @@ def _execute(
             _write_status(request_path, payload, "success", completed.stdout[-2000:] or "GATK contract prepared")
             return
         if stage == "step3_monitor":
+            if __package__:
+                from .cce_paired_runtime import monitor_registered, prepare_monitor_registered
+                from .cce_recovery_deadline import monitor_wait
+            else:
+                from cce_paired_runtime import monitor_registered, prepare_monitor_registered
+                from cce_recovery_deadline import monitor_wait
             binding = _load_binding(payload)
+            monitor_wait(payload, 0)
+            prepare_monitor_registered(payload, binding=binding, gate=sys.modules[__name__], pipeline='gatk')
             while True:
-                monitoring_error = _sync_evidence(payload, binding, terminal=False)
-                completed = subprocess.run(
-                    _step(payload, stage), check=False, text=True, capture_output=True, env=environment
-                )
-                if completed.returncode:
-                    raise RuntimeError((completed.stderr or completed.stdout)[-2000:])
-                state = _parse_step3(completed.stdout)
+                monitor_wait(payload, 0)
+                state = monitor_registered(payload, binding=binding, gate=sys.modules[__name__], pipeline='gatk')
+                paired = state is not None
+                if not paired:
+                    if payload.get('resume_action_id'):
+                        raise RuntimeError('GATK Resume requires paired registered recovery')
+                    completed = subprocess.run(
+                        _step(payload, stage), check=False, text=True, capture_output=True, env=environment
+                    )
+                    if completed.returncode:
+                        raise RuntimeError((completed.stderr or completed.stdout)[-2000:])
+                    state = _parse_step3(completed.stdout)
                 master = state["master_state"]
+                evidence_binding = {**binding, 'cce_bundle': payload['_cce_master_result']['bundle']} if paired else binding
+                monitoring_error = _sync_evidence(payload, evidence_binding, terminal=master in {'SUCCEEDED','FAILED'})
                 progress = {
                     "progress_percent": int(float(state.get("percent") or 0)),
                     "completed_units": int(state.get("completed") or 0),
@@ -944,7 +1014,6 @@ def _execute(
                     "current_item": state.get("current_rule"),
                 }
                 if master == "SUCCEEDED":
-                    monitoring_error = _sync_evidence(payload, binding, terminal=True)
                     _write_status(
                         request_path,
                         payload,
@@ -965,7 +1034,7 @@ def _execute(
                     monitoring_health="degraded" if monitoring_error else "healthy",
                     **progress,
                 )
-                time.sleep(int(os.environ.get("GATK_MONITOR_INTERVAL_SECONDS", "30")))
+                time.sleep(monitor_wait(payload, int(os.environ.get("GATK_MONITOR_INTERVAL_SECONDS", "30"))))
         elif stage == "step1_upload":
             _run_step1_with_progress(payload, environment)
             _write_status(
@@ -1015,7 +1084,7 @@ def _execute(
         raise
 
 
-def start(
+def _start_legacy(
     analysis_id: str,
     attempt: int,
     stage: str,
@@ -1061,7 +1130,167 @@ def start(
     return {"status": "accepted", "stage": stage, "generation": int(payload.get("generation") or 1)}
 
 
+_DISPATCH_KEYS = ("analysis_id", "attempt", "stage", "generation", "execution_id", "request_hash")
+
+
+def _dispatch_identity(payload: dict[str, Any]) -> dict[str, Any]:
+    return {key: payload.get(key) for key in _DISPATCH_KEYS}
+
+
+def _assert_current_dispatch(path: Path, payload: dict[str, Any]) -> None:
+    current = json.loads(path.read_text(encoding="utf-8"))
+    if _dispatch_identity(current) != _dispatch_identity(payload):
+        raise RuntimeError("GATK dispatcher superseded by another execution")
+
+
+@contextmanager
+def _dispatch_lock(path: Path, *, blocking: bool = False):
+    fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
+        except BlockingIOError as exc:
+            raise RuntimeError("GATK dispatcher is still active") from exc
+        yield
+    finally:
+        os.close(fd)
+
+
+def _process_identity(pid: int) -> dict[str, Any] | None:
+    try:
+        # comm can contain spaces: starttime is field 22, after the closing ')'.
+        stat = Path(f"/proc/{pid}/stat").read_text().rpartition(")")[2].split()
+        return {"pid": pid, "starttime": stat[19],
+                "boot_id": Path("/proc/sys/kernel/random/boot_id").read_text().strip()}
+    except FileNotFoundError:
+        return None
+
+
+def _dispatch_state(path: Path) -> dict[str, Any] | None:
+    state_path = path.with_suffix(".worker.state.json")
+    try:
+        fd = os.open(state_path, os.O_RDONLY | os.O_NOFOLLOW)
+    except FileNotFoundError:
+        return None
+    with os.fdopen(fd, "r", encoding="utf-8") as stream:
+        value = json.load(stream)
+    if not isinstance(value, dict) or value.get("schema_version") != "gatk-runtime.dispatcher.v1":
+        raise RuntimeError("GATK dispatcher evidence is invalid")
+    return value
+
+
+def _save_dispatch(path: Path, payload: dict[str, Any], state: str,
+                   process: dict[str, Any] | None = None) -> None:
+    target = path.with_suffix(".worker.state.json")
+    temporary = target.with_suffix(".partial")
+    value = {"schema_version": "gatk-runtime.dispatcher.v1",
+             **_dispatch_identity(payload), "state": state, "process": process}
+    fd = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as stream:
+        json.dump(value, stream, sort_keys=True)
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, target)
+    fd = os.open(target.parent, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def _dispatch_receipt(path: Path, payload: dict[str, Any]) -> dict[str, Any] | None:
+    status_path = _status_path(path)
+    if not status_path.exists():
+        return None
+    value = json.loads(status_path.read_text(encoding="utf-8"))
+    return value if _dispatch_identity(value) == _dispatch_identity(payload) else None
+
+
+def _execute(analysis_id: str, attempt: int, stage: str, generation: int | None = None) -> None:
+    if stage in {"prepare", "step7_cleanup"}:
+        return _execute_stage(analysis_id, attempt, stage, generation)
+    path = _request_path(analysis_id, attempt, stage)
+    with _dispatch_lock(path.with_suffix(".worker.lock")):
+        path, payload = _load(analysis_id, attempt, stage, generation)
+        with _dispatch_lock(path.with_suffix(".launch.lock"), blocking=True):
+            existing = _dispatch_receipt(path, payload)
+            if existing and existing.get("status") in TERMINAL:
+                return
+            previous = _dispatch_state(path)
+            if previous and _dispatch_identity(previous) != _dispatch_identity(payload):
+                raise RuntimeError("GATK dispatcher superseded; launch authorization required")
+            _save_dispatch(path, payload, "running", _process_identity(os.getpid()))
+        try:
+            _execute_stage(analysis_id, attempt, stage, generation)
+        finally:
+            # Hold the worker lock through the durable completion record. A new
+            # generation cannot mistake a stopped parent for a finished writer.
+            with _dispatch_lock(path.with_suffix(".launch.lock"), blocking=True):
+                receipt = _dispatch_receipt(path, payload)
+                state = "finished" if receipt and receipt.get("status") in TERMINAL else "uncertain"
+                _save_dispatch(path, payload, state, _process_identity(os.getpid()))
+
+
+def start(analysis_id: str, attempt: int, stage: str,
+          generation: int | None = None, *, expected_hash: str | None = None) -> dict[str, Any]:
+    if stage in {"prepare", "step7_cleanup"}:
+        return _start_legacy(analysis_id, attempt, stage, generation)
+    path = _request_path(analysis_id, attempt, stage)
+    with _dispatch_lock(path.with_suffix(".launch.lock")):
+        path, payload = _load(analysis_id, attempt, stage, generation)
+        if expected_hash is not None and payload.get('request_hash') != expected_hash:
+            raise ValueError('Step4 dispatch was superseded')
+        if stage=='step4_publish' and ('publish_dispatch_version' in payload or expected_hash is not None):
+            if __package__:
+                from .cce_publish_recovery import registered_publish, require_publish_deadline
+            else:
+                from cce_publish_recovery import registered_publish, require_publish_deadline
+            registered_publish(payload,gate=sys.modules[__name__],pipeline='gatk')
+            require_publish_deadline(payload)
+        previous = _dispatch_state(path)
+        same = previous is not None and _dispatch_identity(previous) == _dispatch_identity(payload)
+        receipt = _dispatch_receipt(path, payload)
+        if receipt and receipt.get("status") in TERMINAL:
+            return {"status": receipt["status"], "stage": stage}
+        if previous and previous.get("state") != "finished":
+            process = previous.get("process")
+            if not process:
+                raise RuntimeError("GATK dispatcher launch outcome is uncertain")
+            if _process_identity(int(process["pid"])) == process:
+                if same:
+                    return {"status": "accepted", "stage": stage,
+                            "generation": payload["generation"]}
+                raise RuntimeError("GATK dispatcher from previous generation is still active")
+            # An interrupted dispatcher can leave subprocesses behind. A dead
+            # parent alone is not evidence authorizing another protected writer.
+            raise RuntimeError("GATK dispatcher stopped without final quiescence evidence")
+        if previous is None and _status_path(path).exists():
+            raise RuntimeError("GATK dispatcher legacy execution needs quiescence evidence")
+        with _dispatch_lock(path.with_suffix(".worker.lock")):
+            pass
+        _save_dispatch(path, payload, "launching")
+        command = [sys.executable, str(Path(__file__).resolve()), "_worker",
+                   analysis_id, str(attempt), stage, str(payload["generation"])]
+        with path.with_suffix(".worker.log").open("a", encoding="utf-8") as log:
+            process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=log,
+                stderr=subprocess.STDOUT, start_new_session=True, close_fds=True)
+        _save_dispatch(path, payload, "launching", _process_identity(process.pid))
+        return {"status": "accepted", "stage": stage, "generation": payload["generation"]}
+
+
 def main() -> None:
+    if sys.argv[1:2] == ['--publish-dispatch']:
+        from cce_publish_recovery import publish_dispatch_command
+        print(json.dumps(publish_dispatch_command(sys.argv[1:],gate=sys.modules[__name__],pipeline='gatk'),sort_keys=True))
+        return
+    if sys.argv[1:2] == ['--publish-probe']:
+        from cce_publish_recovery import publish_probe_command
+        print(json.dumps(publish_probe_command(sys.argv[1:],gate=sys.modules[__name__],pipeline='gatk'),sort_keys=True))
+        return
+    if sys.argv[1:2] == ['--recovery-probe']:
+        from cce_paired_runtime import worker_probe_command
+        print(json.dumps(worker_probe_command(sys.argv[1:],gate=sys.modules[__name__],pipeline='gatk'),sort_keys=True))
+        return
     if len(sys.argv) not in {5, 6} or sys.argv[1] not in {"gatk-runtime", "_worker"}:
         raise SystemExit(
             "usage: gatk_runtime_gate.py gatk-runtime ANALYSIS_ID ATTEMPT STAGE [GENERATION]"

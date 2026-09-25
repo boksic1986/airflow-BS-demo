@@ -11,6 +11,7 @@ from typing import Callable
 
 from sqlalchemy import func, select, text
 
+from app.cce_recovery_budget import dag_failure_fence_reason
 from app.models import AnalysisRun, RunAction, Sample, WgsInputSnapshot, WgsSubmissionDraft
 from app.wgs_orchestration_service import build_fastq_snapshot, fastq_source_fingerprint
 from app.wgs_platform_service import (
@@ -554,11 +555,15 @@ def mark_submission_dag_failed(
         select(AnalysisRun).where(
             AnalysisRun.analysis_id == analysis_id,
             AnalysisRun.pipeline_name == "wgs",
-        ).with_for_update()
+        ).with_for_update().execution_options(populate_existing=True)
     )
     if run is None or run.attempt != attempt:
         raise ValueError("unknown active WGS attempt")
 
+    reason = dag_failure_fence_reason(session=session, run=run, dag_run_id=dag_run_id)
+    if reason:
+        return {'analysis_id': analysis_id, 'attempt': attempt, 'status': run.status,
+                'ignored': True, 'reason': reason}
     recovery_id = (run.params_json or {}).get('resume_action_id')
     if recovery_id and (dag_run_id != run.dag_run_id or resume_action_id != recovery_id):
         return {'analysis_id': analysis_id, 'attempt': attempt, 'status': run.status, 'ignored': True}
@@ -617,6 +622,7 @@ def mark_submission_dag_failed(
     same_failure = (
         existing_action is not None
         and int(existing_payload.get("attempt") or 0) == attempt
+        and existing_payload.get("dag_run_id") == dag_run_id
         and sorted(existing_payload.get("failed_task_ids") or []) == root_failures
     )
     if same_failure:
@@ -643,6 +649,7 @@ def mark_submission_dag_failed(
             result_status="failed",
             payload_json={
                 "attempt": attempt,
+                "dag_run_id": dag_run_id,
                 "failed_task_ids": root_failures,
             },
             message=error_summary,

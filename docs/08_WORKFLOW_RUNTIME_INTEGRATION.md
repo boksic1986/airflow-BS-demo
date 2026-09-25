@@ -13,6 +13,897 @@ start a newer action. Existing bare wgs-runtime commands remain supported.
 Frozen cleanup target equality is checked on registration; retries preserve
 the original target. Unowned partial remnants remain blocked. No new delete
 implementation or changes to Step1–6/GATK/bioinformatics scripts.
+## P0 correction interface (2026-09-25, isolated source accepted)
+
+Checkpoint297bcee replaces UID-0 selection with fixed code-adjacent
+`cce-paired-deployment-v1.json` beside the platform entry and installed native
+guard. Deployment, not a business request/environment override, declares the
+policy and per-component maintainer UID/GID roots plus the approved canonical
+interpreter. Schema2 source pins and per-directory execution binding remain.
+Absence of the bootstrap retains legacy selection; a present invalid deployment
+does not silently fall back. Native/platform bootstrap contents must agree.
+
+Shared P0 directories/files use collaborator permissions; private plugin live
+claim/journal state is exported by the same Master as shared final evidence.
+No historical project permission migration is implied. Native ae90b65 and the
+paired follow-up close interpreter-target ancestry, owner authority and existing
+legacy-directory compatibility findings. The original registered compute deadline
+bounds at most three fresh observations of typed same-identity inventory movement;
+UID/owner/run-label/terminal conflicts remain immediate refusal. Present Worker
+Jobs reuse the complete Job LIST, but exact missing-Job GETs and every job-name
+Pod LIST remain. This is source acceptance, not installation/activation. The older
+UID-0 source-gap entry below is historical.
+
+## P0 non-root entry correction (2026-09-25, documentation contract)
+
+The user-confirmed multi-account deployment does not require root-owned Python,
+scripts, policy or identical ancestry owners. `operator-owned` below means the
+approved maintainer for that component, not UID 0. Fixed `/etc`-only activation
+is also withdrawn as a deployment requirement. Preserve the existing `nipttest`
+Operator test environment and separate control/source/execution roles.
+See [authority, retained protections and bounded follow-up](13_SECURITY_AND_OPERATIONS.md#p0-non-root-deployment-correction-2026-09-25-user-confirmed).
+Both the platform selector and native writer guard still implement the conflicting
+UID-0 checks; `P0-NONROOT-ENTRY` is open. Historical source/synthetic acceptance
+below is not proof of real multi-account activation. No runtime was changed by
+this documentation correction.
+
+## Selected Step3 terminal conflict fence (2026-09-25, source only)
+
+The identity-bound native terminal must not contradict the current live Master
+Job terminal: Failed/native success and Complete/native failure both reject
+before a terminal status is emitted. The paired monitor's existing query owner
+marks the control observation unconfirmed, not compute failed/succeeded. Matching
+terminal conditions and TTL-absent Jobs with valid native evidence retain the
+existing behavior. Native1bc67fd; BS10610 affected monitor/downstream13 pass.
+
+## Task6 confirmed Step3 re-entry (2026-09-25, source only)
+
+An exact current Step3 action whose native recovery journal is already started
+reconstructs its selected Master through the existing read-only validator.
+It does not require a reclaimed Job to reappear or retry replacement/START.
+The journal is only a locator: registered source hash, complete native handoff,
+frozen inputs, original producer compute deadline and current directory owner
+must all agree. The subsequent ordinary monitor still verifies terminal evidence;
+absent Job/FINAL is not success. Partial/uncertain handoffs retain the existing
+reconciliation path. No untrusted journal grants a new owner or resets deadline.
+
+## Task6 manual observer boundary (2026-09-25, source only)
+
+Failed query observers do not settle automatic compute actions. Explicit existing
+Step3 Resume may hand off their exact confirmed current controller after a scoped
+blocked/exhausted observation; it still uses existing frozen-request validation
+and runtime active/terminal/quiescence checks. Only observer authority is retired.
+No new compute permission, CREATE/START retry or history rewrite. Same attempt,
+compute budget and original deadline persist; GATK manual Step3 registration now
+copies that deadline instead of silently dropping the selected query contract.
+Historical untagged requests do not gain an automatic policy/deadline.
+
+## Task6 selected-monitor finite reconnect wiring (2026-09-25, source only)
+
+Supersedes the unwired prerequisite below. monitor_registered builds one owner
+only for the operator-selected v2 Step3 with a registered original deadline.
+Its in-memory native _monitor_query_runner hook is internal, not a request option
+or new executable selector. Strict GET and selected legacy JSON GET share it;
+list reads request all items. No hook on _run, CREATE, START, transfers or whole
+stages. Unmarked legacy monitors retain their ABI/behavior.
+
+Existing worker lock and stage status JSON own monitor_reconnect. Every load/save
+revalidates registered request bytes/hash and exact typed execution/generation;
+status must exist and be accepted/running. A missing, foreign or terminal sidecar
+cannot start a fresh budget. Reservations are durable before requests; the GATK
+path additionally fsyncs file and parent. ProtectedWriter still compares exact
+config: a stable closure preserves one owner through its config deepcopy.
+
+Only a complete selected-Master observation calls confirmed(). Query exhaustion,
+permission/auth/invalid response or selected identity/control error stops without
+replaying the monitor or inferring remote failure. Outer worker failure writers
+preserve the marker. True returned terminal workload evidence retains its usual
+failure/recovery path. The existing backend consumers retain the reduced scoped
+observation and suppress fresh analysis/stage failure projection while the query
+is unconfirmed; callbacks and periodic DagRun sync use the same fence. This is
+negative evidence only, never automatic compute permission or terminal success.
+
+BS10610 source checks: regression113, final affected producer/consumer16 and
+actual protected selected new/legacy monitors4 pass. Paired native fd43f88;
+no Task5 artifacts rebuilt or production/runtime activation. Final automatic
+lifecycle/manual reconnect and PG/whole-plan acceptance remain open.
+
+## Task6 finite query owner prerequisite (2026-09-25, not yet wired)
+
+Internal scripts/cce_query_reconnect.py accepts only a trusted typed read-only
+GET callback plus current scope (pipeline/analysis_id/attempt/stage/execution_id/
+generation/request_hash) and original absolute deadline. No runtime dispatch,
+new table, public route or native activation is added. Its load/save callbacks
+are reserved for the current monitor's existing stage JSON under its existing
+exclusive execution lock; the actual WGS/GATK wiring is still outstanding.
+
+First call + max6 retries use30/60/120/240/300/300s. Query timeouts are <=30s and
+remaining original deadline; late success is not accepted. Save reservation
+before request, fail closed on failed persistence, retain consumed in-flight
+retry on restart. Stored phase: healthy/waiting/querying/observing/blocked/exhausted;
+scope/deadline/retries/first_error/last_error/last_success/next_retry/reason remain
+internal query-control fields, not workflow statuses or terminal proof. A partial
+GET only reaches observing; caller-confirmed complete authoritative observation
+is necessary to clear the outage. Exhausted/blocked replay cannot self-reset.
+
+Paired native _recovery_query supports exact Job and ConfigMap GET and complete
+Job/Pod lists, with typed errors and a caller-shortened positive timeout <=30s.
+ConfigMap support repairs the selected observer's existing directory-lock call.
+Only known transport or server failures are retry candidates; generic connection
+text, auth/certificate, permission, local command or malformed response is not.
+No raw diagnostics enter the budget. Legacy _kubectl_json behavior is unchanged.
+
+BS10610 isolated native24/platform17 tests pass. Neither monitor has activated
+the helper yet; CR-04 still requires producer/status/consumer integration and
+must not infer reconnecting from degraded health alone. No Task5 artifact refresh.
+
+## Task6 Step4 hash-pinned dispatch caller (2026-09-25, source only)
+
+Supersedes the unwired observation checkpoint below. First eligible registration
+hashes publish_dispatch_version=1 and publish_deadline. The existing stage-control
+route/runner/sensor consumes begin/check/finish/poll; no new execution is created
+for same-operation redispatch. Fixed --publish-dispatch ANALYSIS_ID ATTEMPT
+GENERATION REQUEST_HASH accepts only the registered Step4 request. WGS validates
+the loaded payload again under the existing launch lock; GATK checks the supplied
+hash under that lock before any intent/spawn. Both reject an expired original
+deadline. Existing duplicate/ambiguous launch guards and WGS release-runtime pins
+remain in force. Ordinary unmarked native invocation is unchanged.
+
+Lost response means reconcile, not replay. Normal stage receipt is still the
+sole success authority for subsequent stages; no native publish-record synthesis
+or output scan. Tests are synthetic on BS10610; wrappers are source-only, neither
+shared installation nor native/plugin/image artifacts were updated or activated.
+
+## Task6 original Step4 observation (2026-09-25, source only)
+
+Both restricted wrappers accept fixed --publish-probe ANALYSIS_ID ATTEMPT
+GENERATION REQUEST_HASH NONCE. The registered contract-v2 Step4 request must
+explicitly carry integer publish_dispatch_version=1 in its canonical hash.
+Legacy/unmarked requests cannot obtain negative launch evidence. No arbitrary
+paths, commands, publish, archive, hash sweep or cloud I/O is performed. Probe
+may create/acquire only existing request-adjacent lock files; JSON evidence is
+unchanged. Output binds the nonce and exact original operation identity.
+
+Under the launch lock, validate current request bytes and matching worker/status
+records. Existing success/failure receipts are authoritative (including GATK
+receipt digest); exact live process identity reports running. Lock contention,
+dead parent without terminal evidence, accepted intent without PID or incomplete
+records remains uncertain. Malformed/foreign evidence rejects the query. Only
+no records AND free launch/worker locks reports not_started at that observation;
+that is not a standalone retry permission and must be rechecked at dispatch.
+
+Opted-in WGS start_async_stage revalidates the registered request under its
+launch lock and refuses repeat spawn after ambiguous intent. Existing GATK
+intent/worker fencing is unchanged. No original failed receipt is rewritten.
+Backend RunAction budget additionally requires no in-flight SSH, fresh post-delay
+proof, current identity/control state and the original deadline; max2 retries
+60/180 independent of compute budget. Caller crash retains in-flight ambiguity.
+No automatic marker producer or Airflow caller is enabled yet: wiring/fenced
+original-identity sends are the next Task6 slice, before any activation.
+
+## Task6 exact CREATE classifications (2026-09-25, source only)
+
+The plugin adds WORKER_CREATE_STORAGE_RPC_UNAVAILABLE from exact CREATE Status500
+RPC Unavailable/peer-reset failures, projecting to worker_create_storage_rpc_unavailable.
+Both inventory and backend validate fixed operation=create_namespaced_job,
+integer http_status=500, status_reason=InternalError and
+transient_reason=STORAGE_RPC_UNAVAILABLE_PEER_RESET. The original deterministic
+Job is reconciled first: PRESENT adopts, UNKNOWN blocks replay, ABSENT may use
+the existing bounded submission budget. Exhaustion, complete single-cause evidence,
+Master terminal and fresh quiescence remain required for platform reservation.
+mutation.gatekeeper.sh Status500 context-deadline now shares admission timeout;
+policy denial/generic500/missing Status are not eligible. No new API or budget.
+Task5 frozen artifacts unchanged; source validation is not production activation.
+
+## Task6 fresh Worker wait observations (2026-09-25, source only)
+
+The automatic failure collector may report known same-owner active Worker
+Job/Pod counts from complete live inventories alongside the original native FINAL.
+This is wait evidence only: the normal replacement probe remains strict and still
+rejects active workloads, unknown ownership, pagination, changed UIDs or missing
+terminal proof. The Master and its Pods must already be terminal.
+
+Both restricted wrappers recognize the fixed command:
+`--recovery-probe ANALYSIS_ID ATTEMPT GENERATION REQUEST_HASH NONCE`.
+It reads the current registered failed Step3 request/receipt, validates the
+operator-pinned runtime, selected native producer, directory owner, retained
+lineage and complete fresh Job/Pod inventory. It returns only the bound challenge
+and verified failure evidence. It does not call Step3 execution, touch START,
+create/delete Jobs, rewrite the failed receipt/FINAL or register a generation.
+
+Existing Airflow action persists wait start/deadline and probe nonce; zero-active
+evidence alone is insufficient if FINAL/candidate/producer changed. Wait is at
+most600s and never exceeds the original compute deadline. No automatic Worker
+kill or new scheduler. If a Worker disappears without its persisted terminal
+proof, observation remains ineligible even if it may have finished successfully.
+Production wrappers/policies and accepted Task5 artifacts are NOT updated here.
+BS10610 final focused17 backend/producer +2 restricted entries +4 Airflow cases
+passed; full Task6 and live rollout gates remain open.
+
+## Task6 original deadline consumption (2026-09-25, source only)
+
+The authenticated `cce_recovery_deadline` is now consumed by both restricted
+Step3 monitor loops and passed through the internal RecoveryCapability to native
+replacement. It is a timezone-aware absolute timestamp, never initialized or
+extended by a controller restart. Invalid present values fail closed; absent
+values preserve historical/default-off manual behavior, including the accepted
+Task5 native call signature.
+
+Native recovery journals bind `compute_deadline` separately from the handoff
+deadline. Replacement entry, old-Master DELETE, new CREATE and handoff check the
+remaining budget. The original handoff deadline is capped at the lesser of its
+600-second allowance and the original compute deadline; journal replay cannot
+change either. WGS/GATK poll sleeps use only remaining time and restart does not
+grant a fresh timeout. Existing individual query timeouts remain in effect; no
+new asynchronous interruption or kill is introduced.
+
+This is a controller/monitor deadline, not a new Kubernetes cleanup policy:
+expiry raises a manual-reconciliation failure, retaining journals/evidence and
+any already-created Job. It does not kill Master/Worker, patch Job native
+activeDeadlineSeconds, alter frozen biological inputs or enable recovery policy.
+Bounded natural Worker wait is covered by the subsequent checkpoint above;
+active/uncertain Workers still prohibit replacement.
+BS10610 targeted22 GREEN16.25s; Task5 artifacts remain unchanged.
+
+## Task6 initial deadline registration (2026-09-25, source only)
+
+Enabled new CCE runs freeze the monitor timeout at creation and set matching
+policy/budget original_deadline on their first Step3 registration. Its registered
+request includes cce_recovery_deadline in the canonical hash. WGS replay inserts
+the same field before hashing; GATK replay keeps its existing registered request.
+Legacy/manual different-attempt registrations receive no fresh automatic budget.
+The deadline is carried to replacement requests and consumed as described above.
+Caller wiring must not be treated as permission to enable automatic recovery.
+
+## Task6 due-dispatch source boundary (2026-09-25)
+
+Internal cce_compute_dispatch consumes an already validated/reserved schema2
+action. Before due time it does not rewrite the request; at due time it rechecks
+policy/budget/control/current evidence, freezes the existing Step3 request and
+reuses adapter registration plus shared Resume dispatch. Only Step3 and needed
+downstream stages are selected; same attempt/config/directory/output preserved.
+One cce_compute_recovery action owns both reservation and dispatch (not a nested
+resume_stage action). A prepared crash must revalidate its source receipt.
+WGS/GATK recovery requests carry cce_recovery_deadline from original_deadline.
+Subsequent Task6 checkpoints added native deadline consumption and Airflow
+polling/policy freeze; no installed runtime/automatic capability is enabled here.
+
+## Task5 accepted offline Job TTL contract (2026-09-24)
+
+New Worker/Master and existing evidence-reader Job.spec TTL100, never Pod TTL.
+Derived initial/resume manifests preserve it without rewriting frozen bundles.
+Master backoff0/restartNever/deadline259200s, reader timeouts/cleanup/mounts and
+maintenance/Step7 remain unchanged. Missing Job alone never proves terminality;
+durable identity-bound evidence remains required, otherwise UNKNOWN/fail-closed.
+Only isolated test artifacts accepted; no production CLI/policy/image activation.
+Exact paired pins and actual-wheel/image evidence:
+[Task5 provenance](releases/2026-09-24-p02-task5-offline-artifacts.md).
+
+## Task4 accepted manual continuation contract (2026-09-24, source only)
+
+This section supersedes the limited-entry/open statements in older checkpoints
+below. It uses existing authenticated services, DAGs, request spool, RunAction
+and receipts; no new public API/table, retry framework or automatic activation.
+
+- Registered Step2 initial submission uses its own derived view and durable
+  submission journal. Uncertain CREATE is queried by exact identity; a subsequent
+  manual observer reconciles the original view and deadline. Confirmed native
+  handoff and pending-to-UID CAS can be replayed after a controller crash.
+- Registered Step2/Step3 Resume resolves the exact current directory owner from
+  native journals, not latest mtime/status. Active Master is observed; failed
+  Master replacement needs native final evidence and full writer exclusion.
+  `registered_source` retains generation lineage; original frozen bundle and
+  delivery roots do not change. Missing legacy identity stays fail-closed.
+- Every new process revalidates current request, adapter-specific digest,
+  original producer registration (including archived generation), native view,
+  frozen hashes and exact directory owner. An observer does not become the
+  submitting producer. `VerifiedMasterResult` is rebuilt only after validation;
+  WGS reattach does this before archiving the old terminal receipt.
+- Step4–6 use the registered predecessor's normal success receipt/hash and
+  selected native success. Child command carries registered IDs, not arbitrary
+  paths or serialized capabilities. GATK retains its approved materialization
+  root. Step6 releases only after materialization and verified all-writer
+  quiescence; an already RELEASED replay rechecks evidence without rewriting.
+- Native bd41f87 seals only this generation's manifest rows plus the unmodified
+  shared-history digest. Platform `lineage_workers` validates registered ancestor
+  terminal snapshots and reconciles all bound Workers against complete live
+  Job/Pod lists for replacement/final release. Retained terminal Workers are not
+  confused with unknown Workers; unknown, active or conflicting objects block.
+
+BS10610 actual-source synthetic checks: selected41 passed/1 WGS-only skip,
+authenticated service/real DAG/native/normal-receipt flows2 passed. Only external
+HTTP/SSH/Kubernetes/OBS transport and temporary SQLite are simulated; this is not
+live Airflow scheduling, PostgreSQL contention or cloud TTL verification.
+Operator-owned policy/source pins, mapped storage and per-run bindings remain
+mandatory and uninstalled. Pair native/platform consumers before Task5 activation;
+no image/wheel/CLI deployment, old bundle migration, TTL or automatic enablement.
+
+## Task4 fresh-process selected monitor (source only, 2026-09-24)
+
+The internal monitor_registered resolves only the successful
+registered Step2 producer of a Step3 request. It recomputes existing adapter
+request/receipt digests, derives the native view from the recovery journal and
+checks frozen hashes, handoff, producer identity and exact v2 directory owner.
+Receipt JSON alone never restores VerifiedMasterResult authority. Native Step3
+uses the selected mirror, filters current Master UID/Pod UID and fences native
+startup/terminal identities; run_id-only legacy run-state cannot decide the new
+Master's status. No original bundle rewrite, replacement or lock takeover.
+
+Actual WGS/GATK polling loops consume this reader and pass a copied selected
+binding to the existing rule-evidence bridge, without redirecting the original
+delivery root. Successful registered Step2 identity remains distinct from the
+observing Step3 execution. Old workflow completion markers alone never prove
+replacement success. Job disappearance requires bound native success or sealed
+failure evidence; it does not authorize another CREATE or release the lock.
+
+BS10610 focused18 and affected5 checks passed with native903e1af. No deployment
+or paired policy installed. Direct Step3 replacement, initial submission-view
+selection, Step4-6 reconstruction/final release and manual end-to-end acceptance
+remain open; Tasks5/6 are not enabled by this source checkpoint.
+
+## Task4 registered Step2 recovery entry (source only, 2026-09-24)
+
+Internal resume_registered composes the existing paired runtime, operator
+per-bundle registration and RecoveryCapability; it is not an API or retry
+engine. WGS hashes the registered body excluding its six execution metadata
+keys, GATK excluding request_hash only, matching their existing registration
+services. Request bytes must still match the restricted worker payload and
+remain unchanged before native actions/export. Hashes are integrity checks;
+the authenticated spool and operator-owned pinned policy provide authority.
+
+The restricted gate already holds its current worker lock. Factory additionally
+holds all launch locks, sibling worker locks and shared directory serialization
+through existing Resume. Previous dispatchers require identity-matching terminal
+receipts; unknown evidence or an active writer blocks replacement. Operator
+registration must match native old generation/action/UID and actual canonical
+storage. Missing or legacy-only directory locks are not automatically adopted.
+Native final snapshot/live Worker checks and durable one-CREATE/START remain
+inside existing RecoveryCapability/native recovery. No old project is edited.
+
+Normal WGS/GATK Step2 status preserves the verified result. This source slice
+does not enable GATK registry capability or install bindings. Activated Step3
+replacement still fails closed pending selected-view cross-process continuation,
+Step3-6/final release and full authenticated manual-flow acceptance. No automatic
+recovery/TTL release enabled by this checkpoint.
+
+## Task4 verified normal stage receipts (source only, 2026-09-24)
+
+RecoveryCapability.export_result returns the same JSON fields in an internal
+VerifiedMasterResult. Existing WGS/GATK status writers copy its separately stored
+verified binding into normal running/terminal receipts. GATK's existing receipt
+hash includes those fields. WGS Resume stores the result only in its in-process
+worker payload, preserving it if monitoring later fails. No new API/schema.
+
+The verified submission identity remains separate from both native identity and
+the current observing platform execution. A successful historical Master is not
+relabelled. Generic progress kwargs cannot inject cce_master_binding or
+cce_master_submit_execution_id. Deserializing JSON never restores the internal
+authority: each subsequent process must revalidate the selected native evidence.
+This forwarding does not authorize directory writes, select a runtime path, or
+replace the pending registered capability factory/cross-process stage closure.
+Unactivated legacy status writes do not import or require the new result path.
+
+## Task4 approved cloud identity and paired entry source (2026-09-24)
+
+An operator-selected paired runtime may not enter legacy Resume locking without
+an internal verified RecoveryCapability. The incomplete factory cannot silently
+fall back to an old lock; operator activation remains gated until Task4 closure.
+
+Operator storage mode `cloud-reader` uses native_root/canonical_root and exact
+pvc_name/pvc_uid/pv_name/pv_uid. Resolve native run_dir inside the existing reader
+generator with only that PVC mounted read-only. Remove other volumes, env and
+automatic service-account-token mounting. Verify live volume binding and exact
+reader Job/Pod identity before/after the probe. Fsync CREATE intent; reconcile
+uncertain CREATE, never issue a second POST for the same intent. Clean up only
+the bound UID/resourceVersion; cleanup replay cannot authorize a stage from old
+probe results. No local NFS-to-SFS equivalence or new host mount.
+
+The fixed writers-v2 policy additionally pins `runtime_guard` (path/sha256 for
+the CLI source's sibling cce_writer_guard.py), and `operator_python` selects the
+deployment-maintained executable for external stage commands. `writers.platform`
+pins scripts/cce_paired_runtime.py. The original implementation required UID 0
+and no group/world write throughout ancestry; that ownership assumption is
+superseded by the non-root contract above, with source adaptation still pending.
+No request field/environment flag can bypass bad policy.
+Actual WGS/GATK Step1–6 builders and Resume loaders select the external runtime
+only when this policy exists. GATK custom delivery also enters its writer and
+keeps the original approved result root. Unactivated old behavior is unchanged.
+
+Per-run bindings still require exact frozen registration; this checkpoint does
+not install or automatically generate those bindings. Selected-view receipts,
+recovery capability construction and final-release closure remain Task4 gates.
+
+## Task4 protected writer entry (source only, 2026-09-24)
+
+Native8ec5415 exports ProtectedWriter for Step1–Step6 and bundles its guard module.
+At this historical checkpoint CLI main reads /etc/cce-pipeline/writers-v2.json;
+the fixed-location/UID-0 requirement is superseded by the non-root contract above.
+No browser or untrusted environment opt-out. When activated, require paired source pins, namespace,
+physical shared-storage mapping and exact registered immutable bundle/config.
+Unknown legacy identity fails closed. Shared journal flock serializes the stage;
+CAS intents retain existing fsync semantics. Legacy failure cleanup inside a
+protected stage cannot release the v2 lifecycle lock. Release after Step6 still
+requires separately verified downstream/quiescence proof and is not yet wired.
+
+No operator policy is installed by source development. Paired writer inventory
+and access-path fencing are rollout conditions, not implied by a source hash.
+Actual platform registration/gate construction and selected-view normal receipt
+forwarding remain Task4 work. No API, DB, production or TTL activation changed.
+
+## Task4 selected Master downstream and binding export (source only, 2026-09-24)
+
+Native08c6cda internal Step4/Step5/download_snakemake_logs accept the selected
+Master bundle and expected UID together. Original input hashes must match, native
+success must validate, and any live Master must be the same inactive successful
+UID. Missing Job alone is never success. Log export rechecks after reading.
+Publication, cloud_delivery and log archives retain the original bundle root;
+Step6 keeps its original result location. Defaults and CLI flags are unchanged.
+
+WGS/GATK Resume internal return metadata now includes cce_master_binding schema2
+only after validated native handoff. It contains platform_execution separately
+from native fields (native request_hash/execution_generation, Job/Pod UID, run and
+input hashes), plus source_bundle/selected_bundle. cce_master_submit_execution_id
+comes from that validated platform identity. It is not copied from browser JSON,
+is not an inactivity seal, and does not activate the older draft automatic reader.
+Normal gate persistence/forwarding and trusted all-writer/storage closure remain
+required before manual acceptance and TTL artifacts. No public API/schema change.
+
+## Task4 GATK dispatcher fence (isolated source, 2026-09-24)
+
+Step1–6 use request-adjacent .launch.lock, .worker.lock and .worker.state.json.
+The existing restricted start/worker entry persists an intent before Popen and
+serializes worker execution; same identity reattaches or returns its terminal.
+Dispatcher identity includes analysis/attempt/stage/generation/execution/hash;
+process identity includes PID, boot ID and start time. Stale generation cannot
+publish success/failure over a changed request. Unknown spawn, stopped parent
+without final receipt, and incomplete legacy identity require reconciliation;
+none authorizes a new writer. No public API/schema or Prepare/Step7 changes.
+This supplies process exclusion only, not storage/all-writer activation proof.
+
+## Task4 initial Master identity binding (isolated source, 2026-09-24)
+
+User-approved native Step2 addition accepts an internal platform_execution and an
+independent submission_view. It neither mutates frozen bundles nor grants launch
+authority. Platform identity contains pipeline, analysis_id, attempt, execution_id,
+stage, generation and request_hash; initial stage must be step2_master. The native
+generation remains1 even if the platform stage generation differs. Its native
+request_hash includes the platform identity, but is NOT the platform request hash.
+Validated startup/terminal evidence carries both; Worker phase context continues
+using the native digest and phase-suffixed execution_id.
+
+Existing WGS/GATK Resume capabilities now forward an optional explicit new platform
+identity into the native replacement view and action journal. A platform-bound
+source requires it; replay with another identity is rejected. Unbound old evidence
+is never retroactively attributed. No public API, default CLI, image or production
+gate is changed. Trusted writer/storage/all-writer/downstream activation remains
+Task4 work, so this is not full manual/automatic recovery acceptance.
+
+## Task3 internal Resume capability (source accepted, 2026-09-24)
+
+Optional internal RecoveryCapability validates native final bytes, both full
+inventories and an authenticated caller-supplied canonical-directory mapping;
+writers_protocol=2 and inactive dispatcher are required. It feeds original
+directory-lock CAS and adapter journals, not a public request or new CLI flag.
+Native _advance_recovery_view preserves original bundle and CREATE intent,
+returns the derived bundle for the caller, and retains the original deadline.
+Started journal requires START_CONFIRMED; missing created/started handoff or
+regressed started evidence blocks. GATK rechecks maintenance/OBS before handoff.
+Task4 must supply authenticated callbacks and propagate the selected view through
+the service/stage paths. No production/default CLI caller is enabled here.
+Source wiring passed29 BS10610 synthetic composition cases and5 affected
+checks; capability6 passed separately. Task3 source acceptance does not enable
+production or replace the remaining Task4 authenticated integration gate.
+
+## P0-2 Task3 final-inventory/view contracts (2026-09-24, source only)
+
+Approved native `_prepare_recovery_view` derives a separate manifest with next
+generation and request-hashed recovery_context; original payload/config/bundle
+bytes are unchanged. View receipt verifies input/derived hashes and action on
+replay; its MASTER_HANDOFF owns a separate UID/deadline. Not launch authority.
+Master wraps preflight and analysis with distinct plugin execution contexts;
+post-child snapshot `recovery-final.json` includes both phase journals/checkpoints,
+exact Worker terminal records/candidates and final jobs.ndjson. RUN terminal binds
+submission_snapshot_sha256 and submission_inventory_complete; evidence_complete
+remains false (process evidence cannot prove live Pods/other dispatchers inactive).
+`_recovery_final_evidence` validates current handoff, confirmation, terminal,
+snapshot hash and native phase exit agreement from an existing mirror; no helper
+Job. `validate_final_submission_snapshot` consumes actual producer records and
+allows zero submissions only inside this final scope, rejecting malformed present
+candidates. `probe_final_workloads` checks full run-label lists plus exact names;
+missing Workers need exact persisted terminal, surviving/unbound work and partial
+pages block. These read-only helpers do not authorize dispatch or replace Task4
+trusted canonical storage/legacy mapping/all-writer binding. Resume side-effect
+integration remains Task3 work; no production/default CLI activation.
+
+## P0-2 Task3 compatible readers (2026-09-23, development only)
+
+Resume may use `_recovery_query(config, *arguments)` from compatible runtime:
+successful exact-name empty GET means absent; failed GET raises a privacy-safe
+classification; incomplete lists never mean empty. Frozen bundles stay intact.
+WGS v2 uses `_finish_master_handoff` and the original confirmation deadline.
+GATK reuses its own validated active v2 Master through the same native primitive.
+Live Complete alone is insufficient: `_recovery_native_success(bundle, contract,
+job_uid)` reads an existing hash-checked mirror, matches handoff/digests/UID,
+START_CONFIRMED, RUN_COMPLETE, native stage exits and workflow completion.
+It creates no helper Job and does not prove complete Worker/dispatcher finality.
+
+Failed v2 replacement blocks before mutation pending final submission inventory
+and a next-generation derived recovery view. Directory-lock-v2 is not connected;
+full inventory/storage/legacy mapping and Task4 authenticated/all-writer closure
+remain required. No TTL, automatic policy or production activation.
+
+## P0-2 Task3 guard checkpoint (2026-09-23; consumer closure pending)
+
+WGS existing recovery journal no longer grants a second CREATE after
+`submitting`, `created` or `started` when the Master is absent. Only fresh Step2
+or the matching pre-submission deletion states retain existing creation behavior;
+unknown transmission+404 requires reconciliation, not a new submission. This
+also blocks deletion/recreation when that unknown submission later appears Failed.
+No new same-action generation is inferred from the delayed failure. This
+does not yet accept durable terminal evidence for reclaimed Masters. A fresh
+exact Master UID/resourceVersion read precedes UID/RV-conditional DELETE.
+Journal updates preserve existing fields and fsync the owner-only exclusive
+partial file, replacement and parent directory; stale partial files fail closed.
+
+Both existing Resume helpers request unchunked Master Pod lists and reject
+continuation tokens/nonzero remainingItemCount or malformed lists rather than
+treat an incomplete empty page as no active Pods. GATK archived Worker queries
+accept only explicit SUCCEEDED/FAILED, no longer NOT_FOUND. Task2 persisted
+Worker terminals are not consumed here yet, so absent archived Workers remain
+blocked until the compatible identity-bound evidence reader is connected.
+These are source guard fixes, not a complete inventory/finality proof.
+
+No API/DB/DAG changes, automatic enablement, bundle edits or deployment. The
+remaining Task3/4 work must connect START_CONFIRMED, trusted native success,
+complete Worker/live inventories and directory-lock callbacks. Step7 cleanup
+and local directory removal alone still do not implement platform same-batch
+recreation; registration/snapshot uniqueness and history reuse need separate
+scoped work. Do not remove audit history or infer unlocked state from absence.
+
+## P0-2 Task2 source primitives (2026-09-23; consumers not yet enabled)
+
+Plugin5b5d7ee/0.6.4+bs8.dev1 extends accepted bs7 journal admission with atomic
+`worker-terminal/<job_uid>.json` before Snakemake terminal callbacks. Schema1
+binds context_sha256, run_id, attempt, execution_generation, master_uid,
+namespace, job_name/job_uid/job_attempt, existing submission_identity,
+terminal_state, safe reason and observed_at epoch. Exact Complete/Failed Job
+condition required; bare counters/Pod exit/404 cannot prove terminal. Foreign,
+conflicting or partially published records block. One validated journal view
+per poll; cached terminals are reported before quota/control queries. Quota
+claims are not released from this evidence alone; existing quota checks remain.
+This does not seal orphan-Pod/whole-run quiescence or enable another Executor.
+
+cce-pipeline7926496 adds optional internal lock_context/journal/save_journal/
+verify arguments to original claim/release helpers. V2 directory key protects
+same-path writers regardless of batch/entry; logical identity includes pipeline,
+analysis_id/attempt/run_id/config digest. Generation/action/Master UID is current
+ownership, including pending UID and its one confirmed binding. Existing journal
+stores immutable CAS intent before writes, carrying UID/resourceVersion. Release
+sets a fenced RELEASED record, not delete/recreate; same logical run requires
+next generation, and no Master ownerReference can trigger GC unlocking.
+
+For historical reruns, preserve frozen config/project/history. Trusted recovery
+code must map the old lock to the original directory/owner and prove stopped
+dispatch/Master/Workers, then CAS its legacy key into a snapshot-preserving guard
+before acquiring the v2 directory key. Unmodified CLI sees a foreign guard owner
+and cannot inherit/release it. Unknown mapping remains blocked. This is not a
+complete mixed-version solution: **all** writers for the directory must use
+compatible entry and release paths, including downstream stages. The internal
+writers_protocol2 capability is not a browser override or rollout authorization.
+Actual mounted storage alias resolution, verifier, fsynced existing journal
+callbacks and frozen-runtime wrappers remain Tasks3/4. No current caller opts
+in; artifacts/TTL remain Task5. No API/DB/DAG or clinical workflow change here.
+
+Producer details: plugin docs/P02_WORKER_TERMINAL.md and cce-pipeline
+docs/architecture/directory-lock-v2.md. BS10610:15 Worker +17 lock tests and
+5 +3 affected legacy cases passed; no production rerun/lock migration performed.
+
+## P0-2 Task1 Master producer (2026-09-23, source only)
+
+Pinned cce-pipeline83e7adb successor source on
+`jiucheng/runtime/p02-master-handoff-20260923` extends existing MASTER_HANDOFF
+and native terminal files. Mapping is documented in that source's
+`docs/architecture/master-handoff-v2.md`; manifest handoff-version2 is explicit.
+Binding: frozen project/batch/run_id, attempt, generation, exact Job/Pod UID,
+request/config/manifest/metadata digests, and one persistent600-second deadline.
+START_SENT is possible execution, not acknowledged start. The Master validates
+input, atomically excludes a second same-Pod process and writes START_CONFIRMED
+before Snakemake. Lost response/control restart reads evidence without another
+START or metadata transmission; on-time ack remains valid after the deadline.
+Completed Pods use the existing persistent reader. Missing confirmation is
+handoff_timeout, not biological rule failure or permission to replace a Master.
+
+Trusted catchable setup/analysis failure and native success use the original
+terminal writer and success criteria, now with UID/generation/hash/root-cause
+binding and per-Master archive. Process evidence_complete=false intentionally;
+Worker quiescence, Kubernetes finality and directory ownership are not proven.
+Failures before trusted identity, hard kill/OOM and missing evidence remain
+unknown. No Airflow API/DB/DAG change in this task; authenticated Resume consumers
+remain Tasks3–4. Old bundles are not rewritten. Paired image/controller artifact
+validation and TTL remain Task5; no shared install or automatic activation.
+
+## P0 runtime receipt projection fence (2026-09-23, source only)
+
+WGS stage-status ingestion holds a refreshed AnalysisRun FOR UPDATE lock from
+active-attempt validation through stage transition and projection. It refreshes
+the matched execution before applying the existing terminal transition rules.
+GATK stage-status sync takes the same refreshed run lock after its separate
+evidence ingestion sessions, refuses a non-current attempt, and refreshes the
+latest execution. A caller's cached running object cannot replace a durable
+success with a late failure. Older-generation receipts still do not project.
+No schema, API shape, generation allocation, lease policy or retry change.
+BS10610 synthetic tests cover stale identity-map state, old attempt/generation
+and current failure. PostgreSQL concurrency, other observer evidence paths and
+automatic adapter/dispatch integration remain unaccepted; policy stays off.
+
+## bs7 control inventory acceptance (2026-09-23, source only)
+
+Control candidates now reconcile against the existing submission journal,
+checkpoint and admitted schema2 manifest. Each referenced Worker must have a
+unique successful CREATED/ADOPTED UID under the same frozen context. A null
+candidate UID does not erase that proven UID; a conflicting UID rejects.
+Missing/unresolved submissions, missing manifest membership or any simultaneous
+FAILED submission reject. No control fault is written as a fake submit event.
+The inventory's executor_failure_count counts candidate faults, not fabricated
+submission failures. This snapshot still proves neither finality nor full history.
+
+Actual plugin0.6.4+bs7 source25297f971dd463176d5fdc07908a60095ade50ea,
+wheel SHA256 2ad4aa737e6f34930b6832e3ce69edd9ee64867cc9c7ce0c1bcb4c455cdbae86,
+generated four WGS/GATK GET Lease/Pod LIST fixture scopes. GET follows successful
+CREATE; LIST follows lost-response ADOPT; each retains one manifest Worker and
+the unchanged real producer submission records. Platform acceptance pins the
+fixture manifest/provenance hashes in test_cce_recovery_bs7_contract.py.
+BS10610:34 targeted inventory checks and4 actual-fixture checks passed. Separate
+actual-wheel build validation passed52 affected plugin checks. bs6 unchanged.
+
+No terminal seal was generated. Candidate-only consumption still rejects;
+positive terminal tests are synthetic scaffolding. Trusted terminal closure,
+binding, dispatch, observation projection and Step4 acceptance remain pending.
+No policy enablement, production deployment or installation into active images.
+
+## P0 quota-read candidate contract (2026-09-23, isolated source only)
+
+Agreed plugin contract adds executor-control-failure.json with schema
+snakemake.kubernetes.executor-control-failure.v1, the same ten frozen identity
+fields, observed_epoch, automatic_recovery_allowed=false,
+requires_master_terminal=true and cumulative nonempty failures. This is a
+candidate, not an audit/footer, finality seal or permission to restart.
+
+Each failure uses HEAVY_SLOT_API_UNAVAILABLE, phase=heavy_slot_refresh,
+transient_reason=CONNECTION_REFUSED, retry_scope=same_operation,
+operation_attempts integer1..3, retryable/exhausted=true, creation_state=UNKNOWN,
+exact worker_name and explicitly nullable worker_uid. Supported reads only:
+read_namespaced_lease with kind Lease, exact resource_name and null selector;
+list_namespaced_pod with kind Pod, null resource_name and exact
+job-name=<worker_name> selector. No writes, broad namespace list or generic500.
+UNKNOWN is not a submission failure or evidence that the Worker is absent.
+
+The internal consumer validates these fields separately from CREATE failures.
+Its still-draft terminal contract requires fatal_source=executor_control and
+the same cumulative executor_failure_count, bound candidate digest, complete
+failure/Worker accounting and zero active/unresolved work. A candidate alone,
+unknown inventory or mixed fatal sources never authorizes recovery. The bounded
+reader requires exactly one candidate file, checks its filename/schema pairing
+and directory stability as well as existing nofollow/file fingerprints.
+
+The initial slice had synthetic-only acceptance; actual bs7 artifact/fixtures
+and control inventory compatibility are now covered by the acceptance above.
+Trusted terminal closure, binding and dispatch remain unconnected.
+No adapter/API/DB wiring or policy enablement. bs6 remains immutable. All allowed
+future categories share the existing two60/180-second attempt reservations.
+
+## P0 Airflow cleanup fence (2026-09-23, source only)
+
+External DagRun release/deactivate requests now use the same current recovery
+authority as failure callbacks, under a refreshed AnalysisRun lock. This does
+not alter runtime receipts, observer ingestion, OBS terminal evidence, slot
+counts or the release primitive. No workflow source/image/plugin change.
+Partial WGS release commits inside the existing primitive, so its follow-on run
+projection obtains a fresh lock and repeats the identity check. Observer drain
+is independently fenced even if release previously succeeded. Synthetic tests
+prove endpoint behavior and forced interleaving, not PostgreSQL concurrency or
+trusted runtime terminal closure; automatic policy remains disabled.
+
+## bs6 candidate compatibility (2026-09-23, isolated acceptance)
+
+Actual plugin0.6.4+bs6 commit0b19bb605cdff619a7f09b34a6fe774e4b43d357 keeps
+submit-context.v1, submit-event.v1 and executor-failure.v1. New category
+WORKER_SUBMIT_GUARD_FAILED is UNKNOWN/retryable=false, not a recovery allowlist
+entry. Existing consumer and inventory validators reject it without code changes.
+WGS/GATK admission candidates remain compatible with the draft consumer contract.
+Four actual-wheel-generated fixture scopes and two category-only negative checks
+passed14 tests on BS10610. Wheel, fixture checksum manifest and provenance are
+pinned in backend/tests/test_cce_recovery_bs6_contract.py; source bytes untouched.
+
+Candidate-only inputs reject. Positive tests use explicitly synthetic terminal
+objects solely to isolate contract compatibility, not to attest Master termination,
+complete failure history or eligibility. No new terminal producer was delivered;
+earlier proposed extra Master audit implementation below is not current approved
+scope. Missing complete trusted evidence still refuses automatic recovery. No
+service deployment, API/DB change, plugin installation or automatic enablement.
+
+## P0 Master failure detail (source only, 2026-09-23)
+
+The UID-bound workload probe now adds `master_job_condition` (type/reason) and
+`master_pods` keyed by each observed owned Pod UID. Each Pod contains its name,
+phase/reason and main/init/ephemeral container exit code, reason, signal,
+restart_count and last terminated state. Existing bound Master exit-code output
+is preserved. Missing fields remain null; unknown reason strings become Unknown.
+Only fixed Kubernetes reason codes are retained, never message/stderr/credentials.
+Conflicting Failed conditions or invalid restart/termination data reject.
+
+BackoffLimitExceeded is a Job-controller terminal symptom, NOT the underlying
+cause and NOT a third recovery allowlist entry. Pod OOMKilled/Error evidence may
+coexist and must remain visible. Restart counts/lastState are observations only:
+lastState is not a full restart history, and deleted/TTL Pods are not reconstructed.
+The eventual Master audit/terminal writer still must prove complete cause coverage;
+these fields neither emit a seal nor permit recovery. No API/DB projection or
+production deployment is included.34 affected synthetic checks passed on BS10610.
+
+## P0 submission inventory and workload reconciliation (source only)
+
+`scripts.cce_recovery_inventory.validate_submission_inventory` consumes trusted
+bound bytes for submit-events.ndjson, journal-state.json, executor-failure.json
+and the schema2 admitted Worker manifest. It checks exact context/types, complete
+NDJSON records, duplicate JSON keys, producer chained hash/byte/record checkpoint,
+one intent per Worker, monotonic bounded requests, frozen token/spec/job-attempt,
+admission UID, and one-to-one cumulative failure/manifest membership. Partial,
+unknown, conflicting or extra/missing evidence fails closed. Repeated manifest
+entries currently reject rather than silently deduplicate.
+
+`probe_submission_inventory` derives every Worker identity from that validated
+snapshot and calls the existing UID-bound read-only probe. No arbitrary Worker
+subset parameter, writes, delete, seal or recovery authorization. Raw-byte hashes
+returned here are snapshot bindings, distinct from the canonical candidate JSON
+digest used by the backend terminal validator. A future trusted terminal writer
+must bind the FINAL snapshot plus Master error audit; checksums are neither
+writer authentication nor proof that an earlier consistent snapshot is final.
+No current restricted-runner/adapter entry invokes the composed helper yet.
+
+Missing/terminal workloads establish no-active-work observations only, not zero
+historical rule failures. Every admitted Worker needs trustworthy terminal/history
+accounting before a positive recovery seal; TTL/deletion and missing evidence
+remain unknown. Cached Master source review (Snakemake9.24.0+biosan1) confirmed
+SubmissionFailure can bypass JOB_ERROR; rule-status drops ERROR and logger close
+can suppress write/flush failures. Existing generic RUN_FAILED is insufficient.
+Trusted Master audit producer/footer and explicit source coverage remain pending.
+26 focused BS10610 checks passed, including two real producer-generated synthetic
+fixture scopes and subprocess-boundary composition. No live cluster acceptance.
+
+## P0 internal recovery budget (2026-09-22, source only)
+
+`app.cce_recovery_budget.reserve_compute_recovery` reserves within the caller's
+transaction using the existing AnalysisRun row lock/RunAction JSON. It has no
+public endpoint, network call or dispatch. Version1 policy and an initialized
+`cce_recovery_budget` (attempt, count0, original_deadline) must be frozen for new
+attempts only. Missing state rejects; no migration/default enables old attempts.
+Two ordinal reservations share the attempt budget, waiting60/180s without
+extending the original deadline. Replays do not spend again; counter/journal
+disagreement, user stop and active resume/maintenance block new reservations.
+
+The producer consumer must first validate bound complete fatal evidence, exact
+terminal Master and Worker quiescence. Dispatch must commit reservation first
+and then recheck shared control/maintenance fences under the same run lock.
+Neither consumer nor dispatch is wired by this initial budget change. Existing
+manual/Step7 entry points are not yet a fully shared P0 fence; keep policy off.
+54 isolated BS10610 SQLite checks passed; PostgreSQL concurrency and integration
+remain unverified. No table/column/API or workflow behavior change.
+
+### Draft producer/terminal-seal validation (not connected)
+
+`app.cce_recovery_evidence.validate_recovery_evidence` compares frozen
+`snakemake.kubernetes.submit-context.v1`, plugin candidate
+`snakemake.kubernetes.executor-failure.v1` and proposed trusted-runtime
+`cce.master-terminal.v1`. Each carries pipeline, analysis_id, attempt (canonical
+positive decimal string), execution_id, generation (integer), request_hash,
+run_id, namespace, master_job_uid, master_pod_uid. The terminal document binds
+the candidate by canonical sorted compact UTF-8 JSON SHA256 (ensure_ascii=false,
+allow_nan=false); this digest binds contents, not caller authorization.
+
+Proposed terminal fields: sealed/complete=true, master_state=failed,
+master_pod_state=terminated, exit_code>0, fatal_source=executor_submission,
+executor_failure_count matching the nonempty candidate list,
+rule_failure_count/other_failure_count=0, worker_inventory_complete=true,
+worker_ownership_verified=true, submissions_reconciled=true,
+active_worker_jobs/active_worker_pods/unresolved_submissions=0. Boolean values
+are not integers. Completeness must cover cumulative Master failures, all
+submission intents and admitted manifests, not only failed entries or a single
+empty API list. The future runtime reader must verify controlled paths and
+frozen identity; arbitrary browser/uploaded JSON is never accepted as a seal.
+
+Every failure must be exhausted, retryable, ABSENT with no worker UID, and one
+of WORKER_CREATE_TRANSPORT / WORKER_CREATE_ADMISSION_TIMEOUT; mixed root causes,
+UNKNOWN/CONFLICT/manifest failure/missing FASTQ and absent evidence reject.
+Transport followed by a GET404 remains UNKNOWN, not proof of absence. This
+conservative draft does not yet enable the 0918A recovery path: actual producer
+fixtures, authoritative wrapper generation and all-intent reconciliation remain
+required. Existing releases without them stay disabled. Dispatch must recheck
+live fences/identity/quiescence; validated metadata alone is not permission.
+62 focused synthetic draft-contract checks passed on BS10610; NOT producer or
+Master integration acceptance. No current image is claimed to emit the seal.
+
+### Controlled recovery evidence reader (source only)
+
+`app.cce_recovery_reader.read_recovery_evidence` reads only
+`executor-failure.json` and `master-terminal.json` in an adapter-selected scope.
+It walks the configured absolute root and relative components using no-follow
+directory descriptors, rejects symlinks/hardlinks/nonregular files, limits each
+file to1MiB, rejects duplicate JSON keys/nonfinite values, and verifies file
+metadata stayed stable across the pair read. It calls the existing evidence
+validator and returns only bound metadata plus a relative evidence key.
+
+The root, scope and expected context MUST be supplied by the trusted adapter's
+frozen binding, never a browser or the evidence being read. This protects reads;
+it does not authenticate a writer or prove Kubernetes quiescence. No adapter or
+public route is connected yet. Original Master context belongs to its actual
+Step2 submission; it must not be equated to a later Step3 monitoring execution.
+Recovery must preserve explicit Master-submit/monitor lineage.26 isolated
+BS10610 synthetic reader checks passed; current producer/wrapper integration
+and dispatch remain pending. No existing budget/evidence suite rerun.
+
+### Current lineage to reservation bridge (2026-09-23, internal only)
+
+Actual producer compatibility update: plugin commit0d606489, candidate wheel
+0.6.4+biosan4.p0.1, generated WGS/GATK admission fixtures under synthetic API.
+Four opt-in consumer checks passed on BS10610, hash-pinned original files:
+candidate alone is rejected; candidate plus a deliberately synthetic terminal
+is compatible. No consumer policy was relaxed for pipeline=synthetic. This
+supersedes "no producer fixture" observations, not the missing real terminal
+writer/adapter/runtime acceptance. Neither artifact is an authorization seal.
+
+`app.cce_recovery_service.reserve_monitored_recovery` binds the current failed
+Step3 monitor to its explicit, current Master-submit execution (original Step2
+or a replacement submitted by Step3). It checks frozen release/workdir, attempt,
+generation and request hash, invokes the controlled reader, then reserves under
+the existing attempt budget. The persisted action binds both execution identities
+and evidence contents; repeated callbacks cannot swap evidence or spend twice.
+See docs04 for the proposed trusted binding JSON fields. Missing historical
+bindings reject rather than manufacturing lineage. Caller owns rollback/commit.
+
+This bridge does not populate bindings, initialize policy, change run status,
+dispatch, or expose an endpoint. It has no production caller. Actual producer
+fixtures and trusted terminal wrapper remain outstanding. Automatic policy stays
+off; dispatch still needs fresh control/quiescence checks and callback fencing.
+22 focused WGS/GATK synthetic checks passed on BS10610, using real reader,
+validator and budget with synthetic files/SQLite, not live Kubernetes or DB.
+
+WGS `request_resume_stage` now refuses unfinished same-attempt compute-recovery
+actions under the same AnalysisRun row lock, before frozen-request mutation or
+Airflow calls. Terminal automatic history remains intact and manual resume is
+still allowed afterward. Eight tests of this existing entry passed on BS10610.
+This is one entry-point fence, not completion of generic resume, GATK, Step7,
+dispatch or PostgreSQL concurrency acceptance. No unrelated regression rerun.
+
+### Bound workload observations (2026-09-23, not a terminal seal)
+
+`scripts/cce_recovery_workloads.py:probe_bound_workloads` issues read-only
+exact-name Job and job-name-selected Pod queries through the frozen runtime's
+kubectl command builder. Configured namespace must match the frozen binding.
+The exact Master Job UID must be Failed/inactive, and the bound Master Pod UID
+must appear among terminated, correctly owned Pods. Worker UIDs are exact;
+missing Jobs still require querying their residual Pods. An expected absent
+Worker with no known UID cannot adopt an unexpected Job/Pod.
+
+All main/init/ephemeral container status inventories must match Pod specs and
+show terminated exit codes. Active/deleting/foreign/ambiguous objects, missing
+Pod lists, pagination, failed queries and changed identities reject. Only a
+successful exact-name --ignore-not-found query may represent an absent Job.
+Each command has at most30s and the caller's overall budget at most300s (default
+120s). No Kubernetes writes, deletion, file mutation or status changes occur.
+
+Caller MUST first bind a complete submission journal and admitted Worker
+manifest to the frozen Master context; an arbitrary list is not complete proof.
+Return values are observations only: no sealed/complete/inventory-complete or
+automatic-recovery permission. Multiple queries are not an atomic snapshot;
+dispatch must recheck current identity and quiescence under its control fence.
+No current adapter calls this probe yet.25 synthetic boundary checks passed on
+BS10610, not a real cluster or terminal-writer acceptance.
+
+Source83e7adb's `_require_no_active_workers` and generic RUN_FAILED marker cannot
+replace this boundary or the missing complete Master error summary. Do not
+derive rule_failure_count=0 from an empty/partial logger stream. The existing
+rule-status logger filters events and has no complete classified fatal footer;
+trusted producer/wrapper work remains necessary before sealing/auto-enabling.
 
 ## Native UI evidence adapter (2026-09-17 test)
 
@@ -541,3 +1432,33 @@ SFS targets. Native Step7 again requires DOWNLOAD_VERIFIED, MATERIALIZED and
 no active historical Workers. Unverified cleanup is never enabled. It deletes
 only frozen SFS run/linkage and their terminal job/batch-lock resources;
 approved local delivery, local evidence, OBS input, release and references remain.
+# Task6 Master failure accounting / schema2 evidence (2026-09-25)
+
+Source-only, default activation unchanged. In an existing handoff-v2 submission
+phase, Master rule-status emits private `failure-summary.json` with schema
+`cce.master-failure-summary.v1`, exact submit-context, closed/complete flags,
+workflow-start count, cumulative submission/control/rule/other counts and separate
+upstream scheduler/workflow shutdown-notice counts. No error message or clinical
+payload is persisted. Missing start, duplicate start, logger write errors or an
+unclosed process cannot prove zero failures. Worker logger ignores this audit.
+Handoff-v2 preflight and analysis both use the logger; legacy preflight is unchanged.
+
+Native FINAL includes each present summary under `phases.<phase>.failure_summary`;
+identity mismatch invalidates the snapshot. Optional absence preserves manual
+historical recovery but is never sufficient for automatic recovery. The restricted
+selected-Master reader authenticates native FINAL and registered producer lineage,
+then verifies every phase and full live Job/Pod inventory including retained
+ancestors. Mixed/unknown failures, active work and incomplete reads remain blocked.
+
+Existing `VerifiedMasterResult` captures optional `cce_recovery_evidence` in its
+immutable receipt bytes. Only the same Step3 observation can forward it; generic
+progress kwargs, a plain deserialized result or another stage cannot supply it.
+Envelope schema2 contains the verified Master binding, failed phase, plugin
+candidate and `cce.master-terminal.v1` classification seal. This is the trusted
+producer of the earlier seal contract, not a frontend endpoint or recovery grant.
+Business reservation checks the original platform producer row and the latest
+monitor separately; native generation/request hash/phase execution ID are derived
+from `binding.native`, never substituted with platform fields. A newer observer
+may retain the older producer only through an identical verified native binding.
+Existing policy/budget/control and subsequent dispatch checks remain mandatory.
+No database table, public API, rule event schema, pipeline logic or live gate changes.

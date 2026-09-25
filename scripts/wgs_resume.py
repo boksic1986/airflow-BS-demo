@@ -18,10 +18,22 @@ def _regular(path):
 
 
 def _runtime(bundle):
+    if __package__:
+        from .cce_paired_runtime import load_runtime
+    else:
+        from cce_paired_runtime import load_runtime
+    paired = load_runtime()
+    if paired is not None:
+        return paired
     spec = importlib.util.spec_from_file_location('wgs_frozen_resume_runtime', _regular(bundle / 'cce_batch_runtime.py'))
     runtime = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(runtime)
     return runtime
+
+
+def _query(runtime, config, *arguments):
+    reader = getattr(runtime, '_recovery_query', None)
+    return reader(config, *arguments) if callable(reader) else runtime._kubectl_json(config, *arguments)
 
 
 def _subset(expected, actual):
@@ -35,22 +47,33 @@ def _subset(expected, actual):
 def _save(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
     partial = path.with_suffix('.partial')
-    with partial.open('w', encoding='utf-8') as handle:
+    fd = os.open(partial, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, 'w', encoding='utf-8') as handle:
         json.dump(value, handle, sort_keys=True)
         handle.flush()
         os.fsync(handle.fileno())
     os.replace(partial, path)
+    parent = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(parent)
+    finally:
+        os.close(parent)
 
 
 def _delete_master(runtime, config, names, options):
     url = f"/apis/batch/v1/namespaces/{names['namespace']}/jobs/{names['master_job']}"
     subprocess.run(runtime._kubectl(config, 'delete', '--raw', url, '-f', '-'),
-        input=json.dumps(options).encode(), check=True, capture_output=True)
+        input=json.dumps(options).encode(), check=True, capture_output=True, timeout=60)
 
 
 def _require_inactive_master_pods(runtime, config, names, uid):
-    pods = runtime._kubectl_json(config, 'pods', '-l', 'job-name=' + names['master_job'])
-    if not isinstance(pods, dict) or not isinstance(pods.get('items'), list):
+    pods = _query(runtime, config, 'pods', '-l', 'job-name=' + names['master_job'], '--chunk-size=0')
+    if (not isinstance(pods, dict) or pods.get('kind') not in {'List', 'PodList'}
+            or not isinstance(pods.get('items'), list)
+            or not isinstance(pods.get('metadata', {}), dict)
+            or pods.get('metadata', {}).get('continue')
+            or pods.get('metadata', {}).get('remainingItemCount', 0) != 0
+            or any(not isinstance(pod, dict) for pod in pods['items'])):
         raise RuntimeError('Master Pod inventory is unavailable')
     for pod in pods['items']:
         metadata = pod.get('metadata') or {}
@@ -68,6 +91,14 @@ def _submit_frozen_master(runtime, config, bundle):
 
 def _finish_handoff(runtime, bundle, contract, config, job):
     uid = job['metadata']['uid']
+    manifest = yaml.safe_load(_regular(bundle / 'master-job.yaml').read_text())
+    if manifest.get('metadata', {}).get('annotations', {}).get('cce-pipeline/handoff-version') == '2':
+        finish = getattr(runtime, '_finish_master_handoff', None)
+        if not callable(finish):
+            raise RuntimeError('compatible Master confirmation reader is unavailable')
+        # The producer retains the original deadline, binds Job/Pod/digests,
+        # and reconciles START_SENT without retransmission.
+        return finish(bundle, contract, config, uid)
     name = contract['kubernetes']['master_job']
     pod = runtime._wait_pod(config, name, uid)
     start = runtime._run(runtime._kubectl(config, 'exec', pod, '--', 'test', '-f', '/tmp/cce-batch-input/START'), check=False, capture=True)
@@ -98,11 +129,13 @@ def _finish_handoff(runtime, bundle, contract, config, job):
     runtime._write_master_handoff(bundle, contract, job_name=contract['kubernetes']['master_job'], job_uid=uid, state='START_SENT')
 
 
-def resume_master(*, payload, binding, runtime=None):
+def resume_master(*, payload, binding, runtime=None, recovery=None):
     if not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', str(payload.get('resume_action_id') or '')):
         raise RuntimeError('invalid recovery action identity')
     bundle = Path(binding['cce_bundle'])
     runtime = runtime or _runtime(bundle)
+    if getattr(runtime, '_operator_paired_activation', False) and recovery is None:
+        raise RuntimeError('paired runtime requires a verified recovery capability')
     required = ('_load', '_kubectl_json', '_claim_batch_lock', '_require_no_active_workers',
         '_create_job_from_path', '_wait_pod', '_run', '_kubectl', '_write_master_handoff', '_prepare_worker_manifest')
     if any(not callable(getattr(runtime, name, None)) for name in required):
@@ -119,10 +152,37 @@ def resume_master(*, payload, binding, runtime=None):
     if manifest.get('kind') != 'Job' or metadata.get('name') != names['master_job'] or metadata.get('namespace', names['namespace']) != names['namespace'] or metadata.get('labels', {}).get('cce.biosan.cn/run-id') != binding.get('run_label'):
         raise RuntimeError('frozen Master manifest differs from binding')
     journal_path = Path(payload['control_workdir']) / ('recovery-' + payload['resume_action_id'] + '.json')
+    if recovery is not None:
+        import fcntl
+        if __package__:
+            from .cce_recovery_inventory import RecoveryCapability
+        else:
+            from cce_recovery_inventory import RecoveryCapability
+        if not isinstance(recovery,RecoveryCapability) or recovery.origin_bundle != bundle:
+            raise RuntimeError('internal verified recovery capability required')
+        recovery.bind(runtime,contract,config,run_label=binding['run_label'],pipeline='wgs',
+            analysis_id=payload['analysis_id'],attempt=payload['attempt'],action=payload['resume_action_id'])
+        journal_path.parent.mkdir(parents=True,exist_ok=True)
+        descriptor=os.open(journal_path.parent/'.maintenance.lock',os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600)
+        with os.fdopen(descriptor,'a') as lock:
+            fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            journal=json.loads(_regular(journal_path).read_text()) if journal_path.exists() else {}
+            if journal.get('registered_source', str(recovery.bundle)) != str(recovery.bundle):
+                raise RuntimeError('registered recovery source changed')
+            journal['registered_source'] = str(recovery.bundle)
+            result = runtime._advance_recovery_view(recovery.bundle,contract,config,context=recovery.context,
+                expected_job_uid=recovery.expected_job_uid,destination=journal_path.with_suffix('')/'view',
+                journal=journal,save_journal=lambda value:_save(journal_path,value),check=recovery.inspect,
+                claim=recovery.claim,authorize=recovery._authorized,platform_execution=recovery.platform_execution,
+                **({'compute_deadline':recovery.compute_deadline} if recovery.compute_deadline is not None else {}))
+            return recovery.export_result(result)
     journal = json.loads(_regular(journal_path).read_text()) if journal_path.exists() else {}
-    job = runtime._kubectl_json(config, 'job', names['master_job'])
+    job = _query(runtime, config, 'job', names['master_job'])
     if job and not _subset(manifest, job):
         raise RuntimeError('live Master differs from frozen manifest/image')
+    v2 = metadata.get('annotations', {}).get('cce-pipeline/handoff-version') == '2'
+    if v2 and (not job or fence_master_status({}, job, expected_uid=job['metadata']['uid'])['master_state'] == 'FAILED'):
+        raise RuntimeError('missing or failed v2 Master requires a bound next-generation recovery view before replacement')
     runtime._claim_batch_lock(contract, config)  # Native same-run lock inheritance.
     mode = 'reused'
     if job:
@@ -130,8 +190,18 @@ def resume_master(*, payload, binding, runtime=None):
         if job['metadata'].get('deletionTimestamp'):
             raise RuntimeError('Master deletion is still in progress')
         if status == 'SUCCEEDED':
+            success = getattr(runtime, '_recovery_native_success', None)
+            if not callable(success):
+                raise RuntimeError('compatible native success reader is unavailable')
+            terminal = success(bundle, contract, job['metadata']['uid'])
+            if not isinstance(terminal, dict) or terminal.get('state') != 'SUCCEEDED' or terminal.get('job_uid') != job['metadata']['uid']:
+                raise RuntimeError('native success identity is unverified')
             return {'mode': 'reused', 'master_uid': job['metadata']['uid']}
         if status == 'FAILED':
+            # CREATE may have succeeded while its response and first GET were
+            # lost. A delayed failed Job is not permission to restart this action.
+            if journal.get('state') == 'submitting':
+                raise RuntimeError('submitted Master outcome requires reconciliation; no replacement submitted')
             if int((job.get('status') or {}).get('active') or 0):
                 raise RuntimeError('failed Master still has active Pods')
             uid = job['metadata']['uid']
@@ -149,7 +219,13 @@ def resume_master(*, payload, binding, runtime=None):
                         if source.is_file() and not source.is_symlink() and not (archive / source.name).exists():
                             shutil.copy2(source, archive / source.name)
             runtime._require_no_active_workers(bundle, contract, config, job, allow_prestart_manifest_absence=True)
-            journal = {'old_uid': uid, 'state': 'deleting'}
+            rechecked = _query(runtime, config, 'job', names['master_job'])
+            if (not rechecked or rechecked.get('metadata', {}).get('uid') != uid
+                    or rechecked['metadata'].get('resourceVersion') != job['metadata']['resourceVersion']
+                    or rechecked['metadata'].get('deletionTimestamp')
+                    or not _subset(manifest, rechecked)):
+                raise RuntimeError('Master UID/resourceVersion changed before deletion')
+            journal.update(old_uid=uid, state='deleting')
             _save(journal_path, journal)
             options = {'apiVersion': 'v1', 'kind': 'DeleteOptions', 'propagationPolicy': 'Foreground',
                 'preconditions': {'uid': uid, 'resourceVersion': job['metadata']['resourceVersion']}}
@@ -159,7 +235,7 @@ def resume_master(*, payload, binding, runtime=None):
                 # Never retry a DELETE blindly; observe the exact name below.
                 pass
             for _ in range(30):
-                observed = runtime._kubectl_json(config, 'job', names['master_job'])
+                observed = _query(runtime, config, 'job', names['master_job'])
                 if observed is None:
                     job = None
                     break
@@ -171,7 +247,11 @@ def resume_master(*, payload, binding, runtime=None):
             journal['state'] = 'deleted'
             _save(journal_path, journal)
     if job is None:
-        if payload['stage'] != 'step2_master' and journal.get('state') not in {'deleting', 'deleted', 'submitting'}:
+        # Once CREATE may have been transmitted, even a later successful 404
+        # cannot establish that no Master ran. Reconcile evidence, never POST again.
+        if journal and journal.get('state') not in {'deleting', 'deleted'}:
+            raise RuntimeError('missing submitted Master requires evidence reconciliation; no replacement submitted')
+        if payload['stage'] != 'step2_master' and journal.get('state') not in {'deleting', 'deleted'}:
             raise RuntimeError('missing Master without a recorded recovery deletion')
         if not journal and callable(getattr(runtime, '_read_master_handoff', None)) and runtime._read_master_handoff(bundle, contract):
             raise RuntimeError('previously submitted Master is missing; its outcome must be reconciled')
@@ -181,7 +261,7 @@ def resume_master(*, payload, binding, runtime=None):
             _submit_frozen_master(runtime, config, bundle)
         except (RuntimeError, subprocess.SubprocessError):
             pass
-        job = runtime._kubectl_json(config, 'job', names['master_job'])
+        job = _query(runtime, config, 'job', names['master_job'])
         if not job or not _subset(manifest, job) or job['metadata']['uid'] == journal.get('old_uid'):
             raise RuntimeError('replacement submission outcome is unverified')
         journal.update(state='created', replacement_uid=job['metadata']['uid'])
@@ -198,6 +278,10 @@ def fence_master_status(snapshot, live, *, expected_uid):
         raise RuntimeError('current Master identity is unavailable or changed')
     status = live.get('status') or {}
     conditions = {item.get('type') for item in status.get('conditions') or [] if item.get('status') == 'True'}
+    terminal = conditions & {'Complete', 'Failed'}
+    if (len(terminal) > 1 or (terminal and any(type(status.get(k, 0)) is not int or status.get(k, 0) != 0
+                                              for k in ('active', 'terminating')))):
+        raise RuntimeError('Master terminal state is ambiguous or still active')
     state = 'SUCCEEDED' if 'Complete' in conditions else 'FAILED' if 'Failed' in conditions else 'RUNNING'
     return {**snapshot, 'master_state': state, 'master_uid': expected_uid,
         'message': snapshot.get('message', '') if snapshot.get('master_uid') == expected_uid else 'Current Master ' + state.lower()}
@@ -211,8 +295,20 @@ def run_resume_stage(payload, *, gate):
     elif stage == 'step6_materialize':
         subprocess.run(gate._step_command(payload, stage), check=True)
     elif stage in {'step2_master', 'step3_monitor'}:
-        result = resume_master(payload=payload, binding=binding)
+        if __package__:
+            from .cce_paired_runtime import resume_registered, selected_runtime, prepare_monitor_registered
+        else:
+            from cce_paired_runtime import resume_registered, selected_runtime, prepare_monitor_registered
+        if stage == 'step3_monitor' and selected_runtime() is not None:
+            prepare_monitor_registered(payload, binding=binding, gate=gate, pipeline='wgs')
+            gate._monitor_step3(payload)
+            return
+        result = resume_registered(payload, binding=binding, gate=gate, pipeline='wgs')
+        if result is None:
+            result = resume_master(payload=payload, binding=binding)
         payload['resume_master_uid'] = result['master_uid']
+        if 'cce_master_binding' in result:
+            payload['_cce_master_result'] = result
         if stage == 'step3_monitor':
             gate._monitor_step3(payload)
     elif stage == 'step4_publish':

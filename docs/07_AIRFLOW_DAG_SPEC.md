@@ -9,6 +9,95 @@ read-only reconnection delays are30/60/120 seconds. An ambiguous launch response
 is reconciled before at most one identical resend, allowed only if not_started.
 Running/success attaches, unknown stops, failed deletion needs manual retry.
 Failure callbacks affect only the maintenance action. Test acceptance pending.
+## Task6 existing Step4 runner/sensor (2026-09-25, source only)
+
+For an enabled frozen current-attempt policy, start_step4_publish registers the
+original operation, obtains the committed begin permit, rechecks check, invokes
+fixed --publish-dispatch ANALYSIS_ID ATTEMPT GENERATION REQUEST_HASH and reports
+finish only after that local SSH invocation exits. SSH timeout/nonzero is an
+uncertain outcome, not another send. Process death/lost API reply retains durable
+in-flight ambiguity. SSH dispatch is capped at120s and the original stage deadline.
+
+wait_step4_publish performs at most one read-only --publish-probe per poke (30s /
+remaining deadline), echoes exact identity+nonce on the existing stage route,
+and sends only when the backend grants that same-operation redispatch. Failure to
+observe never grants dispatch. Persisted60/180 waits and two-slot dispatch budget
+remain backend-owned; no sensor sleep loop. Expired/exhausted/stopped/failed ends
+automatic reconciliation. Success additionally requires the existing stage-status
+normal receipt before downstream. Default-off/legacy behavior, DAG graph, pools,
+task retries and the compute budget are unchanged. No production activation.
+
+## Task6 natural Worker wait (2026-09-25, source only)
+
+The same WGS/GATK Step3 sensor performs at most one fixed read-only SSH probe per
+poke when compute_recovery returns a Worker challenge. Existing runner alias,
+SSH config and restricted wrapper are reused; probe timeout is at most150s and
+capped by the returned wait deadline (2026-09-25 V07 correction). The inner
+workload probe retains its120s budget; a result arriving after the persisted wait
+deadline is not submitted. The backend owns the persistent action,
+600s/original-deadline limit and compute budget, not the sensor or SSH process.
+Successful observation is returned to that same POST; SSH timeout/nonzero/invalid
+response reschedules without another local retry. Delegation still skips the
+old chain before observer deactivation. No DAG nodes/pools/retry counts changed.
+
+## Task6 automatic sensor handoff (2026-09-25, source only)
+
+WGS/GATK existing Step3 reschedule sensors call compute_recovery only when their
+frozen conf policy is enabled for that exact attempt. The POST uses actual
+context.dag_run.run_id, not a conf-supplied identity. Poll even when the latest
+monitor is running: a lost POST reply may mean that row belongs to the replacement.
+waiting/uncertain returns false; delegated/superseded raises AirflowSkipException
+before WGS observer deactivation and before downstream execution. Only the current
+DagRun may settle its registered compute action and advance after success.
+
+No DAG nodes, stage ordering, pools or retry counts changed. WGS idempotent
+recovery reconciliation shares its existing bounded stage-query transport retry
+classification; GATK uses its existing backend transport classification. Default-off,
+legacy and mismatched-attempt policies do not call the automatic operation.
+Native deadline enforcement and bounded Worker wait are covered by subsequent
+checkpoints. Step4 and remaining Task6 integration remain open; this sensor wiring
+is not whole Task6 acceptance or rollout authorization.
+
+## P0-2 GATK manual recovery selection (2026-09-24, source only)
+
+bio_gatk uses the persisted resume_stages list: skipped runner/sensor/transfer
+boundaries succeed without preparing, uploading, registering or dispatching SSH.
+Finalization and final lease cleanup remain in the original graph. Selected
+registrations send actual dag_run.run_id and resume_action_id, never a conf-supplied
+DagRun ID. The backend independently checks scope/current identity/control state.
+No graph order, pool, timeout or retry-budget changes. GATK Resume capability stays
+disabled pending the restricted native integration and Task4 full acceptance.
+
+## P0 old cleanup request protection (2026-09-23, source only)
+
+WGS/GATK directional/final lease cleanup sends actual dag_run.run_id, never the
+original conf value. WGS Step3 terminal drain and final observer drain carry
+that ID plus resume_action_id. Failed release/retained lease prevents final
+drain; the backend independently checks each request under the refreshed run
+lock. No task graph/order/pool/retry/limit changes; Local/SGE DAGs unchanged.
+No automatic dispatch enabled. Backend API must precede DAG rollout.
+Remaining observer generation projection and recovery dispatch are not covered
+by this external-cleanup fence; PostgreSQL concurrency remains unverified.
+
+## P0-2 WGS manual recovery identity (2026-09-24, source only)
+
+For resume_action_id runs, register_stage sends actual dag_run.run_id on EVERY
+registration, including acquire/finalize, never conf.dag_run_id. Existing stage
+selection still skips prepare/upload/completed stages for Step3 Resume.
+The backend validates current action, attempt, DagRun and selected stage before
+mutating generation/leases/run. Ordinary non-recovery registration is unchanged.
+No new DAG/task/order/pool/retry policy or automatic activation. Roll out this DAG
+payload and the matching backend together; no deployment is part of Task4 work.
+GATK authenticated Resume and native selected-view propagation remain open.
+
+## P0 old failure callback protection (2026-09-23, source only)
+
+GATK report_dag_failure now sends actual dag_run.run_id with its existing attempt
+and failed task list; WGS already does. Backend rejects superseded/pending/unbound
+recovery callbacks before projection while allowing the exact current dispatched
+recovery DagRun's failure. No DAG graph, retries, pools or task ordering changed.
+This is not yet observer/lease fencing or generic Airflow/runtime failure separation.
+The internal API addition must precede the DAG update in a future approved deploy.
 
 ## R2-3 isolated native monitoring candidate (2026-09-15)
 
@@ -103,7 +192,8 @@ Terminal Airflow failures must be projected into the business database. An obser
 
 ## Bounded GATK observation retries (2026-09-14)
 
-Only the `stage_ready` GET sensors retry transient backend failures: connection
+The `stage_ready` GET sensors and idempotent input/result slot-acquisition
+sensors retry transient backend failures: connection
 refusal/reset, read timeout/disconnect/incomplete response, or HTTP408/429/500/
 502/503/504. Airflow allows six retries, starting at30 seconds with exponential
 backoff and a five-minute maximum delay. Existing reschedule mode and stage
@@ -114,7 +204,13 @@ orchestration failure; it is not permission to terminate or delete cloud work.
 Non-transient HTTP responses, malformed JSON/non-object payloads and explicit
 terminal failed stage receipts use `AirflowFailException` and bypass remaining
 retries. HTTP error bodies and transport details are not copied into task logs.
-Stage registration, SSH dispatch, transfer acquire/release and finalization
+Slot acquisition replays the exact analysis/attempt/directional transfer identity;
+the existing lease primitive returns its already-owned slot, never steals another
+identity or dispatches transfer work. Response loss after commit is safe to replay.
+The48-hour acquisition timeout and directional pools are unchanged. This addition
+was verified on BS10610 with synthetic requests, not deployed to current runs.
+
+Other stage registration, SSH dispatch, transfer release and finalization
 retain zero automatic task retries: they cannot be blindly replayed after an
 ambiguous POST/SSH response. This patch does not rebuild Masters, change frozen
 attempt identity, release a live transfer lease or rerun biological computation.

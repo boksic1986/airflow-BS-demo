@@ -585,10 +585,10 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
     if stage not in SUPPORTED_RUNTIME_SYNC_STAGES:
         raise ValueError("unsupported runtime stage status")
     with session_factory() as session:
-        analysis_query = select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
-        if stage == 'step7_cleanup':
-            analysis_query = analysis_query.with_for_update()
-        analysis = session.scalar(analysis_query)
+        analysis = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+            .with_for_update().execution_options(populate_existing=True)
+        )
         if analysis is None or analysis.attempt != attempt:
             raise ValueError("runtime stage status references an unknown active attempt")
         contract_v2 = int((analysis.params_json or {}).get("orchestration_contract_version") or 1) == 2
@@ -602,6 +602,11 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
             )
             if execution is None:
                 return False
+            # Serialize receipt projection with recovery registration. A caller
+            # may still hold an execution cached before another terminal receipt.
+            session.refresh(execution)
+            from app.cce_monitor_observation import KEY as MONITOR_KEY, retain_monitor_observation
+            previous_monitor = (execution.terminal_payload_json or {}).get(MONITOR_KEY)
             if not transition_stage_execution(
                 session=session,
                 execution_id=execution.execution_id,
@@ -620,6 +625,7 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                 message=str(payload.get("message") or "") or None,
             ):
                 return False
+            retain_monitor_observation(execution, payload, pipeline='wgs', previous=previous_monitor)
         if stage in PREPARE_STATUS_STAGES:
             upsert_stage_state(
                 session,
@@ -977,6 +983,12 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                         or "Rule evidence bridge failed"
                     ),
                 )
+            if contract_v2:
+                from app.cce_monitor_observation import query_unconfirmed
+                if query_unconfirmed(execution):
+                    # Do not timestamp stale Master/progress as a fresh observation.
+                    session.commit()
+                    return False
             master_job = str(payload.get("master_job") or "")
             master = payload.get("master") if isinstance(payload.get("master"), dict) else {}
             if not master_job or not master:
