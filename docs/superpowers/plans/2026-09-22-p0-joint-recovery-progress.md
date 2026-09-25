@@ -1,5 +1,19 @@
 # P0 joint recovery implementation ledger
 
+## 2026-09-25 非 root 部署契约纠正（本轮仅文档）
+
+用户明确：Airflow 由 chenjc 部署，分析由 ctapa 执行，WGS 仓库属 chenjx。
+撤销解释器、脚本、策略及所有祖先必须 UID0、策略只能位于 /etc 的要求；
+不要求 sudo/chown、新容器/服务，也不替换已约定的 nipttest。
+按组件维护者、执行账号和实际有效权限区分职责，保留成对 pin、固定可信入口、
+注册、目录身份、generation 和证据校验，详见
+[安全契约](../../13_SECURITY_AND_OPERATIONS.md#p0-non-root-deployment-correction-2026-09-25-user-confirmed)。
+P0-NONROOT-DOC 已完成；P0-NONROOT-ENTRY 待平台/native owner 同步适配现有
+selector/guard 并做最小实际非 root 解释器校验。原 fixture 替换 UID/解释器验证，
+因此源码验收未覆盖真实部署兼容性；此前“源码完成”不能覆盖这一新确认的缺口。
+本轮不改源码、不远端测试/安装/构建/启用。既有 SWR/TTL 回执保留，不重做；
+修订源码后由制品 owner 判断实际受影响制品，不默认重建插件或两个 Master。
+
 ## 2026-09-25 后续发布：SWR 与限定 TTL 已核验
 
 原负责人已推送两个已验收 Master 候选镜像，未覆盖旧标签；协调方核对实际

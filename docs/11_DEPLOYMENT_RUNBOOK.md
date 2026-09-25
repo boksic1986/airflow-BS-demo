@@ -1,5 +1,17 @@
 # Deployment runbook
 
+## 2026-09-25 non-root deployment requirement correction
+
+Do not seek root-owned interpreter/script landing points to satisfy the current
+P0 selector. That is a code/contract defect, not a deployment prerequisite.
+Retain chenjc deployment, ctapa analysis and the user-declared chenjx source owner;
+no sudo/chown, new runtime service/container or WGS installation is required.
+Policy may live at a fixed deployment-managed non-root location. Follow
+[the revised trust contract](13_SECURITY_AND_OPERATIONS.md#p0-non-root-deployment-correction-2026-09-25-user-confirmed).
+`P0-NONROOT-ENTRY` must align the two existing readers and pass the small affected
+non-root checks before activation. This correction does not itself change the
+installed CLI, authorize installation or make the old candidate compatible.
+
 ## 2026-09-25 publication / limited TTL acceptance, no activation
 
 Two final Master candidate images are published with verified SWR manifest pins;
@@ -46,8 +58,9 @@ identity, restricted entry selection, per-run trusted registration, selected-vie
 normal receipts and final lifecycle release have passed isolated acceptance;
 actual installed writer and storage identity coverage is not established by it.
 Later authorized paired rollout must install the runtime and
-sibling guard together, pin scripts/cce_paired_runtime.py, use an operator-owned
-Python and exact namespace/PVC/PV identities, and cover every CLI/platform writer.
+sibling guard together, pin scripts/cce_paired_runtime.py, use the approved
+deployment-maintained Python (not necessarily root-owned) and exact namespace/PVC/PV
+identities, and cover every CLI/platform writer.
 Invalid activation fails closed; removing policy while v2 owners remain is not
 a safe rollback. No new SFS host mount is required by the approved design.
 

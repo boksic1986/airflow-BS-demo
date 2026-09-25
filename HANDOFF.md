@@ -1,5 +1,44 @@
 # Handoff
 
+## 2026-09-25 root-only requirement withdrawn after documentation audit
+
+Goal/authority: user requests audit and cancellation of unreasonable root
+requirements; Airflow deployer chenjc, workflow executor ctapa, WGS source owner
+chenjx. Account names are user-provided, not a new remote UID observation.
+Target: existing isolated P0 development branch, documentation only; no remote
+environment fingerprint needed because no SSH/runtime/deployment was performed.
+
+Read docs34/13/08/11, P0 requirements/progress and latest release/handoff; compare
+actual platform _operator_path/selected_runtime, native _operator_file/_load_policy
+and platform fixture. Both implementations hardcode UID0 and /etc; fixture changes
+TRUSTED_UID and bypasses _operator_python. Prior synthetic evidence therefore does
+not prove compatibility with the agreed deployment. Withdraw that requirement,
+not the retained pin/path/registration/identity protections. The earlier hold
+entry below is history and must not be used to demand a root-owned installation.
+
+Changed docs: docs13 authority/affected-scope, docs34 identity boundary, docs08
+runtime contract, docs11 rollout, P0 design/progress, SWR/TTL release note and
+CURRENT_STATE/TASKS/HANDOFF. Existing native owner asked to align only its docs
+and preflight follow-up, not to change code, install, rebuild or run remote tests.
+Native owner committed f44619d (docs only); coordinator read the new trust audit
+and latest HANDOFF. It agrees on role separation, retained pins, interpreter-link
+scope and unmodified code. Original publication/TTL receipts are preserved.
+
+Open: P0-NONROOT-ENTRY aligns both existing readers using deployment-managed
+role-scoped authority outside the untrusted policy/project. Actual non-root
+interpreter checks must not substitute its validator. Existing artifacts retain
+their identities/evidence but cannot be claimed to satisfy this new correction.
+No P0 retry/lock/TTL algorithm reopened. No blanket username/EUID/group allowlist.
+
+Validation: local source/doc searches and git diff/link checks only; no pytest,
+Docker/Compose, SSH, runtime tests or artifact tests (documentation-only scope).
+git diff --check passed; all six links to the corrected authority and their
+heading anchors resolved. Platform changed files are Markdown only.
+No service/scanner/dispatch, DB, permissions, CLI, image or activation changes;
+no production/main merge or Git push. Rollback is this documentation diff only;
+no data deletion and no runtime rollback needed. Next: bounded selector/guard
+source correction by the owners, then affected remote checks before any rollout.
+
 ## 2026-09-25 installation stopped at unclosed trust prerequisite
 
 Coordinator read scripts/cce_paired_runtime.py:selected_runtime/_operator_path

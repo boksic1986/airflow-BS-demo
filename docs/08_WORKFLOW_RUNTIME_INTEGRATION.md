@@ -1,5 +1,18 @@
 # Workflow runtime integration
 
+## P0 non-root entry correction (2026-09-25, documentation contract)
+
+The user-confirmed multi-account deployment does not require root-owned Python,
+scripts, policy or identical ancestry owners. `operator-owned` below means the
+approved maintainer for that component, not UID 0. Fixed `/etc`-only activation
+is also withdrawn as a deployment requirement. Preserve the existing `nipttest`
+Operator test environment and separate control/source/execution roles.
+See [authority, retained protections and bounded follow-up](13_SECURITY_AND_OPERATIONS.md#p0-non-root-deployment-correction-2026-09-25-user-confirmed).
+Both the platform selector and native writer guard still implement the conflicting
+UID-0 checks; `P0-NONROOT-ENTRY` is open. Historical source/synthetic acceptance
+below is not proof of real multi-account activation. No runtime was changed by
+this documentation correction.
+
 ## Selected Step3 terminal conflict fence (2026-09-25, source only)
 
 The identity-bound native terminal must not contradict the current live Master
@@ -353,9 +366,11 @@ probe results. No local NFS-to-SFS equivalence or new host mount.
 
 The fixed writers-v2 policy additionally pins `runtime_guard` (path/sha256 for
 the CLI source's sibling cce_writer_guard.py), and `operator_python` selects the
-operator-owned executable for external stage commands. `writers.platform` pins
-scripts/cce_paired_runtime.py. Source and ancestry must be operator-owned and not
-group/world writable. No request field/environment flag can bypass bad policy.
+deployment-maintained executable for external stage commands. `writers.platform`
+pins scripts/cce_paired_runtime.py. The original implementation required UID 0
+and no group/world write throughout ancestry; that ownership assumption is
+superseded by the non-root contract above, with source adaptation still pending.
+No request field/environment flag can bypass bad policy.
 Actual WGS/GATK Step1–6 builders and Resume loaders select the external runtime
 only when this policy exists. GATK custom delivery also enters its writer and
 keeps the original approved result root. Unactivated old behavior is unchanged.
@@ -367,8 +382,9 @@ recovery capability construction and final-release closure remain Task4 gates.
 ## Task4 protected writer entry (source only, 2026-09-24)
 
 Native8ec5415 exports ProtectedWriter for Step1–Step6 and bundles its guard module.
-CLI main reads fixed operator-owned /etc/cce-pipeline/writers-v2.json; no browser
-or environment opt-out. When activated, require paired source pins, namespace,
+At this historical checkpoint CLI main reads /etc/cce-pipeline/writers-v2.json;
+the fixed-location/UID-0 requirement is superseded by the non-root contract above.
+No browser or untrusted environment opt-out. When activated, require paired source pins, namespace,
 physical shared-storage mapping and exact registered immutable bundle/config.
 Unknown legacy identity fails closed. Shared journal flock serializes the stage;
 CAS intents retain existing fsync semantics. Legacy failure cleanup inside a

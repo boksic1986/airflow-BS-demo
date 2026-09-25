@@ -1,14 +1,25 @@
 # Active test-branch tasks
 
+## 2026-09-25 non-root deployment audit
+
+- [x] P0-NONROOT-DOC: withdraw root-only ownership and /etc-only activation
+  requirements; distinguish chenjc/ctapa/chenjx roles and retain scoped trust
+  protections. Audit platform/native checks and the substituted test fixture.
+- [ ] P0-NONROOT-ENTRY: platform/native owners adapt existing selectors/guard
+  to deployment-managed non-root trust; bounded actual-interpreter checks only.
+  No hardcoded username list, policy self-authorization or EUID-only substitute.
+  This is an identified source gap, not a request to acquire root privileges.
+- [ ] Installation/activation remains separate: agreed nipttest, exact rollback,
+  approved paired test scope, unchanged WGS/production. No new service/container.
+
 ## 2026-09-25 SWR publication follow-up
 
 - [x] P0-SWR-PUBLISH: two accepted images published with non-overwriting tags;
   coordinator checked registry manifest/config linkage and8 evidence hashes.
-- [ ] P0-NIPTTEST-PREFLIGHT: shared install/version observations and paired
-  selector requirements documented. Exact old-package rollback, approved
-  root-owned interpreter/install authority and test-isolation scope still needed.
-  STOP: chenjc-owned nipttest is not a valid trusted interpreter under current
-  selector. Reconcile deployment premise; no new service or weakened UID checks.
+- [ ] P0-NIPTTEST-PREFLIGHT: shared install/version observations documented.
+  Exact old-package rollback and approved test-isolation/install scope still
+  needed. P0-NONROOT-ENTRY must correct the current incompatible selector;
+  root-owned interpreter/install authority is no longer a requirement.
   No installation or dependency upgrade.
 - [x] P0-TTL-LIVE: exact authorized no-data Jobs reached Complete/exit0 and
   Failed/exit17, then both Jobs/owner Pods auto-removed; no manual cleanup.

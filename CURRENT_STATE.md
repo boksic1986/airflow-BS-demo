@@ -1,5 +1,19 @@
 # Current state
 
+## 2026-09-25 non-root trust contract corrected; source adaptation pending
+
+User confirms Airflow deployer chenjc, analysis user ctapa, WGS source owner
+chenjx. P0's root-owned interpreter/scripts/policy/all-ancestor requirement and
+mandatory /etc policy location are withdrawn as deployment requirements.
+Do not seek sudo/chown, a new service/container or a replacement for nipttest.
+docs/13_SECURITY_AND_OPERATIONS.md records the role-scoped trust contract and
+retained path/pin/registration/fence protections. Platform/native UID-0 checks
+remain a source gap (P0-NONROOT-ENTRY), not an environment permission blocker.
+Prior synthetic tests substituted the platform interpreter validator; they did
+not validate this deployment premise. This turn is documentation audit only.
+No SSH, runtime tests, source edits, installation, permission or service changes.
+SWR/TTL historical evidence remains valid; non-root activation is not accepted.
+
 ## 2026-09-25 SWR publication and scoped live TTL accepted
 
 User confirmed SWR login and asked to continue. Existing native/Infra owner is
@@ -14,11 +28,10 @@ Coordinator checked15 original TTL evidence hashes and terminal/owner identities
 Nipttest is0.8.5 while test catalog declares0.8.4; neither is the new candidate.
 User has been asked to approve BS shared-nipttest plus BS10610 paired-test update;
 preserve rollback, no WGS/production/old-run change or automatic enablement.
-Subsequent plan review exposed an additional hard prerequisite: paired selector
-requires root-owned interpreter/runtime, but nipttest is chenjc-owned. No approved
-trusted install entry is established. Installation is stopped even if the general
-paired-upgrade question is approved; reconcile that deployment premise first.
-No new service/container, sudo, ownership change or weaker trust check authorized.
+Subsequent plan review exposed hardcoded UID-0 checks conflicting with nipttest.
+The newer non-root correction above withdraws that requirement; do not seek a
+root-owned installation. Source adaptation/affected verification and separate
+rollout authorization remain necessary. No new service/container or sudo/chown.
 
 ## 2026-09-25 item2 offline artifacts accepted; item3 operational gate still closed
 

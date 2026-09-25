@@ -149,6 +149,14 @@ Never copy test runtime, evidence, credentials or database to production.
 
 ## Permission contract
 
+- User clarification (2026-09-25): Airflow is deployed by `chenjc`, analysis runs
+  as `ctapa`, and the WGS repository belongs to `chenjx`. These are distinct roles,
+  not an instruction to change ownership; live UID/GID/ACLs remain preflight facts.
+  Root ownership/execution and identical owners across those components are not
+  platform prerequisites. P0's newly hardcoded UID-0 policy contradicts this
+  contract and must be adapted, not satisfied through sudo/chown or new services.
+  See [the non-root correction](13_SECURITY_AND_OPERATIONS.md#p0-non-root-deployment-correction-2026-09-25-user-confirmed).
+
 - The production workflow identity is `ctapa:bioinfo`. The control root may be
   administered by a separate approved owner; do not infer workflow authority
   from the owner of `/data/airflow-WGS`.
