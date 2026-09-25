@@ -9,9 +9,13 @@ gate; normal ACTIVE_ASSETS update permitted. No unrelated deletion or platform s
 
 - [x] Resume original WGS owner under explicit step1 authorization and deliver
   accepted0.8.6/Master/r2 binding evidence.
-- [ ] Rebind candidate publication metadata, publish4.2.2 SFS paths with normal
+- [x] Rebind candidate publication metadata, publish4.2.2 SFS paths with normal
   tool validation and obtain minimal publication receipt.
-- [ ] Review exact manifests/READY/paths and record accepted R1 result.
+- [x] Review exact manifests/READY/paths and record accepted R1 result.
+
+R1 complete:20260926.1-wgs422, native status PASS/state_verified=true; WGS owner
+verified READY/source and BKW VCF/index SFS hashes. Coordinator consumed original
+CLI JSON/command records and final receipt. See docs/releases/2026-09-26-wgs422-sfs.md.
 
 Do not execute R4, activate profiles on Airflow, merge shared branches or deploy
 BS96 in this slice. Runtime-first completion below remains valid.

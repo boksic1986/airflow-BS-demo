@@ -1,5 +1,17 @@
 # Current state
 
+## 2026-09-26 R1 WGS4.2.2 SFS publication complete
+
+Release20260926.1-wgs422 published by normal0.8.6 CLI:validate PASS,apply exit0,
+status PASS/state_verified=true. SFS pipeline4.2.2 and resourcewgs-4.2.2-r1 READY
+verified by original WGS owner; ACTIVE_ASSETS now binds the new release.
+Source dev_CJC_4.2.2_cloud at3b1dae5, includes current upstreamca71cd6; no4.2.1
+branch commit/push. BKW whitelist VCF/index content verified in SFS under the
+ordinary logical resource name. Source and resource files were not overwritten.
+Coordinator read/checked CLI evidence and final owner receipt, no repeat tests.
+See docs/releases/2026-09-26-wgs422-sfs.md. R1 complete; R4 Airflow integration,
+main/production synchronization and service activation not performed this slice.
+
 ## 2026-09-26 direct WGS4.2.2 publication authorized
 
 Latest user asks to publish4.2.2 directly, without old-batch compatibility work.

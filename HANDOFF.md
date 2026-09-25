@@ -1,5 +1,32 @@
 # Handoff
 
+## 2026-09-26 R1 accepted: WGS4.2.2 published to SFS
+
+Original Infra single writer ran0.8.6 assets validate/apply/status on node005,
+strict task-only SSH to server10610, all exit0; final PASS/state_verified=true
+at2026-09-25T17:55:38.809242Z. New release20260926.1-wgs422,manifest73bca89d...
+pipeline130files/resource9files. WGS owner then checked exact SFS targets/READY,
+ACTIVE_ASSETS,new source3b1dae5 and BKW VCF/index hashes in read-only inspector;
+only that task-created inspector Pod was removed afterward. No dataset cleanup.
+
+Coordinator read original CLI JSON transcriptions and command/exit record from
+D:/pipeline/task-artifacts/p0-final-native-ops-20260925/R1_422_*; parsed status
+against release/manifest/PASS/state_verified successfully. Status file SHA
+9ac71b41782dc38bf669d8d924ba1184c3aadb6e438008484cb7a7f16f673174.
+Final WGS R1_SFS_PUBLICATION_RECEIPT.md read, SHA
+92daa53d5caeab5e19ea5aace9a3e21dcdc870985466e5a85f85fd3145a8da0e.
+No duplicate remote tests/apply. No biological regression/canary: not required
+for this asset-publication slice. Local check is static evidence parsing and
+git diff --check, not local runtime testing.
+
+Canonical record docs/releases/2026-09-26-wgs422-sfs.md lists exact paths/hashes,
+branch provenance, resolved connection errors and historical-before limitation.
+CURRENT_STATE/TASKS/release plan updated. No4.2.1 Git changes;4.2.2 remote dev_CJC
+head not advertised, no push claimed. No Airflow/BS96 service switch, real batch,
+Worker rebuild or global automatic enablement. Next is R4 when directed. Assets
+and receipts retained; rollback requires supported publication, not manual pointer
+edits. Runtime0.8.6/r2/SWR remain as accepted in preceding slice.
+
 ## 2026-09-26 exact whitelist replacement requirement
 
 User explicitly requires source
