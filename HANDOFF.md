@@ -1,5 +1,20 @@
 # Handoff
 
+## 2026-09-25 explicit SSH identity correction
+
+User identifies `C:/Users/11217/.ssh/id_rsa_chenjiucheng` as the documented key.
+The already captured local `ssh -G BS10610` selected this exact IdentityFile,
+and the local hostname check succeeded. Do not read/print/copy its contents.
+The coordinator's continued focus on node005 default SSH as the only entry was
+an incorrect narrowing of the available management path. Both original owners
+were instructed to use the existing documented local management connection,
+stop redundant default-identity/hostname probes, and not require a new global
+alias or private-key relocation. Preserve the private-OBS boundary; if the
+existing release CLI cannot bridge these already available connections, report
+the precise interface limitation, not a general claim that SSH is unavailable.
+No new SSH config, host-key trust, credentials, CLI or environment change made.
+
+
 ## 2026-09-25 user corrects SSH prerequisite; local connection verified
 
 User directs using documented local `ssh BS10610` or node005 direct IP, not

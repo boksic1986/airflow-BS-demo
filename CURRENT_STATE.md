@@ -5,8 +5,11 @@
 Local BS10610 SSH verified exit0, hostname server10610, configured address
 172.17.106.10. User instructs using this or node005 direct IP. Do not require
 creation of a global alias solely because node005 lacks the workstation alias.
-Infra is checking existing direct connectivity/operator selection; no home/key
-change and no publication performed. Existing private OBS boundary still applies.
+User confirmed IdentityFile C:/Users/11217/.ssh/id_rsa_chenjiucheng, already used
+by the successful local connection. Both owners told to stop default-identity
+probes and use the documented existing management path. No home/key change or
+publication performed. Existing private OBS boundary still applies; any remaining
+release-CLI transport limitation must be described separately from SSH access.
 
 ## 2026-09-25 four-step rollout execution authorized
 
