@@ -23,9 +23,12 @@
   max600s/original deadline, fixed read-only probe, immutable failed receipt,
   nonce/identity/FINAL check, one compute slot and strict native dispatch fence.
   BS10610 final17+2+4 targeted cases GREEN (2026-09-25), source only.
+- [x] Exact CREATE storage RPC/peer-reset and mutation Gatekeeper deadline source
+  classification; deterministic Job reconciliation, strict typed consumer fields,
+  original budgets and default-off policy. BS10610 final30+2 GREEN (2026-09-25).
 - [ ] Complete remaining automatic runtime enforcement, Step4 reconciliation,
   existing UI projections and focused PostgreSQL/integration acceptance.
-  Next: exact remaining source classifications and Step4; then UI/PG and
+  Next: Step4 original-operation reconciliation; then UI/PG and
   full automatic lifecycle integration. The source caller is not rollout approval.
 - [ ] Separately authorized live TTL/capacity/AOM/alerts gates remain closed.
 

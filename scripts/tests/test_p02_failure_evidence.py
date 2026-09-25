@@ -15,9 +15,10 @@ from snakemake_interface_logger_plugins.common import LogEvent
 def failed_master(view_inputs, monkeypatch, request):
     h, context = view_inputs
     active = getattr(request,'param',None) == 'active_worker'
+    storage_rpc = getattr(request,'param',None) == 'storage_rpc'
     created = None
     platform = dict(pipeline=context['pipeline'], analysis_id=context['analysis_id'], attempt=1,
-        stage='step3_monitor' if active else getattr(request,'param','step2_master'), execution_id=context['execution_id'], generation=8, request_hash='b'*64)
+        stage='step3_monitor' if active else 'step2_master' if storage_rpc else getattr(request,'param','step2_master'), execution_id=context['execution_id'], generation=8, request_hash='b'*64)
     selected = h.bundle.parent/'selected'
     runtime._prepare_recovery_view(h.bundle, selected, h.contract, context=context, platform_execution=platform)
     record = dict(runtime._handoff_binding(selected,h.contract), **h.contract['identity'],
@@ -32,7 +33,12 @@ def failed_master(view_inputs, monkeypatch, request):
         env=runtime._recovery_phase_start(phase);root=Path(env['SNAKEMAKE_CCE_SUBMIT_EVIDENCE_DIR'])
         ctx=json.loads(Path(env['SNAKEMAKE_CCE_SUBMIT_CONTEXT_FILE']).read_bytes())
         clock=plugin_tests.Clock()
-        manager=SubmissionManager(ctx,root,plugin_tests.API(root,(['success'] if active and phase=='analysis' else [])+[plugin_tests.admission()]*3),
+        failure=plugin_tests.admission()
+        if storage_rpc:
+            failure=plugin_tests.ApiException(status=500)
+            failure.body=json.dumps(dict(kind='Status',apiVersion='v1',status='Failure',code=500,
+                reason='InternalError',message='Internal error occurred: rpc error: code = Unavailable desc = connection reset by peer'))
+        manager=SubmissionManager(ctx,root,plugin_tests.API(root,(['success'] if active and phase=='analysis' else [])+[failure]*3),
             monotonic=clock.monotonic,sleep=clock.sleep)
         manager.claim_executor()
         audit=FailureSummary(root/'submit-context.json',root)
@@ -137,7 +143,7 @@ def test_actual_final_failure_evidence_keeps_native_and_platform_identity(failed
 
 
 @pytest.mark.parametrize('view_inputs',[{'pipeline':'wgs'}, {'pipeline':'gatk'}],indirect=True)
-@pytest.mark.parametrize('failed_master',['step2_master','step3_monitor'],indirect=True)
+@pytest.mark.parametrize('failed_master',['step2_master','step3_monitor','storage_rpc'],indirect=True)
 def test_schema2_evidence_through_normal_receipt_and_reservation(failed_master,tmp_path,monkeypatch):
     from datetime import datetime,timedelta,timezone
     from sqlalchemy import create_engine,select
@@ -187,6 +193,8 @@ def test_schema2_evidence_through_normal_receipt_and_reservation(failed_master,t
             return reserve_monitored_recovery(session=session,analysis_id=source['analysis_id'],attempt=1,
                 monitor_execution_id='monitor',evidence_root=tmp_path/'no-legacy-files',now=now)
     first=reserve();assert reserve()==first
+    if proof['candidate']['failures'][0]['category']=='WORKER_CREATE_STORAGE_RPC_UNAVAILABLE':
+        assert first['evidence_binding']['category']=='worker_create_storage_rpc_unavailable'
     assert first['source_execution_id']==source['execution_id']!='exec-next:analysis'
     assert first['evidence_binding']['submit_generation']==8
     assert first['evidence_binding']['submit_request_hash']=='b'*64

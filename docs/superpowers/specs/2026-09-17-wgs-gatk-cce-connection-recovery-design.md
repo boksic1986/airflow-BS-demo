@@ -233,7 +233,7 @@ bundle。旧通用错误归为“未分类、待确认”，不无条件自动�
 | --- | --- | --- |
 | `worker_create_transport_interrupted`（0918A 类） | 精确属于当前 Master 的 Worker Job 创建调用；RemoteDisconnected/Connection reset/ProtocolError 中明确的传输中断；该异常是导致本次 Master 退出的原因 | 任意日志含 timeout/ProtocolError、只读查询失败、只有 BackoffLimitExceeded |
 | `worker_create_admission_timeout`（0919B 类） | 同一创建调用收到 HTTP500，结构化原因指向 `mutation.gatekeeper.sh` 的 `context deadline exceeded`，并导致当前 Master 退出 | 任意 HTTP500、Gatekeeper 策略拒绝、403、配额/参数/权限错误 |
-| Worker 创建存储 RPC 临时故障（0921D 类，最终类别由 producer 合同固定） | 精确创建调用的 Kubernetes Status HTTP500/InternalError，内层明确存储 RPC Unavailable/peer reset；创建结果先按确定性名称/归属核对；确为 Master 退出根因 | 普通500、任意日志含 rpc/reset、无法确认已创建与否 |
+| Worker 创建存储 RPC 临时故障（0921D 类，`worker_create_storage_rpc_unavailable`） | 精确创建调用的 Kubernetes Status HTTP500/InternalError，内层明确存储 RPC Unavailable/peer reset；创建结果先按确定性名称/归属核对；确为 Master 退出根因 | 普通500、任意日志含 rpc/reset、无法确认已创建与否 |
 | `HEAVY_SLOT_API_UNAVAILABLE`（0921B/C/E 中已定位的配额只读调用） | 精确 GET Lease 或按 job-name 查询当前 Worker Pod；typed errno111 ConnectionRefused 异常链；同一操作有界重连耗尽并导致 Master 退出 | 泛化 WORKER_SUBMIT_GUARD_FAILED、配额不足、403、owner/RV冲突、Lease写入响应不明、普通500 |
 
 全部类别均须有权威 Master 失败/退出证据，且没有冲突的生信 rule 失败证据。
@@ -241,6 +241,17 @@ Lease 异常不能冒充 Worker 创建失败：必须保留操作种类、终止
 已提交 Worker 清单。保留完整 HeavySlotQuota；不跳过占用、续约或归属检查。
 读取重连成功即接回；Lease 写操作不盲重放，先核对 owner/resourceVersion。
 Worker 创建 RPC 响应不明确时先核对原 Job，存在则接回，UNKNOWN 不准重发。
+
+2026-09-25 source 合同固定：producer 类别为
+`WORKER_CREATE_STORAGE_RPC_UNAVAILABLE`，仅从精确 CREATE 的 ApiException
+HTTP500、v1 Status/Failure/InternalError/code500 与锚定的 RPC Unavailable/
+peer-reset 消息产生。持久化仅包含固定 operation=`create_namespaced_job`、
+http_status=500、status_reason=`InternalError`、
+transient_reason=`STORAGE_RPC_UNAVAILABLE_PEER_RESET`；不保存 API body。
+inventory/backend 两处独立验证，仍需 ABSENT、重试耗尽及完整根因/终态门禁。
+`mutation.gatekeeper.sh` 新识别仅覆盖相同 Status500 的 context deadline exceeded，
+不含策略拒绝；保留既有 validation/check-ignore-label 识别边界。此项为隔离源码
+验收，非线上启用或 Task5 冻结镜像已包含此能力的声明。
 已归档的0921E配额故障定位到 release -> _finished -> list_namespaced_pod，
 与B/C的 GET Lease 分别保存操作类型，不按批次特判。E后续代次还出现过旧
 Worker活跃保护、Ready等待超时和原因已丢失的 kubectl 查询失败，不能把整个

@@ -352,9 +352,15 @@ assert master["spec"]["template"]["spec"]["restartPolicy"] == "Never"
   action/slot across retries; no kill, receipt rewrite, new scheduler or public API.
   Native replacement keeps strict fresh quiescence. BS10610 final17+2+4 targeted
   cases GREEN (2026-09-25). Reclaimed-without-proof stays blocked; no activation.
+- [x] Exact CREATE source classes (2026-09-25): storage RPC Unavailable/peer-reset
+  Status500 and mutation Gatekeeper context-deadline. RPC reconciles original Job
+  before retry; UNKNOWN stops. Inventory/backend require typed CREATE evidence,
+  ABSENT and existing fatal-cause/terminal gates. Existing budgets/default-off
+  policy unchanged. BS10610 source/consumer30 plus actual FINAL/reservation2 GREEN.
+  Source only; Task5 frozen artifacts not rebuilt or activated.
 - [ ] Continue CR-02/03 actual automatic dispatch using existing reservations,
   two shared slots60/180s, control fences and Step4 uncertain-dispatch reconciliation.
-  Next: remaining exact source classes and Step4 reconciliation; full
+  Next: Step4 original-operation reconciliation; full
   automatic lifecycle integration remain open. Do not count the source caller
   or manual P0-2 closure as automatic completion.
 - [ ] CR-04 reuses existing Tracker/detail waiting/recovering/exhausted/stale fields; no new page.

@@ -14,7 +14,8 @@ import re
 IDENTITY = ("pipeline", "analysis_id", "attempt", "execution_id", "generation",
             "request_hash", "run_id", "namespace", "master_job_uid", "master_pod_uid")
 CATEGORIES = {"WORKER_CREATE_TRANSPORT": "worker_create_transport_interrupted",
-              "WORKER_CREATE_ADMISSION_TIMEOUT": "worker_create_admission_timeout"}
+              "WORKER_CREATE_ADMISSION_TIMEOUT": "worker_create_admission_timeout",
+              "WORKER_CREATE_STORAGE_RPC_UNAVAILABLE": "worker_create_storage_rpc_unavailable"}
 CONTROL_SCHEMA = "snakemake.kubernetes.executor-control-failure.v1"
 
 
@@ -131,6 +132,12 @@ quiescence or replacement permission. All existing callers remain strict.
             categories.add("HEAVY_SLOT_API_UNAVAILABLE")
             continue
         category = failure.get("category")
+        if category == 'WORKER_CREATE_STORAGE_RPC_UNAVAILABLE' and (
+                failure.get('operation') != 'create_namespaced_job'
+                or type(failure.get('http_status')) is not int or failure['http_status'] != 500
+                or failure.get('status_reason') != 'InternalError'
+                or failure.get('transient_reason') != 'STORAGE_RPC_UNAVAILABLE_PEER_RESET'):
+            raise ValueError('storage RPC failure lacks exact CREATE evidence')
         if (not isinstance(category, str) or category not in CATEGORIES
                 or failure.get("creation_state") != "ABSENT"
                 or failure.get("retryable") is not True or failure.get("exhausted") is not True

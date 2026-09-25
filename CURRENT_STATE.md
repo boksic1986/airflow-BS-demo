@@ -1,5 +1,18 @@
 # Current state
 
+## 2026-09-25 Task6 exact CREATE classification checkpoint
+
+Plugin source now classifies exact Worker CREATE storage RPC Unavailable/peer-reset
+HTTP500 and mutation.gatekeeper.sh context-deadline failures. Original Job is
+reconciled first; RPC UNKNOWN cannot replay. Backend and inventory independently
+require fixed typed CREATE fields, ABSENT, exhausted budget and existing complete
+fatal-cause/terminal evidence. No generic500 or policy-denial automatic permission.
+BS10610 focused30 source/consumer +2 actual producer/FINAL/reservation cases passed.
+Task5 artifacts, native d7bd741, services and default-off policy unchanged.
+Source commits only, no production/push/build/activation. Task6 remains OPEN:
+next Step4 same-operation reconciliation, then existing UI/PG/final integration
+and separately authorized operational gates. See latest HANDOFF for provenance.
+
 ## 2026-09-25 Task6 bounded Worker wait checkpoint
 
 Known same-owner active Workers now produce a waiting candidate, not replacement

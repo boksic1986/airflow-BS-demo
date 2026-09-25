@@ -1,5 +1,19 @@
 # Workflow runtime integration
 
+## Task6 exact CREATE classifications (2026-09-25, source only)
+
+The plugin adds WORKER_CREATE_STORAGE_RPC_UNAVAILABLE from exact CREATE Status500
+RPC Unavailable/peer-reset failures, projecting to worker_create_storage_rpc_unavailable.
+Both inventory and backend validate fixed operation=create_namespaced_job,
+integer http_status=500, status_reason=InternalError and
+transient_reason=STORAGE_RPC_UNAVAILABLE_PEER_RESET. The original deterministic
+Job is reconciled first: PRESENT adopts, UNKNOWN blocks replay, ABSENT may use
+the existing bounded submission budget. Exhaustion, complete single-cause evidence,
+Master terminal and fresh quiescence remain required for platform reservation.
+mutation.gatekeeper.sh Status500 context-deadline now shares admission timeout;
+policy denial/generic500/missing Status are not eligible. No new API or budget.
+Task5 frozen artifacts unchanged; source validation is not production activation.
+
 ## Task6 fresh Worker wait observations (2026-09-25, source only)
 
 The automatic failure collector may report known same-owner active Worker

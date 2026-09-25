@@ -179,7 +179,12 @@ def validate_submission_inventory(*, expected_context, journal_bytes,
         _require(isinstance(failure, dict))
         _require(all(k in failure and type(failure[k]) is type(row[k]) and failure[k] == row[k]
                      for k in ("worker_name", "worker_uid", "request_count")))
-        _require(failure.get("category") in ("WORKER_CREATE_ADMISSION_TIMEOUT", "WORKER_CREATE_TRANSPORT")
+        if failure.get('category') == 'WORKER_CREATE_STORAGE_RPC_UNAVAILABLE':
+            _require(failure.get('operation') == 'create_namespaced_job'
+                and type(failure.get('http_status')) is int and failure['http_status'] == 500
+                and failure.get('status_reason') == 'InternalError'
+                and failure.get('transient_reason') == 'STORAGE_RPC_UNAVAILABLE_PEER_RESET')
+        _require(failure.get("category") in ("WORKER_CREATE_ADMISSION_TIMEOUT", "WORKER_CREATE_TRANSPORT", "WORKER_CREATE_STORAGE_RPC_UNAVAILABLE")
                  and failure.get("creation_state") == "ABSENT" and failure["worker_uid"] is None
                  and failure.get("retryable") is True and failure.get("exhausted") is True)
     _require(all(w["state"] in {"CREATED", "ADOPTED", "FAILED"} for w in workers.values()))

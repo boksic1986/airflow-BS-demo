@@ -1,5 +1,63 @@
 # Handoff
 
+## 2026-09-25 Task6 continuation / exact CREATE failure classes
+
+Goal: continue the approved next slice without widening retries or redundant
+tests. BASE platform898db80/plugin c0b266b/native d7bd741. Plugin checkpoint now
+81132cf on jiucheng/runtime/p02-worker-terminal-20260923. Platform changes stay
+on jiucheng/runtime/CR01-cce-recovery-20260922; native clean/unchanged. No production,
+push, main/production merge, build, install, activation, real rerun or service change.
+
+Completed: plugin recognizes exact CREATE Status500 RPC Unavailable/peer-reset;
+reconciles deterministic original Job first (PRESENT adopts, UNKNOWN blocks,
+ABSENT uses existing bounded submission retries). New category carries only four
+fixed typed fields, independently checked by inventory and backend before existing
+ABSENT/exhaustion/fatal-cause/terminal gates. mutation.gatekeeper.sh exact500
+context-deadline now recognized; policy denial/generic500/missing Status rejected.
+Legacy Gatekeeper classes, budgets and default-off policy unchanged. Task5 frozen
+wheel/images are not rebuilt and do not include this successor source checkpoint.
+
+Files: backend/app/cce_recovery_evidence.py, scripts/cce_recovery_inventory.py;
+new backend/tests/test_cce_rpc_evidence.py; existing scripts/tests/test_p02_failure_evidence.py
+uses actual plugin/logger/native FINAL and normal platform receipt/reservation.
+Plugin submission_recovery.py, new test_storage_rpc_submission.py and HANDOFF.
+Docs08/10, design section3.1, Task6 plan, CURRENT_STATE/TASKS/HANDOFF synchronized.
+No public API, DB schema, DAG, frontend or biological workflow change.
+
+Validation via ignored .superpowers/sdd/2026-09-23-p0-2-master-handoff-ttl-implementation/task6.ps1:
+initial exact-create-red4 failed/20 passed (missing classes/validator), then24 GREEN.
+Mutation strict-boundary4 RED caught legacy over-broad recognition; narrowed new
+mutation path, preserving old validation/check-ignore-label rules. Final commands:
+
+- -Mode test -Test '/task/plugin/tests/test_storage_rpc_submission.py
+  /task/platform/backend/tests/test_cce_rpc_evidence.py
+  /task/plugin/tests/test_submission_recovery.py::test_admission_timeout_has_three_requests_with_30_60_backoff
+  /task/plugin/tests/test_submission_recovery.py::test_lost_response_is_adopted_by_exact_name_without_second_post'
+  -Log exact-create-final:30 passed2.34s, exit0.
+- -Mode test -Test '/task/platform/scripts/tests/test_p02_failure_evidence.py::test_schema2_evidence_through_normal_receipt_and_reservation
+  -k storage_rpc' -Log storage-rpc-chain:2 passed/4 deselected3.00s, exit0.
+
+Both WGS/GATK chains accepted one idempotent reservation with distinct native/
+platform identity. No full suite or repeated accepted Task1–5 tests. Local runtime,
+real cluster, PG contention and deployment tests not run: outside this source slice.
+One documentation read used a nonexistent docs/10_ERROR_LOGGING.md filename;
+resolved with rg to docs/10_QC_LOGGING_REPORTING.md, no runtime side effect.
+
+Each remote invocation verified BS10610/server10610, control root
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS and current release
+releases/20260912-opt-4d3d24e6. Backend36ff21f87356 RO/app from
+20260923-step7-ae416fa/backend/backend; RO/config from current; scanner/dispatch false.
+Evidence uid6708 confined to /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/p02-task6-20260925.
+Cached network-none/read-only synthetic container, source RO/scratch RW,1CPU/1GiB.
+Live services and current/rollback release pointers untouched. This does not
+replay archived production failures or authorize activation of new artifacts.
+
+Task6 OPEN. Next Step4 ambiguous SSH dispatch: reconcile original operation,
+at most two same-operation redispatches60/180 only with proven not-started and no
+in-flight process; separate budget. Then existing UI/PG/final integration and
+separately authorized operational gates. Rollback: revert this paired source
+checkpoint before any future artifact build; no live rollback currently needed.
+
 ## 2026-09-25 Task6 continuation / bounded natural Worker wait
 
 User: continue the next approved Task6 step, preserve scope and avoid redundant
