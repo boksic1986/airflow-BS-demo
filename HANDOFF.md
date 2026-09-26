@@ -2,6 +2,30 @@
 
 ## 2026-09-27 — user authorizes normal-path convergence and smoke completion
 
+Follow-up design refinement: ordinary Step1/2 have no Running Master yet and
+Step4–6 follow its termination. Runtime owner will therefore use the existing
+same-run journal to reuse at most one live readonly helper, executing fresh
+probes each time;600s deadline remains fixed and terminal TTL100. FinalStep6,
+business failure or trusted-Master replacement cleans the exact helper. No
+stale proof, new service or unchecked repeated CREATE. Pending deletion is
+reconciled before replacement.
+
+Diagnostic Job9 UID1f1a8683-7177-4b24-b5f2-77f99c193421 reproduced preSTART
+shell line2 pipefail/CR error on the existing candidate image. Runtime owner is
+preserving raw evidence and correcting packaging. Coordinator read-only
+`git ls-files --eol scripts/run_cce_master_job.sh` confirms indexLF/checkoutCRLF;
+no code was edited by coordinator and no image is claimed fixed yet.
+
+The old NORMAL01-r2 is frozen to that image and already has CREATE_INTENT and
+JOB_CREATED without native START/terminal evidence. Preserve its bundle,
+journal, locks and failure evidence. Coordinator selects a new isolated
+run/attempt/run_dir for the SAME NORMAL01 case after corrected artifact
+publication, with explicit supersedes provenance; never mutate the old frozen
+manifest or replay its CREATE. FAULT01 remains unregistered and may prepare
+against corrected pins. Two-case scope and cumulative9/22 budget are unchanged.
+Owner reports reader checks16PASS plus2PASS after correcting only private test
+layout/ACL inheritance; original result files are still to be independently read.
+
 Goal: preserve production0.8.5 normal Step1–7 semantics while retaining necessary
 P0 recovery/fencing and timely Job cleanup. Latest user approves scoped repairs,
 original two-case test continuation and necessary candidate publication using

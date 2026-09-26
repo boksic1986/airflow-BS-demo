@@ -2,6 +2,13 @@
 
 ## 2026-09-27 normal-path convergence authorized; same two smoke cases
 
+Runtime owner captured the old-image preSTART failure with diagnostic Job9:
+shell line2 pipefail rejects the CR character. Local Git check confirms the
+Master script index isLF but checkout isCRLF. Packaging correction is pending;
+this is not evidence of a biological rule failure. The one readonly helper can
+be reused only while live with fresh identity checks; its600s lifetime/TTL100
+is not renewed. Detailed contract is in docs08. No smoke PASS or release yet.
+
 User approves scoped P0 simplification and subsequent testing, preserving timely
 Master/Worker cleanup. Keep TTL100 (do not restore86400), original Step1–7,
 755/644 and owner/generation/CAS fences. Original runtime owner handles reduced

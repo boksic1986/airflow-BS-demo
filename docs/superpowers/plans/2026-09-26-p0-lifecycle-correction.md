@@ -43,11 +43,15 @@ Master/Worker Jobs，版本沿用0.8.7覆盖候选制品，不增加后缀。保
 - [ ] N1 原runtime owner收敛写入前目录检查：保留当前owner/generation/CAS和
   存储绑定校验，优先已有可信挂载或当前Master；无有效入口才使用只读helper。
   不用历史probe结果永久替代当前检查，不猜测node200的NFS与云SFS等价。
+  云端无其他入口时复用同run唯一仍Running的helper，每次重新exec核验而非缓存；
+  不延长原600s期限，Step6/业务异常/改用当前Master时精确删除，终态TTL100。
 - [ ] N2 只读helper清理与业务结果分离：身份未确认仍拒绝写入；身份已确认、
   精确只读helper仅清理延迟时保留UID/RV约束及journal/TTL处理，不伪报分析失败。
   必须保证残留有界，不能每次重入再建一个。具体状态分支由匹配的定向用例固定。
 - [ ] N3 保存Master就绪前的真实终态/日志后定位本次启动失败，修复已证实根因；
   原WAITING/START顺序、业务命令和短TTL保留。不能把未知故障直接归类可自动恢复。
+  第9个限定preSTART诊断已取到原镜像脚本第2行CRLF/pipefail错误；核对实际构建
+  来源后修复LF打包，不据此修改生信规则。日志回执与制品修复验收仍待提交。
 - [ ] N4 仅对实际改动运行远端定向RED/GREEN；必要制品由原owner按SOP同版本覆盖，
   对齐producer/consumer/pins，不改WGS环境、不扩大到业务Worker或无关镜像重建。
 - [ ] N5 继续原NORMAL01与FAULT01到Step6，包含一次恢复及TTL后下游。

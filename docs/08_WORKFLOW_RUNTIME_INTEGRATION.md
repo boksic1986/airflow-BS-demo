@@ -20,6 +20,17 @@ remains UNKNOWN and never authorizes replacement. Reuse the two approved smoke
 cases and existing budget. Candidate version remains0.8.7; rebuilt artifacts need
 new hashes/digests and matched consumers even when their version/tag is unchanged.
 
+For cloud-only access, the existing per-run helper journal may reuse its one
+still-Running read-only helper. Each use verifies exact Job/Pod UID, volume
+binding and non-deleting state before/after executing a NEW probe; never return
+the journal's old result as fresh proof. Its original600s active deadline is not
+extended; terminal TTL remains100s. Final Step6, business failure or switching
+to a trusted Master initiates precise cleanup. A pending old deletion must be
+reconciled before another helper CREATE; no persistent helper service is added.
+This bounded reuse matters because ordinary Step1/2 precede a running Master
+and Step4–6 follow its termination; a Running-Master fast path alone would not
+remove those normal-path helper creations. Acceptance records actual counts.
+
 ## P0 normal-path internal contract (2026-09-26, implementation in progress)
 
 This slice preserves automatic Step1–6, frozen preparation inputs and the existing
