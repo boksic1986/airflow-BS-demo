@@ -1,5 +1,19 @@
 # Current state
 
+## 2026-09-26 release version/profile direction superseded by user
+
+User requests a plain release version, not0.8.7+p0.dev1; target is now0.8.7.
+The previous candidate was built, pushed and installed in nipttest but is not the
+final requested artifact. Original owner must rebuild from fixed0.8.7 metadata;
+reuse unchanged code/test evidence. User also requests replacing r2 with r3 content.
+Before overwriting, check whether the exact shared r2 path has production consumers;
+test-only authority must not silently mutate a production-shared profile.
+Changing profile bytes still changes its SHA and requires a valid matching asset
+receipt; no bypass or forged PASS. User subsequently authorized shared resource
+publication after the same-file/hash impact was explained. Exact r2 replacement
+and matching asset publication may proceed with rollback evidence; production
+services and real batches remain out of scope. No test activation reported yet.
+
 ## 2026-09-26 P0 normal-path correction authorized (in progress)
 
 User now authorizes source correction followed by BS10610 test deployment,

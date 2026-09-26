@@ -1,5 +1,54 @@
 # Handoff
 
+## 2026-09-26 — explicit shared resource/profile update authorization
+
+After being told r2 is the same NFS file visible from test/production and replacement
+invalidates old profile-bound hashes, user answered the explicit shared publication
+question: "允许，更新共享资源发布". Together with "r3直接覆盖旧r2", this
+authorizes exact shared profile replacement and matching assets/ACTIVE_ASSETS
+publication for final native0.8.7. No production service deployment, real batch,
+patient/input changes, local deletion, WGS workflow changes or arbitrary SFS writes.
+
+Exact target:
+`/mnt/biodevrwbi/33.chenjiucheng/project/cce-pipeline-profiles/wgs/wgs-4.2.2-r2.yaml`
+(node200/BS96 alias `/bi/biodevrwbi/...`). Old SHA256
+4a016a2d0c1006b013a1e66efc147e29275e0ce8dcd2b086f1488bed8c44d6ed.
+Retain exact old-file rollback copy in approved task evidence and old ACTIVE_ASSETS
+identity before replacement. Final0.8.7 Master digest, business0755/0644/0755,
+same WGS source3b1dae5 and same verified resource bytes. Frozen receipts remain
+historical; new asset release and registration get independent IDs/real validation.
+Keep old OBS objects/receipts; no destructive cleanup.
+
+Original Infra owner identified bounded publication: new OBS
+`Project_resource/wgs-4.2.2-r1/_cce_assets/<new-release-id>/` from verified objects
+(pipeline tar/files.tsv, resource files.tsv+9 payloads, new SOURCE_READY), then
+existing assets validate/apply/status on declared pipeline130/resource9 SFS paths
+and ACTIVE_ASSETS. No additional assets. Record exact new ID/paths before dispatch.
+Completion pending; test activation requires the valid matching artifacts.
+
+## 2026-09-26 — user revises candidate naming and profile replacement
+
+User: "r3直接覆盖旧r2" and version0.8.6.1 or0.8.7 instead of0.8.7+p0.dev1.
+Selected0.8.7. Native owner notified to stop old-candidate activation, fix version
+metadata in a new commit and rebuild/push immutable artifacts; unchanged33+4+3
+synthetic evidence is reused. Before replacement, native/Infra owner checks exact
+r2 consumers without production DB access. If shared with production, obtain
+specific authorization; do not assume test deployment allows production mutation.
+
+Completed previous candidate, not final0.8.7: native90abacd wheel SHA256
+06968907956661439a4d0ed8ec5c2e972e1d30818741ec83b3135c2a7d332da1;
+SWR digest sha256:6e110ddb68bec6626cd5df4c4bb68c699cdd35f586212310b640a7588c40e757.
+Installed in existing nipttest via node005 writable mount; BS10610 reads same
+version/commit. WGS environment unchanged. New r3 was created/validated, not active.
+
+Deployment contract finding: backend WgsReleaseRegistration requires matching
+assets/release profile SHA/revision; native release.export_release requires real
+asset status. Old registration binds r2 SHA4a016a2d..., so overwriting r2 cannot
+eliminate the receipt update. Native owner must report exact new asset writes
+before expanding into SFS asset publication. No fabricated PASS/receipt or disabled
+verification. Platform functional e358aad is committed and pushed on test branch;
+no main/production merge. No final platform activation confirmed at this point.
+
 ## 2026-09-26 — A1–A4 source accepted; paired test delivery in progress
 
 Scope remains the normal-path correction, not all lifecycle T1–T5. No production,

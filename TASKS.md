@@ -9,6 +9,14 @@
 - [x] Run only affected normal/recovery BS10610 synthetic paths; review exact diff.
 - [ ] Original owners package required changed artifacts and deploy paired test set.
 
+Latest release direction: user rejected candidate suffix; final target0.8.7.
+Replace r2 content only after confirming its exact path is test-only or receiving
+explicit shared-production authorization. Refresh profile-bound asset receipt;
+the completed candidate push/install is not final0.8.7 deployment.
+User now explicitly authorizes shared profile/assets/ACTIVE_ASSETS update after
+the impact explanation; proceed only within recorded exact targets and preserve
+rollback evidence. Production services and real batches are still excluded.
+
 Base5165592; keep T4 pause/delete and broader lifecycle API/schema/UI work out.
 Status: installation-only clarified obsolete; source correction and joint review
 accepted. Remote evidence: native33 passed; platform4 normal/recovery passed;
