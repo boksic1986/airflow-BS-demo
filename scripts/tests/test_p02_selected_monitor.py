@@ -15,12 +15,274 @@ import yaml
 
 from test_p02_registered_recovery import registered
 from test_p02_resume_final import adapter, mirrored_final, final_inputs, view_inputs, handoff as native_handoff, runtime
-from scripts import cce_paired_runtime as paired, wgs_runtime_gate, wgs_resume
+from scripts import cce_paired_runtime as paired, wgs_runtime_gate, gatk_runtime_gate, wgs_resume
 from cce_pipeline.assets import step3_status
 from test_recovery_final import SubmissionManager, plugin_tests
 REAL_RELEASE=runtime._release_batch_lock
 REAL_QUERY=runtime._recovery_query
 REAL_LEGACY_QUERY=runtime._kubectl_json
+REAL_GATK_LOAD_BINDING=gatk_runtime_gate._load_binding
+REAL_PREPARE_WORKER_MANIFEST=runtime._prepare_worker_manifest
+
+
+@pytest.mark.parametrize('view_inputs',[
+    {'pipeline':'wgs','analysis_id':'WGS_20260926_000000_AAAAAA'},
+    {'pipeline':'gatk','analysis_id':'GATK_20260926_000000_AAAAAA'}],indirect=True)
+@pytest.mark.parametrize('adapter',[{'initial':True}],indirect=True)
+@pytest.mark.parametrize('outcome',['normal','recovery'])
+def test_normal_registration_preserves_step1_owner_through_ttl(registered,monkeypatch,outcome):
+    """Catch missing registration and the future-Step2-ID lock dependency."""
+    state,_,gate,upload,upload_path,policy,bundle,h=registered
+    pipeline='wgs' if gate is wgs_runtime_gate else 'gatk'
+    binding=json.loads((bundle.parent/'batch-binding.json').read_bytes())
+    frozen={str(p.relative_to(bundle)):p.read_bytes() for p in bundle.rglob('*') if p.is_file()}
+    policy_before=policy.read_bytes()
+    assert state.cms=={} and state.job is None and state.worker is None
+    assert json.loads(policy_before).get('bindings',[])==[]
+    # The inherited Master fixture stubs manifest preparation. New-attempt
+    # coverage must execute it: only emulate its remote Pod filesystem I/O.
+    monkeypatch.setattr(runtime,'_prepare_worker_manifest',REAL_PREPARE_WORKER_MANIFEST)
+    native_transport=runtime._run
+    def manifest_transport(command,**kwargs):
+        evidence=Path(h.contract['paths']['run_dir'])/'evidence'/h.contract['identity']['run_id']
+        if (command[5]=='exec' and '-c' in command and command[-1]==str(evidence)
+                and 'jobs.ndjson' in command[command.index('-c')+1]):
+            script=command[command.index('-c')+1]
+            if 'path.touch(exist_ok=True)' in script:
+                evidence.mkdir(parents=True,exist_ok=True)
+                (evidence/'jobs.ndjson').touch(exist_ok=True)
+                return subprocess.CompletedProcess(command,0,b'',b'')
+            if 'sys.stdout.write' in script:
+                return subprocess.CompletedProcess(command,0,(evidence/'jobs.ndjson').read_bytes(),b'')
+        return native_transport(command,**kwargs)
+    monkeypatch.setattr(runtime,'_run',manifest_transport)
+
+    def save(payload):
+        value={k:v for k,v in payload.items() if not k.startswith('_')}
+        value['request_hash']=paired._request_digest(value,pipeline)
+        path=gate._request_path(value['analysis_id'],value['attempt'],value['stage'])
+        path.write_text(json.dumps(value))
+        return value,path
+
+    def succeed(payload,path,**details):
+        if pipeline=='wgs':gate._write_status(payload,'success',**details)
+        else:gate._write_status(path,payload,'success','completed',**details)
+        return json.loads(path.with_suffix('.status.json').read_bytes())
+
+    def next_stage(previous,previous_path,stage):
+        receipt=json.loads(previous_path.with_suffix('.status.json').read_bytes())
+        return save({**{k:v for k,v in upload.items() if not k.startswith('_')},
+            'stage':stage,'execution_id':previous['analysis_id']+'-a1-'+stage+'-g1',
+            'generation':1,'predecessor_execution_id':previous['execution_id'],
+            'predecessor_receipt_hash':hashlib.sha256(previous_path.with_suffix('.status.json').read_bytes()).hexdigest()
+                if pipeline=='wgs' else receipt['receipt_hash']})
+
+    def finish_worker(payload,path):
+        value={k:payload[k] for k in ('analysis_id','attempt','stage','execution_id','generation','request_hash')}
+        if pipeline=='wgs':value.update(pid=999999999,boot_id='synthetic-ended',process_start_time='0')
+        else:value.update(schema_version='gatk-runtime.dispatcher.v1',state='finished',process=None)
+        path.with_suffix('.worker.json' if pipeline=='wgs' else '.worker.state.json').write_text(json.dumps(value))
+
+    # The successful prepare boundary exists before Step1. Step2 does not.
+    prepare,prepare_path=save({**upload,'stage':'prepare',
+        'execution_id':upload['analysis_id']+'-a1-prepare-g1'})
+    if pipeline=='gatk':
+        immutable=dict(schema_version=1,kind='gatk-airflow-prepare',
+            analysis_id=upload['analysis_id'],attempt=1,generation=1,output_root=str(bundle.parent))
+        immutable['request_hash']=paired._request_digest(immutable,pipeline)
+        prepare_path.write_text(json.dumps(immutable))
+        prepare={**immutable,'stage':'prepare','generation':1,
+            'execution_id':upload['analysis_id']+'-a1-prepare-g1'}
+        repository=bundle.parent/'synthetic-repository'
+        (repository/'scripts').mkdir(parents=True)
+        (repository/'scripts'/'airflow_handoff.py').write_text('# external prepare transport fixture\n')
+        monkeypatch.setenv('GATK_REPOSITORY_ROOT',str(repository))
+        def prepared(command,**kwargs):
+            assert command[2:]==['--handoff-request',str(prepare_path)]
+            with pytest.raises(RuntimeError):
+                paired._inactive_dispatcher(prepare_path,gate,pipeline)
+            with pytest.raises(RuntimeError):
+                gate.start(upload['analysis_id'],1,'prepare',generation=3)
+            if gate._dispatch_state(prepare_path)['generation']==1:
+                raise subprocess.CalledProcessError(1,command,stderr='synthetic first prepare failure')
+            return subprocess.CompletedProcess(command,0,'synthetic prepare complete','')
+        def spawn_prepare(command,**kwargs):
+            generation=int(command[-1])
+            pid=os.fork()
+            if pid==0:
+                # Emulate Popen(close_fds=True), including the launch flock
+                # held by start(): the worker must obtain its own lock.
+                os.closerange(3,int(os.sysconf('SC_OPEN_MAX')))
+                try:gate._execute(upload['analysis_id'],1,'prepare',generation)
+                except BaseException:
+                    traceback.print_exc();os._exit(1)
+                os._exit(0)
+            return SimpleNamespace(pid=pid)
+        with monkeypatch.context() as transport:
+            transport.setattr(gate.subprocess,'run',prepared)
+            transport.setattr(gate.subprocess,'Popen',spawn_prepare)
+            first=spawn_prepare(['1'])
+            assert os.waitpid(first.pid,0)[1]==256
+            assert gate._dispatch_state(prepare_path)['state']=='finished'
+            retry=[]
+            def launch(command,**kwargs):
+                process=spawn_prepare(command,**kwargs)
+                retry.append(process.pid)
+                return process
+            transport.setattr(gate.subprocess,'Popen',launch)
+            assert gate.start(upload['analysis_id'],1,'prepare',generation=2)=={
+                'status':'accepted','stage':'prepare','generation':2}
+            assert os.waitpid(retry[0],0)[1]==0
+        prepare={**prepare,'generation':2,
+            'execution_id':upload['analysis_id']+'-a1-prepare-g2'}
+        ended=gate._dispatch_state(prepare_path)
+        assert ended['generation']==2 and ended['execution_id']==prepare['execution_id']
+        paired._inactive_dispatcher(prepare_path,gate,pipeline)
+        worker_path=prepare_path.with_suffix('.worker.state.json')
+        ended_bytes=worker_path.read_bytes()
+        try:
+            worker_path.write_text(json.dumps({**ended,'process':None}))
+            with pytest.raises(RuntimeError,match='active or uncertain'):
+                paired._inactive_dispatcher(prepare_path,gate,pipeline)
+        finally:
+            worker_path.write_bytes(ended_bytes)
+        assert prepare_path.read_bytes()==json.dumps(immutable).encode()
+        binding=json.loads((bundle.parent/'batch-binding.json').read_bytes())
+        monkeypatch.setattr(gate,'_load_binding',REAL_GATK_LOAD_BINDING)
+    else:
+        succeed(prepare,prepare_path)
+    upload,upload_path=next_stage(prepare,prepare_path,'step1_upload')
+    assert not gate._request_path(upload['analysis_id'],1,'step2_master').exists()
+    command=gate._step_command(upload,'step1_upload') if pipeline=='wgs' else gate._step(upload,'step1_upload')
+    assert command[2]=='step1-upload'
+    writer=runtime.writer_for_bundle(runtime,bundle,h.contract,h.config)
+    assert writer is not None
+    h.config['obs']['upload_parallelism']=1
+    # The upload protocol and protected native stage stay real; only OBS I/O
+    # crosses a synthetic transport. Empty synthetic FASTQ inventory is valid.
+    monkeypatch.setattr(runtime,'_obs_command',lambda *a,**k:subprocess.CompletedProcess([],0,b'',b''))
+    writer=runtime.writer_for_bundle(runtime,bundle,h.contract,h.config)
+    runtime.step1(bundle,h.contract,h.config,h.modules,writer=writer)
+    initial_lock=copy.deepcopy(next(iter(state.cms.values())))
+    initial_owner=json.loads(initial_lock['data']['lock'])['owner']
+    assert initial_owner['generation']==1 and initial_owner['master_uid']==''
+    succeed(upload,upload_path)
+    submit,submit_path=next_stage(upload,upload_path,'step2_master')
+    assert initial_owner['action']!=submit['execution_id']
+    submit['_cce_master_result']=paired.submit_registered(submit,binding=binding,gate=gate,pipeline=pipeline)
+    succeed(submit,submit_path)
+    selected=Path(submit['_cce_master_result']['bundle'])
+    bound_owner=json.loads(next(iter(state.cms.values()))['data']['lock'])['owner']
+    assert bound_owner=={**initial_owner,'master_uid':'new-uid'}
+    assert (state.creates,state.starts)==(1,1)
+    assert policy.read_bytes()==policy_before
+    assert frozen=={name:(bundle/name).read_bytes() for name in frozen}
+
+    def seal(success):
+        # Actual Master terminal producer, not a test-written lock/handoff.
+        record=runtime._read_master_handoff(selected,h.contract)
+        monkeypatch.setattr(runtime,'_master_input_context',lambda:record)
+        monkeypatch.setenv('CCE_RUN_ROOT',h.contract['paths']['run_dir'])
+        monkeypatch.setenv('CCE_INPUT_ROOT',str(selected))
+        for phase in ('preflight','analysis'):
+            env=runtime._recovery_phase_start(phase)
+            root=Path(env['SNAKEMAKE_CCE_SUBMIT_EVIDENCE_DIR'])
+            ctx=json.loads(Path(env['SNAKEMAKE_CCE_SUBMIT_CONTEXT_FILE']).read_bytes())
+            SubmissionManager(ctx,root,plugin_tests.API(root,[])).claim_executor()
+            runtime._recovery_phase_finished(phase,0)
+        terminal=runtime._bind_master_terminal({'schema_version':1,'state':'SUCCEEDED' if success else 'FAILED',
+            'exit_code':0 if success else 1,'finished_epoch':h.now+1,'failed_stage':'final_dryrun',
+            'exit_codes':{'preflight':0,'analysis':0,'final_dryrun':0 if success else 1}})
+        assert terminal['submission_inventory_complete'] is True, terminal
+        evidence={'START_CONFIRMED.json':state.confirmation,
+            'RUN_COMPLETE.json' if success else 'RUN_FAILED.json':terminal,
+            'recovery-final.json':json.loads((Path(h.contract['paths']['run_dir'])/'evidence'/record['run_id']/'recovery-final.json').read_bytes())}
+        if success:
+            evidence['workflow-completion.json']={'required':[{'path':'ANALYSIS_COMPLETE',
+                'content':json.dumps({'schema_version':1,'status':'PASS',**h.contract['identity']})}]}
+        runtime._write_mirror_evidence(selected,record['run_id'],evidence,project=record['project'],batch=record['batch'])
+        state.job=None  # TTL removes the cloud object, never the directory lock.
+
+    h.modules=(*h.modules[:3],step3_status)
+    monitor,monitor_path=next_stage(submit,submit_path,'step3_monitor')
+    for payload,path in ((prepare,prepare_path),(upload,upload_path),(submit,submit_path)):
+        if not (pipeline=='gatk' and path==prepare_path):finish_worker(payload,path)
+    expected_uid='new-uid'
+    expected_creates=1
+    if outcome=='recovery':
+        stale_writer=runtime.writer_for_bundle(runtime,bundle,h.contract,h.config)
+        stale_writer.context.update(bound_owner)
+        seal(False)
+        create=runtime._create_job_from_path
+        def replacement(config,manifest):
+            job=create(config,manifest);job['metadata']['uid']='replacement-uid';return job
+        monkeypatch.setattr(runtime,'_create_job_from_path',replacement)
+        prior_query=runtime._kubectl_json
+        def replacement_pods(config,kind,*args,**kwargs):
+            if kind=='pods' and state.job and state.job['metadata']['uid']=='replacement-uid':
+                return {'items':[{'metadata':{'name':'new-pod','uid':'replacement-pod',
+                    'ownerReferences':[{'controller':True,'kind':'Job','uid':'replacement-uid'}]},
+                    'status':{'phase':'Running','conditions':[{'type':'Ready','status':'True'}]}}]}
+            return prior_query(config,kind,*args,**kwargs)
+        monkeypatch.setattr(runtime,'_kubectl_json',replacement_pods)
+        transport=runtime._run
+        def confirm_replacement(command,**kwargs):
+            result=transport(command,**kwargs)
+            if 'touch' in command:state.confirmation['pod_uid']='replacement-pod'
+            return result
+        monkeypatch.setattr(runtime,'_run',confirm_replacement)
+        monitor,monitor_path=save({**monitor,'resume_action_id':'resume-normal-path',
+            'generation':2,'execution_id':upload['analysis_id']+'-a1-step3_monitor-g2'})
+        result=paired.resume_registered(monitor,binding=binding,gate=gate,pipeline=pipeline)
+        selected=Path(result['bundle'])
+        expected_uid='replacement-uid';expected_creates=2
+        bound_owner=json.loads(next(iter(state.cms.values()))['data']['lock'])['owner']
+        assert bound_owner['generation']==2 and bound_owner['master_uid']==expected_uid
+        with pytest.raises((RuntimeError,ValueError)):
+            stale_writer.claim()
+        assert paired.resume_registered(monitor,binding=binding,gate=gate,pipeline=pipeline)['master_uid']==expected_uid
+    seal(True)
+    observed=paired.monitor_registered(monitor,binding=binding,gate=gate,pipeline=pipeline)
+    assert observed['master_state']=='SUCCEEDED'
+    succeed(monitor,monitor_path,master=observed) if pipeline=='wgs' else succeed(monitor,monitor_path)
+    assert json.loads(next(iter(state.cms.values()))['data']['lock'])['owner']==bound_owner
+    assert (state.creates,state.starts)==(expected_creates,expected_creates)
+    before_observation=copy.deepcopy(state.cms)
+    current=runtime.resolve_current_owner(runtime,bundle,h.contract,h.config,read_only=True)
+    assert current['selected_bundle']==selected
+    assert current['expected_master_uid']==expected_uid
+    assert {k:current['context'][k] for k in ('generation','action','master_uid')}==bound_owner
+    assert state.cms==before_observation  # CLI status cannot claim a write lock.
+
+    # Preserve the existing test's external delivery/log transport boundary;
+    # execute native Step4/5/6 plus the platform's final release checks.
+    delivered=[]
+    def marker(name):
+        root=bundle/'cloud_delivery';root.mkdir(exist_ok=True)
+        values=dict(schema_version='1',status='PASS',**h.contract['identity'])
+        (root/name).write_text('\n'.join(k+'='+str(v) for k,v in values.items()))
+    def publish(**kw):delivered.append('publish');return True
+    def download(**kw):delivered.append('download');marker('DOWNLOAD_VERIFIED')
+    def materialize(*args,**kw):delivered.append('materialize');marker('MATERIALIZED')
+    h.modules=(SimpleNamespace(reconcile_publish_status=publish,download_verify=download,
+        materialize_results=materialize),*h.modules[1:])
+    monkeypatch.setattr(runtime,'download_snakemake_logs',lambda *a,**k:None)
+    monkeypatch.setattr(runtime,'_release_batch_lock',REAL_RELEASE)
+    finish_worker(monitor,monitor_path)
+    previous,previous_path=monitor,monitor_path
+    for stage in ('step4_publish','step5_download','step6_materialize'):
+        payload,path=next_stage(previous,previous_path,stage)
+        paired.downstream_registered(payload,binding=binding,gate=gate,pipeline=pipeline)
+        succeed(payload,path)
+        finish_worker(payload,path)
+        previous,previous_path=payload,path
+    assert delivered==['publish','download','materialize']
+    assert json.loads(next(iter(state.cms.values()))['data']['lock'])['state']=='RELEASED'
+    assert selected.stat().st_mode & 0o7777==0o755
+    for name in ('BATCH_RUNTIME.yaml','PAYLOAD.yaml','master-job.yaml','payload/config.yaml'):
+        assert (selected/name).stat().st_mode & 0o777==0o644
+    assert policy.read_bytes()==policy_before
+    assert frozen=={name:(bundle/name).read_bytes() for name in frozen}
 
 
 @pytest.fixture

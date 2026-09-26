@@ -98,6 +98,7 @@ def _load(
             raise ValueError("GATK runtime generation does not match its request")
     else:
         payload = dict(payload)
+        payload['stage'] = 'prepare'
         payload["generation"] = generation
         payload["execution_id"] = f"{analysis_id}-a{attempt}-prepare-g{generation}"
     return path, payload
@@ -1134,7 +1135,12 @@ _DISPATCH_KEYS = ("analysis_id", "attempt", "stage", "generation", "execution_id
 
 
 def _dispatch_identity(payload: dict[str, Any]) -> dict[str, Any]:
-    return {key: payload.get(key) for key in _DISPATCH_KEYS}
+    value = {key: payload.get(key) for key in _DISPATCH_KEYS}
+    if payload.get('kind') == 'gatk-airflow-prepare':
+        generation = int(payload.get('generation') or 1)
+        value.update(stage='prepare', generation=generation,
+            execution_id=f"{payload['analysis_id']}-a{payload['attempt']}-prepare-g{generation}")
+    return value
 
 
 def _assert_current_dispatch(path: Path, payload: dict[str, Any]) -> None:
@@ -1207,7 +1213,7 @@ def _dispatch_receipt(path: Path, payload: dict[str, Any]) -> dict[str, Any] | N
 
 
 def _execute(analysis_id: str, attempt: int, stage: str, generation: int | None = None) -> None:
-    if stage in {"prepare", "step7_cleanup"}:
+    if stage == "step7_cleanup":
         return _execute_stage(analysis_id, attempt, stage, generation)
     path = _request_path(analysis_id, attempt, stage)
     with _dispatch_lock(path.with_suffix(".worker.lock")):
@@ -1233,7 +1239,45 @@ def _execute(analysis_id: str, attempt: int, stage: str, generation: int | None 
 
 def start(analysis_id: str, attempt: int, stage: str,
           generation: int | None = None, *, expected_hash: str | None = None) -> dict[str, Any]:
-    if stage in {"prepare", "step7_cleanup"}:
+    if stage == 'prepare':
+        path = _request_path(analysis_id, attempt, stage)
+        with _dispatch_lock(path.with_suffix('.launch.lock')):
+            path, payload = _load(analysis_id, attempt, stage, generation)
+            previous = _dispatch_state(path)
+            if previous is not None:
+                previous_generation = previous.get('generation')
+                if (type(previous_generation) is not int or previous_generation < 1
+                        or _dispatch_identity(previous) != _dispatch_identity(
+                            {**payload, 'generation': previous_generation})):
+                    raise RuntimeError('GATK prepare dispatcher identity changed')
+                process = previous.get('process')
+                if (not isinstance(process, dict)
+                        or not all(process.get(key) for key in ('pid', 'starttime', 'boot_id'))):
+                    raise RuntimeError('GATK prepare dispatcher launch outcome is uncertain')
+                if _process_identity(int(process['pid'])) == process:
+                    if (previous.get('state') in {'launching', 'running'}
+                            and previous_generation == payload['generation']):
+                        return {'status': 'accepted', 'stage': stage,
+                                'generation': payload['generation']}
+                    raise RuntimeError('GATK prepare dispatcher is still active')
+                receipt = _dispatch_receipt(path, previous)
+                if (previous.get('state') != 'finished' or not receipt
+                        or receipt.get('status') not in TERMINAL):
+                    raise RuntimeError('GATK prepare dispatcher lacks final quiescence evidence')
+                if payload['generation'] < previous_generation:
+                    raise RuntimeError('GATK prepare dispatcher generation was superseded')
+            with _dispatch_lock(path.with_suffix('.worker.lock')):
+                pass
+            # Preserve the explicit legacy no-sidecar prepare entry. It does
+            # not fabricate old completion evidence; the newly launched worker
+            # must write its own running/finished process identity.
+            result = _start_legacy(analysis_id, attempt, stage, generation)
+            if result['status'] == 'accepted':
+                # The child waits on launch.lock before reading this exact
+                # generation authorization; the immutable request is unchanged.
+                _save_dispatch(path, payload, 'launching')
+            return result
+    if stage == "step7_cleanup":
         return _start_legacy(analysis_id, attempt, stage, generation)
     path = _request_path(analysis_id, attempt, stage)
     with _dispatch_lock(path.with_suffix(".launch.lock")):

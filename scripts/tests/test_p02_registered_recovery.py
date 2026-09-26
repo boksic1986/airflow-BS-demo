@@ -19,6 +19,7 @@ def registered(adapter,tmp_path,monkeypatch):
     monkeypatch.syspath_prepend(str(Path(__file__).parents[1]))
     monkeypatch.setitem(sys.modules,'cce_paired_runtime',paired)
     state,_,bundle,old_cap,h=adapter
+    initial = getattr(h, 'initial_path', False)
     pipeline=old_cap.context['pipeline']
     gate=wgs_runtime_gate if pipeline=='wgs' else gatk_runtime_gate
     control=tmp_path/'requests'/old_cap.context['analysis_id']/'attempt-1'
@@ -32,6 +33,10 @@ def registered(adapter,tmp_path,monkeypatch):
     if pipeline=='gatk':
         payload.pop('control_workdir')
         payload.update(schema_version='gatk-runtime.request.v1',pipeline='gatk',cce_bundle=str(bundle))
+    if initial:
+        payload.pop('resume_action_id')
+        payload.update(stage='step1_upload', generation=1,
+            execution_id=payload['analysis_id']+'-a1-step1_upload-g1')
     excluded={'request_hash'} if pipeline=='gatk' else {
         'execution_id','generation','request_hash','predecessor_execution_id',
         'predecessor_generation','predecessor_receipt_hash'}
@@ -52,8 +57,13 @@ def registered(adapter,tmp_path,monkeypatch):
     python_target=tmp_path/'python-real';python_target.write_text('synthetic');python_target.chmod(0o755)
     python_link=tmp_path/'python';python_link.symlink_to(python_target)
     def pin(path):return {'path':str(path),'sha256':hashlib.sha256(Path(path).read_bytes()).hexdigest()}
-    context={**old_cap.lock_context(),'generation':2,'action':state.record['recovery_context']['action'],
-        'master_uid':'master-uid'}
+    bindings = []
+    if not initial:
+        context={**old_cap.lock_context(),'generation':2,'action':state.record['recovery_context']['action'],
+            'master_uid':'master-uid'}
+        bindings=[{'bundle':str(bundle),
+            'contract_sha256':hashlib.sha256((bundle/'BATCH_RUNTIME.yaml').read_bytes()).hexdigest(),
+            'files_sha256':runtime._handoff_binding(bundle,h.contract)['files_sha256'],'context':context}]
     policy=tmp_path/'writers-v2.json'
     policy.write_text(json.dumps({'schema_version':2,'namespace':'synthetic',
         'writers':{'cli':pin(runtime.__file__),'platform':pin(paired.__file__)},
@@ -61,9 +71,7 @@ def registered(adapter,tmp_path,monkeypatch):
         'storage':{'native_root':str(native_path.parent),'mounted_root':str(storage),
             'canonical_root':'/storage/synthetic','root_inode':storage.stat().st_ino,
             'filesystem_id':os.statvfs(storage).f_fsid},
-        'journal_root':str(journal),'bindings':[{'bundle':str(bundle),
-            'contract_sha256':hashlib.sha256((bundle/'BATCH_RUNTIME.yaml').read_bytes()).hexdigest(),
-            'files_sha256':runtime._handoff_binding(bundle,h.contract)['files_sha256'],'context':context}]}))
+        'journal_root':str(journal),'bindings':bindings}))
     policy.chmod(0o600)
     def trust(path):
         path=Path(path)
@@ -80,6 +88,9 @@ def registered(adapter,tmp_path,monkeypatch):
     bootstrap.chmod(0o600)
     monkeypatch.setattr(guard,'DEPLOYMENT_TRUST_ROOT',deployment)
     monkeypatch.setattr(guard,'DEPLOYMENT_TRUST_PATH',bootstrap)
+    if initial:
+        monkeypatch.setattr(paired,'DEPLOYMENT_TRUST_ROOT',deployment)
+        monkeypatch.setattr(paired,'DEPLOYMENT_TRUST_PATH',bootstrap)
     monkeypatch.setattr(paired,'load_runtime',lambda:runtime)
     monkeypatch.setattr(runtime,'_operator_paired_activation',True,raising=False)
     monkeypatch.setattr(gate,'_load_binding',lambda p:binding)

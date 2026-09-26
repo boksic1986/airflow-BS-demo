@@ -1,5 +1,71 @@
 # Workflow runtime integration
 
+## P0 normal-path internal contract (2026-09-26, implementation in progress)
+
+This slice preserves automatic Step1–6, frozen preparation inputs and the existing
+recovery policy/budget. It adds no public API, database table, pause/delete operation
+or manual binding step. Source/test changes are not deployment acceptance.
+
+The existing static deployment policy remains schema2 with the same trusted source,
+interpreter, storage and journal-root fields. New per-run registrations are schema3
+records beneath that controlled `journal_root`, not new entries in its global
+`bindings` array. Historical schema2 bindings remain an explicit compatibility path.
+`writer_for_bundle` exposes the validated `registration_schema_version`:3 requires
+the shared current-owner resolver;2 retains the historical platform receipt,
+journal and exact ConfigMap owner checks. An absent/invalid dynamic registration
+does not silently become a legacy registration, and action-name prefixes are not
+used to infer protocol versions.
+
+The pinned native runtime directly exports these internal functions (the native
+guard implements them); request data cannot choose their executable or location:
+
+- `register_bundle(runtime, bundle, contract, config, *, identity, control_root)`:
+  `identity` has exactly `pipeline`, `analysis_id`, integer `attempt`; `control_root`
+  comes from the validated gate request path's parent. The restricted Step1 path
+  registers after successful prepare, before its first protected operation. Native
+  frozen hashes, resource identity and the fixed control root are persisted
+  idempotently; conflicting registration is rejected rather than overwritten.
+- `initial_owner_action(*, pipeline, analysis_id, attempt, run_id)` returns
+  `initial-` plus the first32 hexadecimal SHA256 characters of the canonical stable
+  identity. It exists before Step2; the later stage `execution_id` remains separate
+  in authenticated requests, submission journals and handoff receipts.
+- `_prepare_submission_view(..., owner_action=writer.context['action'])` propagates
+  that stable initial owner. Native Step2's second view preparation uses the same
+  owner action; acquiring a Master UID conditionally binds the initial lock without
+  changing its generation/action or rewriting the original bundle.
+- `resolve_current_owner(runtime, bundle, contract, config, *, selected_bundle=None,
+  expected_master_uid=None, read_only=True)` returns `selected_bundle` (Path),
+  `expected_master_uid`, `context`, `platform_execution` and `record`. It scans at
+  most4096 existing submission/recovery/resume journals only under the registered
+  control root, validates frozen inputs/handoff/lineage and matches the exact current
+  ConfigMap owner. Zero/multiple matches and symlinked/foreign state reject; mtime is
+  not authority. Supplied platform selection is checked, not trusted as a bypass.
+
+Step1 has no selected Master and does not call current-owner resolution. Ordinary
+CLI status resolution neither claims a writer lock nor creates a cloud reader.
+The subsequent Step3 observation may retain its existing identity-bound evidence
+reader with read-only storage mounts and observation cache; this is distinct from
+a writer storage-identity probe. Platform calls native Step3 with `read_only=True`
+to skip the protected writer claim while retaining call-scope validation.
+Platform receipt/predecessor validation is retained in addition to native current
+owner validation. TTL-absent Jobs require identity-bound durable native terminal
+evidence; absence alone never means success. New business outputs/directories use
+0644/0755; secrets and necessary private control state retain their private modes.
+No historical input/result permission migration is included.
+
+GATK prepare retains its immutable `gatk-airflow-prepare` request format. Only its
+in-memory dispatcher identity projects `stage=prepare` and the existing generation
+execution ID. It reuses the existing launch/worker locks and dispatcher sidecar,
+including the actual process identity at termination. Final release/recovery checks
+validate the unchanged request hash, exact terminal receipt and ended process;
+a successful receipt or free flock alone is insufficient. A prepare retry may use
+CLI generation2 while the immutable request remains generation1: launch authorization
+records the exact new generation only after the previous dispatcher/receipt agree
+on terminal identity and its process has ended. Terminal checks project that
+authorized sidecar/receipt generation, not the immutable request's original one,
+and reject a missing process identity. The explicit legacy no-sidecar prepare
+launch remains supported without inventing old completion evidence. Step7 is unchanged.
+
 ## WGS 4.2.2 frozen prepare binding (R4, 2026-09-26)
 
 The existing WGS restricted gate allowlists only the exact

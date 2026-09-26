@@ -1,5 +1,23 @@
 # Active test-branch tasks
 
+## P0-NORMAL-PATH-FIX-20260926 (current authorized slice)
+
+- [x] Agree native/platform dynamic registration and current-owner interfaces.
+- [x] Reproduce and fix A1/A2 through registered Step1 then new Step2 identity.
+- [x] Close A3/A4 CLI/platform selected-owner and TTL downstream compatibility.
+- [x] Correct new business-output0755/0644 without rewriting historical trees.
+- [x] Run only affected normal/recovery BS10610 synthetic paths; review exact diff.
+- [ ] Original owners package required changed artifacts and deploy paired test set.
+
+Base5165592; keep T4 pause/delete and broader lifecycle API/schema/UI work out.
+Status: installation-only clarified obsolete; source correction and joint review
+accepted. Remote evidence: native33 passed; platform4 normal/recovery passed;
+final affected GATK3 passed. Candidate native90abacd/0.8.7+p0.dev1 packaging is
+in progress with original owner; platform/test deployment remains pending.
+No local runtime tests, production deployment or historical batch operations.
+The documentation-only restriction below describes the prior turn, not this
+newly authorized normal-path slice. Full T1–T5 remains a separate completion bar.
+
 ## P0-LIFECYCLE-REVISION-20260926 (current implementation queue)
 
 Plan: `docs/superpowers/plans/2026-09-26-p0-lifecycle-correction.md`.

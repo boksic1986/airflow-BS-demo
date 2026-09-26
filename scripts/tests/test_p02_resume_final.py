@@ -104,8 +104,20 @@ def test_verified_master_binding_survives_normal_stage_receipts(adapter,tmp_path
 
 
 @pytest.fixture
-def adapter(mirrored_final,tmp_path,monkeypatch):
-    h,view,record,evidence=mirrored_final
+def adapter(view_inputs,tmp_path,monkeypatch,request):
+    initial = getattr(request, 'param', {}).get('initial', False)
+    if initial:
+        h, context = view_inputs
+        view = h.bundle
+        manifest = yaml.safe_load((view/'master-job.yaml').read_bytes())
+        manifest['metadata']['labels']['cce.biosan.cn/run-id'] = 'cce-run-0123456789abcdef'
+        (view/'master-job.yaml').write_text(yaml.safe_dump(manifest))
+        record = {**runtime._handoff_binding(view, h.contract), **h.contract['identity'],
+            'recovery_context': context, 'job_uid': 'master-uid'}
+        evidence = {}
+        Path(h.contract['paths']['run_dir']).mkdir()
+    else:
+        h,view,record,evidence=request.getfixturevalue('mirrored_final')
     pipeline=record['recovery_context']['pipeline']
     aid=record['recovery_context']['analysis_id']
     request_root=tmp_path/'requests'
@@ -114,15 +126,17 @@ def adapter(mirrored_final,tmp_path,monkeypatch):
     bundle=tmp_path/'runs'/aid/'attempt-1'/'cce'
     shutil.copytree(view,bundle)
     os.chmod(bundle.parent,0o2770)
-    runtime._write_mirror_evidence(bundle,record['run_id'],evidence,project=record['project'],batch=record['batch'])
+    if not initial:
+        runtime._write_mirror_evidence(bundle,record['run_id'],evidence,project=record['project'],batch=record['batch'])
     manifest=yaml.safe_load((bundle/'master-job.yaml').read_bytes())
     master=copy.deepcopy(manifest)
     master['metadata'].update(uid=record['job_uid'],resourceVersion='10')
     master['status']={'conditions':[{'type':'Failed','status':'True'}]}
-    worker_name=json.loads(evidence['recovery-final.json']['manifest'])['external_jobid']
+    worker_name='synthetic-no-worker' if initial else json.loads(evidence['recovery-final.json']['manifest'])['external_jobid']
     worker={'kind':'Job','metadata':{'name':worker_name,'namespace':'synthetic','uid':'worker-uid',
         'resourceVersion':'2','labels':{'cce.biosan.cn/run-id':'synthetic-run'}},'status':{'conditions':[{'type':'Complete','status':'True'}]}}
-    state=SimpleNamespace(job=master,worker=worker,cms={},creates=0,deletes=0,starts=0,copies=0,
+    state=SimpleNamespace(job=None if initial else master,worker=None if initial else worker,
+        cms={},creates=0,deletes=0,starts=0,copies=0,
         lose=False,hide=False,unknown=False,page=False,surviving=False,allowed=True,confirmation=None,
         maintenance=False)
     def query(config,kind,*args,**kwargs):
@@ -184,8 +198,16 @@ def adapter(mirrored_final,tmp_path,monkeypatch):
     monkeypatch.setattr(runtime,'_delete_recovery_master',remove,raising=False)
     binding={'schema_version':'gatk-runtime.batch-binding.v1' if pipeline=='gatk' else 'wgs',
         'analysis_id':aid,'attempt':1,'run_id':record['run_id'],'cce_bundle':str(bundle),
-        'namespace':'synthetic','master_job':'master','run_label':'synthetic-run'}
+        'namespace':'synthetic','master_job':'master',
+        'run_label':manifest['metadata']['labels']['cce.biosan.cn/run-id'] if initial else 'synthetic-run'}
     binding_path=bundle.parent/'batch-binding.json';binding_path.write_text(json.dumps(binding))
+    if initial:
+        # A new attempt starts with no historical Master or lock. The normal
+        # test must obtain its first owner from registration plus real Step1.
+        state.record, state.evidence = record, evidence
+        h.initial_path = True
+        monkeypatch.setenv('GATK_RUNTIME_REQUEST_ROOT',str(request_root))
+        return state, None, bundle, SimpleNamespace(context=context), h
     context={**record['recovery_context'],'generation':3,'action':'new-action','execution_id':'new-exec'}
     def authorize(facts):return {'writers_protocol':2,'dispatcher_inactive':state.allowed,'recovery_allowed':True,
         'native_directory':evidence['recovery-final.json']['canonical_directory'],'canonical_directory':'/storage/synthetic/project'}

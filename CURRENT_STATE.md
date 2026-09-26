@@ -1,5 +1,28 @@
 # Current state
 
+## 2026-09-26 P0 normal-path correction authorized (in progress)
+
+User now authorizes source correction followed by BS10610 test deployment,
+limited to audit A1–A4 and new business-output0755/0644: automatic registration,
+initial owner independent of Step2 ID, shared CLI/platform current owner, and
+TTL-safe normal downstream. Preserve stage order, frozen inputs and recovery
+budgets. T4 pause/delete and production/real-batch actions are excluded.
+Existing integration worktree at5165592 was clean at start. Shared native/platform
+interfaces and source correction are complete; one joint review closed all three
+Important findings (explicit legacy Step1, GATK prepare generation2, missing
+prepare process identity). Infra reports33 targeted native checks passing, the
+four WGS/GATK normal/recovery cases passing, and3 changed GATK cases passing after
+the final correction. CLI main dispatch is covered with mocked cloud transport,
+not a live cloud full-run. Existing unaffected evidence is reused.
+Native owner committed candidate90abacd/0.8.7+p0.dev1 and is building a distinct
+wheel/WGS Master and new r3 profile. No corrected deployment yet; preserve r2.
+Only affected normal/recovery synthetic paths will run, not full-suite repeats.
+
+Coordination resumed: user explicitly clarified that "直接安装" was an obsolete
+instruction. Native and platform owners are continuing the authorized correction,
+then minimal validation and BS10610 test delivery. New artifacts are in progress;
+do not reinstall the old artifact as the correction.
+
 ## 2026-09-26 P0 lifecycle design revision (current documentation authority)
 
 User confirmed cloud-only cleanup, user-managed local directory movement, same-name

@@ -1,5 +1,176 @@
 # Handoff
 
+## 2026-09-26 — A1–A4 source accepted; paired test delivery in progress
+
+Scope remains the normal-path correction, not all lifecycle T1–T5. No production,
+real-batch action, T4 API/DB/UI, plugin rebuild or biological workflow change.
+Original native/Infra owner executed all remote tests; coordinator did not install
+or build artifacts. Source review closed all3 Important findings; no unresolved
+Critical/Important issue. Explicit legacy schema2 requires exact frozen identity;
+new schema3 registrations cannot fall back to missing legacy identity. GATK prepare
+generation retry uses unchanged raw request plus exact sidecar/ended process proof.
+
+Evidence root:
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/native-p0-20260926`.
+- `native-final-focused3.log`:33 targeted native checks passed, including actual
+  CLI main dispatch with simulated transport. Not a live cloud CLI full-run.
+- `platform-green-2.log`:4 WGS/GATK normal/recovery cases passed,48 deselected,
+  12.26s. Real registration, stable Step1 owner, native handoff/final producer and
+  TTL downstream; cloud/Pod transport remains synthetic.
+- `platform-gatk-gen2.log`:3 affected GATK cases passed in8.18s after review fixes;
+  earlier WGS passes reused, not repeated. Includes existing prepare retry case.
+- Local static `git diff --check` only; no local runtime tests or whole-suite run.
+
+Files: paired runtime, GATK gate, selected-monitor and two existing fixture tests,
+docs08 and the four progress/plan documents. Native owner committed90abacd with
+independent candidate version0.8.7+p0.dev1; wheel/WGS Master build is in progress.
+New r3 must bind final immutable artifact digests and version metadata, with
+business755/644/755; r2 and historical trees remain untouched. Installation only
+in agreed nipttest, never WGS. Platform deployment must use the forthcoming exact
+source commit; scanner/dispatch stayfalse. No service switch has been reported.
+Rollback retains exact previous mounts/current release/image IDs, r2 and old Master;
+do not treat source acceptance as deployed or as acceptance of deferred T4.
+
+## 2026-09-26 — P0 coordination resumed after explicit clarification
+
+User clarified: "对，直接安装已经是过期的命令了". The earlier cross-thread
+hold below is resolved. Continue the already authorized A1–A4 correction and
+necessary new business-output permissions, minimal BS10610 synthetic validation,
+then paired test deployment. Native owner and platform worker notified; same
+file ownership, no production/real-batch/T4 scope expansion. Native interface
+agreement remains the immediate dependency, not an authorization blocker.
+No local runtime tests, installation or remote mutation at this resumption.
+
+Agreed internal contract (native owner implements, platform consumes):
+`initial_owner_action(*, pipeline, analysis_id, attempt, run_id)` returns bounded
+`initial-` plus stable identity digest; `register_bundle(runtime, bundle, contract,
+config, *, identity, control_root)` publishes schema3 frozen per-run registration
+under existing trusted journal_root; identity is pipeline/analysis_id/attempt,
+control_root comes from the validated gate request parent, not arbitrary payload.
+`resolve_current_owner(runtime, bundle, contract, config, *, selected_bundle=None,
+expected_master_uid=None, read_only=True)` returns selected_bundle,
+expected_master_uid, context, platform_execution and native record. Resolution is
+bounded to registered per-run journal names (4096 maximum), exact current owner
+and frozen handoff hashes; no mtime/global search or new mutable selection pointer.
+`_prepare_submission_view(..., owner_action=...)` propagates the same action through
+both native/platform call sites. Platform retains receipt-chain validation.
+Current-owner resolution must not claim or create a storage-identity probe;
+writes retain fencing. Status observation does not acquire an analysis write lock.
+
+Infra owner reports fresh read-only BS10610 preflight: server10610/chenjc,
+current20260912-opt-4d3d24e6; backend /app20260923-step7-ae416fa; scheduler WGS DAG
+20260915-main-359df11; active analysis/transfer counts0, scanner/dispatchfalse.
+No service switch. Exact test interpreter/root remains to be returned by Infra.
+Platform fixture helpers may gain an initial=True branch in the existing
+resume_final/registered_recovery harness; old defaults unchanged. This creates
+an initially empty state, not an in-test lock reset or future-ID policy injection.
+
+RED evidence returned by Infra owner: BS10610 existing offline WGS candidate
+image with task-root synthetic data, selector `-k
+normal_registration_preserves_step1_owner_through_ttl`: 2 failed, 48 deselected,
+1.58s. Both WGS/GATK entered the test body and failed at native writer_for_bundle
+with `protected CLI requires an exact trusted frozen bundle binding`, before
+Step1 and with static bindings empty. Log:
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/native-p0-20260926/platform-red-image5.log`.
+Earlier attempts did not count as RED: nipttest Python3.9 lacked typing.Self for
+the plugin; existing candidate image avoided any installation, then an indirect
+fixture dependency declaration needed correction (adapter now explicitly depends
+on view_inputs). No production/batch changes. Native/platform implementation
+proceeds against this reproduced registration gap; GREEN not yet obtained.
+
+Necessary gate compatibility found while implementing normal-path validation:
+GATK prepare uses immutable kind=gatk-airflow-prepare, not a v2 stage request;
+legacy start/worker currently emits no dispatcher sidecar, while Step6/recovery
+checks require exact ended dispatcher evidence for prepare too. Approved only
+within the existing gate scope: in-memory identity projection using existing
+generation/execution formula, reuse worker/launch locks and dispatcher sidecar
+for prepare, keep raw request/hash, prepare behavior and Step7 unchanged. Validate
+the raw prepare hash plus ended process, never success/free-lock alone. Same GATK
+normal case will use real prepare format and cover active rejection/ended accept;
+no new API/DB/schema or independent dispatcher framework is introduced.
+
+Read-only scope correction during integration: the earlier coordinator shorthand
+"no reader CREATE" applies to pure current-owner resolution/storage validation,
+not the existing Step3 evidence collector. Node200 has no SFS mount, and TTL may
+remove the Pod; the existing bound read-only-volume evidence reader and local
+observation mirror remain necessary. Keep that transport/cache behavior, while
+explicit read_only=True skips analysis writer.enter/claim and the full write
+storage probe. Do not disable evidence refresh or invent a new status collector.
+Native owner also removed a proposed mandatory2770 check on existing control
+roots: trusted effective ownership/ACL/access is checked, not a forced mode, and
+existing directories are not chmodded. Business755/644 remains unchanged.
+
+Infra read-only profile finding: existing wgs-4.2.2-r2 declares2775/0664/0775,
+so source support alone cannot establish the new output modes. Within this test
+delivery scope create a separate r3 candidate only after final artifact digests
+are known, with required corrected artifact pins and755/644/755. Preserve r2,
+old batches and biological workflow; no in-place profile edit or early activation.
+One fresh read-only joint review is assigned across the two changed source trees;
+it adds no test runs and does not replace the pending4-case remote GREEN.
+
+First4-case GREEN attempt reported by Infra: all reached real Step1 registration
+and stable Step2 owner/UID binding, then failed in the common test seal helper
+reading a not-yet-produced recovery-final.json. Log `native-p0-20260926/platform-green-1.log`
+under the same approved remote evidence root. Platform owner is correcting the
+fixture to invoke the actual native final producer, not fabricating a snapshot.
+Native owner separately reports five focused native checks passing. The combined
+integration is still unaccepted; no packaging, deployment or production action.
+
+Corrected fixture: old handoff fixture mocked worker-manifest creation. Restore
+the real native producer with only Pod transport simulated; native terminal code
+now creates the real snapshot instead of the test writing one. Infra reports
+`4 passed, 48 deselected in12.26s`, `native-p0-20260926/platform-green-2.log`.
+Native focused result advanced to7passed in1.64s (`native-green-focused2.log`).
+Single joint read-only review found no Critical and three Important findings:
+explicit static schema2 Step1 is rejected by new registration; GATK prepare retry
+generation2 conflicts with generation1 sidecar/immutable request projection;
+prepare finished+process=None is insufficient actual termination proof. Native
+owner fixes explicit legacy registration no-op with full identity/frozen checks;
+platform owner fixes prepare generation/process checks using existing locks.
+Do not expand older stage checks or add API/schema. Actual CLI main dispatch is
+not yet proved by platform's resolver-only assertion; native owner will cover it
+inside existing focused checks. Recheck only affected findings/cases, not a new
+full review/test chain. No artifacts or test service switch before this closes.
+
+## 2026-09-26 — P0 normal-path correction started
+
+Authority: user approved fixing the four audited blockers plus related new-output
+permissions, then deploying test only. No production, clinical runs, pause/delete
+implementation or local-data mutation is included. Baseline5165592 in the existing
+isolated integration worktree; primary checkout remains untouched.
+
+Owners: original huawei-cloude thread handles native source/artifacts and Infra
+preflight; scoped platform worker handles paired runtime/gate/test changes. Root
+coordinates interface, scope, documentation and final review. No cross-owned code
+edits or coordinator image/Compose work. Tests remain on BS10610 only, after
+fingerprint approval; no local baseline/dependency installs/full suite runs.
+
+Pre-flight contract ledger: platform registration must consume native validated
+deployment scope, not invent per-batch global policy; initial stable owner must
+survive later platform execution ID; current-owner resolution must serve CLI and
+platform without a second retry budget. These are shared dependencies, so native
+interface agreement precedes consumer implementation. T4 control table/API is not
+needed for this authorized slice and is deferred, not silently implemented.
+
+Read-only exploration: one shared_permissions.py lookup incorrectly assumed the
+assets subdirectory and returned path-not-found; no file changed. Native owner
+will use the actual source tree. Latest tests/deployments: none this turn yet.
+Rollback remains source reversion until a separately recorded paired test switch.
+
+Coordination outcome: native owner explicitly reports receiving the newer user
+instruction "直接安装即可，不要做其他不必要的动作" in its own thread and has
+paused native design/source changes until the installation target/scope is clear.
+Do not override that instruction or install old0.8.6 as the still-unbuilt fix.
+User clarification required: does installation-only mean after the authorized
+A1–A4 fixes and minimal tests, or does it replace source correction?
+Platform worker stopped at read-only findings: WGS `_step_command` and GATK
+`_step` already pass payload/gate/pipeline into `stage_command`; registration can
+be wired there without DAG/API changes. Current synthetic initial-submission
+test manually injects future Step2 ID into policy and cannot prove A1/A2.
+No native/platform source edits, remote preflight, runtime tests, installation,
+image build or deployment performed this turn. Only these progress documents
+and the scoped authorization in the implementation plan are modified locally.
+
 ## 2026-09-26 — P0 lifecycle documentation delivery
 
 Authority: user requested the revised design be written to the repository only.

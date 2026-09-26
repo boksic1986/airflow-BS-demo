@@ -194,6 +194,8 @@ def stage_command(bundle, stage, *arguments, payload=None, gate=None, pipeline=N
     if selected is None:
         return None
     source, python = selected
+    if stage == 'step1_upload':
+        register_initial(payload, bundle=bundle, gate=gate, pipeline=pipeline)
     if payload is not None and stage in {'step4_publish','step5_download','step6_materialize'}:
         if arguments:
             raise RuntimeError('registered downstream does not accept native command overrides')
@@ -203,6 +205,42 @@ def stage_command(bundle, stage, *arguments, payload=None, gate=None, pipeline=N
             payload['analysis_id'], str(payload['attempt']), stage, payload['execution_id'],
             str(payload['generation']), payload['request_hash']]
     return [python, str(source), COMMANDS[stage], '--bundle', str(bundle), *arguments]
+
+
+def register_initial(payload, *, bundle, gate, pipeline):
+    """Register prepared frozen inputs at the existing restricted Step1 entry."""
+    if (not isinstance(payload, dict) or payload.get('stage') != 'step1_upload'
+            or payload.get('orchestration_contract_version') != 2
+            or gate is None or pipeline not in {'wgs', 'gatk'}):
+        raise RuntimeError('initial registration requires a registered Step1 request')
+    path, raw = _registered_request(payload, gate, pipeline)
+    binding = gate._load_binding(payload)
+    if Path(binding['cce_bundle']) != Path(bundle):
+        raise RuntimeError('initial registration differs from prepared bundle')
+    candidates = ('prepare', 'prepare_analysis') if pipeline == 'wgs' else ('prepare',)
+    matched = []
+    for stage in candidates:
+        predecessor_path = gate._request_path(payload['analysis_id'], payload['attempt'], stage)
+        if not predecessor_path.exists():
+            continue
+        receipt_path = predecessor_path.with_suffix('.status.json')
+        if not receipt_path.exists():
+            continue
+        predecessor = json.loads(_read_registered(receipt_path))
+        if predecessor.get('execution_id') == payload.get('predecessor_execution_id'):
+            matched.append(stage)
+    if len(matched) != 1:
+        raise RuntimeError('initial registration requires its successful prepare predecessor')
+    _, evidence = _predecessor(payload, gate, pipeline, previous=matched[0])
+    runtime = load_runtime()
+    if runtime is None:
+        raise RuntimeError('paired runtime disappeared before initial registration')
+    contract, config, _ = runtime._load(Path(bundle), None)
+    runtime.register_bundle(runtime, Path(bundle), contract, config,
+        identity=dict(pipeline=pipeline, analysis_id=payload['analysis_id'], attempt=payload['attempt']),
+        control_root=path.parent)
+    if _read_registered(path) != raw or any(_read_registered(p) != value for p, value in evidence):
+        raise RuntimeError('initial registration request or prepare receipt superseded')
 
 
 def run_registered_stage(arguments):
@@ -304,6 +342,16 @@ def _inactive_dispatcher(path, gate, pipeline):
     if not worker.exists() or not status.exists() or not path.exists():
         raise RuntimeError('other dispatcher lacks terminal evidence')
     state, receipt, request = [json.loads(_read_registered(p)) for p in (worker, status, path)]
+    immutable_prepare = pipeline == 'gatk' and request.get('kind') == 'gatk-airflow-prepare'
+    if immutable_prepare:
+        if (path != gate._request_path(request['analysis_id'], request['attempt'], 'prepare')
+                or _request_digest(request, pipeline) != request.get('request_hash')):
+            raise RuntimeError('immutable prepare dispatcher request changed')
+        generation = state.get('generation')
+        if type(generation) is not int or generation < 1:
+            raise RuntimeError('immutable prepare dispatcher generation is invalid')
+        request = {**request, **gate._dispatch_identity({**request, 'generation': generation}),
+                   'orchestration_contract_version':2}
     keys = ('analysis_id', 'attempt', 'stage', 'generation', 'execution_id', 'request_hash')
     if (request.get('orchestration_contract_version') != 2
             or any(not request.get(k) or state.get(k) != request[k] or receipt.get(k) != request[k] for k in keys)
@@ -313,6 +361,8 @@ def _inactive_dispatcher(path, gate, pipeline):
         process = state.get('process')
         if (state.get('schema_version') != 'gatk-runtime.dispatcher.v1'
                 or state.get('state') != 'finished'
+                or (immutable_prepare and (not isinstance(process, dict)
+                    or not all(process.get(key) for key in ('pid', 'starttime', 'boot_id'))))
                 or (process and gate._process_identity(process['pid']) == process)):
             raise RuntimeError('other dispatcher is active or uncertain')
     elif (not all(state.get(k) for k in ('pid', 'boot_id', 'process_start_time'))
@@ -335,6 +385,26 @@ def _exported_master(runtime, bundle, selected, contract, platform):
     native['namespace'] = contract['kubernetes']['namespace']
     return dict(schema_version=2,platform_execution=platform,native=native,
         source_bundle=str(bundle),selected_bundle=str(selected))
+
+
+def _resolve_selected_owner(runtime, bundle, selected, contract, config, record, platform, writer):
+    """Native and platform consumers must agree on one current confirmed owner."""
+    expected = dict(generation=record['execution_generation'],
+        action=record['recovery_context']['action'], master_uid=record['job_uid'])
+    if writer.registration_schema_version == 2:
+        # Explicit historical static registration keeps its already-validated
+        # platform receipt/journal/ConfigMap path, not a dynamic fallback.
+        return expected
+    if writer.registration_schema_version != 3:
+        raise RuntimeError('unsupported native writer registration protocol')
+    current = runtime.resolve_current_owner(runtime, bundle, contract, config,
+        selected_bundle=selected, expected_master_uid=record['job_uid'], read_only=True)
+    if (current['selected_bundle'] != selected
+            or current['expected_master_uid'] != record['job_uid']
+            or current['record'] != record or current['platform_execution'] != platform
+            or any(current['context'].get(k) != v for k, v in expected.items())):
+        raise RuntimeError('native current owner differs from registered selected Master')
+    return expected
 
 
 def _initial_job_uid(selected,job,journal):
@@ -369,8 +439,9 @@ def submit_registered(payload, *, binding, gate, pipeline):
     platform = dict(pipeline=pipeline, **{k:payload[k] for k in
         ('analysis_id','attempt','stage','execution_id','generation','request_hash')})
     action = payload['execution_id']
-    if (writer.context.get('generation') != 1 or writer.context.get('action') != action
+    if (writer.context.get('generation') != 1
             or writer.context.get('analysis_id') != payload['analysis_id']
+            or writer.context.get('attempt') != str(payload['attempt'])
             or writer.context.get('pipeline') != pipeline):
         raise RuntimeError('initial operator owner differs from registered submission')
     journal_path = path.parent / ('submission-'+action+'.json')
@@ -381,7 +452,8 @@ def submit_registered(payload, *, binding, gate, pipeline):
         identity = dict(platform_execution=platform, source_bundle=str(bundle), selected_bundle=str(selected))
         if journal and journal.get('identity') != identity:
             raise RuntimeError('initial submission journal changed')
-        selected = runtime._prepare_submission_view(bundle, selected, contract, platform_execution=platform)
+        selected = runtime._prepare_submission_view(bundle, selected, contract,
+            platform_execution=platform, owner_action=writer.context['action'])
         def require_job(job):
             return _initial_job_uid(selected,job,journal)
         def save():runtime._atomic_write_text(journal_path,json.dumps(journal,sort_keys=True)+'\n')
@@ -566,7 +638,7 @@ def _reconcile_initial_intent(root,payload,gate,pipeline,runtime,bundle,contract
     if lock.get('state')!='OWNED' or lock.get('identity')!=identity:return
     for path,journal,selected,platform in _journal_views(root,pipeline,runtime,bundle,contract):
         if 'identity' not in journal or journal.get('state')=='confirmed':continue
-        pending=dict(generation=1,action=platform['execution_id'],master_uid='')
+        pending=dict(generation=1,action=writer.context['action'],master_uid='')
         owner=lock.get('owner',{})
         if any(owner.get(k)!=pending[k] for k in ('generation','action')):continue
         evidence=_producer_registration(platform,gate,pipeline,payload['analysis_id'],payload['attempt'])
@@ -583,7 +655,7 @@ def _reconcile_initial_intent(root,payload,gate,pipeline,runtime,bundle,contract
                 job_uid=uid,state='JOB_CREATED',deadline_epoch=journal['deadline_epoch'])
         runtime._finish_master_handoff(selected,contract,config,uid)
         exported=_exported_master(runtime,bundle,selected,contract,platform)
-        writer.context.update(generation=1,action=platform['execution_id'],master_uid=uid)
+        writer.context.update(generation=1,action=pending['action'],master_uid=uid)
         def proof(current,operation):
             if operation!='bind':raise RuntimeError('initial reconciliation cannot replace an owner')
             _initial_job_uid(selected,runtime._recovery_query(config,'job',contract['kubernetes']['master_job']),journal)
@@ -624,8 +696,10 @@ def _observe_registered_source(payload, binding, gate, pipeline, runtime, bundle
         expected=None, evidence=()):
     """Reattach a new observer without relabelling the original Master producer."""
     path, raw = _registered_request(payload,gate,pipeline)
-    with writer.serialize():
-        writer.validate()
+    read_only = payload['stage'] == 'step3_monitor'
+    with (nullcontext() if read_only else writer.serialize()):
+        if not read_only:
+            writer.validate()
         if expected is None:
             source, record = _recovery_source(path.parent,payload,pipeline,runtime,bundle,contract,writer)
         else:
@@ -648,8 +722,7 @@ def _observe_registered_source(payload, binding, gate, pipeline, runtime, bundle
         # A reconnect is an observer, not a new producer. Its original request
         # may have been archived by the existing authenticated service.
         evidence=(*evidence,*_producer_registration(platform,gate,pipeline,payload['analysis_id'],payload['attempt']))
-        writer.context.update(generation=record['execution_generation'],action=record['recovery_context']['action'],
-            master_uid=record['job_uid'])
+        writer.context.update(_resolve_selected_owner(runtime,bundle,source,contract,config,record,platform,writer))
         name,identity,owner=runtime._directory_lock_identity(contract,writer.context)
         current=runtime._recovery_query(config,'configmap',name)
         lock=json.loads(current['data']['lock']) if current else {}
@@ -663,7 +736,7 @@ def _observe_registered_source(payload, binding, gate, pipeline, runtime, bundle
             output=io.StringIO()
             with redirect_stdout(output):
                 runtime.step3(contract,config,modules,'json',bundle=bundle,writer=writer,
-                    master_bundle=source,expected_master_uid=record['job_uid'])
+                    master_bundle=source,expected_master_uid=record['job_uid'],read_only=True)
             result=json.loads(output.getvalue())
         else:result=operation(runtime,bundle,source,record['job_uid'],contract,config,modules,writer)
         proof = _automatic_failure_evidence(payload,result or {},runtime=runtime,bundle=bundle,selected=source,
@@ -911,16 +984,30 @@ def worker_probe_command(arguments, *, gate, pipeline):
         generation=int(generation),request_hash=request_hash,nonce=nonce)
 
 
-def _predecessor(payload, gate, pipeline):
-    stages = tuple(COMMANDS)
-    previous = stages[stages.index(payload['stage']) - 1]
+def _predecessor(payload, gate, pipeline, *, previous=None):
+    if previous is None:
+        stages = tuple(COMMANDS)
+        previous = stages[stages.index(payload['stage']) - 1]
     path = gate._request_path(payload['analysis_id'], payload['attempt'], previous)
     raw = _read_registered(path)
     request = json.loads(raw)
-    _registered_request(request, gate, pipeline)
     status_path = path.with_suffix('.status.json')
     status_raw = _read_registered(status_path)
     receipt = json.loads(status_raw)
+    if pipeline == 'gatk' and previous == 'prepare':
+        # Prepare's immutable request predates the stage-v2 envelope. Its
+        # generation-scoped identity is produced by the existing gate receipt.
+        generation = receipt.get('generation')
+        if (request.get('kind') != 'gatk-airflow-prepare'
+                or type(generation) is not int or generation < 1
+                or request.get('request_hash') != _request_digest(request, pipeline)
+                or any(request.get(k) != payload.get(k) for k in ('analysis_id', 'attempt'))):
+            raise RuntimeError('GATK prepare predecessor request changed')
+        request = {**request, 'stage':'prepare', 'generation':generation,
+            'execution_id':f"{payload['analysis_id']}-a{payload['attempt']}-prepare-g{generation}",
+            'orchestration_contract_version':2}
+    else:
+        _registered_request(request, gate, pipeline)
     digest = hashlib.sha256(status_raw).hexdigest() if pipeline == 'wgs' else hashlib.sha256(
         json.dumps({k:v for k,v in receipt.items() if k != 'receipt_hash'},
             sort_keys=True, separators=(',', ':')).encode()).hexdigest()
@@ -1146,8 +1233,10 @@ def _selected_registered(payload, *, binding, gate, pipeline, operation=None, ru
         from .cce_recovery_inventory import VerifiedMasterResult
     else:
         from cce_recovery_inventory import VerifiedMasterResult
-    with writer.serialize():
-        writer.validate()
+    read_only = payload['stage'] == 'step3_monitor'
+    with (nullcontext() if read_only else writer.serialize()):
+        if not read_only:
+            writer.validate()
         original = runtime._handoff_binding(bundle, contract)
         if initial:
             action = source['execution_id']
@@ -1174,6 +1263,8 @@ def _selected_registered(payload, *, binding, gate, pipeline, operation=None, ru
         journal_raw = _read_registered(journal_path)
         journal = json.loads(journal_raw)
         platform = dict(pipeline=pipeline, **{k:source[k] for k in keys})
+        if initial:
+            action = writer.context['action']
         context = dict(pipeline=pipeline, analysis_id=source['analysis_id'],
             execution_id=source['execution_id'], generation=1 if initial else original['execution_generation']+1, action=action)
         if initial:
@@ -1214,7 +1305,7 @@ def _selected_registered(payload, *, binding, gate, pipeline, operation=None, ru
         if downstream and (previous.get('cce_master_binding') != exported
                 or previous.get('cce_master_submit_execution_id') != source['execution_id']):
             raise RuntimeError('downstream predecessor changed selected Master')
-        writer.context.update(generation=context['generation'], action=action, master_uid=record['job_uid'])
+        writer.context.update(_resolve_selected_owner(runtime,bundle,selected,contract,config,record,platform,writer))
         name, identity, owner = runtime._directory_lock_identity(contract, writer.context)
         current = runtime._recovery_query(config, 'configmap', name)
         lock = json.loads(current['data']['lock']) if current else {}
@@ -1230,7 +1321,7 @@ def _selected_registered(payload, *, binding, gate, pipeline, operation=None, ru
             output = io.StringIO()
             with redirect_stdout(output):
                 runtime.step3(contract, config, modules, 'json', bundle=bundle, writer=writer,
-                    master_bundle=selected, expected_master_uid=record['job_uid'])
+                    master_bundle=selected, expected_master_uid=record['job_uid'],read_only=True)
             value = json.loads(output.getvalue())
         else:
             value = operation(runtime,bundle,selected,record['job_uid'],contract,config,modules,writer)
