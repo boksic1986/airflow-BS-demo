@@ -2,6 +2,12 @@
 
 ## P0-SMOKE-20260926 (user-authorized test acceptance)
 
+Latest checkpoint: NORMAL01 Step1 real upload PASS. Step2 Master started then
+BackoffLimitExceeded, TTL-reclaimed; handoff JOB_CREATED/noSTART. Original
+Step2 exited1 with Pod Ready timeout, Worker0; Step3–6/FAULT01 not started. Stop new mutations
+for this independent startup blocker. CREATE8/22 (two mandatory Step5 log Jobs
+were missing from original20 estimate; same two cases, not extra tests).
+
 Current authorization: user "修复后继续完成" permits the scoped reader-cleanup
 repair and continuation; it supersedes the decision-needed checkpoint below.
 

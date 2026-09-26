@@ -1,5 +1,26 @@
 # P0 smoke entry check — 2026-09-26
 
+## Latest live checkpoint — Master startup fails before START
+
+NORMAL01 Step1 succeeds. Step2 Master cce-master-fe030195de2da0bc5ab6 UID
+b6b2aeea-dd9c-4442-90fd-f55c8580411d starts at2026-09-26T18:26:00Z, then Job
+BackoffLimitExceeded at18:26:02Z. TTL100s removes Job/Pod before log retrieval.
+Handoff in bundle/evidence/P0SMOKENORMAL-a1 remains JOB_CREATED/noSTART with
+original deadline1790447735.173923; original Ready wait naturally exits1 on timeout.
+No Worker; NORMAL01 Step3–6 and allFAULT01 NOT RUN. Retained events do not prove
+container root cause. Stop new submissions and product changes for this separate
+blocker; retain command's final result. Static generated env/mount/path checks
+show no obvious mismatch, not a root-cause finding. Count8/22, no smokePASS claim.
+
+## NORMAL01 Step1 success and native Job accounting correction
+
+Owner reports Step1 exit0 with real OBS HTTP200 for33B synthetic FASTQ and154B
+upload completion marker. Step2 started; its reader Ready, Master not confirmed.
+Cumulative CREATE at least7. Original coordinator cap20 omitted the native
+Step5 log-download Job in each of the SAME two cases. Cap is explicitly22 now
+to include these two required Jobs, not more tests/faults/retries. Keep helper
+serial execution and at most one Master/Worker pair; stop before any23rd CREATE.
+
 ## Reader cleanup fixed; native upload launcher environment corrected
 
 Native `4488d10` changes helper cleanup wait30→90s only. Coordinator reviewed

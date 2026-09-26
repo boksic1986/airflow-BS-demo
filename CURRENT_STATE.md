@@ -1,5 +1,17 @@
 # Current state
 
+## 2026-09-27 NORMAL01 upload passes; independent Master startup failure
+
+After task-only launcher env correction, real Step1 exits0 (OBS200 for input and
+completion marker). Step2 created Master UIDb6b2aeea-dd9c-4442-90fd-f55c8580411d,
+but it failed BackoffLimitExceeded about2s after container start. TTL100s removed
+Job/Pod. Genuine handoff remains JOB_CREATED; noSTART/Worker. Container root cause
+is unknown from retained events. Original Step2 exited1 naturally with Pod Ready
+timeout; no retry/new Master/FAULT01 or unrelated product fix is authorized.
+Cumulative CREATE8/22: budget corrected only for two mandatory Step5 log Jobs
+previously omitted from original two-case estimate. No additional cases.
+Cleanup correction4488d10 and5 scoped tests pass; full smoke is NOT accepted.
+
 ## 2026-09-27 live reader cleanup passed; task launcher variable supplied
 
 Reader#5 cleaned successfully and native Step1 entered upload. Wrapper exit127

@@ -1,5 +1,26 @@
 # Handoff
 
+## 2026-09-27 — Step1 succeeds; separate Master startup blocker stops smoke
+
+Original owner used only task-process WGS_REAL_OBSUTIL_BIN already configured
+by existing runner; Step1 exit0, OBS200 for33B synthetic input and154B marker.
+Step2 reader#7 passed, Master#8 cce-master-fe030195de2da0bc5ab6 created with UID
+b6b2aeea-dd9c-4442-90fd-f55c8580411d, Pod suffix2qsdl. Events UTC:
+2026-09-26T18:25:40 SuccessfulCreate;18:26:00 Started;18:26:02 BackoffLimitExceeded.
+TTL100s subsequently removed exact Job/Pod; no Worker. Container failure cause
+not available from events alone. Correct records are bundle/evidence/
+P0SMOKENORMAL-a1/MASTER_CREATE_INTENT.json and MASTER_HANDOFF.json, sameUID and
+deadline1790447735.173923, stateJOB_CREATED/noSTART. Root-directory record absence
+was an incorrect early check and must not be used to infer no Master submission.
+Original Step2 wait Ready exited1 naturally at its timeout; do not resubmit.
+Finite static checks found required env, temporary mounts and fixture paths
+generated, no obvious path mismatch. This is not proof of container root cause.
+Coordinator directed only finite static/retained-evidence checks; no extra reader,
+Master retry, TTL change, FAULT01 or new product repair. Ask user about separately
+scoped Master-startup diagnosis with bounded startup-log capture. CREATE8/22;
+cap adjustment covered only nativeStep5 log Job each of original2cases. Keep all
+history; production/shared install/profile unaffected, no local data deletion.
+
 ## 2026-09-27 — real cleanup passed; task-only upload environment continuation
 
 Owner reports reader#5 cce-evidence-8cc1433ddc4c4f00beb6a7a1 absent in precise
