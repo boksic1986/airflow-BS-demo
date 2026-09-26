@@ -1,5 +1,19 @@
 # Current state
 
+## 2026-09-26 final0.8.7 artifacts installed; asset publication running
+
+Original owner reports final nativee2962a2/0.8.7 installed in existing nipttest
+via node005; BS10610 reads the same version/commit. Master is pushed at
+sha256:2b8070049c3a44319af6d6db9bb7f994af744e8b4f8aacf054071a8a4eee6394.
+Authorized shared r2 replacement is complete, with exact old-file rollback copy.
+New profile SHA c98b13c6de82470bea48d028a6df1dc78f3ce12f566920a79e4ba55bbdf35e8d.
+Assets20260926.2-wgs422-p0 publication Job Complete1/1; live status PASS with
+state_verified=true for pipeline130/resource9. Native release.export produced
+receipt220c51d3... from that state. Catalog does not yet contain WGS4.2.2, so the
+new receipt is a first registration, not an overwrite. Platforme358aad is staged;
+precise5-service WGS/backend mount update and paired test gate installation are
+in progress. No platform service activation claimed yet.
+
 ## 2026-09-26 release version/profile direction superseded by user
 
 User requests a plain release version, not0.8.7+p0.dev1; target is now0.8.7.

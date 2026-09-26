@@ -1,5 +1,55 @@
 # Handoff
 
+## 2026-09-26 — assets complete; precise test platform switch agreed
+
+Asset Job cce-assets-wgs-4.2.2-r2-20260926.2-wgs422-p0 Complete1/1;
+live status PASS/state_verified=true, completed2026-09-26T14:43:23Z.
+Native release.export canonical receipt SHA256
+220c51d3499fabc0c550204bfa254d1bf993797d86d6768a5c5b10465ca0162a.
+Actual test catalog has no wgs-4.2.2-3b1dae5; first registration may use that
+source-derived ID. Assets ID is separately20260926.2-wgs422-p0. Original historical
+JSON is retained. Unactivated r3 shared candidate file removed by original owner
+after exact-hash check; its local evidence copy remains. Only r2 is selected.
+
+Platform staged at control-root/releases/20260926-p0-e358aad. Existing mixed
+mounts do not follow current. Agreed minimal service actions after active0/config
+preflight: backend+observer /app to e358aad/backend; Airflow API/scheduler/worker
+bio_wgs.py only to e358aad, preserving unchanged common/GATK/other DAG pins.
+Frontend only if the integrated source needs a build, using existing offline SOP;
+no extra full tests. Preserve DB/Redis/scanner/reference/probe/metrics containers.
+Use explicit services and --no-deps --pull never. Keep current symlink historical.
+
+Test-only release management enablement includes managed writable catalog parent
+for backend and same parent readonly for consumers; do not remount all /config.
+AUTH retained, scan/dispatchfalse and execution/recovery gates not silently enabled.
+First register authentic receipt and CAS-select it. Node200: existing ctapa test
+forced-command/key retained, no authorized_keys change; update gate/helper closure
+and paired policy/bootstrap from fixed source under existing trusted deployment
+roots. Repository wrapper hardcodes production root and must not replace the test
+wrapper. Exact prior service mounts/configs/gate files retained for rollback.
+This records planned service operations, not their completion.
+
+## 2026-09-26 — final0.8.7 artifacts and authorized resource publication
+
+Native commit e2962a2cfdc5c81a081fe6a6b578f22cafe2d2ca; wheel SHA256
+e26b8ebfaf957ee5b6813135aaffb874b0f8fe07796d6ac33935198f4559ccc9.
+Master `swr.cn-east-3.myhuaweicloud.com/biosanwgs/wgs-cce-master` digest
+sha256:2b8070049c3a44319af6d6db9bb7f994af744e8b4f8aacf054071a8a4eee6394.
+Installed by original owner through node005 writable entry; node005 and BS10610
+confirm0.8.7/e2962a2, no WGS environment change. Existing source checks reused;
+only rebuilt artifact identity/version checks performed.
+
+Exact publication intent is recorded before mutations at
+`D:/pipeline/task-artifacts/wgs422-p0-integration-20260926/R2_ASSET_RELEASE_INTENT.md`.
+Asset ID20260926.2-wgs422-p0. Old r2 bytes backed up outside shared profile dir;
+old asset status re-read PASS/state_verified for20260926.1-wgs422. Twelve old OBS
+objects copied server-side and two new metadata objects uploaded, checksums matched.
+Shared r2 atomically replaced with SHA256
+c98b13c6de82470bea48d028a6df1dc78f3ce12f566920a79e4ba55bbdf35e8d.
+assets validate returned PASS; one Asset Job submitted, currently PUBLISHING.
+Do not resubmit or report completed until real state_verified receipt is returned.
+No platform service switch or production service/batch action reported.
+
 ## 2026-09-26 — explicit shared resource/profile update authorization
 
 After being told r2 is the same NFS file visible from test/production and replacement

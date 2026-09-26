@@ -1,5 +1,23 @@
 # SERVER_INFO.md
 
+## 2026-09-26 P0 corrected artifacts / shared r2 publication
+
+Original Infra owner installed cce-pipeline0.8.7/e2962a2 in the existing shared
+nipttest via node005; node005 and BS10610 read the same package. WGS environment
+unchanged. New WGS Master digest:
+`sha256:2b8070049c3a44319af6d6db9bb7f994af744e8b4f8aacf054071a8a4eee6394`.
+User explicitly authorized exact shared r2 replacement and same-content assets.
+Shared profile `cce-pipeline-profiles/wgs/wgs-4.2.2-r2.yaml` now hashes
+`c98b13c6de82470bea48d028a6df1dc78f3ce12f566920a79e4ba55bbdf35e8d`;
+old4a016a2d... bytes retained in task evidence for rollback.
+Assets20260926.2-wgs422-p0 Job Complete1/1, PASS/state_verified,130+9files;
+receipt `docs/releases/wgs-4.2.2-3b1dae5-p0-0.8.7-registration.json`.
+BS10610 platforme358aad is staged at releases/20260926-p0-e358aad; actual service
+mount switch and ctapa node200 test-gate installation are not yet completed.
+Production services and real batches untouched; shared r2/SFS changes above are
+explicit exceptions, not a claim that all shared production-visible files stayed
+unchanged. Existing current symlink remains historical.
+
 ## 2026-09-26 R4 node200 test-entry correction
 
 User authorized the existing ctapa SSH identity for the BS10610/node200 R4

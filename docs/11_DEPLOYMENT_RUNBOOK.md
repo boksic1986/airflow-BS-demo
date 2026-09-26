@@ -1,5 +1,24 @@
 # Deployment runbook
 
+## 2026-09-26 P0 normal-path test delivery (authorized, in progress)
+
+Source e358aad plus native0.8.7/e2962a2 closes the registration/current-owner
+normal-path audit. User explicitly authorized replacing shared WGS4.2.2 r2 and
+same-content asset publication; assets20260926.2-wgs422-p0 passed live verification.
+This does not authorize production services, real batches or T4 lifecycle actions.
+
+Use actual test service pins, not current: backend/observer consume new backend;
+Airflow API/scheduler/worker consume new bio_wgs.py only, preserving unchanged
+common/GATK/other DAG mounts. Config-check then explicit --no-deps --pull never
+service recreation after active0. Retain exact per-service rollback configuration;
+no DB/Redis/scanner/reference/telemetry recreation or network changes.
+Test catalog management follows the writable-parent contract below. Keep AUTH,
+scan/dispatchfalse and existing execution/recovery gate settings. Node200 uses
+the existing ctapa airflow-wgs-test wrapper/key, not the production-hardcoded
+repository wrapper. Install the matched gate/helper closure and paired bootstrap
+before claiming readiness. Record final mounts/gates/API results in the receipt;
+staged source and published Master alone are not a completed platform deployment.
+
 ## 2026-09-25 corrected paired entry rollout gate
 
 Native ae90b65 and the paired selector/observation correction have affected
