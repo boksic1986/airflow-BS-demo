@@ -1,5 +1,17 @@
 # Current state
 
+## 2026-09-27 continuation authorized: cumulative CREATE cap30
+
+User explicitly raises the cumulative Job CREATE cap to30 and asks to finish
+testing, following the cross-Master feasibility clarification. Prior12 remain
+counted (18 remaining at authorization), including all setup/helper/log Jobs.
+Original runtime owner resumes same-version0.8.7 candidate8323567 and original
+NORMAL01/FAULT01. The distinct T3 new-UID/generation checkpoint acceptance is
+also tracked: owner first specifies real fixture, existing authorized recovery
+entry and full CREATE estimate; no fake FINAL/binding or guard bypass. All cases
+share the30 cap, run sequentially and stay isolated. No production/T4 expansion.
+Results are pending; this supersedes older waiting-for24-budget notes below.
+
 ## 2026-09-27 resume feasibility clarification (docs-only audit)
 
 Keep Step2 handshake and file-level checkpoints, NOT dependence on the old Pod.

@@ -1,5 +1,31 @@
 # Handoff
 
+## 2026-09-27 — user approves cumulative30; continuation dispatched
+
+Exact authorization: "确认允许上限调整到30个，然后继续完成测试". Prior12
+CREATEs remain counted; all setup, storage/evidence/log readers, Masters and
+Workers share the30 cap. This supersedes the unanswered22-to24 proposal below.
+Following the just-discussed T3 gap, track true replacement separately from the
+original same-UID FAULT01; original runtime owner must first specify the real
+fixture/injection/registered entry and full remaining count, not invent evidence
+or bypass guards. Existing two cases may proceed while that plan is checked.
+
+Dispatched to existing owner chat019f8355-2b77-7413-9553-6670c35a1a2f. Owner keeps
+native source/artifacts/remote commands; coordinator owns docs and evidence review.
+Approved candidate source8323567 uses version0.8.7 and original Master tag; record
+new digest/hash. Only task-private nipttest --target install and fixture jobs:1
+correction, no WGS install/sharedprofile/catalog/ACTIVE_ASSETS or production changes.
+Sequential cases, max1Master+1Worker concurrently. Preserve all old failed runs,
+local/SFS inputs/results/evidence/locks; precise test-Job retirement only via
+existing scoped runtime/TTL. No namespace-wide cleanup or data deletion.
+
+Target remains isolated BS10610/node200/CCE smoke roots recorded in prior ledger;
+owner must refresh live hostname, effective identity, gates and mounts before
+remote mutation. Coordinator has not run SSH or runtime tests. Initial platform
+worktree clean atc0d19e7. Tests/results not complete. Next: review owner raw release,
+normal/reconnect/replacement and counter evidence. Rollback keeps old immutable
+pins/evidence; never roll back by deleting project outputs or historical locks.
+
 ## 2026-09-27 — audit resume feasibility; no cloud continuation
 
 User challenged preserving the old Pod-dependent resume mechanism. Read-only

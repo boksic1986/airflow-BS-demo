@@ -35,6 +35,12 @@ commit因origin为只读Git bundle尚未push；平台测试分支已push，无ma
 
 ## 2026-09-27 用户批准的正常路径收敛与 smoke 续验
 
+最新授权：用户在跨Master可行性复核后确认累计CREATE上限30并继续测试，历史12
+不清零；下方22和待确认24均为旧检查点。先完成同版本8323567候选、NORMAL01与
+同UID FAULT01；T3真实新Master续跑单独验收，原owner先明确fixture/合法恢复入口/
+注入点及总量预算。所有setup/helper/log/Master/Worker合计不得超过30；不以本次
+授权扩大到生产、T4、业务规则或绕过证据门禁。未获得真实证据的项保持未完成。
+
 本节更新上面的切片执行范围，不启动 T4，不改变生产。用户明确要求及时回收
 Master/Worker Jobs，版本沿用0.8.7覆盖候选制品，不增加后缀。保留TTL100，
 不采纳讨论中过渡提出的恢复86400秒留存方案。新字节必须记录新commit/hash/digest，

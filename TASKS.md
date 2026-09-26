@@ -1,5 +1,19 @@
 # Active test-branch tasks
 
+## P0-SMOKE-CONTINUE-20260927 (authorized; cap30 cumulative)
+
+- [ ] Original runtime owner publishes reviewed8323567 as0.8.7/original tag,
+  pairs isolated nipttest target install/pins and corrects new synthetic jobs:1 fixture.
+- [ ] Complete NORMAL01 and same-UID FAULT01 throughStep6 with genuine outputs/TTL.
+- [ ] Specify and execute the minimal T3 cross-Master case through the existing
+  valid recovery entry: newUID/generation, sameattempt/config/workdir, completed
+  output not rewritten and incomplete work resumed. No fabricated authority.
+- [ ] Independently reconcile raw evidence, permissions, retired exact Jobs and
+  cumulative CREATE ledger. Original12 count; all remaining operations share30.
+
+No production, T4, shared release pointers or clinical rules; no full regression.
+Stop before exceeding cap or changing uncertain product/authorization boundaries.
+
 ## P0-RESUME-FEASIBILITY-20260927 (documentation audit complete; live acceptance open)
 
 - Clarified original handshake/checkpoint preservation versus new-Master resume.
