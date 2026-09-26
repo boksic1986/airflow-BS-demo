@@ -1,5 +1,15 @@
 # WGS / GATK CCE Step1–6 连接恢复与受限自动续跑设计
 
+## 2026-09-27 续跑语义澄清
+
+保留的是Step2启动握手及Snakemake文件级断点语义，不是“续跑必须使用原
+MasterPod”。活跃执行仅接回原UID；失败且已静止、证据完整的执行应新建Master，
+递增计算generation，保留原analysis/attempt/config/workdir及成功输出。
+旧Pod被TTL回收不应单独阻止该分支；缺失终态/完整Worker证据仍需转人工，
+当前代码不保证硬崩溃后自动恢复。源码路径和当前实云验收缺口见
+[跨Master可行性复核](../../46_JOB_TTL_CROSS_MASTER_RECOVERY_DESIGN.md)。
+当前FAULT01的同UID接回不是跨Master验收，不因此扩大已授权云测试范围。
+
 ## 2026-09-27 正常路径收敛补充（用户批准，实施中）
 
 保留生产正常Step1–7业务链路与P0必要的幂等、执行身份、互斥和持久终态。

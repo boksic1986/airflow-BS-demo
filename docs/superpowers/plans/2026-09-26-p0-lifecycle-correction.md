@@ -74,6 +74,9 @@ NORMAL01R2/P0SMOKENORMALR2-a1；累计9/22继续，不重置预算或添加新�
 
 ## 全局约束与基线
 
+- 2026-09-27复核：保留Step2握手/文件级断点，不保留旧MasterPod存活依赖。
+  N5的同UID CREATE接回不覆盖T3的新UID/generation+1替换；即使N5通过也不能
+  关闭跨Master验收。详见[源码可行性与缺口](../../46_JOB_TTL_CROSS_MASTER_RECOVERY_DESIGN.md)。
 - Airflow 工作分支 `jiucheng/test/wgs422-p0-integration-20260926`，文档前HEAD b17e1b6，功能954045a；保留生产修复和等待进度展示。
 - Native候选 dcc1698/0.8.6，功能ae90b65；plugin功能5ffcb07/0.6.4+bs8.dev2。执行时先核对仓库当前状态，不覆盖其他owner工作。
 - 本轮文档不授权代码、远端测试、安装、推送镜像、生产部署或真实批次操作。
@@ -134,6 +137,12 @@ NORMAL01R2/P0SMOKENORMALR2-a1；累计9/22继续，不重置预算或添加新�
 - [ ] 运行受影响参数化集合一次；若仅fixture修正则只重跑失败节点。更新docs07/08及源码进度后提交。
 
 **最小验收：** 一次可恢复故障只产生一次替代执行，配置/成功输出保持；未知结果不盲重放；非白名单显示正确失败或待确认。
+
+2026-09-27验收缺口仍开放：需真实旧Master终态/回收后，通过既有恢复入口创建
+新UID/generation+1；原attempt/config/workdir保持，先前成功rule输出未重写，
+未完成rule可重做，后续Step3–6正常推进。只隐藏CREATE响应后接回同UID不满足。
+源代码已有对应synthetic路径，本轮未运行；实云方案/fixture/预算由原owner先
+明确并确认，不能挪用NORMAL01/FAULT01预算或以手写终态替代真实生产者证据。
 
 ## T4 — 暂停、云端清理与同名重建（Backend / Workflow / Airflow / Frontend）
 

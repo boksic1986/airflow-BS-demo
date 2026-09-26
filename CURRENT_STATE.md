@@ -1,5 +1,16 @@
 # Current state
 
+## 2026-09-27 resume feasibility clarification (docs-only audit)
+
+Keep Step2 handshake and file-level checkpoints, NOT dependence on the old Pod.
+Platform351fdbe/native8323567 have a paired new-UID/generation replacement path
+for complete bound final evidence and quiescent writers, including TTL-absent
+old Masters. Hard-crash/missing-snapshot cases remain blocked; no blanket
+Master-failure recovery claim. Existing same-UID FAULT01 does not close T3
+cross-Master live acceptance. Documented in docs46 and linked spec/plan/docs08.
+No runtime changes, SSH, tests, Jobs, artifacts or production operations here.
+Actual candidate remains d29d1ba; CREATE12/22 and budget question unchanged.
+
 ## 2026-09-27 normal-path convergence authorized; same two smoke cases
 
 Final checkpoint (awaiting user budget reply): native8323567 fixes failure-status

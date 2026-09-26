@@ -1,5 +1,16 @@
 # Active test-branch tasks
 
+## P0-RESUME-FEASIBILITY-20260927 (documentation audit complete; live acceptance open)
+
+- Clarified original handshake/checkpoint preservation versus new-Master resume.
+- Traced paired Resume to native generation+1/new-UID creation and same workdir;
+  complete FINAL/Worker inventory is required even when the old Job is absent.
+- Hard crashes without sealed evidence are not guaranteed automatic recovery.
+- T3 real cross-Master/skip-success-output acceptance remains open; current N5
+  FAULT01 is only same-UID reconnect. Scope/fixture/budget must be confirmed
+  before a replacement smoke, with no expansion performed in this audit.
+- Docs only; source8323567 remains unpublished, cloud count12/22 unchanged.
+
 ## P0-NORMAL-CONVERGENCE-20260927 (in progress)
 
 Live NORMAL01R2 Step1/Step2 PASS, analysis fails on synthetic fixture missing

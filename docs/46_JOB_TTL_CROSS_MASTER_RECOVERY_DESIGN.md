@@ -1,5 +1,53 @@
 # Job 自动回收与跨 Master 续跑技术设计
 
+## 2026-09-27 续跑可行性复核（源码审计，不是实云验收）
+
+“保留Step2原有启动握手、Snakemake规则和断点续跑”准确含义是：保留
+WAITING/START/START_CONFIRMED握手及文件依赖/incomplete语义，**不保留必须
+依赖原MasterPod存活的续跑条件**。同名Job也不是同一个执行，必须区分UID。
+
+| 原执行情况 | 正确动作 |
+| --- | --- |
+| Master仍活跃，只有连接/CREATE响应丢失 | 接回同一UID和计算generation，不另建Master |
+| Master确已失败，持久终态/提交台账完整，全部旧写入者已停止 | 用新Master UID及generation+1续跑，保留analysis/attempt、冻结输入、原workdir及成功输出 |
+| Master/Worker已被TTL回收 | 从持久证据核对上述条件，不exec旧Pod，不以404代替终态证明 |
+| 分析已成功、Master已回收 | 根据成功证据继续Step4–6，不重新启动分析 |
+| 硬崩溃或断连导致证据不完整、旧Worker状态未知 | 停止自动替换并转人工核对；当前实现不能保证此类故障自动续跑 |
+
+本次核对平台351fdbe、native8323567源码，实际已执行候选仍为d29d1ba/0.8.7：
+
+- `scripts/cce_paired_runtime.py::resume_registered` 区分活跃接回与终态替换；
+  `scripts/wgs_resume.py::resume_master` 的配对入口调用native
+  `_advance_recovery_view`，GATK也接入同一原语。旧的非配对路径仍有活Job限制，
+  不能用它证明短TTL下可续跑，也不能为历史bundle自动补造新证据。
+- Native `cce_batch_runtime.py::_advance_recovery_view` 允许旧Job为None；
+  先核对终态、Worker和目录owner，再持久化journal、条件交接锁、新建Master。
+  `_prepare_master_view`保留原BATCH_RUNTIME/PAYLOAD/config，只派生新代际的
+  启动视图；不是重新prepare业务项目。新Master仍完成自己的START握手。
+- `classify_cce_master_run.sh`依据SFS的`config/run-id`识别resume，不依赖旧Pod。
+  `run_cce_master_job.sh`继续使用原`run_root/work`，resume执行Snakemake unlock，
+  分析使用`--rerun-incomplete --rerun-triggers mtime`，不使用forceall。unlock的
+  安全前提是调用方已证明旧写入者停止，不能独立作为强制接管手段。
+- 重要限制：`_recovery_final_evidence`要求START_CONFIRMED、绑定的RUN终态、
+  `recovery-final.json`、完整提交快照及recovery_context。
+  `_submission_final_snapshot`依赖已启动phase的正常结束记录；SIGKILL/OOM或
+  启动确认前退出可能无法生成这些证据。单独Kubernetes Failed或
+  BackoffLimitExceeded不能通过此门槛。普通native失败显示修正不增加替换权限。
+
+源码中存在WGS/GATK reclaimed/new-UID/generation及拒绝未知Worker的synthetic
+用例（`test_p02_resume_final.py`、`test_p02_selected_monitor.py`）；本轮只阅读，
+不重跑、不把历史synthetic结果升级为当前制品实云结论。当前NORMAL01未完成；
+FAULT01只模拟成功CREATE丢响应、接回同UID/generation1，不验证跨Master续跑。
+
+**判定：替换Master方案在证据齐全且无旧写入者时具备源码路径，不再以旧Pod
+存活为前提；完整可行性尚未验收，不能声称所有Master故障均可自动恢复。**
+要关闭这项验收缺口，最少需一次真实替换：先成功一个synthetic rule，后发生
+可受控留证的失败；旧Master终态并回收后，经既有恢复入口创建新UID/generation+1，
+证明成功输出未重写、仅未完成工作重做、原配置/attempt不变并接续Step3–6。
+这属于原T3跨Master验收目标，不是当前FAULT01的等价结果；实施前由原owner
+明确fixture、故障注入、入口和CREATE预算，取得范围确认。本轮不新增测试授权，
+现有累计12/22及待确认的24上限也不自动转换成该场景预算。
+
 ## 2026-09-26 当前契约修正（仅设计）
 
 当前依据为[P0统一生命周期R1–R7](superpowers/specs/2026-09-17-wgs-gatk-cce-connection-recovery-design.md)
@@ -143,7 +191,8 @@ reason, observed_at
 并将证据镜像到现有控制端目录。Kubernetes Failed 本身不证明是可恢复故障。
 
 保留 WAITING/START 协议，不借本任务重构上传交接。记录 Job 已提交、Pod 就绪、
-START 已发出和 START 已确认；恢复交接必须查询原 UID，而不是另建 Master。
+START 已发出和 START 已确认；同次提交的交接重连必须查询原 UID，不能重复创建。
+失败执行的替换属于第4节：新UID、新generation、新握手，不要求旧Master存活。
 START 检查失败、交接超时要有结构化原因；未知响应不能触发第二次投递。
 
 ## 4. Runtime 恢复算法与锁

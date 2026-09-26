@@ -1,5 +1,21 @@
 # Workflow runtime integration
 
+## Resume feasibility clarification (2026-09-27, source audit only)
+
+Preserving Step2 WAITING/START/START_CONFIRMED and Snakemake checkpoints does
+NOT preserve a requirement for the old Master Pod to stay alive. Reconnection
+adopts the active UID/generation; terminal replacement uses a new UID and the
+next compute generation, preserving analysis/attempt/config/workdir/results.
+The paired Resume path calls native `_advance_recovery_view`; it permits an
+absent old Job only with bound final evidence and complete writer exclusion.
+Legacy non-paired recovery is not proof of TTL compatibility. Missing FINAL,
+submission snapshot or Worker terminal proof blocks replacement, including hard
+crashes that cannot seal them; a basic FAILED display is not recovery authority.
+Current FAULT01 proves only same-UID CREATE reconciliation, not replacement or
+skipping successful rules. The cross-Master live acceptance remains open; this
+audit neither launches it nor changes the authorized smoke budget. See
+[current feasibility review](46_JOB_TTL_CROSS_MASTER_RECOVERY_DESIGN.md).
+
 ## P0 normal-path convergence (2026-09-27, approved; implementation pending)
 
 The user retains timely Master/Worker cleanup (TTL100) and the production

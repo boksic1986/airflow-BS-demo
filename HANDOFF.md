@@ -1,5 +1,43 @@
 # Handoff
 
+## 2026-09-27 — audit resume feasibility; no cloud continuation
+
+User challenged preserving the old Pod-dependent resume mechanism. Read-only
+source audit: platform351fdbe on this test worktree and native8323567 at
+D:/pipeline/cce-pipeline-worktrees/p0-validation-artifact-20260925. Actual
+executed candidate remains d29d1ba; no artifact/source installation this turn.
+
+Traced cce_paired_runtime.resume_registered -> WGS/GATK Resume capability ->
+native _advance_recovery_view. Failed, TTL-absent old Job is accepted only with
+bound final snapshot and full current/lineage Worker quiescence. Replacement
+creates new UID/generation, retains frozen inputs/attempt/workdir; shell resume
+classification reads config/run-id and uses unlock/rerun-incomplete, not an exec
+into the old Pod. Active reconnect and replacement are different operations.
+Native _recovery_final_evidence requires START, RUN terminal and sealed snapshot;
+SIGKILL/OOM/pre-confirmation failures may not produce these, so they are NOT
+guaranteed recoverable. No proposal to bypass this guard or fabricate evidence.
+
+Corrected ambiguous docs46 handoff sentence; added feasibility/acceptance limits
+to docs46, spec, lifecycle plan, docs08, CURRENT_STATE and TASKS. Existing
+FAULT01 lost-CREATE-response/same-UID case cannot prove new-Master checkpoint
+continuation. T3 needs one genuine replacement and unchanged successful-output
+proof before closing; scenario/entry/budget must be confirmed separately, not
+silently added to the existing two cases. No new implementation authorized here.
+
+Commands: Get-Content/rg/git status/rev-parse for local source and docs; final
+git diff --check and scoped diff/link review. Some initial rg arguments used
+Windows-incompatible wildcard paths and returned errors; corrected to explicit
+files or directory plus -g, no runtime side effects. No pytest/cloud tests run:
+this is a documentation/source audit, not execution. No SSH, so no hostname,
+mount, directory permission or deployment revalidation claimed. No services,
+scanner, dispatcher, credentials, data, locks or Jobs changed. Existing native
+dirty tests/test_recovery_monitor.py preserved. This worktree was clean initially.
+
+Next: communicate conditional feasibility and the real acceptance gap before
+resuming owner smoke work. CREATE12/22 and unanswered24-cap request unchanged;
+this audit is not that approval. Rollback is docs-only Git revert; no runtime
+release or data rollback is involved. No main/production merge or push.
+
 ## 2026-09-27 — user authorizes normal-path convergence and smoke completion
 
 FINAL WAITING CHECKPOINT: native8323567 fixes only the ordinary native failure
