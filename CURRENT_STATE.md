@@ -2,6 +2,19 @@
 
 ## 2026-09-27 normal-path convergence authorized; same two smoke cases
 
+Final native source01c43dc is review-approved: cleanup-only first-GET transport
+failure no longer turns successful Step6 into failure. Coordinator read the
+same real Step6 case RED1/GREEN1; same-seat reviewer confirms no remaining
+Critical/Important in the scoped increment. Publication and both native smoke
+cases remain pending; source approval is not P0 acceptance.
+
+Native source checkpoint94fb214 now contains the scoped corrections; same-seat
+incremental review is pending. Coordinator independently read the new JUnit:
+9native cases pass, then3affected/cleanup cases pass, plus9CAS/probe regression
+cases pass (not a claim that all are distinct). Earlier18reader and5startup
+cases remain valid. Same-version0.8.7 artifacts have been built from the exact
+Git archive but are NOT pushed/installed/bound yet. Smoke remains pending9/22.
+
 Runtime owner captured the old-image preSTART failure with diagnostic Job9:
 shell line2 pipefail rejects the CR character. Local Git check confirms the
 Master script index isLF but checkout isCRLF. Packaging correction is pending;

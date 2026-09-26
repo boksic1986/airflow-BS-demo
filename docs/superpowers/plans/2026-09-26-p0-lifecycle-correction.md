@@ -40,23 +40,28 @@ Master/Worker Jobs，版本沿用0.8.7覆盖候选制品，不增加后缀。保
 不采纳讨论中过渡提出的恢复86400秒留存方案。新字节必须记录新commit/hash/digest，
 不能因版本相同沿用旧验收结论；原owner负责必要打包、安装和候选profile绑定。
 
-- [ ] N1 原runtime owner收敛写入前目录检查：保留当前owner/generation/CAS和
+- [x] N1 原runtime owner收敛写入前目录检查：保留当前owner/generation/CAS和
   存储绑定校验，优先已有可信挂载或当前Master；无有效入口才使用只读helper。
   不用历史probe结果永久替代当前检查，不猜测node200的NFS与云SFS等价。
   云端无其他入口时复用同run唯一仍Running的helper，每次重新exec核验而非缓存；
   不延长原600s期限，Step6/业务异常/改用当前Master时精确删除，终态TTL100。
-- [ ] N2 只读helper清理与业务结果分离：身份未确认仍拒绝写入；身份已确认、
+- [x] N2 只读helper清理与业务结果分离：身份未确认仍拒绝写入；身份已确认、
   精确只读helper仅清理延迟时保留UID/RV约束及journal/TTL处理，不伪报分析失败。
   必须保证残留有界，不能每次重入再建一个。具体状态分支由匹配的定向用例固定。
-- [ ] N3 保存Master就绪前的真实终态/日志后定位本次启动失败，修复已证实根因；
+- [x] N3 保存Master就绪前的真实终态/日志后定位本次启动失败，修复已证实根因；
   原WAITING/START顺序、业务命令和短TTL保留。不能把未知故障直接归类可自动恢复。
   第9个限定preSTART诊断已取到原镜像脚本第2行CRLF/pipefail错误；核对实际构建
-  来源后修复LF打包，不据此修改生信规则。日志回执与制品修复验收仍待提交。
+  来源后修复LF打包，不据此修改生信规则。源码与定向回执已核对；新镜像cloud验收仍属N4/N5。
 - [ ] N4 仅对实际改动运行远端定向RED/GREEN；必要制品由原owner按SOP同版本覆盖，
   对齐producer/consumer/pins，不改WGS环境、不扩大到业务Worker或无关镜像重建。
 - [ ] N5 继续原NORMAL01与FAULT01到Step6，包含一次恢复及TTL后下游。
   沿用隔离根和累计CREATE8/22起点，不重跑无关全套测试，不清除旧失败证据。
   超出预算、身份不明或需扩大范围时先反馈，不能通过改回执/START/锁帮助测试通过。
+
+N1–N3源码完成以native01c43dc和同一审阅席增量放行为依据；新增helper cleanup
+写盘失败及cleanup-only首GET失败均修正。定向回执已独立读取，不替代N4发布或
+N5实云验收。旧NORMAL01已冻结坏镜像，保留原记录，使用同一案例的新隔离身份
+NORMAL01R2/P0SMOKENORMALR2-a1；累计9/22继续，不重置预算或添加新案例。
 
 验收还须记录：正常写入产生的helper数量、Master/Worker终态回收、失败证据的
 持久保存，以及755/644和原始输入/已完成结果保持。短TTL不能保证硬崩溃或长断线

@@ -2,12 +2,16 @@
 
 ## P0-NORMAL-CONVERGENCE-20260927 (in progress)
 
+Current checkpoint: native01c43dc committed; scoped remote receipts read by
+coordinator and same-seat source review approved. Final same0.8.7 artifacts,
+isolated consumer pairing and two-case smoke NOT complete. CREATE9/22.
+
 Follow N1–N5 in docs/superpowers/plans/2026-09-26-p0-lifecycle-correction.md.
 Original runtime/Infra owner owns native source, required same-version0.8.7
 artifacts and continued NORMAL01/FAULT01; coordinator owns contract and status.
 Retain TTL100, actual current identity, bounded cleanup, original workflow and
 755/644. No production, T4, extra workflow tests or unbounded CREATE retries.
-Start from8/22 cumulative Jobs; source/test/deploy completion is still pending.
+Started from8/22 cumulative Jobs; final source review/deploy/smoke still pending.
 This authorization supersedes the previous startup-blocker stop only within
 the approved diagnosis, correction and original two-case acceptance scope.
 

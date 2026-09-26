@@ -2,6 +2,23 @@
 
 ## 2026-09-27 — user authorizes normal-path convergence and smoke completion
 
+Final source checkpoint01c43dc supersedes94fb214: incremental reviewer found and
+owner fixed cleanup_only first GET bypassing nonfatal cleanup. Real runtime
+Step6 case RED1/GREEN1 independently read; same reviewer now approves source
+with no remaining Critical/Important in this scope. No additional full-suite
+tests. Owner is cleared to publish the final exact archive as version0.8.7 and
+the original candidate Master tag;94fb214 build stays unpublished provenance.
+
+Consumer scope: existing nipttest interpreter, wheel --target --no-deps into
+task-private candidate/site-packages, exact installed-source test pins and
+synthetic-only profile. Do not overwrite shared site-packages/paired config,
+shared r2/catalog/ACTIVE_ASSETS or production. Record actual import path and
+hash; isolated install is not global deployment. Same NORMAL01 replacement
+uses batch NORMAL01R2 and run_id P0SMOKENORMALR2-a1/native attempt1 because
+native run_dir/OBS prefixes derive from batch, not run_id alone. Preserve all
+old NORMAL01/P0SMOKENORMAL-a1 resources/evidence and record supersedes; FAULT01
+retains its unregistered identity. CREATE9/22 remains cumulative.
+
 Follow-up design refinement: ordinary Step1/2 have no Running Master yet and
 Step4–6 follow its termination. Runtime owner will therefore use the existing
 same-run journal to reuse at most one live readonly helper, executing fresh
@@ -23,8 +40,24 @@ run/attempt/run_dir for the SAME NORMAL01 case after corrected artifact
 publication, with explicit supersedes provenance; never mutate the old frozen
 manifest or replay its CREATE. FAULT01 remains unregistered and may prepare
 against corrected pins. Two-case scope and cumulative9/22 budget are unchanged.
-Owner reports reader checks16PASS plus2PASS after correcting only private test
-layout/ACL inheritance; original result files are still to be independently read.
+Coordinator independently parsed the copied JUnit receipts: reader behavior16
+PASS plus2policy PASS after correcting only private test layout/ACL inheritance;
+startup observation3new cases plus2affected handoff cases PASS. Failed RED and
+fixture-setup receipts remain retained, not relabeled. Files are under the
+original task-artifacts/p0-native-smoke-20260927 root.
+One fresh read-only reviewer found an N2 edge case: saving cleanup_pending inside
+the deferred-cleanup exception handler may itself fail and mask the original
+probe exception. Native94fb214 contains the correction; two injected cleanup
+failure cases pass. New native receipts show9PASS in the first group,3PASS in
+the affected correction group,9PASS for CAS/probe regression; fixtures/errors
+and RED receipts remain available. Coordinator read the XML counts. The same
+reviewer now checks only new startup/CLI/current-Master integration and that
+cleanup correction. No source acceptance is claimed before its conclusion.
+
+Owner built94fb214 via exact git archive, not CRLF working-copy tar. Version
+remains0.8.7; wheel SHA73163d24bac8dfe7db4a7a3a05c6471e9cb9b3843e9c5c3fa9d326046293406c.
+Build LF/bash-n and wheel sourcecommit checks reported PASS; no push/install/
+profile binding yet. Coordinator is not performing image build/publication.
 
 Goal: preserve production0.8.5 normal Step1–7 semantics while retaining necessary
 P0 recovery/fencing and timely Job cleanup. Latest user approves scoped repairs,
