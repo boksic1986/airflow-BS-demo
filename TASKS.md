@@ -2,8 +2,14 @@
 
 ## P0-SMOKE-CONTINUE-20260927 (authorized; cap30 cumulative)
 
-- [ ] Original runtime owner publishes reviewed8323567 as0.8.7/original tag,
+- [x] Original runtime owner publishes reviewed8323567 as0.8.7/original tag,
   pairs isolated nipttest target install/pins and corrects new synthetic jobs:1 fixture.
+- NORMAL01R3 running; same-UID Step2 reentry succeeds after real query timeout;
+  Worker frozen digest2b807004... is SWR NotFound. Same cached image exists;
+  exact-image retention-tag re-push awaits user scope approval. CREATE17/30.
+  No normal PASS, no new Job or frozen-input changes while blocked.
+- Standalone FAULT01 held for budget; one combined response-loss/manual
+  replacement test-driver under review, not submitted and not API/Airflow E2E.
 - [ ] Complete NORMAL01 and same-UID FAULT01 throughStep6 with genuine outputs/TTL.
 - [ ] Specify and execute the minimal T3 cross-Master case through the existing
   valid recovery entry: newUID/generation, sameattempt/config/workdir, completed

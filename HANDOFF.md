@@ -1,6 +1,52 @@
 # Handoff
 
+## 2026-09-27 — reviewed candidate installed; normal smoke pending Worker pull
+
+Owner refreshed isolated host/mount/gate checks (PREFLIGHT_8323567.md), built
+and pushed8323567 as0.8.7/original tag, installed task-private nipttest target.
+Coordinator read raw push/build/import/pin receipts and independently hashed
+wheel; pins recorded at CURRENT_STATE. No coordinator SSH or duplicate test.
+Evidence root D:/pipeline/task-artifacts/wgs422-p0-integration-20260926/
+p0-native-smoke-20260927; candidate-8323567-receipts/{install,import,pins}.log.
+
+NORMAL01R3 actual Step1 return0. Step2 initial kubectl get Job10s timeout leaves
+JOB_CREATED/handoff_timeout; same original deadline/UID reentry returns0.
+New storage probe is counted, not hidden: count17/30 includes setup13, storage14,
+Master15, reentry storage16 and Worker17. Master9c27d7c1-df2a-457e-abfd-24aedfbd3909;
+Worker23c8c641-a1d1-4ebd-a0f1-0713f5501514 ImagePullBackOff, actual events pending.
+Setup13 TTL-reclaimed. No synthetic-fault acceptance inferred from real timeout.
+
+Budget review: separate normal/reconnect/replacement conservatively33 exceeds30.
+Hold standalone FAULT01; existing QA read-only review permits only a task-private
+fixed-pin native driver for a new combined case, with real initial context,
+writer/request/lock validation, actual CAS and RecoveryCapability checks. Owner
+prepares minimal driver for review before cloud submit. No fake WGS prepare or
+platform API/DB identity, no lambda-true authorization or forged terminal markers.
+Manual synthetic rule failure validates manual resume, not automatic policy.
+All additional Jobs count; stop before30 or any uncertain scope/authority change.
+No source changes, production, clinical data, profile/catalog pointers or deletion.
+Resolved diagnosis: NORMAL01R3-worker-pull-events.log records SWR NotFound for
+frozen digest2b8070049c3a44319af6d6db9bb7f994af744e8b4f8aacf054071a8a4eee6394;
+coordinator independently read actual kubelet error, not auth/network speculation.
+Owner read-only Docker inspect finds exact RepoDigest cached on BS10610,
+imageID378289a2e52b68c067021581b2a9390c3279fd183e2ecc5e10a0d6e605a7433b.
+Proposed minimal recovery: original bytes re-push under a historical test-worker
+retention tag, retaining current Master tag832 and frozen run references. This
+would need no new Job/rebuild, but registry-tag expansion not performed pending
+user confirmation. No causal assertion that tag overwrite deleted the old blob.
+Owner instructed to hold submits/publication and preserve raw logs; Master keeps
+native activeDeadline1800, no forged terminal or SFS deletion. CREATE17/30.
+Next: obtain precise registry scope decision, then finish normal if possible and
+recalculate remaining budget before combined case. Existing evidence protected.
+
 ## 2026-09-27 — user approves cumulative30; continuation dispatched
+
+Coordination interruption resolved: after compaction the original owner treated
+historical "install only" as current, and performed no new publication/CREATE.
+It then directly verified latest userMessage01a0dfc6-306a-7fc2-9d99-a37bb8461675
+in this thread (turn01a0dfc6-2ffc-7853-9adc-1d991643c4c8, startedAt1790460702)
+approves30 and continued tests; its own latest five turns contain no overriding
+user message. Owner confirms resuming12/30. No authority bypass or owner change.
 
 Exact authorization: "确认允许上限调整到30个，然后继续完成测试". Prior12
 CREATEs remain counted; all setup, storage/evidence/log readers, Masters and

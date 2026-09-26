@@ -1,5 +1,26 @@
 # Current state
 
+## 2026-09-27 continuation checkpoint: published8323567, NORMAL01R3 active
+
+Original owner published version0.8.7/source8323567 under the original Master
+tag. Wheel SHA2565b292b1f393cc362436ac46cf0b9fec851282e8cb10bd09f60f2b19187b066ae;
+Master digest3d180a9f074cf38ffaf18446f2910a316e2b784b8f7f859bea5dc4a74d10f1af.
+Coordinator read push/build receipts and independently matched wheel hash;
+isolated node200 import receipt confirms8323567. No shared release/production change.
+NORMAL01R3 Step1 succeeds; Step2 initially times out querying Job, then reenters
+within original deadline with the same Master UID9c27d7c1-df2a-457e-abfd-24aedfbd3909.
+Worker23c8c641-a1d1-4ebd-a0f1-0713f5501514 is ImagePullBackOff: SWR resolves its
+frozen old image digest2b8070049c3a44319af6d6db9bb7f994af744e8b4f8aacf054071a8a4eee6394
+as NotFound. Raw kubelet events independently read; not an authentication error.
+Owner found the same RepoDigest cached on BS10610 (imageID378289a2e52b68c067021581b2a9390c3279fd183e2ecc5e10a0d6e605a7433b).
+Proposed exact old-image re-push under a test-worker retention tag requires scope
+confirmation; no rebuild, frozen-input mutation, shared ServiceAccount change
+or new Job needed for that proposal. Nothing pushed yet; CREATE17/30, tests held.
+Independent FAULT01 is held: three standalone cases estimate33 total. A minimal
+task-private driver for one combined response-loss/manual replacement case is
+under review (not submitted); no fake platform prepare/FINAL/locks/authorization.
+This is independent native runtime acceptance, not Airflow/API E2E. No smoke PASS.
+
 ## 2026-09-27 continuation authorized: cumulative CREATE cap30
 
 User explicitly raises the cumulative Job CREATE cap to30 and asks to finish
