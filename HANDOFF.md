@@ -1,5 +1,60 @@
 # Handoff
 
+## 2026-09-26 — A1–A4 delivered to test; final handoff
+
+Goal complete for this authorized slice: corrected normal registration/owner/TTL
+paths and755/644 generation, matched native/platform test deployment. Not full
+T1–T5, no T4/API/schema expansion, no real/synthetic business run or production
+service promotion. Shared r2/assets were explicitly authorized separately.
+
+Platform functionale358aad; native0.8.7/e2962a2; unchanged plugin0.6.4+bs8.dev2.
+Master2b807004..., r2c98b13c6..., assets20260926.2-wgs422-p0 and genuine exported
+receipt220c51d3... installed/published. Receipt JSON is committed under docs/releases.
+Minimal remote evidence reused: native33 pass, WGS/GATK normal/recovery4 pass,
+final changed GATK3 pass; one joint review closed3 Important findings. No extra
+business canary/full suite. Native build and all remote operations stayed with
+the original owner. Only static Git/document checks ran locally.
+
+Original-owner final receipt:
+`D:/pipeline/task-artifacts/wgs422-p0-integration-20260926/R4_DEPLOYMENT_RECEIPT.md`.
+Five containers now use sourcee358aad at
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260926-p0-e358aad`.
+Actual control: `candidates/p0-e358aad-control/compose.json` under that control root;
+prior five-service rollback: `candidates/step7-ae416fa-control/compose.json`.
+Catalog parent `candidates/p0-e358aad-catalog`, backendrw and observer/workerro.
+AUTHtrue, release_managementtrue, scanfalse, auto_dispatchfalse. Existing
+authenticated registration+CAS changed current4.2.1 to wgs-4.2.2-3b1dae5, and GET
+readback matches. Gatewayhealth200; final actual mounts/flags/catalog checks PASS.
+Other DAG pins, protected service containers and frontend image retained.
+
+Node200 `/home/ctapa/.config/airflow-wgs-test`12-file closure installed, old3 files
+in `.p0-install-20260926/backup`. Policy `paired-writers-v2.json` and platform
+`cce-paired-deployment-v1.json` are private0600 in that root. Native bootstrap:
+`/sg2/33.chenjiucheng/software/miniforge3/envs/nipttest/lib/python3.9/site-packages/cce_pipeline/assets/cce-paired-deployment-v1.json`.
+Journal:
+`/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-ctapa/wgs-runtime/paired-writer-journal`.
+Platform selected_runtime/native schema2 cloud-reader load both PASS. Private
+control modes do not change the new business0755/0644 contract.
+
+Handled operational failures: default-system Python py_compile exit1 (too old)
+was rerun once with the configured Python3.9 and passed; no code/environment fix.
+After service switch, gateway502 was stale Nginx upstream (.4 versus new .9), not
+backend failure; nginx-t and graceful reload restored200, no frontend rebuild.
+Earlier SWR auth failure resolved only after user confirmed login restored.
+
+Remaining source delivery limitation: native branch
+jiucheng/release/p0-validation-20260925 has only read-only local bundle origin,
+so e2962a2 is committed but unpushed. No remote/credentials guessed; unrelated
+native CRLF edit preserved. Platform test branch is pushed; no main/production merge.
+
+Rollback requires fresh idle/no-live-v2-owner check. Never deactivate a paired
+bootstrap while a new run depends on it. Restore only exact prior five-service
+configuration and matched gate/runtime after that check, preserve catalog/journal/
+data/evidence, and reload Nginx as needed. Shared profile rollback requires an
+explicit coordinated decision; old exact bytes retained. No rollback performed.
+Next: user-selected bounded business verification or deferred lifecycle work as
+separately authorized; do not launch a batch merely to repeat this readiness.
+
 ## 2026-09-26 — assets complete; precise test platform switch agreed
 
 Asset Job cce-assets-wgs-4.2.2-r2-20260926.2-wgs422-p0 Complete1/1;

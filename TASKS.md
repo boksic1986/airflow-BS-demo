@@ -7,7 +7,7 @@
 - [x] Close A3/A4 CLI/platform selected-owner and TTL downstream compatibility.
 - [x] Correct new business-output0755/0644 without rewriting historical trees.
 - [x] Run only affected normal/recovery BS10610 synthetic paths; review exact diff.
-- [ ] Original owners package required changed artifacts and deploy paired test set.
+- [x] Original owners package required changed artifacts and deploy paired test set.
 
 Latest release direction: user rejected candidate suffix; final target0.8.7.
 Replace r2 content only after confirming its exact path is test-only or receiving
@@ -16,6 +16,11 @@ the completed candidate push/install is not final0.8.7 deployment.
 User now explicitly authorizes shared profile/assets/ACTIVE_ASSETS update after
 the impact explanation; proceed only within recorded exact targets and preserve
 rollback evidence. Production services and real batches are still excluded.
+Final:0.8.7 artifacts+sharedr2/assets published; node200 WGS gate/bootstrap and
+BS10610 five-service source switch complete. Authentic release receipt registered
+and CAS-selected; final API/mount/catalog/flags readiness PASS. Native commit is
+local only because origin is a read-only Git bundle; platform test branch pushed.
+No real/synthetic business batch, production services or full T1–T5 acceptance.
 
 Base5165592; keep T4 pause/delete and broader lifecycle API/schema/UI work out.
 Status: installation-only clarified obsolete; source correction and joint review

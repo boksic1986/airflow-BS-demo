@@ -1,5 +1,24 @@
 # Current state
 
+## 2026-09-26 A1–A4 test delivery complete (latest)
+
+BS10610 five-service deployment now consumes platforme358aad: backend/observer
+backend source and Airflow API/scheduler/worker WGS DAG. Node200 test WGS12-file
+closure and both paired bootstrap/policy readers pass installed-source selection.
+Native0.8.7/e2962a2 in nipttest and new Master/r2/SFS assets are installed/published.
+Real receipt220c51d3... registered and CAS-selected WGS4.2.2 from4.2.1. Gateway
+/api/health200; final mounts/catalog/read-only-consumer checks PASS. AUTH and test
+release managementtrue; scan/auto-dispatchfalse. No new business batch submitted.
+502 during switch was old Nginx upstream IP; nginx-t and graceful reload fixed it,
+without frontend recreation or code changes. Existing service rollback retained.
+
+This closes the authorized A1–A4 slice, not all lifecycle T1–T5 or a real analysis
+canary. Production services/GATK private gate untouched; the shared r2/SFS changes
+were separately user-authorized. Platform source/docs pushed on test branch only.
+Native sourcee2962a2 committed on jiucheng/release/p0-validation-20260925, not pushed:
+its sole origin is a read-only local Git bundle. Do not guess a writable remote or
+claim main/production promotion. All prior in-progress entries below are history.
+
 ## 2026-09-26 final0.8.7 artifacts installed; asset publication running
 
 Original owner reports final nativee2962a2/0.8.7 installed in existing nipttest

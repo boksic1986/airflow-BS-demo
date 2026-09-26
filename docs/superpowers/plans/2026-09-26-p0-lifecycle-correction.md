@@ -27,6 +27,12 @@
 `0.8.7+p0.dev1`（native90abacd）、新WGS Master及r3；测试部署尚未完成。
 这不勾选完整T1–T5：T4和更广生命周期验证仍不在本切片范围。
 
+后续用户改为正式0.8.7，并明确授权覆盖共享r2/同内容资源发布。最终
+nativee2962a2、Master2b807004...、r2c98b13c6...、assets20260926.2-wgs422-p0
+已发布；node200配对门禁及BS10610平台e358aad五服务已部署，API/catalog/
+挂载检查通过。只关闭本切片的发布项，不代表真实分析或T4验收。Native
+commit因origin为只读Git bundle尚未push；平台测试分支已push，无main提升。
+
 ## 全局约束与基线
 
 - Airflow 工作分支 `jiucheng/test/wgs422-p0-integration-20260926`，文档前HEAD b17e1b6，功能954045a；保留生产修复和等待进度展示。

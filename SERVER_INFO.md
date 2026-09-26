@@ -1,5 +1,18 @@
 # SERVER_INFO.md
 
+## 2026-09-26 P0 corrected test platform active (latest)
+
+BS10610 five affected containers now mount releases/20260926-p0-e358aad:
+backend/observer at /app; Airflow API/scheduler/worker at bio_wgs.py only.
+Other DAG/service pins retained. Node200 ctapa test WGS12 scripts installed;
+platform selected_runtime and native schema2/cloud-reader policy load PASS.
+Managed catalog parent: backend rw, observer/worker ro. AUTH=true,
+release_management=true, scan=false, auto_dispatch=false. Catalog current is
+wgs-4.2.2-3b1dae5, authentic receipt220c51d3..., native0.8.7/profile r2c98b13c6...
+Gateway/api/health200 after graceful Nginx reload cleared the stale upstream IP.
+No frontend recreation, production service switch or new business analysis.
+Current symlink is not the source of truth; actual per-service mounts above are.
+
 ## 2026-09-26 P0 corrected artifacts / shared r2 publication
 
 Original Infra owner installed cce-pipeline0.8.7/e2962a2 in the existing shared

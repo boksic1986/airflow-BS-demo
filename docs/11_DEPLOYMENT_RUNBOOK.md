@@ -1,6 +1,6 @@
 # Deployment runbook
 
-## 2026-09-26 P0 normal-path test delivery (authorized, in progress)
+## 2026-09-26 P0 normal-path test delivery (completed)
 
 Source e358aad plus native0.8.7/e2962a2 closes the registration/current-owner
 normal-path audit. User explicitly authorized replacing shared WGS4.2.2 r2 and
@@ -18,6 +18,13 @@ the existing ctapa airflow-wgs-test wrapper/key, not the production-hardcoded
 repository wrapper. Install the matched gate/helper closure and paired bootstrap
 before claiming readiness. Record final mounts/gates/API results in the receipt;
 staged source and published Master alone are not a completed platform deployment.
+
+Final installed-source selection, five-service mount check and gateway/API/catalog
+readback passed. Authentic receipt220c51d3... first registered WGS4.2.2 and CAS
+changed test current from4.2.1. Test managementtrue, AUTHtrue, scan/dispatchfalse;
+no business workflow launched. During replacement, Nginx cached old backend IP:
+backend was healthy, nginx-t passed, graceful reload restored gateway200. Do not
+rebuild the frontend or change network for that stale-upstream condition.
 
 ## 2026-09-25 corrected paired entry rollout gate
 
