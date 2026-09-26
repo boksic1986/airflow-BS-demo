@@ -2,9 +2,16 @@
 
 ## P0-NORMAL-CONVERGENCE-20260927 (in progress)
 
-Current checkpoint: native01c43dc committed; scoped remote receipts read by
+Live NORMAL01R2 Step1/Step2 PASS, analysis fails on synthetic fixture missing
+jobs:1; native Step3 failure projection context defect now being corrected.
+CREATE12/22. Request24 cumulative to complete same two cases is awaiting user;
+no further cloud CREATE before reply. Source correction/minimal unit case may proceed.
+
+Current checkpoint: native d29d1ba committed; scoped remote receipts read by
 coordinator and same-seat source review approved. Final same0.8.7 artifacts,
 isolated consumer pairing and two-case smoke NOT complete. CREATE9/22.
+Native Step3 optional platform-only context comparison is now corrected and
+its two parameter cases pass. FAULT01 keeps sameUID/attempt/generation1.
 
 Follow N1–N5 in docs/superpowers/plans/2026-09-26-p0-lifecycle-correction.md.
 Original runtime/Infra owner owns native source, required same-version0.8.7

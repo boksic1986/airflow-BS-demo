@@ -2,18 +2,24 @@
 
 ## 2026-09-27 normal-path convergence authorized; same two smoke cases
 
-Final native source01c43dc is review-approved: cleanup-only first-GET transport
-failure no longer turns successful Step6 into failure. Coordinator read the
-same real Step6 case RED1/GREEN1; same-seat reviewer confirms no remaining
-Critical/Important in the scoped increment. Publication and both native smoke
-cases remain pending; source approval is not P0 acceptance.
+Live checkpoint supersedes source-ready notes: NORMAL01R2 Step1/Step2 succeed
+with START_CONFIRMED (Master UIDef21511a-3644-4efa-93f5-c2412f4cb2ce), same
+storage helper reused. Synthetic analysis exits1 because its profile omitted
+jobs:1; no Worker. Step3 mirrors genuine RUN_FAILED/logs but its failure branch
+also assumes a platform recovery_context. Owner is fixing only this native
+failure projection; no fabricated recovery authority. CREATE12/22. User was
+asked to allow24 total (12more estimated for original two cases); pending reply,
+no new CREATE. Existing failure records and inputs remain protected.
 
-Native source checkpoint94fb214 now contains the scoped corrections; same-seat
-incremental review is pending. Coordinator independently read the new JUnit:
-9native cases pass, then3affected/cleanup cases pass, plus9CAS/probe regression
-cases pass (not a claim that all are distinct). Earlier18reader and5startup
-cases remain valid. Same-version0.8.7 artifacts have been built from the exact
-Git archive but are NOT pushed/installed/bound yet. Smoke remains pending9/22.
+Latest source d29d1ba is incrementally review-approved, including the native
+Step3 optional recovery-context consumer correction. The source progression
+94fb214/01c43dc/d29d1ba and scoped RED/GREEN receipts are recorded in HANDOFF.
+No remaining Critical/Important in this increment; this is not cloud acceptance.
+Owner now replaces same-version0.8.7 candidate artifacts from the final exact
+archive and pairs an isolated installed consumer/profile. Image01c43dc was
+pushed but had no production consumer. Two cases remain pending, CREATE9/22.
+FAULT01 is same-UID CREATE-response-loss reconciliation at generation1, not
+failed-Master replacement or Airflow automatic recovery. No full-suite rerun.
 
 Runtime owner captured the old-image preSTART failure with diagnostic Job9:
 shell line2 pipefail rejects the CR character. Local Git check confirms the

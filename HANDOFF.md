@@ -2,6 +2,38 @@
 
 ## 2026-09-27 — user authorizes normal-path convergence and smoke completion
 
+Latest live checkpoint: d29d1ba Master published under original tag with digest
+sha256:d463693b7a309a3c1f21a072d6882f9a571d66e1ac1d0da2a4482fad314f3b24.
+Final wheel0.8.7 is under task-artifacts/p0-native-smoke-20260927/wheels-d29d1ba,
+SHA b48c50f9f115cf1d5ee8e71013080bbae29b1caf919bd97d50762519a98753e0;
+coordinator independently hashes it and reads23-source/commit verification.
+Root-level same-name wheel is older01c43dc provenance, NOT final delivery.
+Owner reports isolated candidate-d29d1ba install/pins/real registration PASS.
+
+NORMAL01R2 Step1 returns0; storage helper#10 is reused by Step2, no extra storage
+probe CREATE. Master#11 UIDef21511a-3644-4efa-93f5-c2412f4cb2ce reaches
+START_CONFIRMED/preflight0, then analysis1/noWorker because synthetic Snakemake
+profile lacks jobs:1. Exact log says maximum parallel jobs/nodes must be set.
+Step3 creates/deletes evidence reader#12 and mirrors real START/RUN_FAILED/logs,
+then fails on platform-only recovery_context in its failed branch. This is a
+native status-consumer defect, not authority to fabricate context/recovery proof.
+
+Owner may correct only native UID-bound failure projection and its focused
+case; platform recovery validation stays strict. Synthetic jobs:1 correction
+needs a new isolated fixture/run, preserving old frozen inputs and failure
+evidence. Cumulative12/22; estimated remaining normal5+fault6+setup1 needs24
+total. Async user question requests22→24, with no new scenarios/production.
+Until answered, no new cloud CREATE/relaunch; only code correction, evidence
+retention and previously authorized precise cleanup/TTL observation continue.
+
+Latest checkpoint d29d1ba: native Step3 compares optional recovery_context
+correctly while rejecting foreign annotations. Two parameter cases RED2;
+foreign case GREEN, normal fixture assertion corrected to actual PENDING
+status and only that case rerun GREEN. Coordinator read all3JUnit receipts;
+same-seat reviewer approves this increment with no remaining Critical/Important.
+Original owner continues final same0.8.7 archive publication, isolated install
+and the two native smoke cases. No new cases, production changes or full tests.
+
 Final source checkpoint01c43dc supersedes94fb214: incremental reviewer found and
 owner fixed cleanup_only first GET bypassing nonfatal cleanup. Real runtime
 Step6 case RED1/GREEN1 independently read; same reviewer now approves source
@@ -18,6 +50,20 @@ uses batch NORMAL01R2 and run_id P0SMOKENORMALR2-a1/native attempt1 because
 native run_dir/OBS prefixes derive from batch, not run_id alone. Preserve all
 old NORMAL01/P0SMOKENORMAL-a1 resources/evidence and record supersedes; FAULT01
 retains its unregistered identity. CREATE9/22 remains cumulative.
+
+FAULT01 clarification (verified against the original smoke-entry review): hide
+one real Master CREATE response, then adopt the SAME UID without duplicate
+CREATE/START. Keep attempt and generation1. This is uncertain-submit re-entry,
+not failed-Master replacement or Airflow automatic recovery, and does not prove
+skipping completed rules. Coordinator's generic generation-increase reminder
+does not apply and is withdrawn; no extra fault scenario is added.
+
+Before cloud CREATE owner found Step3 live identity assumes every selected owner
+has recovery_context, but native initial handoff correctly does not. Scope a
+single presence-aware annotation comparison and native-handoff-to-Step3 case;
+platform recovery_context validation remains strict. Candidate01c43dc was pushed
+but has no production consumer; final source/artifact acceptance is superseded
+pending this necessary integration correction. Two smoke runs still unstarted9/22.
 
 Follow-up design refinement: ordinary Step1/2 have no Running Master yet and
 Step4–6 follow its termination. Runtime owner will therefore use the existing

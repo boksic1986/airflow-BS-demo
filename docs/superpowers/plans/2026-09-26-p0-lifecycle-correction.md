@@ -54,11 +54,12 @@ Master/Worker Jobs，版本沿用0.8.7覆盖候选制品，不增加后缀。保
   来源后修复LF打包，不据此修改生信规则。源码与定向回执已核对；新镜像cloud验收仍属N4/N5。
 - [ ] N4 仅对实际改动运行远端定向RED/GREEN；必要制品由原owner按SOP同版本覆盖，
   对齐producer/consumer/pins，不改WGS环境、不扩大到业务Worker或无关镜像重建。
-- [ ] N5 继续原NORMAL01与FAULT01到Step6，包含一次恢复及TTL后下游。
+- [ ] N5 继续原NORMAL01与FAULT01到Step6，包含一次CREATE响应丢失后同UID接回及TTL后下游。
+  FAULT01保留attempt/generation1，不是替代失败Master或Airflow自动恢复，不新增其他故障场景。
   沿用隔离根和累计CREATE8/22起点，不重跑无关全套测试，不清除旧失败证据。
   超出预算、身份不明或需扩大范围时先反馈，不能通过改回执/START/锁帮助测试通过。
 
-N1–N3源码完成以native01c43dc和同一审阅席增量放行为依据；新增helper cleanup
+N1–N3源码完成以native01c43dc/d29d1ba和同一审阅席增量放行为依据；新增helper cleanup
 写盘失败及cleanup-only首GET失败均修正。定向回执已独立读取，不替代N4发布或
 N5实云验收。旧NORMAL01已冻结坏镜像，保留原记录，使用同一案例的新隔离身份
 NORMAL01R2/P0SMOKENORMALR2-a1；累计9/22继续，不重置预算或添加新案例。
