@@ -1,5 +1,22 @@
 # P0 smoke entry check — 2026-09-26
 
+## Reader cleanup fixed; native upload launcher environment corrected
+
+Native `4488d10` changes helper cleanup wait30→90s only. Coordinator reviewed
+the source diff and copied remote JUnit:5 tests,0 errors/failures/skips (13.666s).
+Guard SHA2564b3ce8c5e4c02352b753b659d1c9f5faeda90ddd627686416492c337676a0119.
+Exact #4 journal reconciled natively to CLEANED without CREATE. New reader#5
+`cce-evidence-8cc1433ddc4c4f00beb6a7a1` completed cleanup; Job absent and journal
+CLEANED. Actual Step1 then entered upload but wrapper exited127 because the
+ad-hoc SSH process omitted WGS_REAL_OBSUTIL_BIN. No upload receipt/Master/Worker.
+
+Read-only owner check confirms existing production AND test runtime.env already
+define `/bi/software/obsutil_5.8.3/obsutil`, executable by ctapa. Existing forced
+command exports runtime.env and gate inherits it. Thus task-only process env
+completion is a smoke-launcher correction, not another product/shared-config fix.
+Continue original test with that verified variable only; no credentials/config
+mutation or unrelated tests. Cumulative CREATE5/20; full live smoke still pending.
+
 ## Current scope — reader cleanup repair approved, 2026-09-27
 
 User "修复后继续完成" authorizes original runtime owner to diagnose/correct the

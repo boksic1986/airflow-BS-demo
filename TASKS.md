@@ -5,11 +5,15 @@
 Current authorization: user "修复后继续完成" permits the scoped reader-cleanup
 repair and continuation; it supersedes the decision-needed checkpoint below.
 
-- [ ] Establish reader cleanup root cause from source and existing remote evidence.
-- [ ] Original runtime owner corrects only this boundary and runs minimal remote checks.
+- [x] Establish cleanup timeout/grace collision; remote regression and live #5 cleanup pass.
+- [x] Original runtime owner corrects only this boundary (`4488d10`);5 remote checks pass.
 - [ ] Reconcile exact reader #4 through native entry; continue original two smoke cases.
 
 Retain cumulative 4/20 CREATE accounting; no repeated blind retry or shared/production change.
+
+Latest count5/20: reader#5 CLEANED; actual upload wrapper rejected missing
+task-process WGS_REAL_OBSUTIL_BIN. Existing configured executable verified;
+continue with process-only variable, no shared configuration change.
 
 Latest live result: NORMAL01 prepared/registered; Step1 guard failedTRANSPORT,
 native cleanup reconciliation succeeded, sole retry failedcleanup pending.

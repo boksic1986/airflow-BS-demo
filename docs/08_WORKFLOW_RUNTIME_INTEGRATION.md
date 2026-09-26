@@ -1560,3 +1560,15 @@ Historical Job-without-intent-and-without-handoff is not automatically adopted.
 Existing handoff replay and v1 remain supported; no Master/plugin protocol change,
 Airflow retry-budget change or new public API is introduced. This initial-submit
 reconciliation is distinct from failed-Master replacement and its FINAL evidence.
+
+## Cloud-reader cleanup confirmation window (2026-09-27)
+
+Native candidate `4488d10` extends only the cloud-reader Foreground cleanup wait
+from 30 to 90 seconds. The prior window overlapped the Pod default 30-second
+termination grace and left no controller/confirmation margin. Delayed Job absence
+was observed in the isolated smoke; the earlier transport error is not attributed
+to this timeout without further evidence. No global query timeout is changed.
+UID/resourceVersion delete preconditions, exact manifest/token checks, bounded
+polling and fail-closed DELETE_INTENT reconciliation remain unchanged. Cleanup
+must be confirmed before a storage identity probe authorizes the actual stage.
+This candidate does not imply shared installation or live smoke acceptance.

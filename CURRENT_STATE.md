@@ -1,5 +1,24 @@
 # Current state
 
+## 2026-09-27 live reader cleanup passed; task launcher variable supplied
+
+Reader#5 cleaned successfully and native Step1 entered upload. Wrapper exit127
+revealed the ad-hoc SSH test process omitted WGS_REAL_OBSUTIL_BIN; existing test
+and production runner configuration already defines the executable obsutil path.
+Original owner continues with this variable in the task process only, no shared
+configuration/credential/code change. Count5/20; upload receipt and Step2–6 still
+pending, no Master/Worker yet. This supersedes the earlier cleanup blocker only.
+
+## 2026-09-27 reader cleanup candidate verified; live continuation pending
+
+Native commit `4488d10` extends only helper cleanup confirmation from 30 to 90s.
+Coordinator reviewed the two-file diff and copied remote JUnit:5 tests,0 failures,
+0 errors,0 skipped. Candidate guard SHA256
+`4b3ce8c5e4c02352b753b659d1c9f5faeda90ddd627686416492c337676a0119`.
+Original owner reports exact #4 journal reconciled through native Step1 to CLEANED,
+with no new CREATE. NORMAL01 Step1 continuation is pending; no smoke PASS yet.
+Shared install, Master, profiles and production remain unchanged.
+
 ## 2026-09-27 reader-cleanup correction authorized; smoke continuation in progress
 
 Latest user instruction "修复后继续完成" authorizes the original runtime owner

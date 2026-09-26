@@ -1,5 +1,33 @@
 # Handoff
 
+## 2026-09-27 — real cleanup passed; task-only upload environment continuation
+
+Owner reports reader#5 cce-evidence-8cc1433ddc4c4f00beb6a7a1 absent in precise
+BS10610 query and matching private journal CLEANED. Step1 reached upload wrapper
+but exited127: WGS_REAL_OBSUTIL_BIN missing from ad-hoc SSH process. This is not
+missing native obsutil or broken shared runner: existing test/prod runtime.env
+both define executable /bi/software/obsutil_5.8.3/obsutil; forced command exports
+it and gate inherits environment. Read-only diagnosis required no shared writes.
+Coordinator directed original owner to supply that verified variable only to
+task process and continue original two smoke cases. No further code repair or
+credentials/shared config modification. Count5/20; no Master/Worker or upload
+receipt yet. Keep earlier failures and no live PASS claim until actual completion.
+
+## 2026-09-27 — reader cleanup candidate source and regression reviewed
+
+Native `4488d10`: cce_writer_guard.py cleanup wait30→90s and one focused regression
+in test_cloud_storage_identity.py. Coordinator independently inspected diff and
+copied JUnit `p0-native-smoke-20260927/junit-cloud-reader-cleanup.xml`:5 tests,
+0 failures/errors/skips,13.666s. Prior16 handoff tests were not repeated.
+Guard SHA2564b3ce8c5e4c02352b753b659d1c9f5faeda90ddd627686416492c337676a0119.
+Default30s Pod grace overlaps old30s Foreground confirmation; a35s modeled
+deletion reproduces old failure and passes correction. Live delayed absence was
+observed, but first TRANSPORT failure is not proven caused by this timing.
+Owner updated only task candidate/policy pins and reconciled exact reader#4 to
+CLEANED via native Step1 (expected fresh-probe-required exit, noCREATE).
+Shared installation and Master unchanged. NORMAL01 real upload and remaining
+smoke still require actual completion evidence; no production promotion.
+
 ## 2026-09-27 — reader-cleanup repair and smoke continuation authorized
 
 User replied "修复后继续完成" to the scoped cleanup-blocker question. Original
