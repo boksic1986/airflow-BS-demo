@@ -2,6 +2,15 @@
 
 ## P0-SMOKE-20260926 (user-authorized test acceptance)
 
+Current authorization: user "修复后继续完成" permits the scoped reader-cleanup
+repair and continuation; it supersedes the decision-needed checkpoint below.
+
+- [ ] Establish reader cleanup root cause from source and existing remote evidence.
+- [ ] Original runtime owner corrects only this boundary and runs minimal remote checks.
+- [ ] Reconcile exact reader #4 through native entry; continue original two smoke cases.
+
+Retain cumulative 4/20 CREATE accounting; no repeated blind retry or shared/production change.
+
 Latest live result: NORMAL01 prepared/registered; Step1 guard failedTRANSPORT,
 native cleanup reconciliation succeeded, sole retry failedcleanup pending.
 Step2–6 and fault case NOT RUN; no Master/Worker. Initial-CREATE fix stays complete,

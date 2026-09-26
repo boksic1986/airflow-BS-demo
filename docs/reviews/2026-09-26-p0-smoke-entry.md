@@ -1,5 +1,13 @@
 # P0 smoke entry check — 2026-09-26
 
+## Current scope — reader cleanup repair approved, 2026-09-27
+
+User "修复后继续完成" authorizes original runtime owner to diagnose/correct the
+specific helper cleanup blocker and continue the original two native smoke cases.
+The previous stop below remains historical evidence, not the current permission.
+Exact identity, UID/RV fencing, native journal reconciliation, 4/20 cumulative
+CREATE count and test-only boundaries remain unchanged. No new execution result yet.
+
 ## Latest live result — reader cleanup blocks smoke
 
 Initial-CREATE fix remains verified as described below. Actual NORMAL01-r2

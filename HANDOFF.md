@@ -1,5 +1,19 @@
 # Handoff
 
+## 2026-09-27 — reader-cleanup repair and smoke continuation authorized
+
+User replied "修复后继续完成" to the scoped cleanup-blocker question. Original
+runtime/Infra owner huawei-cloude has been instructed to establish root cause,
+fix only helper cleanup, run minimum relevant remote checks, and continue the
+same NORMAL01-r2/FAULT01-r2 native smoke. Coordinator maintains docs/evidence.
+Existing 16 handoff tests remain valid for unchanged source; no redundant suite.
+Before new Step1, reconcile reader #4 UID385ccca8-def8-4b56-8473-956f0a81500c
+DELETE_INTENT through the same node200/ctapa native entry; no journal reset.
+Cumulative Job CREATE count remains 4/20. Source timeout/grace interaction is a
+hypothesis, not proven root cause. No shared install/profile/assets or production
+changes authorized. No execution acceptance claimed until actual receipts exist.
+Rollback remains task-local candidate selection; preserve test paths and evidence.
+
 ## 2026-09-27 — live smoke failed before upload; further retry stopped
 
 Completed authorized source slice: nativeed39d21 and16 selected remote tests,

@@ -1,5 +1,15 @@
 # Current state
 
+## 2026-09-27 reader-cleanup correction authorized; smoke continuation in progress
+
+Latest user instruction "修复后继续完成" authorizes the original runtime owner
+to diagnose and fix only the cloud-reader cleanup blocker, minimally verify it,
+then continue the same NORMAL01/FAULT01 native smoke cases. Previous stop below
+is superseded only for this scope. Preserve exact identities, UID/RV fencing,
+native journal reconciliation and cumulative CREATE budget (currently 4/20).
+No production, shared release/profile, formal WGS logic or platform feature changes.
+No new smoke PASS: the last verified execution remains blocked before upload.
+
 ## 2026-09-27 live smoke blocked at reader cleanup; scoped fix complete
 
 Initial-CREATE correction `ed39d21` and16 selected remote regression cases pass.
