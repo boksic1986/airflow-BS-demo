@@ -149,6 +149,16 @@ Never copy test runtime, evidence, credentials or database to production.
 
 ## Permission contract
 
+- User clarification (2026-09-26; revised design, not a completed rollout): NEW
+  business project/output directories and executable scripts use0755; ordinary
+  business files and exported evidence use0644. Credentials and necessary private
+  process-control files retain private access. This supersedes the business-output
+  setgid/group-write requirement below, not control-root access policy. Use a
+  consistent non-root writer per storage domain; do not satisfy access by root,
+  chmod777, or changing existing inputs/results. Implementation must account for
+  atomic replacements and Pod mount permission handling without recursive changes
+  to existing trees. See [current P0 design R6](superpowers/specs/2026-09-17-wgs-gatk-cce-connection-recovery-design.md).
+
 - User clarification (2026-09-25): Airflow is deployed by `chenjc`, analysis runs
   as `ctapa`, and the WGS repository belongs to `chenjx`. These are distinct roles,
   not an instruction to change ownership; live UID/GID/ACLs remain preflight facts.
@@ -163,16 +173,18 @@ Never copy test runtime, evidence, credentials or database to production.
 - Immutable release directories use 0755 directories, 0644 data files and
   0755 executable scripts.
 - `env/` and `secrets/` use 0700 directories and 0600 secret files.
-- Mutable runtime, evidence, results and shared roots use group `bioinfo`,
-  setgid 2770 where isolation is required, and explicit default ACLs for the
-  named runtime users.
+- Existing control/shared roots retain their approved group `bioinfo`, isolation
+  modes and ACLs. These are not a requirement that new business results use2770
+  or group-write. Actual historical permissions remain preflight facts; this
+  documentation authorizes no permission migration.
 - User clarification (2026-09-25): do not force root ownership or0600 files/
   0700 directories on shared P0 outputs. Honor approved effective group/default
   ACL access, including atomic replacements; directories need traverse access.
   This does not authorize existing-tree permission rewrites or secret widening.
 - Internal plugin process-control spool is not a shared output: its current
   Master-owned claim/lock/journal remains private, while the bound final snapshot
-  exported for platform/replacement readers follows the shared permissions above.
+  exported for platform/replacement readers follows the revised business-output
+  contract for new implementations (0755 directories,0644 regular files).
 - FASTQ, workflow source, references and input projects are mounted read-only.
   Only approved runtime, result, log, binding and spool roots are writable.
 - Never use `chmod 777`, recursively widen `/sg2` or `/bi`, or follow symlinks

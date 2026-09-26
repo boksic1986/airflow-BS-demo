@@ -1,5 +1,34 @@
 # Current state
 
+## 2026-09-26 P0 lifecycle design revision (current documentation authority)
+
+User confirmed cloud-only cleanup, user-managed local directory movement, same-name
+new analysis without stale cloud locks, and business0755/0644 with private secrets.
+The original P0 spec now contains R1–R7; run-control and TTL designs plus permission
+boundary are aligned. Implementation queue:
+`docs/superpowers/plans/2026-09-26-p0-lifecycle-correction.md` (T1–T5, V1–V6).
+This supersedes historical source-complete/2770 business-output/no-control-table
+wording where conflicting; previous bounded test results are not discarded.
+Docs only: no runtime correction, tests, deployment, production or batch action.
+T1 documentation complete; code/interface implementation and T2–T5 remain pending.
+Native/plugin artifacts already published are historical pins, not proof they
+contain this future revision. Rebuilds remain with original owners after changes.
+
+## 2026-09-26 independent P0 normal-analysis audit (latest finding)
+
+Static review of platform b17e1b6/954045a, native dcc1698/ae90b65 and plugin
+5ffcb07 finds that initial protected Step1–Step2 is not operationally closed:
+the per-bundle registration producer is missing, and initial lock action requires
+a Step2 execution ID generated only after Step1. Updating policy at Step2 cannot
+transfer the existing same-generation lock. Ordinary CLI also reloads stale
+initial owner context after platform UID binding/recovery. TTL100 plus legacy
+Step4/5 remains a conditional missing-Job failure if the new profile is used
+without the paired consumer. No code/runtime/production change or tests in this
+audit. Component acceptance is not end-to-end acceptance. See
+`docs/reviews/2026-09-26-p0-normal-analysis-audit.md` for source evidence and the
+two bounded post-fix acceptance paths. Preserve the original automatic Step1–6
+sequence; do not add manual binding/pause steps.
+
 ## 2026-09-26 R4 test integration in progress (current authority)
 
 User authorized the next three steps: integrate the latest production fixes

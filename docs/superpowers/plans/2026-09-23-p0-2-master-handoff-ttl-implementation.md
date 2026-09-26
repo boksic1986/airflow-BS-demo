@@ -1,5 +1,16 @@
 # P0-2 Master handoff and TTL-safe recovery implementation plan
 
+## 2026-09-26 execution queue superseded
+
+Continue with the [lifecycle correction plan](2026-09-26-p0-lifecycle-correction.md)
+and the original P0 spec's new R1–R7. The historical Task1–6 checks below retain
+their actual component scope; they are not proof of complete new-batch operation.
+Normal registration/Step1–Step2 ownership, CLI current-owner resolution, TTL
+downstream,755/644 and pause/cleanup/reuse require the new queue. Do not rerun
+unchanged historical tests or carry forward the former blanket no-control-table
+restriction: independent deletion audit is planned, not a new retry database.
+Current delivery is documentation only; no code/runtime authority follows here.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Preserve existing CR01 work; do not start a second recovery implementation.
 
 **Goal:** Deliver authenticated manual WGS/GATK recovery across interrupted Master handoff and terminal Job reclamation, before completing automatic dispatch.

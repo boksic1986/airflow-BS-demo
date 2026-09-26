@@ -1,5 +1,32 @@
 # Active test-branch tasks
 
+## P0-LIFECYCLE-REVISION-20260926 (current implementation queue)
+
+Plan: `docs/superpowers/plans/2026-09-26-p0-lifecycle-correction.md`.
+
+- [x] T1-DOC: original P0 R1–R7, run-control, TTL/lock and755/644 boundary aligned.
+- [x] Record independent audit and six bounded behavior-level acceptance groups.
+- [ ] T1-CODE: versioned internal/adapter/API/persistence contracts, no pipeline-name branching.
+- [ ] T2: automatic pre-Step1 registration, current owner, normal CLI/platform+TTL,755/644.
+- [ ] T3: existing error categories/budgets integrated with unified lifecycle.
+- [ ] T4: pause/resume, exact cloud cleanup, separate platform deletion, same-name new analysis.
+- [ ] T5: affected acceptance, owner-built artifacts and coordinated test delivery.
+
+Current request is documentation only. Historical Task1–6 and R4 component passes
+do not mark these items complete; reuse unaffected evidence, not whole-suite reruns.
+Do not delete/move local projects or automatically recover any existing batch.
+
+## P0-NORMAL-PATH-AUDIT-20260926 (latest independent review)
+
+- [x] Independently trace current platform/native/plugin normal and recovery paths.
+- [x] Record A1/A2 initial registration/owner dependency, A3 CLI owner resolution,
+  A4 TTL/legacy downstream compatibility in the scoped audit document.
+- [ ] Close registration before Step1 and separate lifecycle owner from later
+  Step2 execution identity; preserve authenticated handoff and normal stage order.
+- [ ] Resolve current-owner CLI compatibility and TTL downstream integration.
+- [ ] Run only the two affected BS10610 acceptance paths described in the audit;
+  existing component passes are retained, not relabeled end-to-end acceptance.
+
 ## WGS422-P0-R4-20260926 (current authorized slice)
 
 - [x] Fetch current production/main/test and confirm production43cd0c5 is included.

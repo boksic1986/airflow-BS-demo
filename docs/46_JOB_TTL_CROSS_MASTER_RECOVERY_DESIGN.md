@@ -1,5 +1,24 @@
 # Job 自动回收与跨 Master 续跑技术设计
 
+## 2026-09-26 当前契约修正（仅设计）
+
+当前依据为[P0统一生命周期R1–R7](superpowers/specs/2026-09-17-wgs-gatk-cce-connection-recovery-design.md)
+及[修订实施计划](superpowers/plans/2026-09-26-p0-lifecycle-correction.md)。
+下面2026-09-25的完成记录只表示当时组件/隔离测试范围，不证明新批次正常链路闭合。
+独立审计发现登记生产者、Step1/Step2身份顺序、CLI当前owner和TTL下游兼容缺口。
+
+- 静态部署信任与动态每运行登记分开；初始owner在Step1前可确定，不依赖未来Step2 ID。
+- 资源锁使用实际存储与目标资源，不使用可重用批次名；操作ID与运行owner分开。
+- 暂停保留占用；最终写入完成可RELEASED。RELEASED不代表云端已清理，清理另有凭据。
+- 清理完成后新analysis/run可条件占用同名路径；旧锁、legacy guard及tombstone
+  不得永久拦截。旧owner/清理回调仍必须拒绝影响后来同路径的新资源。
+- 平台与普通CLI共用选定Master和持久终态解析；只读状态不取写锁。不能用
+  “关掉P0”配合TTL100新模板绕过缺口，因为旧Step4/5仍可能要求活Job存在。
+- TTL100、Worker终态、源头分类、预算及完整清单要求保留。不修改冻结历史bundle。
+- 业务目录/脚本755、文件644，私有控制及凭据例外；不强制业务setgid/组写。
+- 本轮纳入与暂停/删除的生命周期衔接，但没有执行它们。独立控制操作表是运行
+  控制的必要持久化，不新增TTL数据库或另一套恢复预算表。
+
 日期：2026-09-23；2026-09-25 状态更新：Tasks1–6 的隔离源码及对应 synthetic 验收已完成，
 整条分支审查的一项终态冲突问题已修复（native1bc67fd，定向13项通过）。
 Task6 生产运行门禁仍未完成，不代表生产发布或真实 TTL 回收验收；Task5 旧制品不包含
@@ -181,9 +200,11 @@ Worker 必须终止；已回收 Worker 必须有相应终态证据。无证据�
 | status 写锁与 generation 检查 | 原子写状态、拒绝旧回调；不能阻止旧 Worker 写分析输出 |
 | 上传/下载/heavy-slot 配额 | 保持原职责和额度，不在本任务取消 |
 
-锁身份使用规范化目标目录、pipeline、analysis_id、attempt；另记录当前
-generation、操作 action、Master UID 和配置摘要，复用既有同义字段。
-同批次名不同目录不得误冲突；同目录不同 analysis_id 即使来自不同入口也拒绝。
+当前设计的锁定位使用实际存储身份及规范化资源路径，owner绑定pipeline、
+analysis_id、attempt、runtime_run_id、计算generation及Master UID；配置摘要
+用于冻结输入核对。操作action独立，不要求owner绑定某个阶段execution_id。
+同名且实际输出资源不交叠的运行互不阻塞；同目录有OWNED运行时其他analysis拒绝。
+旧运行已释放且该输出资源已清理后，新analysis可以条件重占，不要求删除历史记录。
 不对现有锁键做在线批量迁移；若旧键无法表达目录身份，先在开发中明确版本化
 映射及双入口冲突检查，未验收不得启用，不能同时产生两个互不识别的锁域。
 

@@ -1,5 +1,72 @@
 # Handoff
 
+## 2026-09-26 — P0 lifecycle documentation delivery
+
+Authority: user requested the revised design be written to the repository only.
+Confirmed preferences: user handles local directories; cloud cleanup completion
+must not leave blocking stale locks; business directories/scripts0755 and files0644,
+credentials/necessary private controls excepted. No current deletion targets or
+permission changes are authorized by this documentation.
+
+Completed: original P0 spec R1–R7, aligned run-control and TTL/lock design, updated
+permission boundary, new T1–T5 implementation queue and V1–V6 bounded acceptance.
+Historical plan points to the new queue, preserving actual old component results.
+The earlier independent audit is included as evidence, not a runtime test result.
+Only Markdown documents changed; no API/schema/code implementation is claimed.
+
+Workspace: isolated `jiucheng/test/wgs422-p0-integration-20260926`, starting b17e1b6
+(functional954045a). Pre-existing changes were this task's uncommitted independent
+audit plus state/task/handoff entries and were preserved. No other worktree changed.
+Files: original P0 and run-control specs; TTL companion; original/new P0 plans;
+docs34; independent audit; CURRENT_STATE/TASKS/HANDOFF.
+
+Checks: local read/search, document link/task-ID checks and git diff whitespace
+check only. New/changed relative links: 13 checked, 0 broken; diff whitespace
+check passed. Delivery contains exactly ten Markdown files on the isolated test
+branch; no main/production merge or remote push is included.
+One apply_patch hunk initially failed on line wrapping in run-control;
+no partial edit occurred, exact text was read and the corrected hunk applied.
+No pytest/npm/compile/Compose/SSH commands: this task is documentation-only, not
+runtime acceptance. Future affected tests need BS10610 preflight and implementation.
+No fresh hostname, permissions, mounts or releases verified; all service/runtime,
+scanner/dispatch and existing analyses remain unchanged by this task.
+
+Next: start T1-CODE/T2 under an implementation request, not another ad hoc binding
+workaround. Native wheel/Master builds stay with original owner. Test release and
+production activation remain distinct. New capabilities are planned, not enabled.
+Rollback: revert the documentation commit; no cloud/data/schema rollback needed.
+
+## 2026-09-26 — independent P0 normal-analysis audit
+
+Goal: independently check whether P0 supports normal analysis without changing
+the original workflow, per latest user request. Reviewed clean integration
+checkout b17e1b6 (functional954045a), native dcc1698 (functional ae90b65), plugin
+4f10c27 (only documentation differs from released source5ffcb07).
+
+Findings are recorded with source locations in
+`docs/reviews/2026-09-26-p0-normal-analysis-audit.md`: missing production binding
+producer; Step1 initial owner depends on a future Step2 execution ID; static CLI
+owner after UID/generation transitions; new TTL combined with legacy Step4/5
+still requiring a live Master. Platform selected downstream reconstruction does
+exist, so do not report all downstream code as absent. Automatic recovery has
+explicit evidence/category/deadline limits, not blanket failed-Master coverage.
+
+Changed only this handoff, CURRENT_STATE, TASKS and the new audit. Source reads,
+git status/revision/diff inspection and scoped ripgrep searches were used. Some
+exploratory searches named nonexistent files or used PowerShell literal globs;
+those returned path errors and were replaced by verified filenames or -g filters.
+No SSH, runtime tests, database, deployment, analysis, lock or data mutation.
+Local runtime tests remain prohibited; this code-path audit does not claim fresh
+BS10610 acceptance. Prior component results were not rerun or discarded.
+
+Next: close the existing normal-path integration, then only two affected remote
+synthetic paths (normal Step1–6 with TTL; recovery/current-owner continuation).
+Do not insert a manual pause or fabricate production policy rows. Native
+artifacts stay with the existing owner after source correction. The staged
+release and last documented unswitched services are not live-refreshed here.
+Rollback: revert these documentation edits only; executable/runtime state is
+unchanged. Audit findings must be resolved before declaring complete rollout.
+
 ## 2026-09-26 — R4 integration and latest production fixes
 
 Goal/authority: user authorized the next three test-release steps and explicitly

@@ -1,5 +1,43 @@
 # CCE run pause, resume and project deletion
 
+## 2026-09-26 lifecycle revision (current design, not implemented)
+
+The user confirmed the [P0 lifecycle revision](2026-09-17-wgs-gatk-cce-connection-recovery-design.md)
+and requested documentation only. Its R1–R7 and the
+[new implementation queue](../plans/2026-09-26-p0-lifecycle-correction.md) supersede
+conflicting historical scope/permission assumptions below. Pause/delete were
+previously design-only; recovery fences are not an implemented pause feature.
+
+- Common lifecycle/control logic is adapter-driven, initially WGS and WES/GATK
+  on CCE, without pipeline-name branches. Local/SGE controls are not added.
+- Automatic registration precedes Step1. Stable attempt/run ownership is separate
+  from stage execution IDs; CLI and platform resolve the same current generation.
+  Read-only status does not claim a writer lock; pause retains directory ownership.
+- `cleanup_cloud` and `delete_project` are distinct confirmed actions using the
+  same control operation protocol. Cloud cleanup alone preserves platform history;
+  project deletion additionally handles exact Airflow and business associations.
+  Neither operation deletes offline/local data or moves a project directory.
+- The user moves/deletes their local directory. A later new submission rejects an
+  occupied local target. Once cloud output paths are verifiably cleaned, a fresh
+  analysis/run identity can reuse the batch name and paths without manual unlock.
+  Retained tombstones and RELEASED legacy guards cannot permanently reserve them.
+  Partial/unknown cleanup reports residuals, not a generic stale-lock error.
+- Same-attempt resume retains checkpoints/config; same-name new analysis creates
+  a new identity. Continuing an old identity at a moved local path is out of scope.
+- Business outputs use0755 directories/scripts and0644 regular files. Credentials
+  and necessary private control state stay private. Use consistent non-root
+  writer identity per storage domain, not mandatory group-write on results.
+  No existing-tree chmod/chown or input/source permission migration is authorized.
+- Plan one independent durable control-operation record with minimal deletion
+  tombstone fields. RunAction is CASCADE-bound to AnalysisRun and cannot be the
+  sole surviving audit. Reuse recovery actions/budgets, not another retry engine.
+
+Section6 API proposals remain the selected interface. Preview explicitly selects
+cleanup_cloud, delete_project, pause or resume. Accepted/partial/unknown is not
+completed. No stop is successful until exact writers are quiescent. Performance
+and bounded acceptance follow P0 R7 and plan V1–V6. Remaining sections retain
+resource-level safety details. This delivery implements or activates nothing.
+
 Status: design complete; implementation not started. Documentation only.
 Original base: `jiucheng/test/wgs-local-main-sync-20260917` at `2d899e5`.
 Source work branch: `jiucheng/feature/run-control-20260918` at `1c631b7`.
@@ -242,8 +280,10 @@ project/platform/source identity and sequencing batch/directory identity, not
 sample ID. Store the observed source version for audit; touching/copying the same
 source or changing its content must not automatically erase suppression. Existing
 intake `analysis_id` uses SET NULL, so deleting the run without this guard could
-make it look unsubmitted again. Manual re-submission requires an explicit future
-re-arm decision; no automatic resurrection and no alteration of shared pending.
+make it look unsubmitted again. Explicit authenticated manual re-submission may
+create a fresh analysis after normal target/ownership checks; historical
+suppression is not a batch-name ban. It does not clear suppression for autonomous
+scanner dispatch. No automatic resurrection or shared pending alteration.
 
 Additive schema changes, migration tests and deployment are future work. Do not
 drop historical tables or downgrade by deleting audit. Production schema changes
