@@ -2,6 +2,33 @@
 
 ## 2026-09-27 — user authorizes normal-path convergence and smoke completion
 
+FINAL WAITING CHECKPOINT: native8323567 fixes only the ordinary native failure
+projection;4 remote tests PASS and same reviewer approves the increment with
+no new Critical/Important. Coordinator parsed GREEN XML and raw real
+START_CONFIRMED/RUN_FAILED/analysis.log, not only the owner's summary. This source
+has NOT been rebuilt/published/installed; actual candidate remains d29d1ba.
+Source is on jiucheng/release/p0-validation-20260925; origin is the existing
+read-only bundle, not a claim of remote source push. Unrelated dirty
+tests/test_recovery_monitor.py remains untouched.
+
+Native RUN_FAILED binds Master UID/config/START, scope master_process and
+preflight0/analysis1; native failure display does not grant replacement recovery.
+Synthetic profile jobs:1 correction/new fixture is planned, not a completed run.
+Owner retired storage helper#10 UID2e2732a8-6d63-4289-8d53-4ffb8b814d52 through
+its exact native journal/cleanup_only to CLEANED. Owner's final exact GETs for
+Master/#10/#12 are empty. No Step6, lifecycle-lock release or local deletion.
+Observer exited on empty Pod list and logs API was NotFound; complete observer
+coverage is NOT claimed. Native SFS terminal and analysis/preflight logs persist.
+
+User22→24 budget reply is still pending:12used,12additional expected for the
+same two cases (setup1+normal5+fault6). No new cloud CREATE/relaunch or further
+publication until continuation. Full smoke NOT accepted: Step4–6 and FAULT01
+remain unexecuted. Evidence: CANDIDATE_RELEASE_AND_SMOKE_STATUS.md and
+REMAINING_SMOKE_CREATE_BUDGET.md under the original task-artifacts smoke root.
+Next after approval: fix only synthetic jobs profile in a new fixture, rebuild
+8323567 as same0.8.7/original tag, pair isolated consumer, run same NORMAL01/
+FAULT01 throughStep6 with exact budget and final permissions/TTL evidence.
+
 Latest live checkpoint: d29d1ba Master published under original tag with digest
 sha256:d463693b7a309a3c1f21a072d6882f9a571d66e1ac1d0da2a4482fad314f3b24.
 Final wheel0.8.7 is under task-artifacts/p0-native-smoke-20260927/wheels-d29d1ba,

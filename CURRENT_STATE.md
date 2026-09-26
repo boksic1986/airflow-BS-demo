@@ -2,14 +2,19 @@
 
 ## 2026-09-27 normal-path convergence authorized; same two smoke cases
 
-Live checkpoint supersedes source-ready notes: NORMAL01R2 Step1/Step2 succeed
+Final checkpoint (awaiting user budget reply): native8323567 fixes failure-status
+projection;4 remote cases PASS and same-seat incremental review approves it.
+This latest source is NOT built/published/installed; executed candidate stays
+d29d1ba/0.8.7. NORMAL01R2 Step1/Step2 succeed
 with START_CONFIRMED (Master UIDef21511a-3644-4efa-93f5-c2412f4cb2ce), same
 storage helper reused. Synthetic analysis exits1 because its profile omitted
 jobs:1; no Worker. Step3 mirrors genuine RUN_FAILED/logs but its failure branch
-also assumes a platform recovery_context. Owner is fixing only this native
-failure projection; no fabricated recovery authority. CREATE12/22. User was
+also assumed a platform recovery_context;8323567 corrects only native failure
+projection, with no fabricated recovery authority. CREATE12/22. User was
 asked to allow24 total (12more estimated for original two cases); pending reply,
-no new CREATE. Existing failure records and inputs remain protected.
+no new CREATE. This run's Master/evidence-reader are gone and retained helper
+is CLEANED by its exact journal/UID; no local data or lifecycle lock deleted.
+Existing failure records/inputs remain protected. Full smoke is NOT accepted.
 
 Latest source d29d1ba is incrementally review-approved, including the native
 Step3 optional recovery-context consumer correction. The source progression

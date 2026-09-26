@@ -3,9 +3,11 @@
 ## P0-NORMAL-CONVERGENCE-20260927 (in progress)
 
 Live NORMAL01R2 Step1/Step2 PASS, analysis fails on synthetic fixture missing
-jobs:1; native Step3 failure projection context defect now being corrected.
+jobs:1; native Step3 failure projection defect fixed in8323567 (4PASS, reviewed).
+Source8323567 not published; actual candidate d29d1ba/0.8.7. Failed run Jobs are
+retired without deleting local evidence or locks; end-to-end NOT accepted.
 CREATE12/22. Request24 cumulative to complete same two cases is awaiting user;
-no further cloud CREATE before reply. Source correction/minimal unit case may proceed.
+no further cloud CREATE before reply. Source correction/minimal unit case complete.
 
 Current checkpoint: native d29d1ba committed; scoped remote receipts read by
 coordinator and same-seat source review approved. Final same0.8.7 artifacts,
