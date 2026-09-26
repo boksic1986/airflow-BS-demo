@@ -1,5 +1,22 @@
 # SERVER_INFO.md
 
+## 2026-09-26 R4 node200 test-entry correction
+
+User authorized the existing ctapa SSH identity for the BS10610/node200 R4
+test rollout. Node200 (`t640`) source/profile read was verified from the host;
+the original Infra owner then confirmed ctapa identity and write access to
+`/home/ctapa/.config/airflow-wgs-test`. The prior chenjc-only permission
+blocker is resolved. This is an entry preflight, not a service switch or
+catalog activation. BS10610 source `954045a` is staged at
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260926-wgs422-p0-954045a`;
+current symlink, service mounts and catalog selection remain old. Read-only
+checks found zero unfinished analysis and transfer records. The node200 ctapa
+kubeconfig verified `snakemake-ns/biosan-clinical` PVC UID
+`35e498b9-ae6d-484e-a62d-8a6742175dab` Bound to `pv-efs-clinical` PV UID
+`80dc8875-f4be-45c5-b8a4-2fb9f6a38a7c`; no cloud object was created.
+Paired rollout stopped because no trusted per-bundle registration producer is
+installed. See the task-scoped R4 deployment receipt; no BS96 operation occurred.
+
 ## 2026-09-25 P0 candidate publication / bounded TTL only
 
 BS10610/server10610/chenjc published two accepted P0 Master candidates to SWR;

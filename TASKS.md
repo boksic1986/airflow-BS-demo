@@ -8,7 +8,11 @@
 - [x] Receive immutable3b1dae5 host repo paths and prepare candidate registration.
 - [x] Run the eleven selected BS10610 synthetic cases; Infra reports11/11 PASS.
 - [x] Complete two targeted4.2.2 version-binding RED/GREEN cases and minimal fix954045a.
-- [ ] Verify actual node200 read/traverse and approved writable release entry (route timeout).
+- [x] Verify actual node200 source/profile read and approved ctapa test-gate write entry.
+- [x] Stage integrated source in an isolated BS10610 release without switching services.
+- [ ] Resolve the existing trusted per-bundle registration-producer gap before
+  paired policy activation; this is a separate implementation/acceptance gate,
+  not authorization to fabricate a real-batch binding.
 - [ ] Deploy existing test services and WGS gate/paired dependencies as one set.
 - [ ] Register/CAS-select WGS4.2.2/0.8.6/r2; check API/DAG/mounts/default-off state.
 - [x] Record source verification and push integrated test history (0ca80a8); no BS96/main promotion.

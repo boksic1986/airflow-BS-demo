@@ -59,9 +59,9 @@ Candidate registration fields known from accepted receipts:
 | `profile_id`, `profile_revision`, `profile_sha256` | `wgs-4.2.2`, `r2`, `4a016a2d0c1006b013a1e66efc147e29275e0ce8dcd2b086f1488bed8c44d6ed` |
 | `cce_pipeline_version` | `0.8.6` |
 | `pipeline_build_sha256`, `resource_manifest_sha256` | `09da0287ba0f9dc600b6c8350a78b2bb65ac410daa2f8aa5246b6d0ebcf76a88`, `67713468626acbcaecf62a1ac23181b487c1074cffc833a10a6889ac8db122e7` |
-| `node200_profile_path` | `/bi/biodevrwbi/33.chenjiucheng/project/cce-pipeline-profiles/wgs/wgs-4.2.2-r2.yaml`; node200 direct readability remains an activation gate. |
+| `node200_profile_path` | `/bi/biodevrwbi/33.chenjiucheng/project/cce-pipeline-profiles/wgs/wgs-4.2.2-r2.yaml`; node200 host readability verified. |
 | `bs10610_repo_path` | `/mnt/biodevrwbi/33.chenjiucheng/project/wgs-releases/20260926.1-wgs422/wgs-4.2.2-3b1dae5` |
-| `node200_repo_path` | `/bi/biodevrwbi/33.chenjiucheng/project/wgs-releases/20260926.1-wgs422/wgs-4.2.2-3b1dae5`; node200 direct readability remains an activation gate. |
+| `node200_repo_path` | `/bi/biodevrwbi/33.chenjiucheng/project/wgs-releases/20260926.1-wgs422/wgs-4.2.2-3b1dae5`; node200 host readability verified. |
 | CCE asset `release_id`, `asset_manifest_sha256`, status | `20260926.1-wgs422`, `73bca89d28619fb6194233f0bea40ae5f5d8423bd6fab4fdf511a52493eaacd7`, `PASS`, `state_verified=true` |
 
 The versioned non-secret registration body is
@@ -81,8 +81,9 @@ On BS10610, `/mnt` and `/bi` map to the same inode; release-source directories
 have mode 755 and files 644/755. This is publicly readable pipeline source,
 not shared run output or a private credential spool. The excluded private
 WGS config/mail files are absent. The WGS development worktree is not used.
-Node200 has **not** read the path directly: the original Infra owner's route
-timed out. Do not convert BS10610 mount equivalence into node200 acceptance.
+Subsequent node200 host access verified source and profile readability through
+the approved SSH route. This supersedes the original route timeout; no
+BS10610 mount equivalence was used as node200 acceptance.
 
 The actual BS10610 private catalog (backend `/config` mount from
 `releases/20260912-opt-4d3d24e6/config`) currently selects
@@ -110,9 +111,9 @@ the legacy release-default submission path when its existing gates allow it.
 ## Pending acceptance
 
 - WGS owner: publish an immutable 3b1dae5 source package and exact BS10610/
-  node200 gateway repository paths (delivered). Original Infra owner: obtain
-  authorized node200 direct path traversal/read/owner check, including profile
-  r2, then verify actual private catalog/mount and receipt before activation.
+  node200 gateway repository paths (delivered). Node200 source/profile read and
+  ctapa test-gate write access are now verified. Original Infra owner: finish
+  private catalog/mount and rollback preflight before activation.
 - The frozen WGS prepare script must retain the existing `--handoff-request`
   and receipt interface. The 4.2.2 platform version gates are being extended
   only after this static contract check and two-node RED→GREEN, so missing
@@ -163,9 +164,16 @@ production changes are in this integration. Source may now be pushed only to
 the integration and existing test branches. No main/production push is included.
 Atomic push succeeded for both test branches through0ca80a8 (exit0);
 existing primary test branch advanced from781877e, without force.
-Deployment remains blocked on the approved node200 writable release route and
-actual source/profile read/traverse check; its existing direct route timed out.
-The user was asked for the existing approved route. Do not replace this gate
-with guessed SSH identities or forced-command shell access. No actual catalog
-registration or activation has occurred. Preserve old test mounts/configuration
-until the paired rollout and final API/DAG/default-off checks can be completed.
+The user authorized the existing ctapa SSH identity; the original Infra owner
+verified ctapa on node200 and write access to the ctapa-owned test gate. The
+prior route/permission blocker is resolved. Exact status and rollback are in
+`D:/pipeline/task-artifacts/wgs422-p0-integration-20260926/R4_DEPLOYMENT_RECEIPT.md`:
+source954045a is staged in a versioned BS10610 release, but no service mount,
+gate, bootstrap/policy or catalog selection was changed. Read-only PVC/PV
+identities confirmed the native `cloud-reader` mapping without inventing
+node200 host inode values. The already-audited missing trusted per-bundle
+registration producer now blocks paired activation: static policy bindings
+are only consumed, and empty bindings reject new batches. This R4 scope does
+not fabricate a real-batch binding or add an unreviewed producer. Final
+API/DAG/default-off smoke was not run because nothing was deployed. Preserve
+the existing test services until the producer is implemented and accepted.

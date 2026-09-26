@@ -40,14 +40,29 @@ backend still mounts20260923-step7-ae416fa, /config20260912-opt-4d3d24e6,
 WGS DAG/common20260915-main-359df11. No service changes yet.
 Private catalog current34bfcbf differs from repository examplecc9bde3; preserve
 private entries and use actual-current CAS rather than replacing the file.
-WGS owner is supplying immutable3b1dae5 host-side source; node200 readability
-remains to be verified using approved routes. Do not use the forced-command key
-for arbitrary shell or treat a BS10610 /bi alias as node200 acceptance.
+Immutable3b1dae5 host-side source and profile were delivered; node200 source/
+profile readability was confirmed from the host. User authorized the existing
+ctapa SSH key for R4, and the original Infra owner confirmed ctapa identity and
+write access to the ctapa-owned test gate. No forced-command key or privilege
+bypass was used.
 
 Candidate registration data is complete; no actual registration/activation yet.
-Next: resolve node200's approved writable release entry and read/traverse,
-then paired test rollout and API/DAG/mount smoke. User has been asked for the
-existing approved node200 route; no SSH permission bypass/new login attempts.
+R4 deployment attempt stopped after source staging. Exact receipt:
+`D:/pipeline/task-artifacts/wgs422-p0-integration-20260926/R4_DEPLOYMENT_RECEIPT.md`.
+BS10610 isolated candidate `releases/20260926-wgs422-p0-954045a` was staged
+from the verified archive; no service mount, node200 gate, bootstrap/policy,
+catalog selection, database record or real analysis was changed. Read-only
+test counts were zero active AnalysisRuns and zero active TransferJobs.
+Ctapa's existing kubeconfig verified `snakemake-ns/biosan-clinical` Bound to
+`pv-efs-clinical` with matching claimRef; native cloud-reader requires these
+exact PVC/PV identities, not invented node200 host SFS inode data.
+The actual stop is the already-audited missing trusted per-bundle registration
+producer: native/platform code only consumes static policy `bindings`, and
+synthetic tests write them by fixture. Empty bindings fail closed for future
+batches. Do not install an empty policy, fabricate a real-batch binding, or
+activate partial P0. Next is a separately scoped implementation/acceptance of
+the trusted producer, then paired rollout and one final API/DAG/mount smoke.
+No additional synthetic tests were run in this deployment attempt.
 Infra retains exact rollback mounts/config before changes;
 DB/Redis/unrelated services and all analysis data remain unchanged. Global scan,
 dispatch/recovery stay off. WGS4.2.2 QC/options provenance remains unaudited,

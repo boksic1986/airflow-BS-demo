@@ -19,11 +19,19 @@ current R4 status. No BS96 deployment or main/production merge is in this slice.
   in954045a. Total13 focused cases; no repeat of the baseline11. The patch adds
   only the frozen4.2.2 directory mapping and three explicit version sets.
 - Candidate payload and immutable host-side3b1dae5 source are delivered.
-  Actual node200 traversal/read and writable deployment entry remain blocked
-  by its route timeout; user was asked for the existing approved login route.
+  The approved ctapa SSH identity reaches node200; the immutable source and
+  profile are readable, and the ctapa-owned test gate is writable. The prior
+  chenjc-only permission and route blockers are resolved. The source was staged
+  in an isolated BS10610 release; no service was switched.
   Actual private catalog current34bfcbf differs from the example;
-  preserve existing entries, register and CAS-select only the new test release.
-- Service rollout, test selection and final smoke are not yet claimed complete.
+  preserve existing entries. Registration/CAS selection has not occurred.
+- Paired activation is stopped at an already documented P0 gap: native and
+  platform consumers require a trusted per-bundle policy binding, but no
+  production registration producer exists (tests write fixture bindings).
+  An empty binding list would reject new batches. Do not fabricate a clinical
+  binding or activate a half-deployed P0; service rollout, test selection and
+  post-deploy smoke remain undone. The exact read-only PVC/PV cloud-reader
+  identity was verified; storage UID guessing is not the blocker.
   Scanning, dispatch and global automatic recovery remain off. No real batches.
 - Accepted source/docs through0ca80a8 were atomically pushed to both the new
   integration branch and existing `jiucheng/test/wgs-local-main-sync-20260917`.

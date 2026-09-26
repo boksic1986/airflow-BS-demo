@@ -18,8 +18,12 @@
 
 R4验收进度补充：原11例已全部通过；接线检查发现3处旧版本集合及新版本目录映射
 需补齐。beba26a两项定向RED复现后，954045a最小修复取得2/2GREEN，未重复11例。
-候选登记数据、不可变3b1dae5源码均已交付；node200实际可读/可写发布入口因现有
-路由超时尚待用户确认。未登记/激活候选、未切服务，不将代码验证等同部署完成。
+候选登记数据、不可变3b1dae5源码均已交付。用户已确认使用既有ctapa专用SSH
+身份；node200实际源码/profile可读且ctapa测试gate可写，原路由/权限阻碍已解除。
+源码954045a已暂存到BS10610独立release，旧服务和catalog未切换。后续核对确认
+native guard与平台均只消费静态policy `bindings`，缺受信的per-bundle登记生产端；
+这已在P0审计中记录，空bindings会拒绝新批次。R4在此停止，不手工伪造真实批次
+binding、不启用半套P0；补齐生产者及其验收后才可继续成套发布与最小烟测。
 
 2026-09-26完成更新：R1已发布`20260926.1-wgs422`，正式status PASS/state_verified=true，
 WGS owner核对SFS READY、4.2.2源commit和BKW VCF/tbi摘要。协调端已读取CLI输出及总回执，
