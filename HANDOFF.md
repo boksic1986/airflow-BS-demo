@@ -1,5 +1,35 @@
 # Handoff
 
+## 2026-09-27 — user authorizes normal-path convergence and smoke completion
+
+Goal: preserve production0.8.5 normal Step1–7 semantics while retaining necessary
+P0 recovery/fencing and timely Job cleanup. Latest user approves scoped repairs,
+original two-case test continuation and necessary candidate publication using
+the same version/tag (0.8.7; no new suffix). TTL100 remains; the discussed return
+to86400 is withdrawn. No BS96 deployment, T4, clinical workflow change or broad
+data deletion. Business output remains755/644; credentials stay private.
+
+Coordinator read source, current plan/state and boundary; updated plan N1–N5,
+spec, docs08, CURRENT_STATE and TASKS. Original huawei-cloude runtime/Infra owner
+is authorized to handle native probe simplification, bounded exact read-only
+helper cleanup, startup-log capture/root-cause repair and matched artifacts.
+No owner may guess NFS/SFS equivalence or reuse stale probes as current evidence.
+Present probe checks root inode/path, not arbitrary target mv/recreation.
+
+Test scope remains exact NORMAL01/FAULT01 roots and known owned test Jobs,
+starting8/22 total CREATEs. Helper deletion uses bound UID/RV; normal terminal
+Job/Pod TTL is permitted. No local/NFS project, result, FASTQ, pending or evidence
+is deleted. Previously failed Master cce-master-fe030195de2da0bc5ab6 UID
+b6b2aeea-dd9c-4442-90fd-f55c8580411d was already TTL-reclaimed; keep its records.
+Cloud startup diagnosis must capture real failure evidence before deciding a
+fix; unknown/missing evidence never grants automatic replacement or fake START.
+
+At this checkpoint no new runtime test/deploy ran in this coordinator turn.
+Source acceptance and completed smoke are pending. Rollback uses retained exact
+source/artifact digests, not semantic version alone; do not reset active locks,
+history or replace production settings. Scope/identity/permission uncertainty
+must be reported before expanding work.
+
 ## 2026-09-27 — Step1 succeeds; separate Master startup blocker stops smoke
 
 Original owner used only task-process WGS_REAL_OBSUTIL_BIN already configured

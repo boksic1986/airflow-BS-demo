@@ -1,5 +1,25 @@
 # Workflow runtime integration
 
+## P0 normal-path convergence (2026-09-27, approved; implementation pending)
+
+The user retains timely Master/Worker cleanup (TTL100) and the production
+Step1–7 business flow. Directory fencing protects concurrent writers even under
+one account; it is not user authentication. A new probe Job on every write is
+not required by the contract: prefer existing trusted storage/current-Master
+access, with a bounded read-only helper only when no valid route exists.
+Keep current owner/generation/CAS and fresh storage identity checks; no stale
+probe cache or assumed node200 NFS/cloud-SFS equivalence may authorize writes.
+
+Verified read-only helper cleanup delay is a separate operational condition,
+not analysis failure; exact UID/RV cleanup, durable journal and bounded residual
+count remain mandatory. Unconfirmed identity still blocks. This approved change
+supersedes the historical requirement below that helper absence must always be
+confirmed before business work. Actual source/test completion is recorded later.
+Preserve startup diagnostics before short TTL where possible; missing evidence
+remains UNKNOWN and never authorizes replacement. Reuse the two approved smoke
+cases and existing budget. Candidate version remains0.8.7; rebuilt artifacts need
+new hashes/digests and matched consumers even when their version/tag is unchanged.
+
 ## P0 normal-path internal contract (2026-09-26, implementation in progress)
 
 This slice preserves automatic Step1–6, frozen preparation inputs and the existing

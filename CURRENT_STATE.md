@@ -1,5 +1,17 @@
 # Current state
 
+## 2026-09-27 normal-path convergence authorized; same two smoke cases
+
+User approves scoped P0 simplification and subsequent testing, preserving timely
+Master/Worker cleanup. Keep TTL100 (do not restore86400), original Step1–7,
+755/644 and owner/generation/CAS fences. Original runtime owner handles reduced
+storage-probe dependence, bounded nonfatal read-only helper cleanup and real
+startup-failure diagnosis; no stale identity cache or fabricated terminal proof.
+Candidate artifacts remain0.8.7/old tags with new commit/digest provenance, no
+version suffix. Only necessary artifacts are rebuilt by their existing owner.
+Plan N1–N5 records scope; initial smoke count8/22, NORMAL01 Step1 passed,
+Step2 failed beforeSTART, remaining cases NOT accepted. No production/T4 change.
+
 ## 2026-09-27 NORMAL01 upload passes; independent Master startup failure
 
 After task-only launcher env correction, real Step1 exits0 (OBS200 for input and

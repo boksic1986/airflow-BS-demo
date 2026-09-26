@@ -1,5 +1,16 @@
 # Active test-branch tasks
 
+## P0-NORMAL-CONVERGENCE-20260927 (in progress)
+
+Follow N1–N5 in docs/superpowers/plans/2026-09-26-p0-lifecycle-correction.md.
+Original runtime/Infra owner owns native source, required same-version0.8.7
+artifacts and continued NORMAL01/FAULT01; coordinator owns contract and status.
+Retain TTL100, actual current identity, bounded cleanup, original workflow and
+755/644. No production, T4, extra workflow tests or unbounded CREATE retries.
+Start from8/22 cumulative Jobs; source/test/deploy completion is still pending.
+This authorization supersedes the previous startup-blocker stop only within
+the approved diagnosis, correction and original two-case acceptance scope.
+
 ## P0-SMOKE-20260926 (user-authorized test acceptance)
 
 Latest checkpoint: NORMAL01 Step1 real upload PASS. Step2 Master started then
