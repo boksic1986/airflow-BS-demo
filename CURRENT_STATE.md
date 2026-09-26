@@ -1,5 +1,17 @@
 # Current state
 
+## 2026-09-27 live smoke blocked at reader cleanup; scoped fix complete
+
+Initial-CREATE correction `ed39d21` and16 selected remote regression cases pass.
+NORMAL01 prepare and real test-only schema3 registration completed. Actual Step1
+failed twice before upload: first `recovery query: TRANSPORT`; after same-node
+identity reconciliation and one authorized retry, `cloud reader cleanup pending`.
+No upload receipt, Master, Worker or validated result. Step2–6 and FAULT01 remain
+NOT RUN. Stop retries; new reader-cleanup investigation/correction is not silently
+included in the completed CREATE fix. Four test Jobs total:2setup+2reader; readers
+later absent, last reader journal stillDELETE_INTENT. Shared install/Master,
+production and unrelated batches untouched. Full evidence in smoke-entry review.
+
 ## 2026-09-27 scoped CREATE fix committed; live smoke pending
 
 Native commit `ed39d21` changes only runtime Step2 and existing handoff tests.

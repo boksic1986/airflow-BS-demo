@@ -2,6 +2,12 @@
 
 ## P0-SMOKE-20260926 (user-authorized test acceptance)
 
+Latest live result: NORMAL01 prepared/registered; Step1 guard failedTRANSPORT,
+native cleanup reconciliation succeeded, sole retry failedcleanup pending.
+Step2–6 and fault case NOT RUN; no Master/Worker. Initial-CREATE fix stays complete,
+but full smoke is blocked pending a separately scoped reader-cleanup decision.
+No looped retry or product/guard change to make the smoke pass.
+
 Latest user confirmation supersedes the blocked checkpoint: original runtime
 owner may fix only initial CREATE uncertain-result reconciliation, validate it
 minimally on BS10610, and continue the two isolated smoke cases. No production,

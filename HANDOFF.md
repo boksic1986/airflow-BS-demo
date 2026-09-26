@@ -1,5 +1,39 @@
 # Handoff
 
+## 2026-09-27 — live smoke failed before upload; further retry stopped
+
+Completed authorized source slice: nativeed39d21 and16 selected remote tests,
+with coordinator diff/hash/JUnit review. Two isolated bundles prepared; NORMAL01
+registered through genuine pinned test producer. Source and shared deployment
+must not be conflated: installed0.8.7/Master/shared release unchanged.
+
+Actual commands/results (native Step1 through task-specific operator/bootstrap):
+1. NORMAL01 Step1 exit1 in cloud_storage_identity finally: RecoveryQueryError
+   `recovery query: TRANSPORT`. No upload function entry or upload receipt.
+2. Same-node ctapa read-only check confirmed originalPID exited, exact helper
+   absent and matching journalDELETE_INTENT. Native reconciliation call exit1
+   `cloud reader cleanup reconciled; fresh probe required`, journalCLEANED, noCREATE.
+3. Sole authorized Step1 retry exit1 `cloud reader cleanup pending`; new helper
+   Ready then subsequently absent in BS10610 read; last node200 journal remains
+   DELETE_INTENT with matching name/UID. No further cloud actions authorized here.
+
+Total testCREATE4/20: setup#1 UID9c2889e8-2583-42e4-a24f-e849db159a84;
+setup#2 UIDc34a17d7-2fb0-4b74-9141-1f7dcb102ff0; reader#3
+fc61d94f-1e50-4419-93bc-7578643d3a78; reader#4
+385ccca8-def8-4b56-8473-956f0a81500c. Both readers laterAbsent. No Master/Worker,
+no Step2–6, no fault injection. No broad cleanup or local-data deletion.
+
+Inspected source uses30s cleanup deadline; exact root cause of late confirmation
+is not proved. EarlierPID D/wait_iff_congested is an observation, not confirmed
+NFS root cause. Do not skip validation, reset journals or repeat uploads blindly.
+Evidence: D:/pipeline/task-artifacts/wgs422-p0-integration-20260926/
+p0-native-smoke-20260927/SMOKE_BLOCKER_RECEIPT.md (coordinator read), plus JUnit.
+Next: user decision on scoped reader-cleanup diagnosis/correction; before any
+resume, reconcile exact#4 journal and resource via original node200 identity.
+No production/other batches changed. No production rollback needed; preserve
+test paths/evidence and leave shared install unchanged. Platform docs committed
+only on test branch; no main/production promotion or smokePASS claim.
+
 ## 2026-09-27 — initial CREATE fix source and focused regression verified
 
 Native owner committed `ed39d21` on jiucheng/release/p0-validation-20260925:

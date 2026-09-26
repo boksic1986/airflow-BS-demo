@@ -1,5 +1,37 @@
 # P0 smoke entry check — 2026-09-26
 
+## Latest live result — reader cleanup blocks smoke
+
+Initial-CREATE fix remains verified as described below. Actual NORMAL01-r2
+prepare and schema3 trusted registration succeeded. Its isolated Master limits
+are250m/512Mi request,1CPU/2Gi limit, activeDeadline1800s; no Master was created.
+Test Snakefile SHA25623d01db6648b558b61e8e79cf428b7d6a9f4da9709bae245c4684124293dbf88.
+
+| Native call | Actual result |
+| --- | --- |
+| NORMAL01 Step1 | Exit1 before upload, reader cleanup `recovery query: TRANSPORT` |
+| Same-node exact reader/PID/journal check | Job absent, PID exited, journalDELETE_INTENT and exact binding/UID match |
+| Native reconciliation only | Exit1 `cloud reader cleanup reconciled; fresh probe required`; CLEANED, noCREATE |
+| One authorized NORMAL01 Step1 retry | Exit1 before upload, `cloud reader cleanup pending` |
+| NORMAL01 Step2–6 / FAULT01 | NOT RUN; no Master/Worker or validated result |
+
+CREATE count4/20: the two setup Jobs and two probes. Probe#3
+`cce-evidence-836380f0e8ff4620bee74c6a` UID
+`fc61d94f-1e50-4419-93bc-7578643d3a78`; probe#4
+`cce-evidence-2401ed1b47484b11a5cc2e9d` UID
+`385ccca8-def8-4b56-8473-956f0a81500c`. Both later absent via BS10610 reads;
+last node200#4 journal stillDELETE_INTENT. Do not equate later absence with a
+successful phase. No hand-edited journal/receipt, repeated retry or extra guard
+fix. Existing code's30s cleanup deadline is known; the cause of delayed deletion
+confirmation/first transport failure is not yet established. Earlier D-state
+wait_iff_congested observation alone does not establish NFS causality.
+
+Coordinator read the updated local SMOKE_BLOCKER_RECEIPT.md. Stop new mutations;
+ask separately before repairing reader-cleanup logic. Resume only after original
+node200/ctapa/operator exact journal/Job reconciliation. Preserve original test
+identities and cumulative budget. Shared install/images/profiles, production and
+other batches remain unchanged. This is a blocked live test, not smokePASS.
+
 ## Source correction verified — 2026-09-27
 
 Native `ed39d21` / runtime SHA256
