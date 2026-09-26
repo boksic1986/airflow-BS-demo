@@ -1,5 +1,137 @@
 # Handoff
 
+## 2026-09-27 — initial CREATE fix source and focused regression verified
+
+Native owner committed `ed39d21` on jiucheng/release/p0-validation-20260925:
+only cce_batch_runtime.py and tests/test_master_handoff.py (111add/2remove).
+Coordinator inspected full diff, atomic file+directory fsync/guard locking and
+source hash71d7c041943607e112713b75732e4ba5ade1bf63354b5620d635c1f4dd1998a1.
+Owner reproduced3 RED cases then GREEN on node200/nipttest isolated task root.
+Local read-only JUnit inspection confirms16tests,0errors,0failures,0skipped.
+Artifact: D:/pipeline/task-artifacts/wgs422-p0-integration-20260926/
+p0-native-smoke-20260927/junit-handoff.xml. No local runtime tests performed.
+Existing normal/start/deadline cases included; no full suite rerun. Native origin
+remains a read-only bundle, not pushed. Unrelated dirty test_recovery_monitor.py
+preserved. Original owner now prepares live tests; no cloud acceptance claim yet.
+No installed package/Master/shared profile/production change. docs08 updated with
+the internal intent/reconciliation contract; rollback is task-local candidate
+selection, never deleting existing projects/evidence.
+
+## 2026-09-27 — explicit confirmation resumes scoped fix and smoke
+
+User answered "确认" to continuing smoke and allowing the original owner to
+fix the first-Master CREATE lost-response gap. This resolves the preceding
+install-only conflict. Dispatched to the same native/Infra owner, not a new
+implementation agent. Required: durable bound intent before CREATE, original
+deadline, exact manifest/identity verification before same-UID adoption, no
+duplicate CREATE or fake terminal evidence. Validate only the affected contract
+and original two isolated smoke cases; preserve all unrelated resources.
+Coordinator owns platform state docs; native owner owns source/test deployment.
+No production, WGS rules, UI/API/DB, plugin feature or shared release change.
+Do not claim tests passed until fresh results/UID/output evidence is checked.
+
+## 2026-09-27 — smoke blocked; no normal/fault PASS
+
+Original owner reports a newer direct user install-only instruction, turn start
+2026-09-27 00:22:08+08, after smoke authorization. Stop new mutations and ask the
+user to resolve scope; do not treat the historical install command as authority
+without time verification. Normal Step1–6 and fault injection both NOT RUN.
+Initial-CREATE response-loss source defect remains unfixed; user decision pending.
+Only setup Job #1 (UID9c2889e8-2583-42e4-a24f-e849db159a84), task control/evidence
+roots and four new SFS directories were created, detailed in the smoke review.
+Last read-only observation: setup Running0/1; manifest sleep1200s, hard deadline
+1800s, no TTL configured. No automatic deletion claimed; no cleanup performed.
+No production, historical batch, shared release, product source or database
+changes. Local git diff --check is documentation validation only, not smoke.
+Next: resolve instruction conflict, scope native fix separately, then resume
+remaining tests with original owner. Preserve setup files/directories as evidence.
+
+## 2026-09-27 — native smoke fault preflight exposes initial CREATE gap
+
+Normal test preparation continues with the original owner. Setup Job #1 verifies
+the real PVC using non-root10001:520; necessary new test-only ancestors allowed,
+existing paths protected. No production or unrelated Job is modified.
+Coordinator/source owner confirmed step2 persists JOB_CREATED only after CREATE
+response. Lost response leaves no handoff; re-entry rejects missing schema2/UID
+identity. Fault injection NOT RUN (not a test PASS or observed live failure).
+No fabricated journal/FINAL or replacement-path substitution; product correction
+needs scoped follow-up. Review: docs/reviews/2026-09-26-p0-smoke-entry.md.
+
+## 2026-09-26 — user approves scoped smoke fixture and execution
+
+2026-09-27 refinement: original owner confirms an isolated native deployment can
+use unmodified0.8.7 runtime/guard with a separately pinned test producer; no WGS
+API/prepare impersonation. Approved two sequential unique runs, max1Master+1Worker
+concurrent, initial total Job cap8 including helpers. Normal Step1–6 followed by
+one exact Master CREATE whose real success response is hidden once client-side.
+Verify same UID adoption/no duplicate CREATE and genuine downstream completion.
+This is native uncertain-submit reconciliation, not failed-Master replacement or
+Airflow automatic recovery. No fake failure seal, no rule-output-skip claim.
+Owner creates task-only profile/asset/control roots, verifying SFS mapping first;
+shared profiles/ACTIVE_ASSETS and existing platform bootstrap remain unchanged.
+Execution pending; details in docs/reviews/2026-09-26-p0-smoke-entry.md.
+
+Preflight refinement before any mutation: ordinary BS10610/node200 NFS is not
+the SFS PVC mapping. Owner correctly stopped instead of selecting mounted mode.
+Fresh cloud-reader is required per protected stage; coordinator's initial8-Job
+estimate could not cover the same two cases. Coordinator explicitly revised the
+cumulative CREATE cap to20, including one exact task-subtree SFS setup Job and
+all read/export/fault re-entry helpers. No extra test cases or concurrency:
+max1Master+1Worker; helpers serial. Exact UID/name evidence, non-root business
+755/644 and existing-state protection retained; no validation shortcut.
+
+Pre-submit check: two unrelated active cloud Jobs preserved. The prohibition on
+other-batch starts limits our actions, not all cluster users; no global-idle gate
+or production scheduling change is required. Check quota before bounded starts.
+BS10610 ordinary NFS write returned read-only despite mount `rw`; original owner
+uses the approved ctapa/node200 writer for the verified task root, without mount
+or permission changes. Cloud setup/test execution still pending at this checkpoint.
+
+Latest user direction: "按你建议完成测试" after explicit fixture/fault/test-only
+configuration proposal. Original runtime/Infra owner has the execution task;
+coordinator owns state/evidence. Only isolated non-clinical test assets and needed
+BS10610 test configuration are authorized, with before/after gate state recorded.
+Keep production, formal WGS workflow, shared profile/assets, previous batches and
+all existing local results/pending protected. No destructive cleanup authority.
+Do not bypass trusted registration/identity/classification or hand-author terminal
+success. Use a bounded test-process API fault only if the genuine installed
+producer can record it, and label injected versus live evidence. If a real UI
+submission needs a new adapter/API/product behavior, stop and explain instead of
+expanding code scope. The prior readiness-only outcome remains historical evidence.
+
+## 2026-09-26 — bounded P0 smoke requested; entry audit
+
+Outcome: entry audit and fresh readiness complete, live smoke NOT executed.
+SSH reached server10610 as chenjc. Existing inspected verify_p0_test_readiness.py
+exit0: five actual service checks, flags, gateway health and catalog receipt PASS.
+Allowlisted backend env inspection shows test-project=false, WGS/GATK recovery
+unset (code defaultfalse), execution/runtime=true. QA and original native owner
+confirm the old smoke is submit-rejection-only; no submit-ready tiny workflow or
+real allowlisted fault-injection entry was found in the checked sources.
+The native generic bundle alone lacks trusted platform registration; existing
+platform test-project validation still requires release WGS_pipe.smk/all. Do not
+bypass these with hand-authored receipts or modified frozen inputs. Missing
+prerequisites: scoped test fixture/entry and test-only activation/fault plan.
+No failure-injection/normal-run command was attempted because those prerequisites
+are absent. No services, gates, shared assets, database or running workloads changed.
+Only docs changed; no runtime rollback required. Details and next decision:
+docs/reviews/2026-09-26-p0-smoke-entry.md. Earlier33/4/3 evidence retained, not rerun.
+
+User: smoke validates P0 only; full WGS batches follow a separately authorized
+production deployment. Latest instruction: complete testing. Current scope is
+isolated BS10610 normal Step1–6 plus one bounded existing recovery scenario.
+Original runtime/Infra owner was asked to inspect the deployed entry before
+execution. No live smoke or fault has yet been started. Preserve BS96, shared
+release/profile/assets, all existing batch inputs/results/pending and credentials.
+
+Static inspection: scripts/bs10610_wgs_phase1_smoke.py writes non-FASTQ placeholder
+bytes and expects submit HTTP409; it cannot validate the installed P0 runtime.
+Existing selected-monitor synthetic tests already cover normal/recovery with
+mocked Kubernetes/OBS transport and are not a live deployment smoke. Do not
+re-run those unchanged tests or report them as a new real-cloud acceptance.
+Next: establish an approved executable fixture/fault boundary without production
+code or release mutation, otherwise report the precise missing prerequisite.
+
 ## 2026-09-26 — A1–A4 delivered to test; final handoff
 
 Goal complete for this authorized slice: corrected normal registration/owner/TTL

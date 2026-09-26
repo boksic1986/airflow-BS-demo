@@ -1,5 +1,35 @@
 # Active test-branch tasks
 
+## P0-SMOKE-20260926 (user-authorized test acceptance)
+
+Latest user confirmation supersedes the blocked checkpoint: original runtime
+owner may fix only initial CREATE uncertain-result reconciliation, validate it
+minimally on BS10610, and continue the two isolated smoke cases. No production,
+workflow biology, new platform behavior or unrelated rebuild is included.
+
+- [x] Correct first-CREATE durable intent and same-UID reconciliation safely (`ed39d21`).
+- [x] Verify scoped remote regression:16 selected handoff cases, JUnit0 errors/failures.
+- [ ] Collect both live native smoke receipts; synthetic PASS is not cloud acceptance.
+
+2026-09-27 fault preflight: initial CREATE response loss cannot currently
+reconcile without a handoff. Planned fault injection NOT RUN; normal native
+smoke continues. Product correction is not silently included in this test task.
+
+Final checkpoint: normal smoke NOT RUN, fixture incomplete. Native owner reports
+a newer direct user install-only instruction; further execution waits for scope
+clarification. Only setup Job #1 and exact new test directories were created.
+
+- [x] Audit existing entry: no reusable platform tiny workflow/real fault hook found.
+- [x] Verify BS10610 actual deployment/identity/gates; readiness PASS, test/recovery gates off.
+- [ ] Implement only user-approved isolated smoke assets and bounded fault boundary.
+- [ ] Run only the supported normal/recovery slice and record real versus mocked I/O.
+- [x] Record missing fixture/entry/gate prerequisites; no live acceptance or promotion implied.
+
+No full biological validation, shared-profile modification, production batch,
+historical run mutation or repeated full synthetic suite is authorized here.
+User subsequently approves independent fixture/fault work and test-only gate
+configuration; formal pipeline/product behavior changes still require escalation.
+
 ## P0-NORMAL-PATH-FIX-20260926 (current authorized slice)
 
 - [x] Agree native/platform dynamic registration and current-owner interfaces.

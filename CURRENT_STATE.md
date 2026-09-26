@@ -1,5 +1,68 @@
 # Current state
 
+## 2026-09-27 scoped CREATE fix committed; live smoke pending
+
+Native commit `ed39d21` changes only runtime Step2 and existing handoff tests.
+Coordinator reviewed the diff and candidate runtime SHA256
+`71d7c041943607e112713b75732e4ba5ade1bf63354b5620d635c1f4dd1998a1`.
+Node200/nipttest isolated regression:16 selected cases pass; local read of its
+JUnit confirms16 tests/0 failures/0 errors (not a local runtime test).
+Normal/START replay and timeout cases accompany the3 new CREATE-loss checks.
+Original owner proceeds with the2 live native smoke cases. Installed0.8.7,
+Master, shared profile/assets and production remain unchanged. Native commit is
+not pushed; pre-existing unrelated test_recovery_monitor.py dirty is preserved.
+
+## 2026-09-27 user confirms scoped initial-CREATE fix and smoke continuation
+
+Latest user "确认" authorizes continuing smoke and the original runtime owner
+fixing only first-Master CREATE response-loss reconciliation. This supersedes
+the install-only conflict below. Test only; no WGS biological logic, production,
+historical runs or platform UI/API/DB expansion. Original owner implements and
+minimally validates native correction; coordinator reviews evidence and docs.
+Normal and fault smoke remain unaccepted until actual execution receipts exist.
+
+## 2026-09-27 smoke preflight identifies first-CREATE recovery gap
+
+Normal native smoke has NOT RUN; setup Job #1 verified the real SFS PVC.
+The planned lost-CREATE-response fault is NOT RUN: nativee2962a2 writes initial
+handoff only after receiving CREATE success; a lost response leaves no handoff,
+and same-Job re-entry rejects the missing identity record. Coordinator and native
+owner confirmed the source path. No fake receipt or product fix is being applied;
+The execution owner subsequently received a newer user instruction to install
+only (turn started2026-09-27 00:22:08+08), conflicting with smoke execution.
+New mutations are stopped pending clarification; no test PASS is claimed.
+See the smoke-entry review for exact scope and preserved setup resources.
+
+## 2026-09-26 P0 isolated fixture and fault smoke authorized
+
+User now approves the suggested independent P0 smoke fixture, bounded injected
+fault and test-only configuration needed to execute it. Original runtime/Infra
+owner is implementing the test assets and execution proposal. Keep installed
+0.8.7/Master and formal WGS source/shared release unchanged. No product/API/DB
+behavior change, production action or full biological run is included. An
+injected API response must be labeled injection; actual plugin/terminal evidence
+must still be produced normally. Record exactly which deployed layers are
+exercised, and do not claim frontend/Airflow end-to-end coverage from a native
+fixture alone. No new test PASS is claimed at this checkpoint.
+
+## 2026-09-26 P0 smoke entry checked; live acceptance not run
+
+User requests completion of isolated P0 smoke testing, not full biological WGS
+validation. Scope: BS10610 test normal Step1–6 and one bounded existing recovery
+scenario; reuse unaffected synthetic results. Formal batches and BS96 deployment
+remain separate. First verify an executable non-clinical fixture and supported
+fault boundary against the installed release; do not replace production WGS
+scripts, fabricate receipts or use the old submit-rejection smoke as acceptance.
+Fresh BS10610 readiness PASS: five service mounts, flags, health and release
+receipt agree. Independent test-project gate is false; automatic WGS recovery
+is unset/default false. QA and original runtime owner confirm no existing
+submit-ready tiny workflow or real allowlisted fault-injection entry in the
+inspected sources. The old smoke expects submit409; current test-project prepare
+still binds WGS_pipe.smk/all. Further test-fixture/entry and test-only gate work
+must be scoped before live acceptance. No smoke run or fault was started; do not
+report readiness or earlier mocked transport tests as live normal/recovery PASS.
+Evidence: docs/reviews/2026-09-26-p0-smoke-entry.md.
+
 ## 2026-09-26 A1–A4 test delivery complete (latest)
 
 BS10610 five-service deployment now consumes platforme358aad: backend/observer

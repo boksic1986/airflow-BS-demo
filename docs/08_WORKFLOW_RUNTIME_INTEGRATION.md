@@ -1541,3 +1541,22 @@ from `binding.native`, never substituted with platform fields. A newer observer
 may retain the older producer only through an identical verified native binding.
 Existing policy/budget/control and subsequent dispatch checks remain mandatory.
 No database table, public API, rule event schema, pipeline logic or live gate changes.
+
+## Initial Master CREATE response-loss reconciliation (2026-09-27)
+
+Scoped native correction, test candidate only until execution evidence is recorded.
+Handoff-v2 Step2 persists `MASTER_CREATE_INTENT.json` before its initial CREATE.
+Intent schema1 binds the current handoff binding (including frozen manifest/input
+hashes), exact Job name and original600-second deadline. Atomic file and directory
+fsync precede submission; new exported evidence retains0644/business parents0755.
+
+If CREATE succeeded remotely but the client lost its response, re-entry with a
+valid intent queries the existing Job and verifies the frozen manifest fields,
+nonempty UID and absence of deletion before writing the genuine UID handoff.
+Handoff continues with the intent's original deadline. It never adopts by name
+alone, invents terminal success, sends a second CREATE for an existing intent,
+or resets the deadline. An absent Job or changed intent/manifest fails closed.
+Historical Job-without-intent-and-without-handoff is not automatically adopted.
+Existing handoff replay and v1 remain supported; no Master/plugin protocol change,
+Airflow retry-budget change or new public API is introduced. This initial-submit
+reconciliation is distinct from failed-Master replacement and its FINAL evidence.
