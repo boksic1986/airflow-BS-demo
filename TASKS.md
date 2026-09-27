@@ -7,9 +7,11 @@
 - [x] Review Local presentation changes and shared CCE UI integration; retain
   production Overview/Samples/Rules and upload/download waiting behavior.
 - [x] Restore both production waiting-display release records from 43cd0c5.
-- [ ] Fast-forward main and jiucheng/release/production to the reviewed test
+- [x] Fast-forward main and jiucheng/release/production to the reviewed test
   tree plus promotion documentation; push all three refs without force.
-- [ ] Record verified remote heads and clean integration worktree.
+- [x] Remote heads confirmed at e433ea0 after atomic push; integration worktree
+  clean, all functional source identical to accepted test 9fb31c3. This closing
+  documentation follows the same three branches without product changes.
 
 Scope is source promotion only. No BS96 deployment, production DB operation,
 runtime installation, feature-gate activation or new analysis is authorized here.

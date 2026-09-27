@@ -39,7 +39,18 @@ during the later BS96 release, not assumed deployed by this Git promotion.
 Rollback reference is pre-promotion main/production 43cd0c5. Remote history
 must remain non-rewritten; use a reviewed revert if source rollback is needed.
 No runtime rollback is needed because no service changes here. Existing P0
-acceptance limitations remain as documented. Push and final refs pending below.
+acceptance limitations remain as documented.
+
+Completion: commit e433ea0 restores the two release records and adds the promotion
+notes. Both main and production fast-forwarded from 43cd0c5. Atomic non-force push
+updated main, production and canonical test together; git ls-remote confirmed
+all three at e433ea0ce809bb7bded1b2e7618efca5fa27f4a9. Working tree is clean.
+git diff --check passed; restored document blobs equal original main; application
+directories equal accepted test 9fb31c3; target branch trees equal; no production
+file deletions remain. Production RunResourceTabs/WgsQcTab and transfer/timing
+projections are byte-identical to 43cd0c5. This final documentation-only closure
+will be synchronized to the same three refs. Next is the separately requested
+BS96 release with migration/runtime configuration accounted for.
 
 ## 2026-09-27 — duplicate main DAG discovery fixed on BS10610
 

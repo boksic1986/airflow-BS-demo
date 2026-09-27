@@ -15,7 +15,8 @@ historical test integration bbbf942. This promotion changes documentation only
 relative to the accepted test application. Existing focused BS10610 acceptance
 is reused; no repeated runtime suite or production deployment is part of this
 task. Other component source synchronization is user-confirmed, not re-audited.
-Branch push outcome is recorded in HANDOFF. A later BS96 release must account
+Atomic push and ls-remote confirmed main, production and canonical test all at
+e433ea0; closing documentation follows the same refs. A later BS96 release must account
 for native schema migrations 0025/0026 before switching backend code, and bind
 the approved production runtime/profile/gates rather than test configuration.
 
