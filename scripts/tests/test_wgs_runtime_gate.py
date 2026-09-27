@@ -24,6 +24,7 @@ def load_gate():
     )
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -222,6 +223,66 @@ def test_materialized_release_operator_config_strips_obsolete_obs_sdk_fields(
     loaded = yaml.safe_load(target.read_text(encoding="utf-8"))
     assert loaded["paths"]["repository_root"] == str(repository)
     assert loaded["obs"] == {"endpoint": "private.example"}
+
+
+@pytest.mark.parametrize("preexisting", [False, True])
+def test_schema3_operator_without_paths_matches_frozen_step7_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, preexisting: bool
+) -> None:
+    gate = load_gate()
+    config = {
+        "schema_version": 3,
+        "identity": {"owner": "synthetic"},
+        "hosts": {"cce_admin_ssh": "synthetic-admin"},
+        "kubernetes": {"namespace": "synthetic", "kubectl_bin": "/opt/kubectl",
+                       "kubeconfig": "/protected/kubeconfig"},
+        "obs": {"obsutil_bin": "/opt/obsutil", "config_file": "/protected/obs",
+                "upload_parallelism": 3},
+        "huawei_cloud": {"credentials_file": "/protected/cloud"},
+    }
+    source = tmp_path / "operator.yaml"
+    source.write_text(yaml.safe_dump(config, sort_keys=False))
+    original = source.read_bytes()
+    runtime = tmp_path / "runtime"
+    payload = {"control_workdir": str(runtime / "run" / "attempt-1")}
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    monkeypatch.setattr(gate, "CCE_OPERATOR_CONFIG", str(source))
+    monkeypatch.setattr(gate, "RUNTIME_RUN_ROOT", str(runtime))
+    monkeypatch.setattr(gate, "_release_repository", lambda _: repository)
+    target = Path(payload["control_workdir"]) / "release-runtime" / "cce-operator.yaml"
+    if preexisting:
+        target.parent.mkdir(parents=True)
+        target.write_bytes(original)
+    else:
+        assert gate._release_operator_config(payload, materialize=True) == target
+    assert yaml.safe_load(target.read_text()) == config
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    (bundle / "CCE_OPERATOR_CONFIG_PATH").write_text(str(target))
+    binding = {"cce_bundle": str(bundle)}
+    assert gate._step7_compat_operator_config(payload, binding) is None
+    assert source.read_bytes() == original
+    assert target.read_bytes() == original
+    changed = yaml.safe_load(target.read_text())
+    changed["kubernetes"]["namespace"] = "foreign"
+    target.write_text(yaml.safe_dump(changed))
+    with pytest.raises(RuntimeError, match="frozen Step7 operator config changed"):
+        gate._step7_compat_operator_config(payload, binding)
+    with pytest.raises(RuntimeError, match="frozen CCE operator config changed"):
+        gate._release_operator_config(payload, materialize=True)
+
+
+@pytest.mark.parametrize("config", [{"schema_version": 2}, {"schema_version": 3, "paths": None}])
+def test_operator_config_rejects_missing_legacy_or_malformed_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, config: dict
+) -> None:
+    gate = load_gate()
+    source = tmp_path / "operator.yaml"
+    source.write_text(yaml.safe_dump(config))
+    monkeypatch.setattr(gate, "CCE_OPERATOR_CONFIG", str(source))
+    with pytest.raises(RuntimeError, match="operator config paths are invalid"):
+        gate._release_operator_config({"control_workdir": str(tmp_path / "run")}, materialize=True)
 
 
 def test_prepare_config_override_rejects_symlink(

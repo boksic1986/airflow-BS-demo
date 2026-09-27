@@ -928,6 +928,24 @@ def _test_validate_prepared_config(payload: dict[str, Any], actual: dict) -> Non
     finally: os.close(descriptor)
 
 
+def _release_operator_view(config: Any, payload: dict[str, Any]) -> dict[str, Any]:
+    """Apply the same release transformation during prepare and Step7 checks."""
+    if not isinstance(config, dict):
+        raise RuntimeError("release_unavailable: CCE operator config is invalid")
+    if "paths" in config or config.get("schema_version") != 3:
+        paths = config.get("paths")
+        if not isinstance(paths, dict):
+            raise RuntimeError("release_unavailable: CCE operator config paths are invalid")
+        paths["repository_root"] = str(_release_repository(payload))
+    # Schema3 separates deployment credentials from release paths; do not add
+    # an obsolete paths section to an otherwise valid native Operator config.
+    obs = config.get("obs")
+    if isinstance(obs, dict):
+        for key in STEP7_COMPAT_OBS_FIELDS:
+            obs.pop(key, None)
+    return config
+
+
 def _release_operator_config(
     payload: dict[str, Any], *, materialize: bool = False
 ) -> Path:
@@ -937,15 +955,9 @@ def _release_operator_config(
     source = Path(CCE_OPERATOR_CONFIG).expanduser()
     if not source.is_absolute() or not source.is_file() or source.is_symlink():
         raise RuntimeError("release_unavailable: CCE operator config is unavailable")
-    config = yaml.safe_load(source.read_text(encoding="utf-8"))
-    paths = config.get("paths") if isinstance(config, dict) else None
-    if not isinstance(paths, dict):
-        raise RuntimeError("release_unavailable: CCE operator config paths are invalid")
-    paths["repository_root"] = str(_release_repository(payload))
-    obs = config.get("obs")
-    if isinstance(obs, dict):
-        for key in STEP7_COMPAT_OBS_FIELDS:
-            obs.pop(key, None)
+    config = _release_operator_view(
+        yaml.safe_load(source.read_text(encoding="utf-8")), payload
+    )
     target = _workdir(payload) / "release-runtime" / "cce-operator.yaml"
     target.parent.mkdir(parents=True, exist_ok=True)
     encoded = yaml.safe_dump(config, sort_keys=False).encode("utf-8")
@@ -2025,15 +2037,9 @@ def _step7_compat_operator_config(
             raise RuntimeError("frozen Step7 operator config path is not approved")
         # Match exactly the prepare-time transformation. Never rewrite a frozen
         # config during cleanup, or trust a directory-wide config allowlist.
-        expected = yaml.safe_load(configured.read_text(encoding="utf-8"))
-        paths = expected.get("paths") if isinstance(expected, dict) else None
-        if not isinstance(paths, dict):
-            raise RuntimeError("frozen Step7 operator config is not approved")
-        paths["repository_root"] = str(_release_repository(payload))
-        expected_obs = expected.get("obs")
-        if isinstance(expected_obs, dict):
-            for key in STEP7_COMPAT_OBS_FIELDS:
-                expected_obs.pop(key, None)
+        expected = _release_operator_view(
+            yaml.safe_load(configured.read_text(encoding="utf-8")), payload
+        )
         if config != expected:
             raise RuntimeError("frozen Step7 operator config changed; needs recovery")
     obs = config.get("obs")

@@ -1,5 +1,22 @@
 # Current state
 
+## 2026-09-27 Operator schema3 fix verified; production deployment authorized
+
+Shared prepare/Step7 transformation accepts native schema3 without legacy paths;
+legacy handling and frozen-config refusal preserved. BS10610 isolated synthetic
+regression:6 passed,77 deselected. User explicitly requested fix, commit and retry.
+Deploy only node200 gate, preserve credentials/policies/services; retry original
+run through API with the same previously approved configuration, stopping at
+execution review. No cloud execution approval or workflow/image change.
+
+## 2026-09-27 second-step preparation blocked by Operator schema mismatch
+
+After user confirmed configuration, original run attempt2 reached remote
+prepare_wgs_analysis, then failed because platform gate requires legacy paths.
+Installed native0.8.7 schema3 Operator is valid and intentionally lacks paths.
+SSH retries demonstrably worked. Same legacy assumption in Step7 comparison
+must be accounted for in a narrow compatibility fix. Diagnosis only; not retried.
+
 ## 2026-09-27 SSH fix deployed; original run back at configuration review
 
 Sourcee307328 accepts exact pre-auth timeout trailer; BS10610 regression6/6.

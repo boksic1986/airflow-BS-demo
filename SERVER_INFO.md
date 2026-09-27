@@ -1,5 +1,13 @@
 # SERVER_INFO.md
 
+## 2026-09-27 production Operator/gate compatibility observation
+
+ctapa on t640: active Operator at runtime/tools/cce-pipeline/0.8.7/operator.yaml
+passes native schema3 validation and has no legacy paths section. Installed
+/home/ctapa/.config/airflow-wgs/wgs_runtime_gate.py still requires that section
+for release materialization and frozen Step7 comparison. No runtime mutation;
+original attempt2 preparation failed at this check, before native WGS prepare.
+
 ## 2026-09-27 SSH banner DAG-only release (latest Airflow mounts)
 
 Airflow API/scheduler/worker consume

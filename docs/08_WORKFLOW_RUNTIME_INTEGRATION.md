@@ -1,5 +1,15 @@
 # Workflow runtime integration
 
+## Operator schema compatibility (2026-09-27)
+
+The WGS gate uses one release transformation for prepare materialization and
+Step7 frozen-config comparison. Native Operator schema3 may omit legacy `paths`;
+the gate must not inject a dummy section. Legacy configs still require a mapping
+and receive the allowlisted release repository override. A present malformed
+`paths` remains rejected. Obsolete OBS fields are removed identically in both
+paths. Native schema validation, release validation, exact attempt path and
+frozen-content checks remain in force; this does not change workflow execution.
+
 ## Resume feasibility clarification (2026-09-27, source audit only)
 
 Preserving Step2 WAITING/START/START_CONFIRMED and Snakemake checkpoints does

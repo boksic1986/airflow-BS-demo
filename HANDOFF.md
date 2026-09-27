@@ -1,5 +1,51 @@
 # Handoff
 
+## 2026-09-27 — Operator schema3 correction authorized and verified
+
+User explicitly requests fix, commit and retry. Scope: shared Operator transform
+in wgs_runtime_gate.py, focused fixtures and runtime/state docs. Native0.8.7
+schema3 may lack legacy paths; do not fabricate fields or disable frozen checks.
+BS10610 isolated no-network cached backend image:6 passed,77 deselected (0.33s).
+Initial red fixtures reproduced both prepare and Step7 mismatch. Harness first
+lacked unchanged cce_paired_runtime.py; after supplying it the existing test
+loader needed sys.modules registration. Corrected that fixture, all6 passed.
+No full suite or business-data tests, per requested minimal scope.
+
+Production preflight: ssh BS96/server96, control/data/airflow-WGS, actual backend
+mount releases/20260927-p0-local-84510df/backend (current symlink is historical).
+node200 via BS with id_rsa_ctapa: t640,ctapa6801/bioinfo520; gate ownerctapa mode600,
+baseline SHA60ef3d78497347565d061491abf19176fd8a8dd9012685b7ead0ed841e53796e.
+Paired policy does not pin gate; runtime/helper/policy files remain unchanged.
+One read-only inspect used an incorrect container name and failed; resolved via
+previously verified backend ID365beab02248, actual nameairflow-wgs-backend-1.
+Exact test project absent and original run failed/attempt2. Plan: atomic gate
+replacement with exact backup and preserved mode/owner; no service restart,
+credential update or business-output permission changes. Standard API resume
+creates next attempt; retry configuration preparation only with the previously
+approved values, preserving final user execution approval. No direct DB edits.
+Rollback: restore exact backup only when no gate operation is in flight.
+
+## 2026-09-27 — second-step prepare failure diagnosed; no mutation
+
+User reports step2 error in the same run, attempt2. This is UI configuration
+prepare_wgs_analysis, not native step2_master. User config approval09:27:27Z;
+SSH failures triggered the corrected2/3 and3/3 reconnect at17:27:44/17:27:59 CST.
+Third invocation reached node200 and failed17:28:14, exit1 at installed
+wgs_runtime_gate.py:943, _release_operator_config: paths are invalid.
+ctapa read-only check using id_rsa_ctapa confirms active Operator0.8.7 schema3
+contains identity/hosts/kubernetes/obs/huawei_cloud and NO paths. Native
+validate_cce_operator_config succeeds. Platform gate wrongly requires legacy
+paths/repository_root. Same assumption exists in Step7 frozen config comparison
+(source lines2029-2032). Existing fixture only covers legacy paths-based config.
+Follow-up must align the prepare-time transformation and Step7 comparison with
+schema3 while retaining approved release/config identity and historical support;
+do not merely add a dummy paths object or disable validation. Native version,
+workflow rules, keys and permissions need no change for this diagnosed mismatch.
+No retry, DB edit, file permission change or runtime modification performed.
+Exact stage executionwse_07e4e997b769602deb837130, generation1/retry0; sidecarfailed.
+Diagnostics: scoped API/task log/sidecar reads, installed gate code and sanitized
+Operator field names plus native schema validation. No clinical payload emitted.
+
 ## 2026-09-27 — SSH timeout fix deployed and original prepare recovered
 
 Completed planned correction with sourcee307328; affected BS10610 regression6/6

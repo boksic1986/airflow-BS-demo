@@ -1,5 +1,13 @@
 # Active test-branch tasks
 
+## OPERATOR-SCHEMA3-20260927 (verified; deployment/retry pending)
+
+- [x] Confirm native0.8.7 Operator validates without legacy paths; deployed gate
+  prepare requires it and Step7 comparison repeats the same assumption.
+- [x] Align prepare and frozen Step7 comparison with supported Operator schema,
+  preserving release/config identity and historical handling;6 focused tests pass.
+- [ ] Commit and deploy only production gate; retry original preparation via API.
+
 ## SSH-BANNER-20260927 (completed)
 
 - [x] Locate exact prepare task log and compare deployed classifier.
