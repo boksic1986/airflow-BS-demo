@@ -1,5 +1,19 @@
 # Handoff
 
+## 2026-09-27 user approves platform registration and original WGS repair
+
+User: update platform registration, then fix WGS workflow. Scope remains exact
+permission-only r3 release and failed WGS_20260927_090701_56DC81. Minimal catalog
+and runtime identity qualifier compatibility developed; no workflow algorithm or
+native changes. BS10610 isolated cached image/no network synthetic reproduction
+2 failures5passes before,7passes after. No broad tests. First pytest used ephemeral
+container default /tmp; corrected green run to explicit mounted task evidence.
+Registration retains hashes/receipt/conflict checks; old entry not overwritten.
+Production deployment authorized for these consumer modules; preserve old mounts,
+flags, audit history, exact before snapshot before bounded run registration change.
+Only prepare retry/all-default previously approved configuration; final execution
+approval remains with user. No data deletion or successful-analysis rerun.
+
 ## 2026-09-27 authorized permission publication completed; identity blocker
 
 Scope: user explicitly authorized139 manifest files and prior publisher metadata.

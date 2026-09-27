@@ -1,5 +1,10 @@
 # Workflow runtime integration
 
+Configuration-only release identity (2026-09-27): runtime stage requests preserve
+the catalog's optional safe configuration qualifier after the source commit prefix.
+No stage, workflow rule, request hash, frozen profile or execution approval behavior
+changes. Legacy release identities remain valid; old requests are not rewritten.
+
 ## Operator schema compatibility (2026-09-27)
 
 The WGS gate uses one release transformation for prepare materialization and

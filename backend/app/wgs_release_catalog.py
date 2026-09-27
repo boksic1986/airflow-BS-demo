@@ -7,7 +7,9 @@ import re
 import yaml
 
 
-RELEASE_ID_RE = re.compile(r"^wgs-[0-9]+\.[0-9]+\.[0-9]+-[0-9a-f]{7}$")
+RELEASE_ID_RE = re.compile(
+    r"^wgs-[0-9]+\.[0-9]+\.[0-9]+-(?P<commit>[0-9a-f]{7})(?:-[a-z0-9][a-z0-9-]{0,63})?$"
+)
 SAFE_PROFILE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 BS10610_PROJECT_ROOT = PurePosixPath(
     "/mnt/biodevrwbi/33.chenjiucheng/project"
@@ -132,12 +134,13 @@ def parse_wgs_release(raw: dict[str, object]) -> WgsRelease:
 
 
 def _validate_release(release: WgsRelease) -> None:
-    if RELEASE_ID_RE.fullmatch(release.release_id) is None:
-        raise ValueError("WGS release_id must be wgs-X.Y.Z-<7 hex>")
+    identity = RELEASE_ID_RE.fullmatch(release.release_id)
+    if identity is None:
+        raise ValueError("WGS release_id must be wgs-X.Y.Z-<7 hex>[-configuration revision]")
     if not release.version.startswith("V") or not release.version[1:]:
         raise ValueError("WGS version must start with V")
     _validate_hex(release.source_commit, length=40, label="source_commit")
-    if release.release_id.rsplit("-", 1)[-1] != release.source_commit[:7]:
+    if identity.group("commit") != release.source_commit[:7]:
         raise ValueError("WGS release_id commit prefix must match source_commit")
     _validate_repo_path(
         release.bs10610_repo_path,

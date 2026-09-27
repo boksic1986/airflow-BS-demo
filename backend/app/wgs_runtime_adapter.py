@@ -8,7 +8,9 @@ import stat
 
 
 ANALYSIS_ID_RE = re.compile(r"^WGS_[0-9]{8}_[0-9]{6}_[A-F0-9]{6}$")
-RELEASE_ID_RE = re.compile(r"^wgs-[0-9]+\.[0-9]+\.[0-9]+-[0-9a-f]{7}$")
+RELEASE_ID_RE = re.compile(
+    r"^wgs-[0-9]+\.[0-9]+\.[0-9]+-[0-9a-f]{7}(?:-[a-z0-9][a-z0-9-]{0,63})?$"
+)
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 SAFE_COMPONENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 STAGES = {

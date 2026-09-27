@@ -1,5 +1,14 @@
 # API contract
 
+## Configuration-only WGS release registration (2026-09-27)
+
+Release identities accept `wgs-X.Y.Z-<7 hex>[-configuration-revision]`.
+The optional qualifier is 1-64 lowercase ASCII letters/digits/hyphens, starting
+with a letter/digit. The seven-hex source prefix must still match source_commit.
+This distinguishes configuration-only publications without replacing historical
+receipts. Same-ID conflicting registration, receipt/hash validation and explicit
+CAS activation remain unchanged; no new endpoint or version/revision bump.
+
 ## Step7 independent maintenance (2026-09-22 test candidate)
 
 Public cleanup-step7 request/response shapes remain unchanged. A manual retry
