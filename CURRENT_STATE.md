@@ -1,5 +1,24 @@
 # Current state
 
+## 2026-09-27 BS96 P0/Local presentation deployment complete
+
+User authorized production deployment only and will run business tests. BS96
+now runs platform84510df from releases/20260927-p0-local-84510df: backend,
+observer, frontend and three Airflow services. Six unrelated project containers
+are unchanged; scanner/auto-dispatch/watermark and GATK/Local execution gates
+are preserved. Additive business schema is20260915_0026. Six switched services
+are running with zero restarts and gateway health200. No smoke, fault test,
+sample submission or full suite ran in this deployment.
+
+Production node200 WGS gate and matched private native0.8.7/source8323567 are
+installed; runtime uses nipttest Python and isolated packages, not a WGS-env
+upgrade. Shared r2 binds Master3d180a9f and genuine asset20260927.1-wgs422-p0.
+Authenticated API registration/CAS activated wgs-4.2.2-3b1dae5, receiptfc3a7d25.
+WGS recovery is enabled for new frozen policies; historical attempts unchanged.
+This is the accepted3b1dae5 source, not the separate newer WGS publisher's pending
+update. Further shared-SFS publication is held for a separate coordinated window.
+Details and exact rollback: docs/releases/2026-09-27-p0-local-bs96.md.
+
 ## 2026-09-27 P0 and Local/SGE source promotion
 
 User authorized merging the accepted test branch, including its earlier Local

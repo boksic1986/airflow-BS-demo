@@ -1,5 +1,21 @@
 # Active test-branch tasks
 
+## P0-LOCAL-BS96-DEPLOY-20260927
+
+- [x] User production authorization and live environment/idle/service-mount checks.
+- [x] Stage source84510df, offline frontend image, exact scoped rollback controls.
+- [x] Additive migrations0025/0026; no clinical row/input/result changes.
+- [x] Original native owner installs final0.8.7 and publishes matching genuine
+  r2/Master/assets; production gate, compatible Operator and paired pins installed.
+- [x] Switch six services only, preserve six unrelated service IDs and existing
+  scanner/dispatch/GATK/Local gates; startup and actual mounted versions confirmed.
+- [x] Register authentic corrected receiptfc3a7d25 and CAS activate4.2.2/3b1dae5.
+- [x] Coordinate no further shared-SFS writes with the concurrent WGS publisher.
+- [ ] User performs business tests; deliberately not executed by agent.
+
+No new product code, analysis submission, smoke/fault test or redundant suite.
+See docs/releases/2026-09-27-p0-local-bs96.md for exact deployment and rollback.
+
 ## P0-LOCAL-SOURCE-PROMOTION-20260927
 
 - [x] Refresh Airflow main, production and canonical test refs; both targets are

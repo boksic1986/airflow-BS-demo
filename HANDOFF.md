@@ -1,5 +1,88 @@
 # Handoff
 
+## 2026-09-27 — BS96 P0/Local production rollout complete
+
+Current user explicitly authorizes deployment to BS96, then user-led testing.
+Pinned platform source: 84510dfc83fce8b566014ac573e3a8518bfffe4e, identical on
+main, production and canonical test. This authorizes the necessary additive
+0025/0026 business schema migration and production release registration, not
+clinical submissions, deletion, old-batch mutation or a new smoke campaign.
+
+Read-only preflight: ssh BS96 -> server96/chenjc, control /data/airflow-WGS;
+actual backend /app is releases/20260923-gatk-waiting-ui/backend, independent
+service pins recorded separately. Current symlink is historical and is not
+used to infer deployed sources. Business schema is 20260914_0024; no active
+analysis_run, queued/running Airflow DagRun/TaskInstance or occupied OBS slots.
+Scanner/dispatch remain enabled with their existing watermark. Node200 is
+t640/ctapa via id_rsa_ctapa and BS jump. No service mutation at preflight.
+
+Scope: production backend/observer/frontend and affected Airflow DAG services;
+preserve independent scanner/reference worker, database/Redis, external network,
+GATK runtime/profile and Local execution gates. Original native artifact owner
+coordinates final 0.8.7 wheel/profile/assets; platform owns production gate and
+paired policy installation. Final native source8323567/Master3d180a9 must not be
+confused with older shared e2962a2/Master2b80700 assets. No new build/version or
+test-to-production credentials/database copy. Business outputs0755/0644;
+private deployment controls remain0700/0600. Exact rollback configuration is
+captured before switching services. Additive schema is retained on code rollback.
+
+Preflight command errors: guessed wgs_transfer_lease table then status column
+were absent; schema/model inspection corrected to obs_transfer_lease.analysis_id.
+Default Airflow-container python lacked airflow; executable shebang confirmed
+/home/airflow/.local/bin/python. node200 short hostname was not resolvable from
+jump; documented IP172.17.61.200 succeeded. These read-only checks changed no
+data and are not product failures. Completion, paths and acceptance follow.
+
+Completed: immutable source84510df archived/transferred, offline frontend build
+exit0/image13e960ad; additive Alembic upgrade to0026 confirmed. Original native
+owner installed private0.8.7/source8323567 and published genuine matching
+Master3d180a9/r2 profilecccb04c5/assets20260927.1-wgs422-p0. Production12-file gate
+closure, prepare config using the actual immutable4.2.2 template, compatible
+Operator and paired bootstrap installed as ctapa. Existing real obsutil env
+retained; no WGS-environment install. selected_runtime resolves exact production
+native/Python pins. Previous files/env saved in the private gate backup.
+
+Six selected services switched successfully at07:32Z; no active/queued business
+tasks or occupied leases immediately before cutover. Actual app/DAG mounts
+match release; six services running/restarts0, other six project IDs unchanged.
+Gateway LAN health200 after nginx config/reload. Authenticated API registered
+receiptfc3a7d255642c11aedef2410e03c63f212acaf519094e7b29463cd609732f831 and CAS
+activated wgs-4.2.2-3b1dae5 from4.2.1-ebf1f4b. Current readback matches. WGS
+recovery flag istrue for new frozen policies; old attempts remain unchanged.
+
+Additional deployment errors/corrections: untouched legacy Compose interpolation
+needed unavailable secrets, so assembly uses only six affected live effective
+configs; removed dependency startup from scoped --no-deps control. Catalog host
+access was denied to chenjc; obtained rollback copy through existing backend
+mount, no chmod/chown. Backend lacks requests; use urllib, no package install.
+Source release deliberately has no prepare/config.yaml; private pinned prepare
+config points at its existing cfg/config.template.yaml. Native Operator legacy
+extensions required a schema-compatible private copy; original file retained.
+Missing exact-node known_hosts was populated from that same node's authenticated
+public host key, no trust bypass/key copying. Asset publication additionally
+needed the existing WGS_REAL_OBSUTIL_BIN exported in its standalone shell.
+Coordinator initially specified /bi for historical bs10610_repo_path; API422
+correctly rejected it. Native owner re-exported SAME verified assets with /mnt
+field, no product patch or repeated publish. Initial proxied localhost curl403;
+documented LAN endpoint with no-proxy returned200. All are deployment assembly
+issues, not test failures, and are now resolved.
+
+Concurrent WGS publisher reported newer source4e3094b assets in the same SFS path.
+It stopped further writes; both original owners received the exact current
+deployment contract in local COORDINATION_AIRFLOW.md. This deployment is
+specifically accepted source3b1dae5, not the proposed new r3/source. No further
+SFS apply window granted; coordinate a later user-scheduled admission freeze
+before overwriting the active path. No repeat source audit, smoke or samples.
+
+Files changed in Git: this handoff, CURRENT_STATE.md, TASKS.md, SERVER_INFO.md,
+dated release note and exact CLI-exported registration JSON. Product code is
+unchanged. Runtime tests intentionally not run: user explicitly reserves all
+business testing. Only installation/build/configuration, service startup/mount
+and existing release administration were executed. Details, IDs, exact rollback
+and caveats are in docs/releases/2026-09-27-p0-local-bs96.md. Next action is user
+testing. Before any rollback, check no live paired writer; restore matching
+service/gate/native/catalog set, preserve additive schema/data/journal. No deletes.
+
 ## 2026-09-27 — authorized P0 and Local/SGE source promotion
 
 Goal: merge the accepted canonical test branch, including earlier Local display

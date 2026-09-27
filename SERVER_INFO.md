@@ -1,5 +1,30 @@
 # SERVER_INFO.md
 
+## 2026-09-27 BS96 P0/Local source rollout (active)
+
+server96/chenjc, control /data/airflow-WGS. Selected release
+releases/20260927-p0-local-84510df; active private Compose and exact rollback
+under p0-local-84510df-control/{compose,rollback}.json. The historical current
+symlink is not changed. Backend/observer mount this release's backend; Airflow
+API/scheduler/worker mount its five DAGs, two P0 helper modules and common.
+Frontend image airflow-demo/frontend:p0-local-84510df. All six running/restarts0;
+six other project services retain IDs. LAN gateway172.17.61.96:12959 health200.
+Business schema20260915_0026. Existing scanner/auto-dispatch remains enabled;
+GATK runtime/profile/recovery and Local admission retain prior settings.
+
+Node200/t640/ctapa production WGS gate root /home/ctapa/.config/airflow-wgs;
+backup .p0-install-20260927/backup. Native source8323567 installed privately in
+/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime/tools/cce-pipeline/0.8.7,
+using existing nipttest Python. CLI, PYTHONPATH and compatible Operator are pinned
+there. Original Operator and WGS environment are retained. Paired deployment
+anchors production code, native guard and production journal, not test roots.
+
+Current managed release wgs-4.2.2-3b1dae5; profile r2 SHA cccb04c5; Master3d180a9f;
+assets20260927.1-wgs422-p0; authentic receiptfc3a7d25. WGS recovery enabled for
+new requests. No business batch was submitted or tested by this deployment.
+See docs/releases/2026-09-27-p0-local-bs96.md; additional WGS source publication
+requires a separately coordinated window to avoid overwriting this active SFS.
+
 ## 2026-09-27 BS10610 auxiliary DAG import correction
 
 Test hostname `server10610`, SSH identity `chenjc`. Airflow API/scheduler/worker
