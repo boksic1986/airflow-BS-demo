@@ -1,5 +1,36 @@
 # Handoff
 
+## 2026-09-27 — user removes cumulative Job cap; cleanup remains mandatory
+
+Exact new instruction: "后续如果测试jobs还不够，建议不设上限，只需要及时回收即可".
+Supersedes cumulative30 authorization; does NOT authorize unlimited live Jobs,
+new cases, production or arbitrary cleanup. Original owner continues approved
+normal/reconnect/manual-replacement scope. Record every actual CREATE and UID,
+keep max1Master+1Worker/consecutive cases, native deadlines and TTL100; observe
+terminal reclamation or precise already-approved runtime cleanup. Do not delete
+local/SFS/OBS data or locks. Failures require diagnosis, not blind retries.
+Original18 count retained. The prior combined29 estimate remains informational.
+Scope/identity/product changes still require review/clarification when uncertain.
+
+## 2026-09-27 — combined runtime case cleared after two fixture fixes
+
+One QA review's two Important findings resolved in test artifacts only. Final
+driver4852af86a5affa25f7a99a24751d14fa7b15c519e70971f180f3e1aab8b7fe44;
+Snakefile07e7d20750ba220074e0d51e5e8c284cbb709910488607bd2969e03510c88971.
+Coordinator checked exact hashes, actual node200 strict native materialization
+receipt, and Step2 source: injected exception escapes real CREATE call; reentry
+uses original durable intent/current UID, disallowing a second CREATE. The tiny
+archive uses existing libzstd, no dependency install or image rebuild. Earlier
+fixture/CLI ABI failures retained; only final actual node200 check is accepted.
+
+Cleared original owner to execute COMBINED01 under existing30 authorization,
+starting18, expected11 more=29 (one reserve). New task-private request/producer
+pins and actual environment/identity checks precede launch. No extra product
+change, shared release or production. Same-UID response-loss and new-UID manual
+resume have separate assertions; no normal/automatic/API/Airflow E2E claims.
+All helpers/readers included; no status-query loops that repeatedly CREATE.
+Actual cloud execution and acceptance pending; preserve evidence if blocked.
+
 ## 2026-09-27 — exact historical Worker image restoration authorized
 
 User replies "同意" to restoring the cached old image unchanged under one

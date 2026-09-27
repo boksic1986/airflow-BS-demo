@@ -1,5 +1,15 @@
 # Current state
 
+## 2026-09-27 latest authorization: no cumulative test Job cap; timely reclamation
+
+User removes the cumulative test-Job cap if needed and requires timely cleanup.
+This supersedes30-count stops below, not the smoke scope or execution gates.
+Continue recording every CREATE/UID/terminal/reclamation; retain TTL100 and
+bounded native helper deadlines/precise cleanup. Run cases sequentially with
+max1Master+1Worker. No blind retries, scope expansion, business-data deletion,
+production changes or unbounded running workloads. Combined test is cleared;
+count18 was the last confirmed observation, not a reset. No new acceptance claim.
+
 ## 2026-09-27 restored image; original normal case not accepted
 
 Exact old Worker image was restored under wgs422-p0-worker-retained-2b807004;

@@ -1,5 +1,10 @@
 # Active test-branch tasks
 
+Latest user override (2026-09-27): cumulative Job count is no longer capped;
+timely exact reclamation is required. Keep all CREATE/UID evidence and bounded
+active workloads. Earlier30/29 estimates are historical planning, not stop gates.
+No wider scenarios/product changes/production, no blind retries or extra suites.
+
 ## P0-SMOKE-CONTINUE-20260927 (authorized; cap30 cumulative)
 
 Latest: authorized old-image retention-tag restoration completed with same digest.

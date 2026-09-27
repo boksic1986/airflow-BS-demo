@@ -35,6 +35,11 @@ commit因origin为只读Git bundle尚未push；平台测试分支已push，无ma
 
 ## 2026-09-27 用户批准的正常路径收敛与 smoke 续验
 
+最新补充授权：用户取消测试Job累计数量上限，要求及时回收。以下30/29/22等
+均保留为历史预算，不再作为停测门槛；不清零CREATE台账。仍限本轮正常、
+同UID重连和真实跨Master续跑，串行、最多1Master+1Worker，保持原deadline、
+TTL100和helper精确清理；失败先定位，不盲重试，不扩大生产或测试功能范围。
+
 最新授权：用户在跨Master可行性复核后确认累计CREATE上限30并继续测试，历史12
 不清零；下方22和待确认24均为旧检查点。先完成同版本8323567候选、NORMAL01与
 同UID FAULT01；T3真实新Master续跑单独验收，原owner先明确fixture/合法恢复入口/
