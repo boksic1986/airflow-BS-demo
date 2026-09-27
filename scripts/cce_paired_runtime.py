@@ -445,10 +445,18 @@ def submit_registered(payload, *, binding, gate, pipeline):
     writer = runtime.writer_for_bundle(runtime, bundle, contract, config)
     if writer is None:
         raise RuntimeError('trusted per-run writer registration required')
+    return _submit_initial_master(payload, path, raw, pipeline, runtime,
+        bundle, contract, config, modules, writer)
+
+
+def _submit_initial_master(payload, path, raw, pipeline, runtime,
+                           bundle, contract, config, modules, writer):
+    """Shared initial CREATE journal, including Step2 after an upload resume."""
     platform = dict(pipeline=pipeline, **{k:payload[k] for k in
         ('analysis_id','attempt','stage','execution_id','generation','request_hash')})
     action = payload['execution_id']
-    if (writer.context.get('generation') != 1
+    if (not re.fullmatch(r'[A-Za-z0-9_-]{1,192}', str(action))
+            or writer.context.get('generation') != 1
             or writer.context.get('analysis_id') != payload['analysis_id']
             or writer.context.get('attempt') != str(payload['attempt'])
             or writer.context.get('pipeline') != pipeline):
@@ -805,6 +813,26 @@ def resume_registered(payload, *, binding, gate, pipeline):
                 _inactive_dispatcher(other, gate, pipeline)
         stack.enter_context(writer.serialize())
         scope = writer.validate()
+        # An upload recovery carries its action into downstream Step2 even
+        # when no Master has ever been submitted. Keep that authenticated
+        # request and use the ordinary initial CREATE protocol under these
+        # same launch/worker/writer fences; never invent a replacement owner.
+        if (pipeline == 'wgs' and payload['stage'] == 'step2_master'
+                and writer.registration_schema_version == 3
+                and writer.context.get('generation') == 1
+                and not writer.context.get('master_uid')
+                and not list(_journal_views(path.parent,pipeline,runtime,bundle,contract))
+                and not runtime._read_master_handoff(bundle,contract)):
+            name, identity, pending = runtime._directory_lock_identity(contract,writer.context)
+            current = runtime._recovery_query(config,'configmap',name)
+            lock = json.loads(current['data']['lock']) if current else {}
+            if (lock.get('state') != 'OWNED' or lock.get('identity') != identity
+                    or lock.get('owner') != pending or pending.get('master_uid')):
+                raise RuntimeError('initial submission requires the pending directory owner')
+            _predecessor(payload,gate,pipeline,previous='step1_upload')
+            writer.serialize = nullcontext  # Already held by the outer stack.
+            return _submit_initial_master(payload,path,raw,pipeline,runtime,
+                bundle,contract,config,modules,writer)
         _reconcile_initial_intent(path.parent,payload,gate,pipeline,runtime,bundle,contract,config,writer)
         source, record = _recovery_source(path.parent, payload, pipeline, runtime, bundle, contract, writer)
         if not isinstance(record, dict) or record.get('schema_version') != 2:

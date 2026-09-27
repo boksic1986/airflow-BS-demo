@@ -1,5 +1,28 @@
 # Workflow runtime integration
 
+## Bounded P1 recovery corrections (2026-09-27)
+
+Automatic WGS dispatch validates frozen `control_workdir` against the configured
+node runtime root / runs / analysis ID / attempt-N, matching its request producer.
+`AnalysisRun.workdir` is platform results storage, not this control directory.
+Release/source, current receipt and budget checks remain unchanged.
+
+A same-attempt Step1 resume also carries its action to unfinished Step2. With
+schema3 initial generation, an exact OWNED pending directory owner, a successful
+registered Step1 predecessor, and no native submission/recovery journal or
+Master handoff, Step2 uses the existing initial CREATE implementation. Its
+request/action/hash are retained; it does not manufacture an old Master or advance
+the compute generation. Existing launch/worker/writer exclusion remains held.
+Any initial intent instead enters existing reconciliation, never a new CREATE;
+foreign owners, missing upload success and Step3 without a source stay rejected.
+
+New CCE attempts freeze the normal monitor timeout independently of automatic
+compute replacement authorization (WGS v2: stage contract; GATK: existing72h).
+First Step3 registration fixes the original deadline; replay does not extend it.
+`enabled=false` still denies automatic replacement and grants no recovery quota.
+Absent historical policy or disabled policy without a frozen timeout is not
+backfilled. No existing frozen request, running batch or legacy attempt is changed.
+
 ## Paired request validation (2026-09-27)
 
 WGS initial dispatch hashes the body before adding the v2 execution envelope,

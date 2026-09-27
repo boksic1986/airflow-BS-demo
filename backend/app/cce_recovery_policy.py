@@ -12,12 +12,15 @@ def freeze_new_attempt(*, run, settings):
     enabled = (run.execution_mode == 'cce' and run.pipeline_name in {'wgs','gatk'}
         and getattr(settings,run.pipeline_name+'_cce_recovery_enabled',False) is True)
     seconds = None
-    if enabled:
+    # Query reconnect is bounded by the normal monitor timeout even when
+    # automatic compute replacement is off. Legacy WGS stays unmarked.
+    if run.execution_mode == 'cce' and run.pipeline_name in {'wgs','gatk'}:
         if run.pipeline_name == 'wgs':
-            if not getattr(settings,'wgs_contract_v2_enabled',False):
+            if enabled and not getattr(settings,'wgs_contract_v2_enabled',False):
                 raise ValueError('automatic WGS recovery requires contract v2')
-            from app.wgs_stage_catalog import load_wgs_stage_contract
-            seconds = load_wgs_stage_contract(Path(settings.wgs_stage_contract_path)).stages['step3_monitor'].timeout_seconds
+            if getattr(settings,'wgs_contract_v2_enabled',False):
+                from app.wgs_stage_catalog import load_wgs_stage_contract
+                seconds = load_wgs_stage_contract(Path(settings.wgs_stage_contract_path)).stages['step3_monitor'].timeout_seconds
         else:
             seconds = 72*3600  # Existing bio_gatk wait_step3_analysis timeout.
     params['cce_recovery_policy'] = dict(version=1,attempt=run.attempt,enabled=enabled,
@@ -30,7 +33,9 @@ def start_monitor_deadline(*, run, now):
     """Call only on first registered Step3; missing legacy state stays missing."""
     params = dict(run.params_json or {})
     policy = params.get('cce_recovery_policy')
-    if not isinstance(policy,dict) or policy.get('enabled') is not True:
+    if not isinstance(policy,dict):
+        return None
+    if policy.get('enabled') is not True and policy.get('monitor_timeout_seconds') is None:
         return None
     budget = params.get('cce_recovery_budget')
     if (policy.get('version') != 1 or type(policy.get('attempt')) is not int

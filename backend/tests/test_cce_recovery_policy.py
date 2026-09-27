@@ -10,14 +10,15 @@ NOW = datetime(2026,9,25,tzinfo=timezone.utc)
 
 
 @pytest.mark.parametrize('pipeline,seconds',[('wgs',432000),('gatk',259200)])
-def test_new_attempt_freezes_own_adapter_policy_and_first_monitor_deadline(pipeline,seconds):
+@pytest.mark.parametrize('enabled',[True,False])
+def test_new_attempt_freezes_own_adapter_policy_and_first_monitor_deadline(pipeline,seconds,enabled):
     module=importlib.import_module('app.cce_recovery_policy')
-    settings=SimpleNamespace(wgs_contract_v2_enabled=True,wgs_cce_recovery_enabled=pipeline=='wgs',
-        gatk_cce_recovery_enabled=pipeline=='gatk',
+    settings=SimpleNamespace(wgs_contract_v2_enabled=True,wgs_cce_recovery_enabled=enabled and pipeline=='wgs',
+        gatk_cce_recovery_enabled=enabled and pipeline=='gatk',
         wgs_stage_contract_path=str(Path(__file__).parents[2]/'config/wgs_stage_contract.yaml'))
     run=SimpleNamespace(pipeline_name=pipeline,execution_mode='cce',attempt=1,params_json={})
     module.freeze_new_attempt(run=run,settings=settings)
-    assert run.params_json['cce_recovery_policy']['enabled'] is True
+    assert run.params_json['cce_recovery_policy']['enabled'] is enabled
     assert run.params_json['cce_recovery_budget']['count']==0
     assert run.params_json['cce_recovery_budget']['original_deadline'] is None
     deadline=module.start_monitor_deadline(run=run,now=NOW)
@@ -40,7 +41,8 @@ def test_default_off_and_missing_historical_policy_never_backfills():
     with pytest.raises(ValueError):module.freeze_new_attempt(run=run,settings=SimpleNamespace())
 
 
-def test_first_wgs_registration_and_replay_keep_same_hash_deadline_and_generation():
+@pytest.mark.parametrize('enabled',[True,False])
+def test_first_wgs_registration_and_replay_keep_same_hash_deadline_and_generation(enabled):
     from sqlalchemy import select
     from app.models import AnalysisRun,WgsStageExecution
     from app.wgs_stage_catalog import load_wgs_stage_contract
@@ -51,7 +53,7 @@ def test_first_wgs_registration_and_replay_keep_same_hash_deadline_and_generatio
     contract=load_wgs_stage_contract(contract_path())
     with factory.begin() as session:
         run=session.scalar(select(AnalysisRun));run.execution_mode='cce'
-        freeze_new_attempt(run=run,settings=SimpleNamespace(wgs_cce_recovery_enabled=True,
+        freeze_new_attempt(run=run,settings=SimpleNamespace(wgs_cce_recovery_enabled=enabled,
             wgs_contract_v2_enabled=True,wgs_stage_contract_path=str(contract_path())))
         session.add(WgsStageExecution(analysis_id=run.analysis_id,attempt=1,
             stage_code='step2_master',execution_id='synthetic-submit',generation=1,
@@ -103,7 +105,8 @@ def test_real_wgs_creation_freezes_policy_and_does_not_reset_on_duplicate_input(
         assert second['params']['cce_recovery_budget']['count']==1
 
 
-def test_real_gatk_monitor_registration_persists_deadline_and_replay(tmp_path):
+@pytest.mark.parametrize('enabled',[True,False])
+def test_real_gatk_monitor_registration_persists_deadline_and_replay(tmp_path,enabled):
     import json
     from sqlalchemy import select
     from app.models import AnalysisRun,PipelineStageExecution
@@ -111,7 +114,7 @@ def test_real_gatk_monitor_registration_persists_deadline_and_replay(tmp_path):
     from app.gatk_runtime_service import register_gatk_stage,_request_path
     from test_wgs_stage_execution import sessions
     factory=sessions()
-    settings=SimpleNamespace(gatk_cce_recovery_enabled=True,
+    settings=SimpleNamespace(gatk_cce_recovery_enabled=enabled,
         gatk_runtime_node200_root='/synthetic/runtime',gatk_runtime_request_root=str(tmp_path/'requests'))
     with factory.begin() as session:
         run=AnalysisRun(analysis_id='GATK_SYNTHETIC',pipeline_name='gatk',dag_id='bio_gatk',

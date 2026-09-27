@@ -6,7 +6,7 @@ live Master/Worker quiescence and directory ownership immediately before CREATE.
 """
 from datetime import datetime, timedelta, timezone
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import time
 
 from sqlalchemy import select
@@ -87,7 +87,8 @@ def dispatch_due_recovery(*, session, settings, airflow_client, analysis_id,
             _validate_recovery_request(run,execution,frozen)
         elif (frozen.get('pipeline_release_id') != run.params_json.get('pipeline_release_id')
               or frozen.get('wgs_source_commit') != run.params_json.get('wgs_source_commit')
-              or frozen.get('control_workdir') != run.workdir):
+              or frozen.get('control_workdir') != str(PurePosixPath(settings.wgs_runtime_node200_root)
+                  / 'runs' / analysis_id / f'attempt-{attempt}')):
             raise ValueError('automatic frozen WGS release or directory differs')
         stages = [code for code in ('step3_monitor','step4_publish','step5_download','step6_materialize')
             if not (latest(session,run,code) and latest(session,run,code).status == 'success')]

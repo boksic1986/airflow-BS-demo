@@ -1,5 +1,103 @@
 # Handoff
 
+## 2026-09-27 bounded P1 repair — source verified, no deployment
+
+Goal: user says "先修复P1" after the audit. Only F1-F3 authorized; no P2,
+production retry/deploy, native/plugin/WGS changes or expanded fault testing.
+Base744cd22 in the existing integration worktree, branch
+jiucheng/test/wgs-local-main-sync-20260917. Preserve unrelated primary-worktree edits.
+
+Product changes (3 files): backend/app/cce_compute_dispatch.py validates the
+trusted node attempt directory instead of platform results workdir;
+backend/app/cce_recovery_policy.py freezes the original monitor timeout independent
+of automatic-compute opt-in; scripts/cce_paired_runtime.py shares its existing
+initial submission implementation with a narrowly fenced Step2-after-upload-resume
+path. Initial pending owner, prior successful upload, absence of native intent,
+request/hash and shared locks remain required. Existing intent still reconciles;
+unknown CREATE is never resent. No fixed historical request/policy is rewritten.
+Tests: two backend files, new test_p1_initial_after_upload_resume.py, corrected
+request/control-root fixtures in registered_recovery and monitor_reconnect.
+Docs08/audit report/state/tasks/handoff aligned.
+
+Remote preflight: ssh BS10610 -> server10610, chenjc uid6708/bioinfo520.
+Control root /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS; current still
+releases/20260912-opt-4d3d24e6; backend /app RO mount20260926-p0-e358aad/backend,
+/config RO current release. Scanner/autodispatchfalse; WGS/GATK executiontrue.
+No service/flag/mount/current-link changes. No BS96 or node200 access this turn.
+Task source and synthetic output only:
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/20260927-p1-recovery-audit.
+Candidate parent is chenjc:bioinfo755; nonroot tests use only task evidence as RW.
+
+Validation: cached disposable docker run --rm --pull=never --network none
+--read-only --user6708:520 --cpus1 --memory1g; source/native/helper mounts RO;
+PYTHONDONTWRITEBYTECODE=1, TMPDIR=/evidence; python -m pytest -q
+-p no:cacheprovider --tb=short. No business mounts, credentials or real data.
+Backend image8491604ee01d: test_cce_recovery_dispatch.py,
+test_cce_recovery_policy.py and only existing disabled-budget test node:
+evidence/backend-green.log34 passed4.03s; red7 failed19 passed reproduced F1/F3.
+Cached Master imagea0112f0b uses task-extracted supplied0.8.8 wheel, existing
+source-e2962a2 test helpers and native-p0/plugin RO, existing T255 pytest helpers.
+No installation, build, pull, cloud connection or cloud Jobs.
+test_p1_initial_after_upload_resume.py: runtime-green.log6 passed3.91s;
+runtime-red2.log fails at exact missing unique native submission before fix.
+test_cce_monitor_reconnect.py: monitor-green.log12 passed1.60s.
+Total52 focused final passes; no whole-suite or local runtime tests.
+
+Setup diagnostics (not acceptance failures): host unzip missing (exit127), used
+standard python3 zipfile extraction; Master image has no pytest (exit1), mounted
+existing RO test helpers; nested RO mount lacked mountpoint (exit125), created
+only task-native/tests. First runtime fixture omitted ended-worker evidence and
+failed before target path; added real gate-shaped synthetic terminal sidecars,
+then obtained target RED. A bounded directory discovery hit private permissions;
+no permission changes attempted. Native test helpers predate0.8.8; actual runtime
+under test is0.8.8, transport is simulated, not live cluster acceptance.
+
+Artifact provenance check: synthetic runtime came from initial0.8.8 wheel33cb78f6
+(source095f1e9). Final deployed-interface wheel45c99c0c/source417de59 was then
+verified from its documented wheel-417de59 location and extracted only into this
+task's native-current directory. `diff -rq` of the complete cce_pipeline/assets
+trees is empty (exit0): runtime/guard/dependency bytes exercised by these tests
+are identical. No repeated runtime tests or package/service upgrade. An earlier
+read of the historical BS10610 nipttest path was absent; no repair attempted.
+Focused independent read-only review found no blocking defect or extra required
+regression; P2/backfill/deploy/live cross-Master remain explicitly excluded.
+
+Open/risk: P2 manual queued-action lifecycle remains; older frozen off policies
+without deadlines remain unmarked. Live cross-Master/API end-to-end acceptance
+is not claimed. Next requires explicit deployment scope; paired runtime source
+changes also require its deployment pin to be refreshed together, not a lone file
+copy. No production rollback needed now; source rollback is a scoped revert,
+never rewriting journals or reverting data. git diff --check is the local static
+check. No DB/schema/public API/DAG changes.
+
+## 2026-09-27 P0 Step3 read-only implementation audit
+
+User asks whether hidden bugs remain and prior errors are covered, particularly
+Step3. Source744cd22/main/production was clean before review. Added only the
+audit report docs/reviews/2026-09-27-p0-step3-recovery-audit.md and state/task/handoff
+notes. Findings F1-F3 are dispatch/first-submission/monitor-policy defects; F4 is
+manual-action lifecycle blocking later automatic recovery. No implementation,
+commit/push, test execution, deployment, database access or batch retry.
+
+Commands: git status/rev-parse/branch; targeted rg and Get-Content of backend,
+gate, DAG, tests and specifications; git diff --check for final notes. A few
+initial rg queries used guessed test filenames/Windows wildcard arguments and
+returned file-not-found; corrected by rg --files and explicit existing paths.
+These were read-only searches, not runtime failures or failed test runs.
+
+Remote environment/hostname/mount/permissions/current release were not inspected
+this turn because no remote action was taken. All services, scanners, dispatch
+flags and data remain unchanged. No runtime tests were run: inspection only,
+and user requests minimal/non-redundant validation. Latest remote native/plugin
+source and deployed images were not re-audited; no full-stack safety claim.
+
+Next: user confirmation for bounded F1-F3 fixes and manual-action lifecycle
+decision, then minimal remote tests on BS10610 after standard host preflight.
+Do not infer permission to resume the uploading batch or change old bundles.
+Risk: current upload recovery may encounter F2 at Step2; this is a source-derived
+risk, not a live failure observation. Rollback affects only these review notes;
+there is no runtime change to revert. Preserve unrelated dirty primary workspace.
+
 ## 2026-09-27 authorized main/production repair synchronization
 
 User requests Airflow repair code on main and production. Fetch/ls-remote show

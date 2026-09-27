@@ -22,8 +22,9 @@ def registered(adapter,tmp_path,monkeypatch):
     initial = getattr(h, 'initial_path', False)
     pipeline=old_cap.context['pipeline']
     gate=wgs_runtime_gate if pipeline=='wgs' else gatk_runtime_gate
-    control=tmp_path/'requests'/old_cap.context['analysis_id']/'attempt-1'
+    control=tmp_path/'runtime'/'runs'/old_cap.context['analysis_id']/'attempt-1'
     monkeypatch.setattr(wgs_runtime_gate,'REQUEST_ROOT',tmp_path/'requests')
+    monkeypatch.setattr(wgs_runtime_gate,'RUNTIME_RUN_ROOT',tmp_path/'runtime'/'runs')
     binding=json.loads((bundle.parent/'batch-binding.json').read_bytes())
     payload={'analysis_id':old_cap.context['analysis_id'],'attempt':1,'stage':'step2_master',
         'schema_version':'wgs-runtime.request.v4','orchestration_contract_version':2,
@@ -37,11 +38,7 @@ def registered(adapter,tmp_path,monkeypatch):
         payload.pop('resume_action_id')
         payload.update(stage='step1_upload', generation=1,
             execution_id=payload['analysis_id']+'-a1-step1_upload-g1')
-    excluded={'request_hash'} if pipeline=='gatk' else {
-        'execution_id','generation','request_hash','predecessor_execution_id',
-        'predecessor_generation','predecessor_receipt_hash'}
-    payload['request_hash']=hashlib.sha256(json.dumps({k:v for k,v in payload.items()
-        if k not in excluded},sort_keys=True,separators=(',',':')).encode()).hexdigest()
+    payload['request_hash']=paired._request_digest(payload,pipeline)
     request=gate._request_path(payload['analysis_id'],1,payload['stage'])
     request.write_text(json.dumps(payload))
     shared_root=(tmp_path/'requests').resolve()

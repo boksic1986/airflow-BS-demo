@@ -1,5 +1,22 @@
 # Active test-branch tasks
 
+## P0-P1-REPAIR-20260927
+
+- [x] F1: compare frozen WGS control path with its trusted node attempt scope.
+- [x] F2: resumed Step1 -> first Step2 reuses initial submission under owner fences.
+- [x] F3: query deadline independent of compute opt-in; quota remains disabled.
+- [x] BS10610 targeted red/green verification and runtime-contract documentation.
+- Not included: P2 lifecycle, historical request backfill, production deployment,
+  automatic batch retry or a new cloud fault campaign.
+
+## P0-STEP3-AUDIT-20260927
+
+- [x] Trace existing source and historical failure contracts at744cd22.
+- [x] Record four findings and compatibility/verification boundaries in docs/reviews/2026-09-27-p0-step3-recovery-audit.md.
+- [x] Subsequent user-authorized P1 fixes and remote regressions: P0-P1-REPAIR-20260927.
+- [ ] P2 manual-action lifecycle decision/implementation (outside this P1 task).
+
+
 ## AIRFLOW-REPAIR-SYNC-20260927
 
 - [x] Verify main/production origins at0b35278, clean source03dc8d7, and fast-forward ancestry.

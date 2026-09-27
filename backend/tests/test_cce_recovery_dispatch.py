@@ -27,8 +27,14 @@ def automatic(setup, recovery, evidence):
     factory, settings, airflow, path, frozen = fixture
     pipeline = context['pipeline']
     model = WgsStageExecution if pipeline == 'wgs' else PipelineStageExecution
+    if pipeline == 'wgs':
+        settings.wgs_runtime_node200_root = '/synthetic/node-runtime'
+        frozen['control_workdir'] = f"{settings.wgs_runtime_node200_root}/runs/{frozen['analysis_id']}/attempt-1"
+        path.write_text(json.dumps(frozen))
     with factory.begin() as session:
         run = session.scalar(select(AnalysisRun))
+        if pipeline == 'wgs':
+            run.workdir = '/synthetic/platform-results/runs/' + run.analysis_id
         run.execution_mode = 'cce'
         deadline = (NOW + timedelta(hours=1)).isoformat()
         run.params_json = dict(run.params_json,
@@ -122,10 +128,15 @@ def test_uncertain_post_is_get_only_even_after_deadline_and_stop(automatic):
         assert session.scalar(select(AnalysisRun)).status == 'cancel_requested'
 
 
-@pytest.mark.parametrize('change',['stop','deadline','changed_evidence','missing_policy'])
+@pytest.mark.parametrize('change',['stop','deadline','changed_evidence','missing_policy','directory'])
 def test_dispatch_rechecks_fences_without_mutating_frozen_request(automatic,change):
     fixture, model, _, _ = automatic
     factory, _, airflow, path, _ = fixture
+    if change == 'directory':
+        value = json.loads(path.read_text())
+        key = 'control_workdir' if model is WgsStageExecution else 'runtime_workdir'
+        value[key] = '/synthetic/another-attempt'
+        path.write_text(json.dumps(value))
     before = path.read_bytes()
     with factory.begin() as session:
         run = session.scalar(select(AnalysisRun))

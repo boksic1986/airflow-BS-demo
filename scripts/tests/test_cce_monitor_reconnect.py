@@ -17,6 +17,7 @@ CONFIG = {"kubernetes": {"kubectl_bin": "kubectl", "kubeconfig": "synthetic", "n
 def monitor_fixture(tmp_path, monkeypatch, pipeline):
     root = tmp_path / "requests"
     monkeypatch.setattr(wgs_runtime_gate, "REQUEST_ROOT", root)
+    monkeypatch.setattr(wgs_runtime_gate, "RUNTIME_RUN_ROOT", tmp_path / "runtime" / "runs")
     monkeypatch.setenv("GATK_RUNTIME_REQUEST_ROOT", str(root))
     gate = wgs_runtime_gate if pipeline == "wgs" else gatk_runtime_gate
     payload = dict(analysis_id=f"{pipeline.upper()}_20260925_000000_AAAAAA", attempt=1,
@@ -24,7 +25,8 @@ def monitor_fixture(tmp_path, monkeypatch, pipeline):
         generation=1, cce_recovery_deadline=datetime.fromtimestamp(5000, timezone.utc).isoformat())
     path = gate._request_path(payload["analysis_id"], 1, "step3_monitor")
     path.parent.mkdir(parents=True, exist_ok=True)
-    if pipeline == "wgs": payload["control_workdir"] = str(path.parent)
+    if pipeline == "wgs":
+        payload["control_workdir"] = str(tmp_path / "runtime" / "runs" / payload['analysis_id'] / 'attempt-1')
     payload["request_hash"] = paired._request_digest(payload, pipeline)
     path.write_text(json.dumps(payload))
     def write(status, **details):

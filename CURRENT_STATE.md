@@ -1,5 +1,26 @@
 # Current state
 
+## 2026-09-27 P0 P1 source corrections verified (not deployed)
+
+User authorized F1-F3 only. Corrected WGS automatic-recovery control-directory
+comparison; resumed upload can make its first Master through the existing CREATE
+journal; newly frozen monitor deadlines no longer depend on automatic-compute
+opt-in. Existing owner/receipt/ambiguity/budget fences remain. Historical requests
+are not backfilled. P2 manual-action lifecycle is unchanged.
+BS10610 isolated synthetic:34 backend,6 first-Master/fence,12 reconnect checks
+passed. Only3 product files changed; no WGS/native/plugin/DAG/UI change, production
+access, deployment or batch retry. See latest HANDOFF and audit report closure.
+
+## 2026-09-27 P0 Step3 source audit
+
+Audited744cd22 without changing runtime code or services. Four findings remain:
+WGS auto-dispatch directory mismatch; resumed Step1 routes first-ever Step2 to
+replacement; query reconnect coupled to compute policy; queued manual Resume
+can block later auto recovery. Historical error categories exist but do not
+prove working end-to-end recovery. See docs/reviews/2026-09-27-p0-step3-recovery-audit.md.
+No runtime tests, production access or batch retry in this audit; implementation
+and remote verification are pending a separate user request.
+
 ## 2026-09-27 Airflow repair branch synchronization
 
 User requests main and jiucheng/release/production synchronization. Both fetched
