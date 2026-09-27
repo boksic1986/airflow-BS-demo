@@ -6,8 +6,10 @@
 - [x] Original publisher staged a minimal candidate; user then rejected r4.
 - [ ] Retain revisionr3 as explicitly requested; publisher checks same-revision
   genuine receipt/catalog procedure. Do not deploy the superseded r4 candidate.
-- [ ] User confirms publisher-owned .cce-assets metadata normalization scope;
-  no genuine new receipt can be produced before the authorized publication.
+- [x] User confirms publisher-owned .cce-assets metadata normalization scope.
+- [ ] Additional scope discovered: standard publish replaces130 pipeline+9resource
+  files applying new permissions; confirm exact-file authorization or an existing
+  profile-only route. No production freeze/publication yet.
 - [ ] Verify idle production and serialize necessary shared publication/binding.
 - [ ] Preserve history; resolve explicit old-run rebinding choice before retry.
 - [ ] Record live result and commit platform documentation, no redundant tests.

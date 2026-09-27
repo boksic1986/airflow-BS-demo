@@ -1,5 +1,16 @@
 # Current state
 
+## 2026-09-27 metadata approval received; publication held on broader file effects
+
+User approved publisher metadata permissions. Productionpreflight11:15:55Z idle
+(business/Airflow/tasks/leases0); no freeze or writes performed. Owner audit found
+standard update replaces130 pipeline+9resource files with new modes/group/stage
+owner, not only .cce-assets metadata. Existing business parent dirs are skipped.
+Exact scope in task-artifacts/wgs-422-release-20260927/PERMISSION_SCOPE.md;
+current SFS modes not yet measured, standard successful staging cleanup removes
+temporary backups. Need exact-file scope approval or a supported profile-only
+route before publishing. Native owner is checking existing capability read-only.
+
 ## 2026-09-27 latest user correction: retain profile r3
 
 User explicitly rejected r4. Keep revisionr3 and only correct permissions to

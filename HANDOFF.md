@@ -1,5 +1,48 @@
 # Handoff
 
+## 2026-09-27 — corrected precise publication side effects, still no writes
+
+Read owner report D:/pipeline/task-artifacts/wgs-422-release-20260927/PERMISSION_SCOPE.md
+and its permission-pipeline-files.tsv companion. Correct prior parent warning:
+native _ensure_shared_parent538-552 skips existing dirs; only missing dirs created
+2775/group520. Update nevertheless replaces130 pipeline files (129 regular0664,
+one script0775) and9 resource files (2 control,6 reference,1 index;0664), group520,
+stage UID10001. Content hashes unchanged; this is not merely metadata permissions.
+Current lstat/ACL not observed (no existing SFS reader), so old contract0755/0644
+is expectation only. Staging backup removed on successful apply; final validation
+later, so no guaranteed durable permission rollback. Any expanded publication
+must first capture exact-target metadata/backup with approved reader, not assume
+existing backup. No new reader Job, data mutation, freeze or tests performed.
+Native owner checking only existing profile-only capability; do not develop one.
+
+## 2026-09-27 — publication preflight stopped before freeze: resource mode side effect
+
+BS96 verified server96, actual backend365beab02248 and scanner87a7f1876d42 mounts
+unchanged; read-only check11:15:55Z returned businessactive0,drafts0,leases0,
+Airflowrunning/queued0/tasks0. No admission freeze or service restart performed.
+WGS publisher then identified native stage normalization plus update replacement
+would also change the9 resource component files and selected parents, even with
+unchanged payload hashes. User approval followed metadata-only explanation and
+does not cover this additional reference-resource permission migration. Hold all
+shared writes. Publisher asked for exact affected paths/modes (including pipeline);
+native owner asked read-only whether an existing profile-only receipt route exists.
+No new runtime feature, ad-hoc receipt, production chmod or broad test authorized.
+Report exact scope and obtain direction if existing runtime cannot stay in bounds.
+
+## 2026-09-27 — user approved r3 permission publication and bounded recovery
+
+After the combined publication/recovery question and explanation of .cce-assets,
+user replies consent. Authorized scope: publisher-owned metadata normalization,
+same revisionr3 with2775/0664/0775, official new receipt/registry binding, retained
+history recovery of WGS_20260927_090701_56DC81 only (pre-execution failed attempt3).
+No data deletion, business-tree recursive chmod, WGS prepare/algorithm/image
+change or automatic final execution approval. Production window touches only
+backend WGS admission and backend/scanner auto-dispatch, records exact rollback,
+and restores previous flags. Fresh read-only business/Airflow/lease checks precede
+freezing and publication. Any exact run registration correction must preserve
+old attempt evidence and record before/after/audit; no other batch/DB mutation.
+Original WGS publisher owns shared release, platform owns BS96/ctapa binding.
+
 ## 2026-09-27 — latest user retains r3; r4 superseded before publication
 
 Publisher follow-up: r3 candidate now at
