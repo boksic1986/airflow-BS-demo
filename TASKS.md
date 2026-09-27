@@ -2,6 +2,12 @@
 
 ## P0-SMOKE-CONTINUE-20260927 (authorized; cap30 cumulative)
 
+Latest: authorized old-image retention-tag restoration completed with same digest.
+NORMAL01R3 Master has UID-bound DeadlineExceeded; restored Worker completed.
+One native Step3 read (reader18) returned1 and rejected incomplete actual failure
+evidence. CREATE18/30. No normal PASS. Minimal combined driver preparation/review
+pending, estimate10 more (total28); all extra readers counted, no forged context.
+
 - [x] Original runtime owner publishes reviewed8323567 as0.8.7/original tag,
   pairs isolated nipttest target install/pins and corrects new synthetic jobs:1 fixture.
 - NORMAL01R3 running; same-UID Step2 reentry succeeds after real query timeout;

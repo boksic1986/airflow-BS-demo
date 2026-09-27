@@ -1,5 +1,32 @@
 # Current state
 
+## 2026-09-27 restored image; original normal case not accepted
+
+Exact old Worker image was restored under wgs422-p0-worker-retained-2b807004;
+push digest and registry manifest independently matched unchanged bytes. Worker
+subsequently completed naturally (owner reports TTL observed). Original Master
+had exceeded its1800s deadline. Step3's genuine read used reader18 and returned1:
+mirrored RUN_FAILED is stateFAILED but exit_code0, analysis exit null and
+evidence_complete=false. Coordinator read the actual file; no repair/fabrication
+of this evidence is allowed. Original normal case cannot advance or count PASS.
+CREATE18/30. Minimal combined manual recovery driver is being prepared for one
+review before submission, estimate10 additional including all helpers (total28).
+It may prove controlled replacement/Step1-6 continuation, not independent
+uninterrupted normal success, automatic policy, API or Airflow E2E acceptance.
+No product/source change, production or shared-profile update in this continuation.
+
+## 2026-09-27 exact-image restoration approved; old normal Master expired
+
+User approves unchanged olddigest2b807004... restoration under a dedicated test
+retention tag. Owner completed wgs422-p0-worker-retained-2b807004 push; coordinator
+verified raw push digest and fetched manifest. Current Master832 tag stays intact.
+Fresh owner observation finds NORMAL01R3 Master absent after its1800s deadline;
+Worker23c8c641... still exists. Its terminal result is not inferred from404.
+UID-bound event confirms DeadlineExceeded; no404-derived terminal claim.
+At restoration no new Job:17/30. Old observer ended at its bounded limit, so incomplete live
+coverage remains explicit. Reconcile genuine persisted evidence before deciding
+further tests; no frozen-input/context rewrite or automatic new-run launch.
+
 ## 2026-09-27 continuation checkpoint: published8323567, NORMAL01R3 active
 
 Original owner published version0.8.7/source8323567 under the original Master

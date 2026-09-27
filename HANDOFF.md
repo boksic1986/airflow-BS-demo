@@ -1,5 +1,51 @@
 # Handoff
 
+## 2026-09-27 — exact historical Worker image restoration authorized
+
+User replies "同意" to restoring the cached old image unchanged under one
+test retention tag. Scope is digest2b8070049c3a44319af6d6db9bb7f994af744e8b4f8aacf054071a8a4eee6394,
+cached imageID378289a2e52b68c067021581b2a9390c3279fd183e2ecc5e10a0d6e605a7433b.
+Original runtime owner may tag/push those exact bytes; preserve current8323567
+Master tag, frozen run/profile, shared ServiceAccount, references and production.
+First refresh exact existing Job state: elapsed time may have reached the native
+deadline; do not assume the same Job is still active or force its status.
+Cumulative cap remains30 from17, all future helper/reader/fixture Jobs included.
+No new image build, version suffix, business Worker change or evidence rewrite.
+Continue normal test if existing lifecycle permits, then review minimal combined
+fault/resume driver and its exact budget before cloud submit. No PASS claimed.
+
+Restoration result independently checked: worker-retained-push-2b807004.log
+reports tag wgs422-p0-worker-retained-2b807004 with exact original digest above;
+worker-retained-manifest-2b807004.json is a retrieved registry manifest whose
+config digest equals the cached imageID. Current832 Master tag preserved.
+NORMAL01R3-master-events-after-restore.json records original Master UID with
+DeadlineExceeded at2026-09-26T23:03:12Z; absence is not the source of this finding.
+No clinical data or frozen Job/profile changed. One original native Step3 read
+authorized within remaining budget to mirror real evidence; result still pending.
+
+Step3 result: original native call returned1; one evidence reader created/removed
+as18. Mirrored NORMAL01R3-8323567/mirror/RUN_FAILED.json independently read:
+correct original Job UID, stateFAILED, exit_code0, analysis exit null,
+evidence_complete=false. Strict validator rejects incomplete/inconsistent failure
+observation. Preserve as deadline-interruption evidence, never rewrite to pass.
+Owner reports original Worker naturally Completed and TTL-reclaimed after image
+restoration; raw terminal/cleanup records requested for independent reconciliation.
+Current18/30, no new analysis submitted. Owner preparing small task-private
+combined driver for single review, expected10 more Jobs (total28), no product
+changes. This cannot close the uninterrupted NORMAL acceptance or auto/API/E2E
+claims; separate assertion scopes retained. Local runtime tests not run per
+environment policy; current coordinator changes are documents only.
+
+One same-seat QA review of new combined_driver.py2d343007/Snakefile51dd532b:
+two Important findings block execution. Fixture must generate the actual
+results/<batch>.results.tar.zst required by native materialization; current
+text-only manifest cannot pass Step6. Also CREATE exception is swallowed by
+the driver wrapper, so it does not exercise native durable-intent reentry.
+Owner is correcting these two test-only issues, not product code. Recalculate
+helper count (potentially29 total) and validate the precise fixes before cloud
+submission. Driver currently unexecuted, count18/30. No additional broad review
+or regression suite; no fake results or reduced evidence to fit the budget.
+
 ## 2026-09-27 — reviewed candidate installed; normal smoke pending Worker pull
 
 Owner refreshed isolated host/mount/gate checks (PREFLIGHT_8323567.md), built
