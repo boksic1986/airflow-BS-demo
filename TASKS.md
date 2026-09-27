@@ -1,5 +1,21 @@
 # Active test-branch tasks
 
+## P0 source Git synchronization — 2026-09-27
+
+- [x] Read final plugin owner task and component provenance; distinguish source
+  worktree from BS wheel evidence and umbrella submodule.
+- [x] Import plugin and cce-pipeline committed sources to BS10610 by verified
+  bundles; fast-forward both local `main` branches.
+- [x] Commit only those two umbrella submodule pins (`cd82ca7b`).
+- [x] Confirm WGS `dev_CJC_4.2.2_cloud` source at `3b1dae5` and platform test
+  branch at `44fba4f` before this documentation commit.
+- [ ] Operator pushes WGS, native, plugin, umbrella (after children), and
+  platform test branch with credentials. No force push; remote heads were not
+  verifiable without GitLab authentication.
+- [ ] Resolve the local `/bi/.../wgs-4.2.0` unpack error separately if that
+  clone must mirror the WGS branch; it does not block direct GitLab push.
+
+
 Latest user scope supersedes restart/recovery proposals below:
 - [x] Step1 testing complete (actual native upload rc0).
 - [x] Step2 testing complete (actual initial same-UID reconnect/START pass).

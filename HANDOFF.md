@@ -1,5 +1,50 @@
 # Handoff
 
+## 2026-09-27 — P0 Git source synchronization, no upstream push
+
+Goal: prepare the four P0 source repositories and BS umbrella gitlinks for
+operator push without deploying or repeating runtime tests. Read the named
+plugin-owner task, component provenance, test/production boundary and current
+state. The plugin source is
+`D:/pipeline/snakemake-executor-plugin-kubernetes/.worktrees/p02-worker-terminal-20260923`
+at `4f10c276`; the wheel under `WGS_test/cce-evidence` is only a built artifact.
+The cce-pipeline source is the isolated 0.8.7 worktree at `8323567c`.
+
+Transferred complete Git bundles to BS10610 task-specific evidence and
+verified SHA256 on both ends. Imported branches and fast-forwarded the clean
+server plugin/native `main` worktrees to `4f10c276`/`8323567c`. Umbrella
+commit `cd82ca7b` stages only their two gitlinks. Existing umbrella untracked
+release artifacts and the old cce checkout remain untouched; its worktree
+therefore still reports a modified submodule after the parent commit. WGS
+`dev_CJC_4.2.2_cloud` is already committed at `3b1dae5`; its unrelated draft
+docs were not staged. This platform test branch was `44fba4f` before this entry.
+
+Commands/results: `git bundle verify` passed twice; server ancestry checks
+and both `git merge --ff-only` passed; parent staged diff contained exactly
+two gitlinks. A WGS push to local `/bi/.../wgs-4.2.0` failed, exit 1, with
+`remote unpack failed: unable to create temporary object directory`. Read-only
+check found matching owner/mode and 133T free, but no proven cause; no permission
+change or retry. Use authenticated direct GitLab push instead. No upstream
+push, install, deployment, clinical data access or runtime test. Minimal Git
+status/ancestry/bundle checks replace redundant runtime testing for this
+source-only synchronization. Next: operator push children first, umbrella next,
+platform test branch separately; non-force push protects against remote drift.
+Rollback: move only the newly advanced local refs back to recorded bases after
+review (plugin `1ca1e88`, native `83e7adb`, umbrella `646d445`); do not use
+`reset --hard` or delete worktrees/artifacts. No deployed state to roll back.
+
+Target was test/source preparation on SSH alias `BS10610`, verified hostname
+`server10610`; BS96 and its release path were not accessed. This entry changes
+only `CURRENT_STATE.md`, `TASKS.md` and `HANDOFF.md` in the platform test branch.
+No service, scanner/dispatch setting, mount, runtime directory or permission was
+changed; release pointers and rollback release paths are therefore not applicable.
+Current source status: platform test worktree clean after commit; native/plugin
+`main` worktrees clean; WGS has pre-existing draft docs; umbrella has pre-existing
+untracked release artifacts and an old cce submodule checkout. Upstream GitLab
+heads remain unverified without credentials, so push must be non-force and may
+reject if those heads have moved.
+
+
 ## 2026-09-27 — requested native downstream smoke passed
 
 Goal: close Step1-2 as requested, exclude gen2 timeout, finish original synthetic

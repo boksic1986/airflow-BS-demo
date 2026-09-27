@@ -1,5 +1,25 @@
 # Current state
 
+## 2026-09-27 P0 source repositories prepared for operator push
+
+The named plugin-owner task `019f9d79-be3f-7701-af33-3595d72bbfac` identifies
+the final plugin source in its Windows isolated worktree, not the BS build
+evidence directory. SHA-verified Git bundles imported that source and the
+0.8.7 cce-pipeline source to the BS10610 umbrella submodules. Their local
+`main` branches fast-forwarded to plugin `4f10c276` and native `8323567c`;
+umbrella `main` now pins both at `cd82ca7b`. WGS 4.2.2 remains on
+`dev_CJC_4.2.2_cloud` at `3b1dae5`; the platform test branch was `44fba4f`
+before this documentation entry. None was pushed upstream in this task.
+
+The WGS worktree's `origin` is a local `/bi/.../wgs-4.2.0` clone. A push into
+that clone failed before ref creation (`remote unpack failed: unable to create
+temporary object directory`), although owner/mode and free space looked
+normal. Do not retry blindly or alter shared permissions; an authenticated
+operator can push the exact WGS branch directly to its GitLab repository.
+The WGS worktree's existing draft docs, the umbrella's old cce submodule
+checkout and untracked release artifacts were preserved. No install,
+deployment, runtime test, clinical run, production action or upstream push.
+
 ## 2026-09-27 acceptance: requested synthetic Step1-6 scope complete
 
 Step1-2 retain their actual earlier PASS evidence; user excludes gen2 pre-START
