@@ -1,5 +1,16 @@
 # SERVER_INFO.md
 
+## 2026-09-27 authorized cleanup scanner exclusions (latest)
+
+Only wgs-intake-scanner was recreated from private
+/data/airflow-WGS/cleanup-20260927-control/scanner.json. It preserves all existing
+flags/ignored chips, adding2280th_20260921B_E250209557 and
+2282th_20260921D_E250209574 to prevent automatic recreation of explicitly deleted
+analysis records. Prior config scanner-before.json is retained, not automatically
+safe to restore after deletion. Backend and all other services unchanged. This
+is an operational exclusion, not a product-code update. Exact cleanup outcomes
+and pending/cloud permission limits are in2026-09-27-authorized-cloud-cleanup.md.
+
 ## 2026-09-27 BS96 coordinated WGS r3 source promotion (latest)
 
 Current WGS releasewgs-4.2.2-d38322e; r3 profile5e83e5ed..., genuine receipt60650a5f.

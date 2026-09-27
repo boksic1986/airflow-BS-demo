@@ -1,5 +1,19 @@
 # Current state
 
+## 2026-09-27 authorized BS96 WGS cleanup completed; multipart/WES outstanding
+
+User authorized four failed WGS20260921B/C/D/E histories and cloud data,
+plus cloud batches strictly before20260921. Exact plan in
+docs/releases/2026-09-27-authorized-cloud-cleanup.md. Four runs/31 samples and
+run-owned DB projections removed transactionally; pending23 current/162 history/
+20 operations preserved with identical content hashes, only4 nullable run links
+detached. Other DB runs retained. Scanner existing ignore list adds exact B/D
+chips to prevent re-submission. Offline data untouched.25 WGS SFS trees and34
+OBS FASTQ/result prefixes removed, final inventories empty. Other15 WGS DB runs
+retained. Five old incomplete OBS uploads remain: first abort returned403 and
+remaining aborts were not attempted. WES older-cloud scope awaiting reply.
+Temporary cloud helper removed. No code changes/tests or deletion backup.
+
 ## 2026-09-27 BS96 WGS d38322e/r3 serial publication complete (latest)
 
 After the WGS conversation's maintenance-window explanation, the user confirmed

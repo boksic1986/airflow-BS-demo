@@ -1,5 +1,15 @@
 # Active test-branch tasks
 
+## BS96-CLOUD-CLEANUP-20260927
+
+- [x] Record exact user scope, live IDs/paths and pending/offline protection.
+- [x] Prevent B/D scanner re-submission using existing ignore-chip mechanism.
+- [x] Delete exact four failed run histories/31 samples; pending content unchanged.
+- [x] Delete25 exact authorized WGS SFS trees and34 OBS complete-object prefixes.
+- [ ] Five old incomplete OBS uploads: first abort403, needs authorized IAM capability.
+- [ ] Apply confirmed WES expired-cloud scope if user includes it.
+- [x] Record actual per-target outcomes, remaining protections and no-backup fact.
+
 ## WGS422-D38322E-BS96-WINDOW-20260927
 
 - [x] Verify user window confirmation in WGS-pipeline conversation and current

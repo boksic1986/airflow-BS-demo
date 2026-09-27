@@ -1,5 +1,52 @@
 # Handoff
 
+## 2026-09-27 — Authorized BS96 WGS cleanup; incomplete uploads/WES outstanding
+
+Completed: four exact AnalysisRuns/31 samples and owned projections deleted;
+pending ledger content hashes match,23/162/20 rows preserved.25 SFS target trees
+and34 OBS complete-object prefixes removed, final inventories empty. Other15
+WGS database runs retained; no offline changes or business tests. Per-target
+outcomes and failures in dated cleanup record. Cloud helper Job/Pod removed.
+No backup was created; deletion recovery is not guaranteed.
+Outstanding: exact first multipart abort returned403 AccessDenied (remaining4
+not attempted), five uploads still require authorized AbortMultipartUpload.
+WES date-based cloud scope asked separately, no answer yet; WES untouched.
+Two B/D scanner dedup rows retained/unlinked and existing ignore list extended,
+to prevent automatic re-submission. Active scanner Compose is now
+/data/airflow-WGS/cleanup-20260927-control/scanner.json; private prior config
+scanner-before.json. Reverting exclusions without a replacement linked analysis
+can cause re-submission, so do not blindly roll back. Other services unchanged.
+DB transaction script/log in same control. OBS per-prefix records stay in
+WGS_test/cce-evidence/cleanup-bs96-20260927 at node005's /sg2/biodevrwsg2 view.
+Only documentation changed in integration worktree; no source tests necessary.
+
+Exact live IDs, 31 run-associated sample rows, 34 OBS prefixes and25 SFS paths
+are itemized in docs/releases/2026-09-27-authorized-cloud-cleanup.md before any
+deletion. Pending content hashes will be compared; only nullable analysis links
+detached. Existing scanner ignore list gains the exact B/D chips to prevent
+automatic recreation after deletion. No broad scanner disable or workflow test.
+
+Original pre-action authorization/preflight (retained below; outcomes above):
+
+User authorizes deletion of analysis database history and run-associated sample
+records for exactly 20260921B/C/D/E, preserving pending transfer ledger records;
+also corresponding online SFS batch data and OBS FASTQ/result objects. User
+clarifies expired cloud batches mean batch dates strictly before 20260921.
+That extra date scope applies to cloud SFS/OBS only, not additional DB records.
+Production read-only inventory is authorized to resolve exact IDs/paths first.
+No deletion yet; itemized targets and live occupancy must be recorded before
+mutation. Do not reuse old cleanup scripts as authorization. No backup is yet
+created or verified; do not promise recovery.
+
+Protected: all offline /sg2 and /bi projects/results/FASTQ/sampleinfo/pending/
+runtime evidence (including ctapa and hanjj trees), all pending database ledger
+rows, other-run same-ID samples, reference/workflow assets, cloud batches dated
+20260921 or later except the four named batches. Ambiguous date/path ownership
+is excluded pending clarification. No analysis/test submissions or code changes.
+BS96 preflight: server96/chenjc, control/data root unchanged; backend365beab02248
+mounts release20260927-p0-local-84510df; actual WGS execution/scan/auto=true,
+recovery=true, original watermark retained. Current symlink is historical.
+
 ## 2026-09-27 — coordinated WGS d38322e release window complete
 
 Authority verified by reading WGS-pipeline thread01a09149-ad9d-7e92-b98a-16d9cae075e2:
