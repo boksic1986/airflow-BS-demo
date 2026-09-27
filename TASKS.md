@@ -8,10 +8,12 @@
 - [x] User confirms publisher-owned .cce-assets metadata normalization scope.
 - [x] User authorized130 pipeline+9resource file permissions; live postcheck passed.
 - [x] Freeze idle production for publication, restore exact flags afterwards.
-- [ ] Correct earlier catalog audit: suffixed release identity is rejected by live
-  regex and commit check. User decision pending on minimum compatibility change.
-- [ ] Register/bind correctedr3 without overwriting history, then bounded original
-  run recovery. Existing attempt3 remains failed; no retry or execution approval.
+- [x] Minimumreleaseidentity compatibility953ff94 tested7/7 anddeployed.
+- [x] Register/bind correctedr3, preservehistory; originalrun resumedattempt4.
+  Nativeprepare passedpermissions thenfailed on externalCLI siblingPython check.
+- [ ] Latestuser assigns externalCLI support to native0.8.8 development; WGSowner
+  pairs dev_CJC_4.2.2_cloud compatibility with actualCLI introspection/version
+  contract. No0.8.7 reinstall, productionupgrade ornewretry untilready.
 - [ ] Record live result and commit platform documentation, no redundant tests.
 
 ## OPERATOR-SCHEMA3-20260927 (fixed/deployed; retry blocked by separate WGS contract)

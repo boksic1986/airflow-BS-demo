@@ -1,5 +1,16 @@
 # SERVER_INFO.md
 
+## 2026-09-27 permissions release registered and activated
+
+Source953ff94 readonlyoverlays now servebackend(2modules),scanner/observer(catalog
+only), privateCompose /data/airflow-WGS/release-identity-953ff94-control/active.json.
+Originalfullenvironments verified restored; containerIDs193bff2055b3,
+8d44e14e8034,442874a2b576 respectively. Airflow/otherimages andmountsunchanged.
+Currentwgs-4.2.2-d38322e-permissions, genuinefe530b receipt; ctapapreparec9cc826a.
+Originalrunattempt4fails onmissing CLI siblingpython, notpermissions; noformal
+projectdirectory remains. Native0.8.7 installedunchanged. User moved externalCLI
+compatibility work todevelopment0.8.8, notproductiondeployment.
+
 ## 2026-09-27 permission publication window restored
 
 BS96 backend/scanner recreated only for temporary WGS admission freeze11:38Z;

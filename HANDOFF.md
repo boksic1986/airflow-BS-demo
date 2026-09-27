@@ -1,5 +1,43 @@
 # Handoff
 
+## 2026-09-27 latest decision: external-runtime compatibility belongs to0.8.8
+
+User explicitly says cce-pipeline0.8.8 is underdevelopment and externalcce support
+can be added there. Supersedes proposed0.8.7 installation repair. Sent scope to
+existingnativeowner019f8355-2b77-7413-9553-6670c35a1a2f andWGSowner
+01a09149-ad9d-7e92-b98a-16d9cae075e2: agree minimal actual-CLI version/source/runtime
+introspection contract; WGSdev_CJC_4.2.2_cloud consumes it without assuming sibling
+Python orWGSenv installation. Preserve provenance/exactapprovedpaths, no secrets,
+support boundarymust explicitly handle0.8.8 rather than bypass versionchecks.
+No production0.8.8 upgrade/publication or additionalretry authorized by this
+development decision. Current productionregistration fix953ff94 remainsdeployed,
+permissionsr3active; originalattempt4failed before formalprojectpublication.
+Native/WGSownersreport exactplan andminimaltests; do not duplicate their work.
+
+## 2026-09-27 platform binding repaired; user redirects next WGS fix
+
+Source953ff94 minimal identity compatibility deployed as2 readonly backend modules,
+catalog-only overlays on scanner/observer. Officialfe530b receipt registered and
+CASactivated; ctapa config mappingc9cc826a... installed, oldmaps retained. Exact
+originalservice environments restored; health200. Originalrun retained-history
+binding updated with privateparamsbackup andRunAction; resumeAPIcreatedattempt4.
+Sampleinfo andconfigurationall/default passed. Nativeprepare then exited2:
+`cce-pipeline Python is unavailable: .../runtime/tools/cce-pipeline/0.8.7/bin/python`.
+Permission check passed. Final batch directory was explicitly checked ABSENT;
+staging nativeprepare was removed by its own exception handling, not agentcleanup.
+
+Live private installation hasbin/cce-pipeline launcher using nipttest shebang and
+prefix/site-packages insertion, wheel0.8.7/operator.yaml; no siblingpython. WGS
+d38322e _validate_production_package assumes siblingpython and imports below CLI
+prefix even for configured externalCLI. User now explicitly requires fixingthis
+assumption: cannot writeWGS productionenv, oftendeploys cce in test/externalenv.
+Stop proposedvenv/reinstall route; no installation done. WGSowneraskedminimal
+externalCLI/interpreter compatible design, nativeownerexistingintrospectionAPI.
+No version/provenance bypass, no more run retries, nofinalexecutionapproval.
+Currentrunattempt4failed,3 serviceshealthy,currentpermissionsreleaseactive.
+Next work is ownerWGS sourcefix ondev_CJC_4.2.2_cloud and necessary sourcepublication,
+not further permission changes. Await owners' exactboundedimplementation proposal.
+
 ## 2026-09-27 user approves platform registration and original WGS repair
 
 User: update platform registration, then fix WGS workflow. Scope remains exact

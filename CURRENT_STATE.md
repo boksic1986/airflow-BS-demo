@@ -1,5 +1,24 @@
 # Current state
 
+## 2026-09-27 external-runtime fix assigned to0.8.8 development
+
+Latestuser directs externalcce support to native0.8.8 currentlyunderdevelopment.
+Native/WGSowners coordinating actualCLI runtime/provenance interface andWGS
+0.8.8 version compatibility. Do not change installed0.8.7 orretrybatch yet.
+Platformregistration fix953ff94 is deployed; remaining blocker is WGS's external
+CLI/Python layout assumption, not profilepermissions. Productionupgrade is separate.
+
+## 2026-09-27 registration repaired; external CLI installation assumption remains
+
+953ff94 deployed backend2 modules/scanner+observercatalogparser. Genuinefe530b
+receiptregistered/activated; ctapaprepareSHA c9cc826a...; oldbindingsretained.
+Originalrunattempt4passed sampleinfo/configuration andpermissioncheck, thennative
+preparefailed because WGS assumes bin/python next to configuredexternalCLI.
+Finalprojectabsent, noanalysisstarted. Productionflagsrestored,health200.
+User explicitly wants WGS to support external/test cce deployments withoutwrite
+access to WGS environment. No reinstall/venvfix or furtherretry; WGS/nativeowners
+auditing minimum explicitCLI/interpreter/provenance fix. See latestHANDOFF.
+
 ## 2026-09-27 r3 permissions published; platform activation blocked
 
 User authorized the exact139 pipeline/resource files. Original publisher completed
