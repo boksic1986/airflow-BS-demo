@@ -1,5 +1,67 @@
 # Handoff
 
+## 2026-09-27 failed submit deleted and original sampleinfo resubmitted
+
+User explicitly requested deletion/recreation instead of one-record release rebind.
+Verified source hash unchanged0a8cba37/4 rows and exact final project absent;
+old4 DagRuns failed with no active tasks, no committed CCE execution. Backed up
+database rows and Airflow run/task payloads privately at backend-visible
+`/data/wgs-runtime/repair-backups/submit-replacement-20260927-56DC81` (host equivalent
+`/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime/repair-backups/submit-replacement-20260927-56DC81`).
+Scoped transaction deleted only old AnalysisRunWGS_20260927_090701_56DC81 and
+FK-owned records:4 samples,4 run_attempts,11 run_actions,7 run_stage_state,
+7 wgs_stage_execution,1 execution_dispatch,1 input_snapshot. Kept4 audit rows
+and added deletion audit. All3 pending ledger table digests exactly unchanged.
+Normal Airflow API deleted only its -a1/-a2/-a3/-a4 terminal DagRuns. Original
+sampleinfo, offline project/raw/output paths, request receipts and logs untouched.
+Snapshots exist, but restoration is manual; no automatic rollback promise.
+
+Normal POST /api/wgs/runs used original project/platform/batch/source, omitted
+inactive optional algorithm overrides. Created WGS_20260927_141652_146B51-a1,
+batch20260919A-test/currentwgs-4.2.2-441d5e7. Fresh GET verifies old404, newrunning/
+config_review, source SHA unchanged/4 rows, no error and execution approval null.
+prepare_wgs_sampleinfo and wait_prepare_wgs_sampleinfo both success; waits at
+wait_wgs_config_approval. No configuration or final execution approval granted.
+User completes step2 review then step3 if desired; no need to submit again.
+
+Commands: bounded replace-submit.py through backend container exited0; API/task
+readback exited0. Local helper D:/pipeline/task-artifacts/wgs-088-bs96-20260927/
+replace-submit.py is not repository code or an authorization for reuse. No new
+tests, deployment, workflow source changes or unrelated database mutation.
+Repository changes are CURRENT_STATE/TASKS/HANDOFF documentation only.
+
+## 2026-09-27 user authorizes replacing the failed submit
+
+Latest user supersedes rebind proposal: delete this submit and resubmit sampleinfo.
+Exact online target: AnalysisRun WGS_20260927_090701_56DC81 / 20260919A-test,
+attempt4 failed, 4 terminal failed bio_wgs DagRuns (-a1 through -a4). Delete only
+this analysis row and its FK-owned preparation/sample records, plus those exact
+Airflow runs after private backup. Preserve independent audit rows and all raw
+runtime/request/log files. No public run-delete API exists; scoped transactional
+database deletion is required by this explicit deletion request.
+Protected: original hanjj sampleinfo (SHA0a8cba37,4 rows), FASTQ, pending database
+and files, other analyses, all offline results. Exact final project path is absent.
+No cloud execution was committed; no transfers/workloads/pending-operation links
+exist for the target. Source/config and DB/Airflow snapshots must be saved privately
+before deletion; no claim of automatic rollback. New POST /api/wgs/runs uses same
+project/platform/batch/source and current441d5e7/native0.8.8. Stop at manual review;
+do not grant final execution approval. No broad tests or service restart required.
+
+## 2026-09-27 original submit recovery preflight (awaiting scoped binding approval)
+
+User asks to fix the previously failed submit. Live API identifies only
+WGS_20260927_090701_56DC81 / 20260919A-test, failed attempt4, still frozen to
+wgs-4.2.2-d38322e-permissions/native0.8.7. Current catalog is441d5e7/native0.8.8.
+BS96 hostname/current/mounts match latest deployment; execution dispatch remains
+preparing, committed_at null, execution approval null. ctapa read-only stat confirms
+the exact final WGS_20260919A-test_T7Hg38V4.2.2 project is absent (expected exit1).
+Resume implementation deliberately preserves CCE release binding; it cannot adopt
+the corrected source through normal Resume alone. No rebind API is present.
+Requested explicit authorization for one-record version-binding repair with old
+params backup/audit, then normal preparation Resume; final execution approval stays
+with user. No database update, API mutation, data removal or retry done yet.
+Do not reuse historical one-off repair scripts as authorization. No new tests.
+
 ## 2026-09-27 WGS441d5e7 / native0.8.8 production deployment completed
 
 Goal: consume designated WGS owner's external-CLI fix and matched genuine release,

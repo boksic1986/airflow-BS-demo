@@ -1,5 +1,15 @@
 # Current state
 
+## 2026-09-27 original failed submit replaced, awaiting user configuration
+
+User authorized removing old56DC81 submit and resubmitting its original sampleinfo.
+Old analysis/owned records plus4 terminal Airflow runs removed after private backup;
+pending digests unchanged, audit/raw files retained. New WGS_20260927_141652_146B51,
+batch20260919A-test, current release441d5e7, attempt1. Sampleinfo preparation passed
+with4 source rows; now config_review awaiting manual step2. No config/final execution
+approval given. Do not duplicate submission. See latest HANDOFF for exact deletion
+inventory, backup and verification; no unrelated cleanup or code changes.
+
 ## 2026-09-27 WGS441d5e7 / native0.8.8 activated on BS96
 
 Designated WGS owner published dev_CJC_4.2.2_cloud source441d5e7, independent r3

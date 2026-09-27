@@ -1,5 +1,13 @@
 # Active test-branch tasks
 
+## WGS-SUBMIT-REPLACE-20260927
+
+- [x] Confirm exact failed56DC81/no execution, original4-row sampleinfo unchanged.
+- [x] Record deletion authority; back up scoped DB/Airflow records privately.
+- [x] Delete only old submit/owned records/4 failed DagRuns; pending unchanged.
+- [x] Resubmit via normal API as WGS_20260927_141652_146B51/current441d5e7.
+- [x] Verify sampleinfo success/config_review; final approvals remain with user.
+
 ## CCE088-INSTALL-CONSUMERS-20260927
 
 - [x] Verify exact owner wheel and writable node005 nipttest environment.
