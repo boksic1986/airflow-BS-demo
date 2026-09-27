@@ -1,5 +1,42 @@
 # Handoff
 
+## 2026-09-27 — COMBINED01 actual progress and interrupted replacement
+
+User further requests fewer redundant tests and fast completion. Owner was told
+to execute only the reviewed current combined case, not another normal/full suite.
+Task-private REQUEST fixed42 pins; source8323567 and reviewed driver/fixture
+hashes unchanged. Profile naming normalized to task-private r4 before submit,
+not a shared release/profile publication. No production/service changes.
+
+Actual CREATE tally25: historical18, setup19, initial helper20, Master21,
+reentry helper22, failed Worker23, failure-evidence reader24, replacementMaster25.
+Setup19 succeeded+TTL; late log fetch timed out after reclamation, not setup
+failure. Native register/Step1 rc0. submit-lost rc1 and submit-reentry rc0;
+Master UIDf74b3f7c-d998-448a-b343-c5a80d174886, original deadline1790470733.864905,
+START_CONFIRMED, exactly one CREATE. Coordinator independently read actual
+process/logs plus CREATE_RESPONSE_HIDDEN/SAME_UID_RECONNECTED. First Worker
+UIDde3bf8ac-8ba4-4d42-b10f-4282c7b50150 failed normally as designed (retries0);
+checkpoint success and bound failure/FINAL collected, old workloads TTL observed.
+
+resume rc1 after actual gen2 CREATE/CAS binding: UIDa17e48cb-1380-41f9-a3ff-cfe3c829604e.
+Native _advance_recovery_view -> _finish_master_handoff -> kubectl exec copy
+PAYLOAD.yaml hit TLS handshake timeout. Real journal statecreated/replacement_uid;
+handoff POD_READY, no START/gen2 Worker. Original handoff deadline1790471074.5420542,
+compute deadline1790473402 retained. Owner traced existing product same-created
+journal continuation, but frozen driver resume first resolves START_CONFIRMED
+owner and then requires gen1/absentoldJob, so it cannot reach that continuation.
+Not proof that production resume is broken; also not a completed recovery PASS.
+
+Current writes stopped: no new Master, no modified frozen REQUEST/pins/locks,
+no deadline extension or fabricated receipt. Existing bounded read-only observer
+may capture native timeout/TTL; newest Master terminal/reclamation not yet proven.
+Need scoped decision on minimal test-driver same-action continuation entry.
+Do not claim Step3-6/new-output invariance/full P0 accepted. No extra scenarios.
+Evidence: D:/pipeline/task-artifacts/wgs422-p0-integration-20260926/
+p0-native-smoke-20260927/COMBINED01-8323567/{execution,control}; original failures
+and successful checkpoints preserved. Coordinator made docs-only changes;
+git diff --check is the local check, no local runtime tests or extra SSH.
+
 ## 2026-09-27 — user removes cumulative Job cap; cleanup remains mandatory
 
 Exact new instruction: "后续如果测试jobs还不够，建议不设上限，只需要及时回收即可".

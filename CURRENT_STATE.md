@@ -1,5 +1,25 @@
 # Current state
 
+## 2026-09-27 COMBINED01: same-UID pass, replacement handoff interrupted
+
+Latest user scope is minimal current combined case only; no extra normal rerun
+or broad checks. Native register/Step1 returned0. Genuine successful CREATE
+response loss returned1 through native Step2; immediate intent reentry returned0,
+START_CONFIRMED at UIDf74b3f7c-d998-448a-b343-c5a80d174886, original deadline and
+one CREATE. Coordinator read raw process/logs and hidden/reconnected UID records.
+First Worker failed as designed, checkpoint succeeded, complete failure evidence
+was collected; original Master/Worker terminal+TTL observed by owner.
+
+Manual resume created generation2 Master UIDa17e48cb-1380-41f9-a3ff-cfe3c829604e
+and bound owner by CAS. Actual kubectl exec TLS handshake timeout copying
+PAYLOAD.yaml returned1; handoff POD_READY, no START and no generation2 Worker.
+Cumulative25 Jobs. Product created-journal continuation exists, but the frozen
+test driver cannot reach it after current owner is gen2/POD_READY: its resolver
+requires START_CONFIRMED, then its resume precondition requires gen1/oldJobabsent.
+No blind rerun, pin/REQUEST/lock edits, new Master or deadline extension. Minimal
+driver continuation correction requires a scoped decision; only bounded existing
+observation continues. Cross-Master completion/Step3-6 and whole smoke NOT passed.
+
 ## 2026-09-27 latest authorization: no cumulative test Job cap; timely reclamation
 
 User removes the cumulative test-Job cap if needed and requires timely cleanup.

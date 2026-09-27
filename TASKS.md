@@ -1,5 +1,13 @@
 # Active test-branch tasks
 
+Latest result: COMBINED01 native same-UID CREATE-loss reentry PASS; complete
+gen1 failure/TTL collected; genuine gen2 Master created/bound but PAYLOAD copy
+hit TLS handshake timeout before START.25 cumulative Jobs, no gen2 Worker.
+Frozen test driver lacks same-action created-journal continuation entry. Stop
+write operations pending scoped driver correction decision; no product bypass.
+Do not mark full replacement or Step3-6 successful. User requests no redundant
+checks/additional cases; only current combined smoke remains in execution scope.
+
 Latest user override (2026-09-27): cumulative Job count is no longer capped;
 timely exact reclamation is required. Keep all CREATE/UID evidence and bounded
 active workloads. Earlier30/29 estimates are historical planning, not stop gates.
