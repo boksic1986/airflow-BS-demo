@@ -1,5 +1,60 @@
 # Handoff
 
+## 2026-09-27 — coordinated WGS d38322e release window complete
+
+Authority verified by reading WGS-pipeline thread01a09149-ad9d-7e92-b98a-16d9cae075e2:
+after explanation of temporarily closing manual submissions/automatic dispatch,
+waiting for idle, updating shared pipeline/profile/catalog and restoring admission,
+user replied "目前没有流程进行". Earlier source publication and cross-thread
+coordination were explicitly authorized. Continue that narrowly scoped window;
+do not start samples, test faults, change Local/SGE/GATK policy, kill active work,
+delete data or modify business algorithms. Deployment/debug and runtime skills
+apply; this is production BS96/server96, control/data paths remain unchanged.
+
+Save the exact backend/scanner service configurations and original flag values;
+only temporarily disable WGS_EXECUTION_ENABLED and WGS_AUTO_DISPATCH_ENABLED in
+backend, and auto-dispatch in scanner. Preserve scan/watermark/runtime adapter/
+recovery/GATK/Local flags, source mounts, images and credentials. Check fresh idle
+before changes and again after admission closes. If active work appears, report
+and preserve it; no shared-SFS release permission until idle. Original WGS owner
+owns newasset20260927.2-wgs422, source d38322e, profile r3 and genuine receipt.
+Airflow owns subsequent immutable source prepare/gate mapping and authenticated
+catalog CAS activation, then restores exact original admission values. No new
+code or redundant business testing is authorized. Window status is communicated
+through D:/pipeline/task-artifacts/wgs-422-release-20260927/WINDOW_AIRFLOW.md.
+
+Result: frozen07:46:11Z and restored07:51:38Z. Idle checks immediately before
+and after closing admission returned business active0/unsubmitted0/leases0 and
+Airflow queued/running DagRuns0/TaskInstances0. Backend execution and backend+
+scanner auto-dispatch were the ONLY changed flags; scan/watermark/GATK/Local/SGE/
+recovery remained unchanged. WGS owner also checked external CCE occupancy;
+reported only two unrelated old GATK Pending check Pods, no WGS-path user, and
+left them untouched. Publisher completed same-resource two-component official
+release; no source/SFS writer overlapped this window.
+
+Node200 promoted exact receipt-derived immutable source/profile paths with new
+private prepare config hash86b41bf7; old mappings preserved. No source edits or
+new native install. Registration/CAS activation succeeded fromwgs-4.2.2-3b1dae5
+towgs-4.2.2-d38322e with receipt60650a5ff7751f7bfb749eb1e4efd4fca60a5f1e9b18669b2e8d09abd99e55db.
+API current readback after restoring services matches newrelease/r3/receipt.
+Exact prior service configuration restored: backend365beab02248/scanner4ec5abb4d79b,
+running; each captured flag equals its original value, including absent keys.
+Gateway health200. No other service recreation or business/test batch submission.
+
+Private server control /data/airflow-WGS/wgs422-d38322e-window-control keeps
+freeze.json(INACTIVE), restore.json(ACTIVE), original/restored flag records,
+idle evidence, real registration JSON and activation output. Node env backup:
+/home/ctapa/.config/airflow-wgs/.wgs422-window-20260927/runtime.env.before.
+The original WGS owner was told windowCLOSED and no further shared-path writes
+scheduled. No ongoing monitor promised; user testing is next. Full details in
+docs/releases/2026-09-27-wgs422-d38322e-bs96.md. Rollback requires a NEW idle/admission
+window and coordinated genuine prior-source asset publication; do not merely
+switch old catalog selection while SFS remains new. Data and history are retained.
+
+Git changes: only current-state/tasks/server-info/handoff, new release note and
+exact exported receipt. Local git whitespace/hash/ancestry checks only; no
+pytest/npm/business smoke was run or needed for this configuration rollout.
+
 ## 2026-09-27 — BS96 P0/Local production rollout complete
 
 Current user explicitly authorizes deployment to BS96, then user-led testing.

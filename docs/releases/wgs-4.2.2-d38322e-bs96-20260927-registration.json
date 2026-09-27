@@ -1,0 +1,31 @@
+{
+  "assets": {
+    "asset_manifest_sha256": "a8373a9594dc7deec60f25b4fca3850319815f082fd9df5701c7af1be8042128",
+    "pipeline_build_sha256": "ad05c3c095678b115677c4b40d358dc360a0961f816601da0abaddd2394aaac6",
+    "profile_id": "wgs-4.2.2",
+    "profile_revision": "r3",
+    "profile_sha256": "5e83e5ed63300fd26de51e84dea137fdd3f3413f3bb15651862563719335aad6",
+    "release_id": "20260927.2-wgs422",
+    "resource_manifest_sha256": "67713468626acbcaecf62a1ac23181b487c1074cffc833a10a6889ac8db122e7",
+    "source_commit": "d38322e457bda9f33289fe40c6ee2bd9a262c877",
+    "state_verified": true,
+    "status": "PASS"
+  },
+  "receipt_sha256": "60650a5ff7751f7bfb749eb1e4efd4fca60a5f1e9b18669b2e8d09abd99e55db",
+  "release": {
+    "bs10610_repo_path": "/mnt/biodevrwbi/33.chenjiucheng/project/wgs-releases/20260927.2-wgs422/wgs-4.2.2-d38322e",
+    "cce_pipeline_version": "0.8.7",
+    "node200_profile_path": "/bi/biodevrwbi/33.chenjiucheng/project/cce-pipeline-profiles/wgs/wgs-4.2.2-r3.yaml",
+    "node200_repo_path": "/bi/biodevrwbi/33.chenjiucheng/project/wgs-releases/20260927.2-wgs422/wgs-4.2.2-d38322e",
+    "pipeline_build_sha256": "ad05c3c095678b115677c4b40d358dc360a0961f816601da0abaddd2394aaac6",
+    "profile_id": "wgs-4.2.2",
+    "profile_revision": "r3",
+    "profile_sha256": "5e83e5ed63300fd26de51e84dea137fdd3f3413f3bb15651862563719335aad6",
+    "release_id": "wgs-4.2.2-d38322e",
+    "resource_manifest_sha256": "67713468626acbcaecf62a1ac23181b487c1074cffc833a10a6889ac8db122e7",
+    "rule_event_schema_version": "1",
+    "source_commit": "d38322e457bda9f33289fe40c6ee2bd9a262c877",
+    "version": "V4.2.2"
+  },
+  "schema_version": "cce-release.v1"
+}

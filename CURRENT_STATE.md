@@ -1,5 +1,23 @@
 # Current state
 
+## 2026-09-27 BS96 WGS d38322e/r3 serial publication complete (latest)
+
+After the WGS conversation's maintenance-window explanation, the user confirmed
+there was no running workflow. Coordinated window07:46:11–07:51:38Z temporarily
+disabled only WGS manual execution admission/backend auto-dispatch/scanner
+auto-dispatch. Fresh checks before/after freeze: active business0, unsubmitted0,
+occupied transfer leases0, Airflow queued/running DagRuns0 and TaskInstances0.
+
+WGS owner publishedsource d38322e/assets20260927.2-wgs422/r3 with the same accepted
+Master3d180a9/native0.8.7/reference-resource bytes. Production private source/
+prepare/template mapping added; official receipt60650a5f registered and CAS
+activated wgs-4.2.2-d38322e. This supersedes the earlier same-day3b1dae5/r2 selection.
+Exact original admission/dispatch flags and watermark restored and compared;
+GATK/Local/SGE policies untouched. Backend/scanner now use private window-control
+restore.json; other services and platform source84510df unchanged. Gateway200,
+currentrelease/profile/receipt readback match. No samples, smoke/fault tests or
+new product changes. User may now test. See the dated d38322e release note.
+
 ## 2026-09-27 BS96 P0/Local presentation deployment complete
 
 User authorized production deployment only and will run business tests. BS96

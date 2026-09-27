@@ -1,5 +1,21 @@
 # Active test-branch tasks
 
+## WGS422-D38322E-BS96-WINDOW-20260927
+
+- [x] Verify user window confirmation in WGS-pipeline conversation and current
+  BS96 mounts/flags; retain exact two-service restore configuration.
+- [x] Fresh idle checks; temporarily freeze WGS execution/backend and scanner
+  auto-dispatch only, recheck idle and hand off the serial publisher window.
+- [x] Consume WGS owner's genuine newsource/profile/assets receipt; add exact
+  immutable source/private prepare/template mapping without altering old entries.
+- [x] Authenticated register/CAS activatewgs-4.2.2-d38322e/r3/receipt60650a5f.
+- [x] Restore every captured original flag (including absent keys) and watermark;
+  confirm currentrelease and startup. No sample/fault/smoke tests.
+- [x] Notify original WGS owner window CLOSED; no more SFS writes scheduled here.
+
+User-led tests remain the next action. No code expansion, workflow kill, data
+deletion, Local/SGE/GATK policy change or reference-resource content update.
+
 ## P0-LOCAL-BS96-DEPLOY-20260927
 
 - [x] User production authorization and live environment/idle/service-mount checks.

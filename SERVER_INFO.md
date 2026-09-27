@@ -1,5 +1,21 @@
 # SERVER_INFO.md
 
+## 2026-09-27 BS96 coordinated WGS r3 source promotion (latest)
+
+Current WGS releasewgs-4.2.2-d38322e; r3 profile5e83e5ed..., genuine receipt60650a5f.
+Master3d180a9, native0.8.7 and platform84510df unchanged. Immutable WGS source
+/bi/biodevrwbi/33.chenjiucheng/project/wgs-releases/20260927.2-wgs422/wgs-4.2.2-d38322e;
+private prepare/home/ctapa/.config/airflow-wgs/releases/wgs-4.2.2-d38322e-r3/prepare.yaml.
+Prior source/prepare maps and registry history retained.
+
+Production backend365beab02248 and scanner4ec5abb4d79b now use
+/data/airflow-WGS/wgs422-d38322e-window-control/restore.json. Source mounts/images
+unchanged; this is the exact pre-window flag configuration, not freeze.json.
+WGS execution/auto-dispatch/scan=true, original watermark unchanged, GATK/Local/
+SGE gates retained. At07:51:38Z flags were restored after successful CAS; gateway
+health200 and currentrelease/profile/receipt match. Other services unchanged.
+No analysis/test launched. Exact window/rollback details in the dated release note.
+
 ## 2026-09-27 BS96 P0/Local source rollout (active)
 
 server96/chenjc, control /data/airflow-WGS. Selected release
