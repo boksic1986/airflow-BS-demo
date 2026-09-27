@@ -1,5 +1,13 @@
 # SERVER_INFO.md
 
+## 2026-09-27 nipttest package installation (not production activation)
+
+Writable node005/chenjc nipttest now imports native0.8.8/source095f1e9, wheelSHA
+33cb78f664ce562cdaae7f1334a891cba132a2ec4ba07d66bf33c107d61aaa06. Dependencies
+and existing code-adjacent paired bootstrap unchanged; rollback archive retained.
+Production node200 ctapa gate still imports private0.8.7 and BS96 mounts/flags
+remain unchanged. See docs/releases/2026-09-27-nipttest-088.md.
+
 ## 2026-09-27 permissions release registered and activated
 
 Source953ff94 readonlyoverlays now servebackend(2modules),scanner/observer(catalog

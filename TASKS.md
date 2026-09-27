@@ -1,5 +1,15 @@
 # Active test-branch tasks
 
+## CCE088-INSTALL-CONSUMERS-20260927
+
+- [x] Verify exact owner wheel and writable node005 nipttest environment.
+- [x] Back up installed package/dist-info/CLI and install offline/no-deps0.8.8.
+- [x] Verify CLI/version/import/build; preserve paired bootstrap and dependencies.
+- [ ] Native owner delivers minimum actualCLI provenance interface, same0.8.8.
+- [ ] Designated WGS owner completes externalCLI consumer on dev_CJC_4.2.2_cloud.
+- [ ] Integrate matched platform runtime/release binding after genuine delivery.
+- [ ] Record final pins and necessary readback only; no redundant tests/retry.
+
 ## WGS-PROFILE-PERMISSIONS-20260927 (authorized profile correction)
 
 - [x] Record user choice:bioinfo/520,2775/0664/0775; do not change WGS prepare.

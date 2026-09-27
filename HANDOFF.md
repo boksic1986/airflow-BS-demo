@@ -1,5 +1,33 @@
 # Handoff
 
+## 2026-09-27 authorized 0.8.8 installation and consumer update (in progress)
+
+User supplied the exact cce_pipeline-0.8.8 wheel and authorized installation in
+nipttest, followed by platform and WGS repository updates. SHA256 verified on
+node005:33cb78f664ce562cdaae7f1334a891cba132a2ec4ba07d66bf33c107d61aaa06;
+owner delivery source095f1e937d8cb5815c62435f4875a88921d7afe3. Delivery explicitly
+excludes external-CLI consumer compatibility; do not report that as completed.
+Use writable node005 nipttest, not WGS production environment. Retain exact
+installed package/dist-info/launcher rollback before offline no-dependency install.
+BS96 read-only preflight matches recorded mounts and three consumer IDs; existing
+production private0.8.7 runtime stays pinned until a matched release is ready.
+WGS source owner resumes minimum dev_CJC_4.2.2_cloud consumer work. No business
+retry, rule change, data deletion, broad tests or unrelated image rebuild.
+
+Installation completed: node005 offline/no-deps pip returned success; CLI/import
+version0.8.8 and SOURCE_COMMIT095f1e9 confirmed. Backup archiveSHAd3748140 in
+the exact evidence root recorded in docs/releases/2026-09-27-nipttest-088.md.
+BootstrapSHAa16ecf15 unchanged, installed ownership remainschenjc:bioinfo.
+Platform catalog version is already generic; no backend/DAG version patch needed.
+Native runtime/guard assets differ from production pins: owner asked to explain
+before activation. No pins were changed. WGSowner confirms actual wheel lacks
+runtime-info; nativeowner now supplies the minimal interface while WGSowner
+implements its consumer, without duplicate implementation here.
+
+Read-only inspection correction: first asset comparison used nonexistent
+cce_runtime.py (exit1/FileNotFoundError); inspected declared policy and used its
+actual cce_batch_runtime.py path successfully. No runtime command was retried.
+
 ## 2026-09-27 owner correction: hand off to WGS-cloud-plugins
 
 User explicitly identifies0.8.8 owner as019f9d79-be3f-7701-af33-3595d72bbfac

@@ -1,5 +1,14 @@
 # Current state
 
+## 2026-09-27 nipttest0.8.8 installed; consumer integration pending
+
+User-specified wheel33cb78f/source095f1e9 installed offline/no-deps on node005
+in nipttest. Version/import/build readback passed; old0.8.7 package/metadata/CLI
+archive retained. No production runtime/catalog/service switch. Exact evidence:
+docs/releases/2026-09-27-nipttest-088.md. User designates WGS-pipeline as sole
+externalCLI compatibility implementer. Native owner must provide the missing
+readonly runtime-info contract; installation alone does not resolve WGS prepare.
+
 ## 2026-09-27 designated0.8.8 owner corrected
 
 User names WGS-cloud-plugins thread019f9d79-be3f-7701-af33-3595d72bbfac as actual
