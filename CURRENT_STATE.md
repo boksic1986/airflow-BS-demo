@@ -1,5 +1,12 @@
 # Current state
 
+## 2026-09-27 designated0.8.8 owner corrected
+
+User names WGS-cloud-plugins thread019f9d79-be3f-7701-af33-3595d72bbfac as actual
+0.8.8 developer and hands externalCLI compatibility to it. Full context delivered;
+other agents instructed not to duplicate implementation. Existingproductionstate
+unchanged; no0.8.8 installation/publication ornewbatchretry in this handoff.
+
 ## 2026-09-27 external-runtime fix assigned to0.8.8 development
 
 Latestuser directs externalcce support to native0.8.8 currentlyunderdevelopment.

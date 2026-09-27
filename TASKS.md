@@ -14,6 +14,8 @@
 - [ ] Latestuser assigns externalCLI support to native0.8.8 development; WGSowner
   pairs dev_CJC_4.2.2_cloud compatibility with actualCLI introspection/version
   contract. No0.8.7 reinstall, productionupgrade ornewretry untilready.
+  Designatedowner corrected toWGS-cloud-plugins019f9d79-be3f-7701-af33-3595d72bbfac;
+  fullhandoff delivered, thisthread stops duplicateimplementation.
 - [ ] Record live result and commit platform documentation, no redundant tests.
 
 ## OPERATOR-SCHEMA3-20260927 (fixed/deployed; retry blocked by separate WGS contract)

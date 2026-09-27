@@ -1,5 +1,17 @@
 # Handoff
 
+## 2026-09-27 owner correction: hand off to WGS-cloud-plugins
+
+User explicitly identifies0.8.8 owner as019f9d79-be3f-7701-af33-3595d72bbfac
+(WGS-cloud-plugins) and asks that agent to continue. Verified its active approved
+0.8.8 simplified-release implementation onjiucheng/cce-release-simple-088.
+Sent full handoff: actualsiblingPython failure, privateCLI layout, completed
+platform registration/permissions repair, failedattempt4 state, minimum external
+CLI introspection plus WGSconsumer scope, evidencepaths and production boundaries.
+019f8355 notified to stop this item (confirmed no edits/install/publication);
+WGSowner01a09149 notified to avoid duplicate work and coordinate under designated
+owner. This thread does not implement0.8.8 in parallel. No production actions.
+
 ## 2026-09-27 latest decision: external-runtime compatibility belongs to0.8.8
 
 User explicitly says cce-pipeline0.8.8 is underdevelopment and externalcce support
