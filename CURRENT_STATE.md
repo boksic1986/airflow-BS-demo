@@ -1,5 +1,34 @@
 # Current state
 
+## 2026-09-27 acceptance: requested synthetic Step1-6 scope complete
+
+Step1-2 retain their actual earlier PASS evidence; user excludes gen2 pre-START
+timeout, not marks it repaired. Same COMBINED01 workdir/config/checkpoint continued
+manually. Gen4 Master057dbe3c-f8c2-426d-8387-274cf93e0432 ran only finalize/all,
+no Worker; native Step3 SUCCEEDED2/2. Native Step4 publish, Step5 download and
+Step6 materialize all returned0. DOWNLOAD_VERIFIED PASS3files/1786B;
+MATERIALIZED VERIFIED/PASS. Checkpoint SHA and post-success mtime are unchanged.
+Results owned by ctapa6801:520, dirs0755/files0644. Native log archive verified.
+Completed within original operator deadline1790478526.9563308; no deadline reset.
+
+Coordinator read raw process receipts, terminal/status, delivery markers,
+checkpoint proof, final verification and gen4 exact UID reclamation record under
+D:/pipeline/task-artifacts/wgs422-p0-integration-20260926/
+p0-native-smoke-20260927/COMBINED01-OPERATOR-G4/. Only synthetic fixture errors
+were corrected (post-success timestamp baseline and two omitted manifest files),
+with old evidence retained. Gen4 confirmation initially saw stale gen3 START;
+existing native same-UID confirmation completed without new Master/state editing.
+
+Scope is manual operator continuation plus actual native downstream acceptance,
+NOT automatic recovery, platform API/Airflow end-to-end, uninterrupted normal-case
+or biological equivalence acceptance. No product edits, production deployment,
+new wheel/image/profile, Step7/data cleanup or extra test scenarios this turn.
+Final ledger reconciled: prior18 + COMBINED24 =42 CREATEs. Actual scoped Job/Pod
+queries are empty and six storage-helper records CLEANED. Two older completed
+setup Jobs without TTL were saved then UID/RV-conditionally deleted; their Pods
+are absent. Test directories/results/locks retained. No additional testing needed.
+Sections below are historical checkpoints, superseded by this acceptance scope.
+
 ## 2026-09-27 latest scope: Step1-2 complete; downstream only
 
 User explicitly closes Step1-2 and excludes gen2 pre-analysis timeout from this

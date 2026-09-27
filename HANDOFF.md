@@ -1,5 +1,108 @@
 # Handoff
 
+## 2026-09-27 — requested native downstream smoke passed
+
+Goal: close Step1-2 as requested, exclude gen2 timeout, finish original synthetic
+COMBINED01 Step3-6 without whole-case restart or product/production changes.
+Original runtime owner used BS10610/server10610 chenjc for Kubernetes and
+node200/t640 ctapa nipttest task-private runtime, source8323567/0.8.7. Candidate
+Master digest3d180a9f074cf38ffaf18446f2910a316e2b784b8f7f859bea5dc4a74d10f1af
+unchanged. No service/scanner/dispatch/release/profile changes or runtime install.
+
+Actual gen4 same-workdir result: Step3 SUCCEEDED2/2; operator_continue.py
+publish-final/download/materialize all rc0. DOWNLOAD_VERIFIED PASS3files/1786B,
+manifest MD5d509bf1af8592b6af82bfcea724d8366; MATERIALIZED VERIFIED/PASS.
+Native log archive4672B verified, SHA69efb294509893b1b3ed375097419a567892a593932eb36681496dab5b984d56.
+Final verification1790478371.3316016 precedes unchanged deadline1790478526.9563308.
+Checkpoint before/after SHA37fc1795eae2e970363b212a8b7aa429144cb4117c9b794658b13bebb2e8a86a
+and mtime1790470262562322098 match; original in-rule baseline preserved separately.
+Results ctapa6801:520, directory0755/files0644. No checkpoint/payload rerun in gen4.
+
+Coordinator independently read COMBINED01-OPERATOR-G4/FINAL_VERIFICATION.json,
+execution/{status.log,publish-final-process.json,download-process.json,
+materialize-process.json}, cloud_delivery/{DOWNLOAD_VERIFIED,MATERIALIZED},
+and observations/057dbe3c-f8c2-426d-8387-274cf93e0432-reclaimed.json under
+D:/pipeline/task-artifacts/wgs422-p0-integration-20260926/p0-native-smoke-20260927.
+No redundant remote test execution. Docs-only local diff check precedes commit.
+Files changed: CURRENT_STATE.md, TASKS.md, HANDOFF.md on existing test branch.
+
+Synthetic-only corrections and initial failures documented below. Exact own
+manifest partial also remained in OBS after SFS removal; owner preserved its
+366B copy, verified SHA08566d8952468e4ff84635f80b32083a2bcb6f41979426eeab326afb3e41a378
+and removed only that object before successful publish. No other data deleted;
+original manifest, results, requests, failed logs and generation history retained.
+Gen4 Master terminal+TTL proven. Final COMBINED_CREATE_LEDGER.md reconciles prior18
+plus24 real COMBINED UIDs =42 CREATEs (no count reset). Coordinator read
+FINAL_RECLAMATION.json: exact scoped Jobs/Pods absent; six storage histories CLEANED.
+EXACT_SETUP_RECLAMATION.json proves saved terminal and UID/RV Foreground deletion
+of cce-p0-smoke-setup-20260927 UID9c2889e8-2583-42e4-a24f-e849db159a84 and
+cce-p0-smoke-setup-2-20260927 UIDc34a17d7-2fb0-4b74-9141-1f7dcb102ff0;
+both Job/Pod absent. Both lacked TTL. Saved specs permit recreation, not recovery
+of original UIDs. No directories/results/locks removed. Final report is local
+COMBINED_FINAL_REPORT.md; raw evidence/fixtures remain outside Git.
+
+This is manual operator continuation plus native downstream PASS, not proof of
+automatic pre-START recovery, stale-event race resolution, platform API/Airflow
+E2E or biological equivalence. Step7 not run; no production authorization implied.
+Next: this requested test scope is closed; no further tests. Rollback is docs revert;
+no deployed product changed. Fixture prior versions and all failures remain in
+task evidence; do not roll back successful outputs or reopen excluded tests.
+
+## 2026-09-27 — gen4 analysis succeeds; downstream manifest fixture correction
+
+Actual gen4 Master UID057dbe3c-f8c2-426d-8387-274cf93e0432 completed only
+finalize/all, no Worker. Native same-UID START confirmation and Step3 reported
+SUCCEEDED/100%/2of2. Earlier confirmation read stale gen3 START and failed;
+all failure logs remain, no manual state edit or additional Master. Owner observed
+gen4 terminal and TTL reclamation. This is manual operator continuation evidence,
+not proof that automatic pre-START recovery or every handshake edge is fixed.
+
+Coordinator read COMBINED01-OPERATOR-G4/execution/status.log, publish.log and
+inspect-publish.log. Native Step4 correctly rejected five OBS objects because the
+synthetic manifest lists only archive, while fixture also writes payload.txt and
+checkpoint-proof.json under results. Read-only source check confirms read_manifest
+accepts explicit artifact types and materialize selects the unique batch archive.
+Authorized only adding those two existing synthetic files with actual bytes/MD5
+to the manifest via bounded helper. Preserve original manifest and hashes outside
+delivery prefix; do not change existing result bytes, frozen gen4 script/request,
+terminal evidence or product code. A separately derived fixture source records
+the correction. Continue native Step4-6, not analysis rerun. No production changes.
+
+Owner reports helper37 rename of manifest partial failed EPERM; helper38 stopped
+at existing backup and preserved old171B manifest. Same UID10001 verified exact
+files/checksums. Approved original fixture's direct-write method only after old
+manifest byte/hash recheck, followed by byte/read_manifest verification; preserve
+backup and failed logs, no sudo/chmod or result/terminal changes. Only its own
+exact hash-verified partial may be removed. Original operator deadline unchanged.
+
+## 2026-09-27 — downstream fixture timestamp baseline correction
+
+Actual gen3 operator handoff START_CONFIRMED, UID5bb3436d-06af-4e64-8658-60095e2ef42a;
+Worker UIDb055a3e5-e65c-4f03-921a-306efdc51ead succeeded. Native Step3 rc0 returned
+FAILED because synthetic finalize compared a baseline recorded inside checkpoint
+rule before Snakemake success postprocessing. Gen3 did not execute checkpoint.
+Both workloads terminal+TTL observed. Do not report this gen3 as successful.
+
+Coordinator independently read reader31's actual checkpoint/metadata and image
+Snakemake source in COMBINED01-OPERATOR/checkpoint-reader-r2.log. SHA remains
+37fc1795eae2e970363b212a8b7aa429144cb4117c9b794658b13bebb2e8a86a.
+Origin mtime1790470262552336995 vs current1790470262562322098 (9.985103ms);
+metadata endtime1790470262.5623221 agrees with current time, long before gen3.
+Snakemake dag.py775 check_and_touch_output explicitly touches successful outputs.
+checkpoint file10001:520/0644. Reader30 completed but log retrieval failed;
+reader31 repeated only the same fixed read-only evidence, not analysis.
+
+Owner may correct ONLY this task's synthetic finalize baseline: retain original
+origin/Snakefile/REQUEST/all failed evidence, write a new separately pinned
+post-success baseline bound to actual metadata+same SHA+pre-gen3 mtime, retain
+original fixture copy before task-private fixture change. A bounded write helper
+and next real native Master/CAS may finish finalize/all in the same workdir,
+reusing checkpoint and successful payload; no new Worker is expected. Then
+actual native Step3-6, minimal output/permission/reclamation checks. No product
+code or production change, fake FINAL, old deadline reset or whole-case rerun.
+Inherit operator deadline1790478526.9563308. This is correction of proven test
+fixture error within the user's downstream test scope, not a new P0 feature.
+
 ## 2026-09-27 — user closes Step1-2 and requests downstream-only tests
 
 Exact latest instruction: ignore the second Master's pre-analysis timeout,

@@ -3,10 +3,21 @@
 Latest user scope supersedes restart/recovery proposals below:
 - [x] Step1 testing complete (actual native upload rc0).
 - [x] Step2 testing complete (actual initial same-UID reconnect/START pass).
-- [ ] Step3 remaining analysis/checkpoint reuse.
-- [ ] Step4-6 publish/download/materialize and exact test-Job reclamation.
+- [x] Step3 remaining analysis/checkpoint reuse: gen4 native SUCCEEDED/2of2;
+  synthetic baseline corrected with provenance; no checkpoint/payload rerun.
+- [x] Step4-6 native publish/download/materialize: all rc0; verified delivery
+  3files/1786B, materialized VERIFIED/PASS, outputs0755/0644, log archive verified.
+- [x] Final exact test-Job ledger/reclamation:42 CREATEs (prior18 + COMBINED24),
+  scoped Jobs/Pods absent, six storage helpers CLEANED; two old no-TTL setup
+  Jobs/Pods precisely reclaimed. Results/directories/locks retained; testing stopped.
 Gen2 pre-START timeout excluded by user, not asserted fixed or passed. Do not
 repeat Step1-2 tests or implement the pre-START recovery contract this turn.
+
+Accepted scope: same-workdir manual continuation; native Step3-6 completed before
+the unchanged operator deadline. Synthetic baseline/manifest corrections are
+explicit provenance, not product patches. Automatic recovery/API/Airflow E2E,
+biological equivalence and Step7 are not claimed. Earlier proposals/checklists
+below are historical and do not reopen extra tests or supersede this scope.
 
 Latest clarification: do NOT treat fresh-case restart as necessary. Same-workdir
 replacement is the desired route. Read-only review identified a native/platform
