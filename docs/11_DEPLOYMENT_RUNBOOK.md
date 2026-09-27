@@ -1,5 +1,15 @@
 # Deployment runbook
 
+## 2026-09-27 BS10610 auxiliary DAG discovery release
+
+Only Airflow API/scheduler/worker were recreated with three updated read-only
+auxiliary DAG file mounts. `bio_wgs.py`, `bio_gatk.py`, backend and all other
+services retain their existing pins. Active and rollback private Compose paths,
+live checks and source hashes are in
+[the exact release note](releases/2026-09-27-dag-discovery-bs10610.md).
+Do not use `current` to infer the running source or apply this test release to
+BS96. No scanner/dispatch gate or business run changed.
+
 ## 2026-09-26 P0 normal-path test delivery (completed)
 
 Source e358aad plus native0.8.7/e2962a2 closes the registration/current-owner

@@ -7,9 +7,9 @@
 - [x] Verify the existing BS10610 P0 release is mounted and functional source
   matches the pushed branch; avoid an unnecessary five-service restart.
 - [x] Run minimal BS10610 gateway, DB and DAG-discovery checks.
-- [ ] Correct duplicate DAG discovery (`bio_wgs`/`bio_gatk`) in a separately
-  scoped Airflow change, then repeat only DAG import and gateway checks before
-  claiming test-node DAG acceptance. No production deployment or business run.
+- [x] Correct duplicate DAG discovery (`bio_wgs`/`bio_gatk`) in a narrowly
+  scoped Airflow change (`4fe71cb`); real DagBag RED/GREEN and test-node
+  import/mount/gateway checks passed. No production deployment or business run.
 
 ## P0 source Git synchronization — 2026-09-27
 

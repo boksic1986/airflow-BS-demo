@@ -1,5 +1,49 @@
 # Handoff
 
+## 2026-09-27 — duplicate main DAG discovery fixed on BS10610
+
+Goal: address the user's duplicate-DAG finding without deleting a real DAG or
+changing task behavior. Source commit `4fe71cb` on pushed canonical test branch
+`jiucheng/test/wgs-local-main-sync-20260917` changes only the parse-time imports
+in three auxiliary DAGs, adds one real DagBag regression, and updates the DAG
+spec. The main DAGs, task graphs and execution gates are unchanged.
+
+Test boundary: `ssh BS10610`, hostname `server10610`, identity `chenjc`, control
+root `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS`. Read-only live
+preflight showed the old three helper files byte-identical to the branch and
+zero queued/running DagRuns for the five related DAG IDs. The Airflow 2.9.3
+DagBag test was RED on the actual old mounts with two duplicate IDs, then GREEN
+on an isolated candidate containing the five live DAGs plus common helpers.
+Candidate WGS native monitor unittest 2/2 and GATK maintenance script passed.
+No full suite or business batch was run.
+
+The first disposable candidate parse erroneously included a non-runtime
+Snakemake logger plugin package and failed for its missing dependency; copying
+the exact running DAG file set removed that test-fixture error. A standalone
+candidate test initially called `DagBag.get_dag`, which queried an uninitialized
+scratch SQLite DB; the test was corrected to inspect `bag.dags` directly.
+Neither failure changed deployed code or the product fix.
+
+Released only three helper files to
+`releases/20260927-dag-discovery-4fe71cb/dags` (directories 0755, files 0644,
+`chenjc:bioinfo`); their SHA256 hashes matched local committed sources.
+Private `candidates/dag-discovery-4fe71cb-control/compose.json` changes exactly
+nine read-only bind sources across Airflow API/scheduler/worker; `rollback.json`
+is an exact copy of the prior active control. Both private files are 0600 in a
+0700 directory. `docker compose config --quiet` passed. `up -d --no-deps --pull
+never --force-recreate` succeeded for only those three services; Compose's
+orphan warning was informational and no orphan was removed.
+
+Post-switch: actual mounts 3/3 in each affected service; `airflow dags
+list-import-errors -o json` returned `[]`/exit 0; `dags list -o json` resolved
+`bio_wgs`, `bio_gatk` and the three auxiliary DAGs to their own files. Gateway
+`/api/health` and `/api/health/db` returned 200. Backend/observer/frontend/
+metrics/Redis/Postgres retained their pre-switch uptime. No scanner/dispatch
+setting, SFS, runtime image, clinical data, production service or live batch
+was modified. Rollback, if ever needed after an active-run preflight, uses the
+private `rollback.json` for only the three Airflow services; do not delete DAG
+metadata or project data. Full platform/API/recovery acceptance remains separate.
+
 ## 2026-09-27 — Airflow canonical test branch push and BS10610 live check
 
 Goal: correct the earlier isolated-branch delivery, include Airflow P0 and

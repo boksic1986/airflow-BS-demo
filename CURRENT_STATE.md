@@ -1,5 +1,22 @@
 # Current state
 
+## 2026-09-27 BS10610 auxiliary DAG discovery fixed
+
+The canonical Airflow test branch now contains `4fe71cb`, which delays the
+main-DAG helper imports in the WGS native monitor, WGS maintenance and GATK
+maintenance modules. Their DAG IDs, task graphs and runtime calls are unchanged.
+BS10610 mounts only these three patched files from
+`releases/20260927-dag-discovery-4fe71cb` in the Airflow API, scheduler and
+worker. Backend, main WGS/GATK DAGs and all unrelated services keep their
+previous mounts. The precise prior Compose is retained as a private rollback.
+
+The actual Airflow 2.9.3 DagBag regression was RED for two duplicate main-DAG
+IDs before the fix and GREEN in an isolated candidate. After the test-node
+switch, `airflow dags list-import-errors -o json` returned `[]`/exit 0, all
+five DAGs resolved to their own files, nine changed mounts were verified
+read-only, and gateway/backend DB health returned 200. No business DAG run or
+production change was made. See the release note and latest HANDOFF.
+
 ## 2026-09-27 Airflow canonical test branch aligned with deployed P0 code
 
 The existing canonical test branch `jiucheng/test/wgs-local-main-sync-20260917`

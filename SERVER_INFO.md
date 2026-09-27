@@ -1,5 +1,19 @@
 # SERVER_INFO.md
 
+## 2026-09-27 BS10610 auxiliary DAG import correction
+
+Test hostname `server10610`, SSH identity `chenjc`. Airflow API/scheduler/worker
+now mount `bio_wgs_native_monitor.py`, `bio_wgs_maintenance.py` and
+`bio_gatk_maintenance.py` read-only from
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260927-dag-discovery-4fe71cb/dags`.
+Private active control:
+`candidates/dag-discovery-4fe71cb-control/compose.json`; precise prior
+three-service rollback: `candidates/dag-discovery-4fe71cb-control/rollback.json`.
+All other DAG/service mounts remain at their previous pinned releases;
+the `current` symlink is not live source. Five affected DAGs had zero queued or
+running DagRuns before the switch. Post-switch import errors `[]`, DAG file
+ownership correct, gateway/backend DB health 200. No production or clinical run.
+
 ## 2026-09-26 P0 corrected test platform active (latest)
 
 BS10610 five affected containers now mount releases/20260926-p0-e358aad:
