@@ -1,5 +1,25 @@
 # Handoff
 
+## 2026-09-27 authorized main/production repair synchronization
+
+User requests Airflow repair code on main and production. Fetch/ls-remote show
+both targets at0b35278; clean integration source03dc8d7 is a strict descendant.
+Reviewed20 intervening commits:4 code fixes (SSH timeout e307328, Operator schema3
+a1c5387, qualified release identity953ff94, paired request validation03dc8d7),
+plus tests and their operational documentation. No conflicting or unrelated code.
+Existing focused remote results are6,6,7,8 passed respectively; no new code is
+introduced by fast-forward, so no redundant runtime tests are run. git diff --check
+and exact code-tree identity are the integration checks, not a new runtime claim.
+
+Authorized operation:fast-forward local main and jiucheng/release/production,
+then `git push --atomic origin main jiucheng/release/production`; verify both remote
+SHAs equal the integration head. Never force-push. Keep source/worktree and dirty
+primary workspace unchanged. This task does not redeploy BS96, restart services,
+touch runtime data or resubmit the running batch. If a future rollback is needed,
+use a scoped revert; do not rewind shared branches or imply Git rollback changes
+the deployed module. Remote command output is the push completion authority.
+
+
 ## 2026-09-27 approved paired-validator repair deployed, Step1 resumed
 
 Only scripts/cce_paired_runtime.py implementation changed: initial WGS digest omits

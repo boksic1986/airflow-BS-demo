@@ -1,5 +1,14 @@
 # Current state
 
+## 2026-09-27 Airflow repair branch synchronization
+
+User requests main and jiucheng/release/production synchronization. Both fetched
+targets are0b35278 and are ancestors of tested source03dc8d7, so integration is
+fast-forward only. Scope includes the four already-deployed fixes e307328,
+a1c5387,953ff94,03dc8d7 plus their tests and operational records. No new runtime
+change, deployment, service restart, database operation or analysis retry.
+
+
 ## 2026-09-27 upload blocked before native Step1
 
 User approved new146B51 configuration/execution after the preceding handoff.

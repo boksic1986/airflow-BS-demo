@@ -1,5 +1,13 @@
 # Active test-branch tasks
 
+## AIRFLOW-REPAIR-SYNC-20260927
+
+- [x] Verify main/production origins at0b35278, clean source03dc8d7, and fast-forward ancestry.
+- [x] Review four deployed fixes and recorded focused results:6/6/7/8 passed respectively.
+- Integration targets:main and jiucheng/release/production; atomic non-force push.
+- No runtime tests repeated and no deployment in this Git-only task.
+
+
 ## P0-STEP1-REQUEST-CONTRACT-20260927
 
 - [x] Identify real producer/consumer hash mismatch before native upload launch.
