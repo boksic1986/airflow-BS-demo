@@ -1,5 +1,47 @@
 # Handoff
 
+## 2026-09-27 WGS441d5e7 / native0.8.8 production deployment completed
+
+Goal: consume designated WGS owner's external-CLI fix and matched genuine release,
+update BS96 without retrying analysis. Official publication PASS/state_verified,
+receipt43d88c; node200 ctapa private0.8.8 bound with new prepare3e5a6e20/profile12b25bf6
+and paired policy. Actual deployed gate validation, profile digest and paired
+selection passed. Normal catalog API registered/CAS-activatedwgs-4.2.2-441d5e7.
+
+Production server96 admission window restored via exact `restore.json`; complete
+env/image/mount comparison passed14:02:18Z, backendd898d622b254/scanner2fe75b327b2b,
+all10 other container IDs unchanged. Nginx check/reload and production-address
+gateway/API/DB health ok. A loopback gateway probe returned403; actual documented
+production address returned200, no security config changed. Publisher retained
+Job Complete/receipt evidence and removed only its exact temporary Job/ConfigMap.
+
+Changed repository files: CURRENT_STATE.md, TASKS.md, HANDOFF.md, SERVER_INFO.md,
+docs/releases/2026-09-27-wgs441d5e7-088-bs96.md. Local task helpers live outside Git
+under D:/pipeline/task-artifacts/wgs-088-bs96-20260927. Executed bind.py,
+verify-binding.py, activate.py, compose restore, readback.py; all exit0. Native9
+and WGS6 existing focused checks reused; no extra tests, build, workflow submit,
+retry, data deletion or pending mutation. This is deployment acceptance only.
+
+Source branch jiucheng/test/wgs-local-main-sync-20260917; this turn only deployment
+documentation changes, no platform product code. No push in this turn. Failed
+historical attempt4 not retried or rebound; user controls next submission.
+Rollback requires coordinated SFS/profile/catalog/node restoration in idle window,
+not a lone current-pointer change. Exact retained backups and pins in release note.
+
+## 2026-09-27 user authorizes441d5e7 publication and BS96 activation
+
+User confirmed continuing new WGS source441d5e7/profile-r3/official receipt
+publication and BS96 registration, after source completion by the WGS owner.
+Scope includes read-only production idle/count checks, bounded admission freeze,
+matching node200 ctapa runtime/prepare/paired pins, normal catalog registration
+and activation, then exact setting restoration. No business retry, database-row
+repair, batch/sample/pending/data deletion, new cloud tests or image rebuild.
+WGS owner prepares and publishes only after explicit OPEN notification; this
+thread owns platform binding and window. Existing immutable releases are retained.
+Current BS96 mounts/IDs still match recorded953ff94 overlay and84510df baseline.
+Record actual idle result before any freeze or shared SFS change. Rollback must
+keep source/profile/catalog/runtime coherent and never touch analysis data.
+
 ## 2026-09-27 authorized 0.8.8 installation and consumer update (in progress)
 
 Final native interface delivered417de597fe3e83cc42160cf14102ad78db789bf8,

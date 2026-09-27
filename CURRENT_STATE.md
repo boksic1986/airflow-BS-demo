@@ -1,5 +1,18 @@
 # Current state
 
+## 2026-09-27 WGS441d5e7 / native0.8.8 activated on BS96
+
+Designated WGS owner published dev_CJC_4.2.2_cloud source441d5e7, independent r3
+profile and asset20260927.4-wgs422-088; genuine43d88c receipt PASS/state_verified.
+Node200 ctapa now uses private native0.8.8/source417de59 with nipttest interpreter;
+prepare/profile/paired pins verified through the actual deployed gate. Normal APIs
+registered and activated wgs-4.2.2-441d5e7. At14:02:18Z original backend/scanner
+environments, images and mounts verified restored;10 other container IDs unchanged.
+Production gateway/API/DB health ok. No batch retry, pending edit, image rebuild or
+redundant runtime test. Old release/package retained. Deployment complete; previous
+failed run remains failed, not claimed recovered. Exact pins, commands/evidence and
+coordinated rollback: docs/releases/2026-09-27-wgs441d5e7-088-bs96.md.
+
 ## 2026-09-27 nipttest0.8.8 installed; consumer integration pending
 
 User-specified wheel33cb78f/source095f1e9 installed first; native owner then supplied

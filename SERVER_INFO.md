@@ -1,5 +1,19 @@
 # SERVER_INFO.md
 
+## 2026-09-27 14:02Z BS96 current WGS441d5e7 / external native0.8.8
+
+Current catalog wgs-4.2.2-441d5e7, native0.8.8/source417de59, profile wgs-4.2.2/r3.
+ctapa node200 uses nipttest Python with private package under
+`/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime/tools/cce-pipeline/0.8.8`.
+Prepare SHA3e5a6e20; old mappings retained. WGS outputs remain bioinfo520 modes
+2775/0664/0775. BS96 backendd898d622b254/scanner2fe75b327b2b restored from
+`/data/airflow-WGS/wgs-088-441d5e7-20260927-control/restore.json`: complete
+environment/image/mount equality verified, original execution/scan/auto true,
+watermark unchanged. Other10 container IDs unchanged. Actual code mounts remain
+84510df plus953ff94 overlays; do not use stale current symlink as runtime identity.
+Production gateway/API/DB healthy; no analysis retry. Full release/rollback record:
+docs/releases/2026-09-27-wgs441d5e7-088-bs96.md.
+
 ## 2026-09-27 nipttest package installation (not production activation)
 
 Writable node005/chenjc nipttest now imports native0.8.8/source417de59, wheelSHA
