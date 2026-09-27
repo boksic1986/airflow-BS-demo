@@ -1,5 +1,24 @@
 # Current state
 
+## 2026-09-27 P0 and Local/SGE source promotion
+
+User authorized merging the accepted test branch, including its earlier Local
+display work, into main and production. Refreshed origin main and production are
+both 43cd0c5; canonical test is 9fb31c3, 170 commits ahead with no target-only
+commits. Both integrations are fast-forwards: no conflict resolution or product
+code edits are needed. Native batch/node labels, current snapshot sample counts,
+percentage progress, shared phase/rule views and Snakemake logs are retained,
+along with CCE log downloads, P0 and existing production fixes.
+
+Restored the two 2026-09-22 upload/download waiting release notes dropped by
+historical test integration bbbf942. This promotion changes documentation only
+relative to the accepted test application. Existing focused BS10610 acceptance
+is reused; no repeated runtime suite or production deployment is part of this
+task. Other component source synchronization is user-confirmed, not re-audited.
+Branch push outcome is recorded in HANDOFF. A later BS96 release must account
+for native schema migrations 0025/0026 before switching backend code, and bind
+the approved production runtime/profile/gates rather than test configuration.
+
 ## 2026-09-27 BS10610 auxiliary DAG discovery fixed
 
 The canonical Airflow test branch now contains `4fe71cb`, which delays the

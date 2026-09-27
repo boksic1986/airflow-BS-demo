@@ -1,5 +1,20 @@
 # Active test-branch tasks
 
+## P0-LOCAL-SOURCE-PROMOTION-20260927
+
+- [x] Refresh Airflow main, production and canonical test refs; both targets are
+  ancestors of test 9fb31c3 (0 target-only / 170 test-only commits).
+- [x] Review Local presentation changes and shared CCE UI integration; retain
+  production Overview/Samples/Rules and upload/download waiting behavior.
+- [x] Restore both production waiting-display release records from 43cd0c5.
+- [ ] Fast-forward main and jiucheng/release/production to the reviewed test
+  tree plus promotion documentation; push all three refs without force.
+- [ ] Record verified remote heads and clean integration worktree.
+
+Scope is source promotion only. No BS96 deployment, production DB operation,
+runtime installation, feature-gate activation or new analysis is authorized here.
+User confirms other repositories are synchronized; no repeated source audit.
+
 ## Airflow canonical test branch and BS10610 acceptance — 2026-09-27
 
 - [x] Fast-forward and push `jiucheng/test/wgs-local-main-sync-20260917` to

@@ -1,5 +1,46 @@
 # Handoff
 
+## 2026-09-27 — authorized P0 and Local/SGE source promotion
+
+Goal: merge the accepted canonical test branch, including earlier Local display
+commits, into main and jiucheng/release/production, then push. User explicitly
+authorizes this source integration; BS96 service deployment is a later task.
+The user confirms other source repositories are synchronized; they were not
+queried again.
+
+Source review: refreshed origin refs show both targets at 43cd0c5 and test at
+9fb31c3; git rev-list --left-right --count reports 0/170 for each target.
+Thus no textual merge conflict exists. Local commits 95b0144, 38bdca1, d76edd3
+and 76915d8 retain short batch/node labels, current snapshot samples, percentage
+progress, simple rule rows/shared phase summaries, Snakemake logs and CCE log
+archive download. Shared Rules retain Phase/Sample/Family selectors and running
+default; native routing is conditional on native_monitor_only. Existing CCE
+Overview/Samples and upload/download waiting behavior remain present.
+
+Historical merge bbbf942 had dropped only two standalone production release
+documents. Restored docs/releases/2026-09-22-upload-waiting-bs96.md and
+docs/releases/2026-09-22-download-waiting-bs96.md byte-for-byte as Git blobs from
+origin/main. Other edits in this task are CURRENT_STATE.md, TASKS.md and this
+handoff. No implementation changes relative to test 9fb31c3.
+
+Validation: use Git ancestry, diff/whitespace checks, restored-blob equality
+and final code-tree equality. Reuse documented BS10610 Local/backend/frontend
+acceptance and latest DagBag/import acceptance; no pytest/npm/cloud smoke is
+rerun for a fast-forward with documentation-only additions. A discovery rg
+command initially passed shell-style wildcards as explicit Windows filenames
+and returned exit 2; subsequent searches use rg -g filters. No product failure.
+
+Target environment: source repository only; no SSH, container/mount/permission
+change, DB migration, service restart, scanner or dispatch change. Original
+dirty D:/pipeline/airflow-demo and other worktrees remain untouched. Native
+0025/0026 schema and production-specific gate/profile binding must be handled
+during the later BS96 release, not assumed deployed by this Git promotion.
+
+Rollback reference is pre-promotion main/production 43cd0c5. Remote history
+must remain non-rewritten; use a reviewed revert if source rollback is needed.
+No runtime rollback is needed because no service changes here. Existing P0
+acceptance limitations remain as documented. Push and final refs pending below.
+
 ## 2026-09-27 — duplicate main DAG discovery fixed on BS10610
 
 Goal: address the user's duplicate-DAG finding without deleting a real DAG or
