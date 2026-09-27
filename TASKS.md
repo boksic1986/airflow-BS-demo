@@ -1,5 +1,11 @@
 # Active test-branch tasks
 
+Latest clarification: do NOT treat fresh-case restart as necessary. Same-workdir
+replacement is the desired route. Read-only review identified a native/platform
+pre-START failure recovery contract gap, beyond the corrected driver selector.
+Determine scoped implementation before attempting gen3; no forged FINAL or
+old-deadline reset. Previous fresh-case proposal below is a workaround only.
+
 - [x] Minimal synthetic same-operation created/POD_READY selector corrected;
   one remote node200 nipttest offline RED/GREEN check, not cloud acceptance.
 - [x] Preserve original gen2 timeout failure and exact UID reclamation evidence.

@@ -1,5 +1,16 @@
 # Current state
 
+## 2026-09-27 correction: preserve this case, replace the pre-START Master
+
+User challenges restarting the synthetic case. Read-only source review confirms
+same-workdir checkpoint reuse is valid; fresh-case execution was only a
+product-unchanged workaround, not a requirement. Current missing contract is
+pre-START failed-Master replacement: the expired gen2 has no START/FINAL, while
+ordinary recovery requires them. A legitimate next-generation action must use
+explicit pre-START failure evidence and ownership/live-work checks, not fabricate
+FINAL or reset gen2 deadlines. No implementation or new Job authorized/executed
+by this diagnostic turn. Preserve run/attempt/config/workdir/checkpoint.
+
 ## 2026-09-27 test entry corrected; original replacement expired
 
 Owner completed task-artifact-only resume_selection correction, driver SHA256

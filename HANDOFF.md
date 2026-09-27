@@ -1,5 +1,27 @@
 # Handoff
 
+## 2026-09-27 — corrected explanation: new Master, not a whole-case restart
+
+User asks why not simply replace Master and finish remaining steps. Coordinator
+and original runtime owner performed read-only code inspection, no test/CREATE.
+Same workdir/config/run/attempt and completed checkpoint can be retained:
+classify_cce_master_run.sh selects resume; analysis uses rerun-incomplete/mtime.
+The previous fresh isolated case proposal is ONLY a no-product-change workaround,
+not a technical need to restart biological work and not the preferred P0 design.
+
+Actual gap: run_cce_master_job.sh26-33 exits pre-START before trap137. Runtime
+_recovery_final_evidence1758+ requires bound START/terminal/FINAL; platform
+RecoveryCapability consumes it. _advance_recovery_view1825+ created-state replay
+requires the original replacement Job/UID and cannot recreate it once expired.
+Thus driver-only correction does not handle a failed pre-START replacement.
+Desired scoped route is explicit pre-START failure proof plus current ownership/
+live-worker checks, then a new-generation Master/action with its own handshake
+window, same outputs and original compute-budget rules. Never relabel old FINAL
+or rewrite old deadline. Implementation not performed in this diagnostic turn.
+Coordinator updated these three state docs only; no runtime tests needed for
+read-only diagnosis. Production/data/services untouched. Prior fresh-case
+confirmation prompt is not a prerequisite for explaining the correct route.
+
 ## 2026-09-27 — minimal entry fix done; original gen2 expired and reclaimed
 
 Goal: execute only the approved synthetic same-action continuation correction.
