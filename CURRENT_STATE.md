@@ -1,5 +1,13 @@
 # Current state
 
+## 2026-09-27 latest user correction: retain profile r3
+
+User explicitly rejected r4. Keep revisionr3 and only correct permissions to
+2775/0664/0775. Prior r4 candidate is superseded, not a publication target.
+Publisher notified to prepare r3 and verify genuine same-revision receipt/catalog
+handling; no shared publication yet. Metadata-normalization scope and old-run
+rebinding decision remain unresolved; user revision choice is not those approvals.
+
 ## 2026-09-27 user selected WGS prepare permission standard
 
 Latest user instruction chooses2775/0664/0775 withbioinfo/520; the proposed WGS

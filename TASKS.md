@@ -3,7 +3,9 @@
 ## WGS-PROFILE-PERMISSIONS-20260927 (authorized profile correction)
 
 - [x] Record user choice:bioinfo/520,2775/0664/0775; do not change WGS prepare.
-- [x] Original publisher stages minimal r4 profile; preserve r3, source/images/assets.
+- [x] Original publisher staged a minimal candidate; user then rejected r4.
+- [ ] Retain revisionr3 as explicitly requested; publisher checks same-revision
+  genuine receipt/catalog procedure. Do not deploy the superseded r4 candidate.
 - [ ] User confirms publisher-owned .cce-assets metadata normalization scope;
   no genuine new receipt can be produced before the authorized publication.
 - [ ] Verify idle production and serialize necessary shared publication/binding.

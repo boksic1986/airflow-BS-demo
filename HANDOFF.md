@@ -1,5 +1,14 @@
 # Handoff
 
+## 2026-09-27 — latest user retains r3; r4 superseded before publication
+
+User replied to publication-boundary question: stillr3, do not updater4. This is
+a revision constraint, not explicit consent to metadata normalization or run
+rebinding. Sent correction to WGS publisher: retainr3, only2775/0664/0775;
+verify official same-revision receipt path without overwriting catalog identity
+or historical frozen config. No production publication/mutation authorized by
+this record. Earlier r4 candidate remains an unpromoted task artifact only.
+
 ## 2026-09-27 — r4 permission candidate prepared; awaiting publication boundaries
 
 WGS publisher's exact candidate:
