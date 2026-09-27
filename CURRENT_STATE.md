@@ -2,12 +2,13 @@
 
 ## 2026-09-27 nipttest0.8.8 installed; consumer integration pending
 
-User-specified wheel33cb78f/source095f1e9 installed offline/no-deps on node005
-in nipttest. Version/import/build readback passed; old0.8.7 package/metadata/CLI
+User-specified wheel33cb78f/source095f1e9 installed first; native owner then supplied
+the required runtime-info interface in417de59/wheel45c99c0c, installed same0.8.8
+offline/no-deps on node005 nipttest. Actual CLI JSON readback passed; old0.8.7 package/metadata/CLI
 archive retained. No production runtime/catalog/service switch. Exact evidence:
 docs/releases/2026-09-27-nipttest-088.md. User designates WGS-pipeline as sole
-externalCLI compatibility implementer. Native owner must provide the missing
-readonly runtime-info contract; installation alone does not resolve WGS prepare.
+externalCLI compatibility implementer. Native readonly runtime-info is delivered;
+installation alone does not resolve WGS prepare or activate the production release.
 
 ## 2026-09-27 designated0.8.8 owner corrected
 

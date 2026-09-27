@@ -2,6 +2,18 @@
 
 ## 2026-09-27 authorized 0.8.8 installation and consumer update (in progress)
 
+Final native interface delivered417de597fe3e83cc42160cf14102ad78db789bf8,
+sameversion0.8.8 wheel45c99c0c installed offline/no-deps on node005. Actual
+runtime-info JSON confirms source, package path andbuild38cc11db. Bootstrap
+hash unchanged. Nativeowner9 focused tests reused, not rerun. WGSowner is actively
+implementing the actual-CLI consumer on its designated branch. Platform has no
+hardcoded0.8.7 restriction; avoid needless backend/DAG edits. Production activation
+awaits WGS source/profile/receipt and matching deployed runtime selection.
+Read-only comparison of production private0.8.7 cce_batch_runtime.py and
+cce_writer_guard.py with installed0.8.8 confirms identical content excluding
+CRLF (`diff --strip-trailing-cr -q`); raw hashes still differ and may not be reused
+as deployment pins. No runtime/guard logic change was found in those two files.
+
 User supplied the exact cce_pipeline-0.8.8 wheel and authorized installation in
 nipttest, followed by platform and WGS repository updates. SHA256 verified on
 node005:33cb78f664ce562cdaae7f1334a891cba132a2ec4ba07d66bf33c107d61aaa06;

@@ -2,8 +2,9 @@
 
 ## 2026-09-27 nipttest package installation (not production activation)
 
-Writable node005/chenjc nipttest now imports native0.8.8/source095f1e9, wheelSHA
-33cb78f664ce562cdaae7f1334a891cba132a2ec4ba07d66bf33c107d61aaa06. Dependencies
+Writable node005/chenjc nipttest now imports native0.8.8/source417de59, wheelSHA
+45c99c0c8fb2d39442088d5c5ee7ad6c7be004d2c30495d80d96a4e8a20672c8. This replaces
+the initially requested095f1e9 build with its authorized runtime-info addition. Dependencies
 and existing code-adjacent paired bootstrap unchanged; rollback archive retained.
 Production node200 ctapa gate still imports private0.8.7 and BS96 mounts/flags
 remain unchanged. See docs/releases/2026-09-27-nipttest-088.md.

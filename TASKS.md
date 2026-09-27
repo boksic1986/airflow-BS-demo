@@ -5,7 +5,7 @@
 - [x] Verify exact owner wheel and writable node005 nipttest environment.
 - [x] Back up installed package/dist-info/CLI and install offline/no-deps0.8.8.
 - [x] Verify CLI/version/import/build; preserve paired bootstrap and dependencies.
-- [ ] Native owner delivers minimum actualCLI provenance interface, same0.8.8.
+- [x] Native owner delivers runtime-info417de59; installed wheel45c99c0c/readback passed.
 - [ ] Designated WGS owner completes externalCLI consumer on dev_CJC_4.2.2_cloud.
 - [ ] Integrate matched platform runtime/release binding after genuine delivery.
 - [ ] Record final pins and necessary readback only; no redundant tests/retry.
