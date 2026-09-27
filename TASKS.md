@@ -1,13 +1,15 @@
 # Active test-branch tasks
 
-## SSH-BANNER-20260927 (diagnosis only)
+## SSH-BANNER-20260927 (completed)
 
 - [x] Locate exact prepare task log and compare deployed classifier.
 - [x] Check worker-to-node200 current SSH banner (read-only, reachable).
 - [x] Verify configured ctapa publickey authentication without a remote command;
   inspect exact attempt sidecars/project existence, no preparation outputs found.
-- [ ] Pending approval: narrowly cover two-line pre-auth banner timeout; preserve
-  ambiguous-execution safeguards, minimal affected fixture only. No run restarted.
+- [x] Narrow two-line timeout correction; BS10610 regression6/6 with safety cases.
+- [x] Deploy immutable DAG file to BS96 three Airflow services, preserve others.
+- [x] Resume original run through API; attempt2 sampleinfo success, config_review.
+  User retains configuration/execution approvals. No new analysis ID created.
 
 ## BS96-CLOUD-CLEANUP-20260927
 

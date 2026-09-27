@@ -1,5 +1,14 @@
 # SERVER_INFO.md
 
+## 2026-09-27 SSH banner DAG-only release (latest Airflow mounts)
+
+Airflow API/scheduler/worker consume
+/data/airflow-WGS/releases/20260927-ssh-banner/dags/bio_wgs.py only; all other
+mounts remain on prior pins. Private Compose/rollback in ssh-banner-20260927-control.
+New IDs e7fbfd700517/c3a82b9c35a3/e3d9ac3dbdbf; other9 services unchanged.
+Sourcee307328,6 targeted tests pass, DAG import errors0. Recovery of original
+reported run reached config_review/attempt2; no user approval gates bypassed.
+
 ## 2026-09-27 node200 banner timeout observation
 
 Production worker/backend still consume20260927-p0-local-84510df. Exact run

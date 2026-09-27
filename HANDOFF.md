@@ -1,5 +1,19 @@
 # Handoff
 
+## 2026-09-27 — SSH timeout fix deployed and original prepare recovered
+
+Completed planned correction with sourcee307328; affected BS10610 regression6/6
+after observing original2-line fixture fail. Exact change is one trailer pattern,
+not broader runtime/retry behavior. Production three Airflow DAG binds switched,
+other9 services unchanged, hashes match and import errors[]. Existing run resumed
+once through authenticated API; attempt2 prepare_sampleinfo succeeded17:26:59 CST
+and phaseconfig_review. No direct database edit, forceall, new batch, or approval.
+User next reviews configuration in UI, then uses normal confirmation steps.
+Exact paths, commands, hashes, IDs and idle-only rollback are recorded in
+docs/releases/2026-09-27-ssh-banner-bs96.md. Updated DAG/test/spec and state docs.
+No full suite or unrelated tests, per user scope. No remaining blocker for this
+prepare failure; network delay's underlying cause was not established.
+
 ## 2026-09-27 — SSH timeout correction authorized; deployment planned
 
 User says continue after proposed narrow fix and original-run recovery.

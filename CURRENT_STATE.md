@@ -1,5 +1,15 @@
 # Current state
 
+## 2026-09-27 SSH fix deployed; original run back at configuration review
+
+Sourcee307328 accepts exact pre-auth timeout trailer; BS10610 regression6/6.
+BS96 only3 Airflow services' bio_wgs.py bind updated; DAG import errors empty,
+other9 service IDs preserved. Existing runWGS_20260927_090701_56DC81 resumed via
+API into attempt2; prepare_sampleinfo succeeded17:26:59 CST. Phaseconfig_review;
+user must review configuration and approve execution normally. No new batch,
+direct DB edit, cloud test or automatic approvals. Deployment/rollback details:
+docs/releases/2026-09-27-ssh-banner-bs96.md.
+
 ## 2026-09-27 production prepare SSH failure diagnosed (not fixed)
 
 Run WGS_20260927_090701_56DC81 failed preparing sampleinfo: node200 SSH banner
