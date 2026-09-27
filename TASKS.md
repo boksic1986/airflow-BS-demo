@@ -1,5 +1,16 @@
 # Active test-branch tasks
 
+## Airflow canonical test branch and BS10610 acceptance — 2026-09-27
+
+- [x] Fast-forward and push `jiucheng/test/wgs-local-main-sync-20260917` to
+  `0203b79e`, containing current production fixes and Airflow P0 integration.
+- [x] Verify the existing BS10610 P0 release is mounted and functional source
+  matches the pushed branch; avoid an unnecessary five-service restart.
+- [x] Run minimal BS10610 gateway, DB and DAG-discovery checks.
+- [ ] Correct duplicate DAG discovery (`bio_wgs`/`bio_gatk`) in a separately
+  scoped Airflow change, then repeat only DAG import and gateway checks before
+  claiming test-node DAG acceptance. No production deployment or business run.
+
 ## P0 source Git synchronization — 2026-09-27
 
 - [x] Read final plugin owner task and component provenance; distinguish source

@@ -1,5 +1,47 @@
 # Handoff
 
+## 2026-09-27 — Airflow canonical test branch push and BS10610 live check
+
+Goal: correct the earlier isolated-branch delivery, include Airflow P0 and
+current production fixes on the canonical test branch, push it, and check the
+test deployment without restarting equivalent code. The clean isolated
+integration worktree was switched to `jiucheng/test/wgs-local-main-sync-20260917`.
+Remote test `b17e1b6` was an ancestor; `main` and production `43cd0c5` were
+ancestors. A non-force push advanced the remote canonical test branch to
+`0203b79ebc23d8dae4b46d52c1d06698544189b2`. `git diff --check` passed.
+
+BS10610 hostname `server10610`, SSH identity `chenjc`. Actual backend `/app`
+and Airflow WGS DAG mounts remain under
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260926-p0-e358aad`;
+the historical `current` link is not the live source. `git diff --name-only
+e358aad..HEAD -- backend dags scripts config frontend` was empty. Live
+`backend/app/main.py` and `dags/bio_wgs.py` SHA256 values matched the pushed
+branch. Thus P0 functional code was already deployed on BS10610; this turn did
+not recreate the five services, alter mounts/gates, or run a clinical batch.
+
+Minimal check: on the actual bound gateway `172.17.106.10:12959`, `/api/health`
+and `/api/health/db` returned 200; malformed `/api/auth/login` returned 422;
+unauthenticated `/api/workflows` returned 401 as expected. All relevant Compose
+containers were running. The initial health probe against loopback
+`127.0.0.1:12959` failed with curl exit 7 because Docker publishes only on
+`172.17.106.10`; inspecting the precise port binding corrected the check.
+
+**Open failure:** `docker exec airflow-wgs-airflow-scheduler-1 airflow dags
+list-import-errors -o json` exited 1. It reported duplicate `bio_wgs` from
+`bio_wgs_native_monitor.py` importing `bio_wgs`, and duplicate `bio_gatk` from
+`bio_gatk_maintenance.py` importing `bio_gatk`. `airflow dags list -o json`
+exited 0 but warned that not all files loaded and associated `bio_wgs` with
+the native-monitor file. Cause is module-level DAG imports during Airflow file
+discovery; no fix or blind retry was attempted. Next: narrowly correct DAG
+discovery in the test branch, perform targeted import check and gateway health,
+then decide on exact test-node redeployment. This check does not establish
+Airflow/API end-to-end or automatic recovery acceptance.
+
+No production host/DB, SFS data, clinical workdir, credential, or shared runtime
+was changed. Existing test release remains the rollback baseline; no rollback
+action is needed for this source-only branch alignment. Other P0 repositories
+remain separately governed by their own source/push status.
+
 ## 2026-09-27 — P0 Git source synchronization, no upstream push
 
 Goal: prepare the four P0 source repositories and BS umbrella gitlinks for

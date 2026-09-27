@@ -1,5 +1,27 @@
 # Current state
 
+## 2026-09-27 Airflow canonical test branch aligned with deployed P0 code
+
+The existing canonical test branch `jiucheng/test/wgs-local-main-sync-20260917`
+was fast-forwarded and pushed to `0203b79e`. Current `main` and production
+release branch both point to `43cd0c5`, and both are ancestors of the test
+branch. This corrects the earlier delivery only to the isolated integration
+branch; it does not merge P0 into production.
+
+BS10610 actual backend and WGS DAG mounts still point to the existing
+`20260926-p0-e358aad` release. The canonical branch has no functional file
+differences from `e358aad` under `backend/`, `dags/`, `scripts/`, `config/` or
+`frontend/`; sampled live backend/DAG SHA256 hashes match the branch. No service
+was recreated solely for documentation commits. Gateway health and DB health
+return 200, malformed login 422, and unauthenticated workflows 401.
+
+Airflow import acceptance remains **open**: `dags list-import-errors` exits 1
+with duplicate `bio_wgs` and `bio_gatk` DAG IDs caused by maintenance/monitor
+modules importing their main DAG modules during discovery. `dags list` shows
+`bio_wgs` but associates it with `bio_wgs_native_monitor.py`. Do not claim full
+Airflow DAG acceptance or launch a business test on this result. See the latest
+HANDOFF for exact commands and next action.
+
 ## 2026-09-27 P0 source repositories prepared for operator push
 
 The named plugin-owner task `019f9d79-be3f-7701-af33-3595d72bbfac` identifies
