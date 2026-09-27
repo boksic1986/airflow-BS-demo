@@ -61,6 +61,19 @@ class WgsSshRetryTests(unittest.TestCase):
         self.assertEqual(sleeps, [5.0, 10.0])
         self.assertEqual(len(registrations), 1)
 
+    def test_two_line_banner_timeout_reconnects_with_original_registration(self):
+        error = ("Connection timed out during banner exchange\n"
+                 "Connection to 192.0.2.200 port 22 timed out\n")
+        result, calls, sleeps, registrations, queries = self.dispatch([
+            self.reply(error=error), self.reply(0, "", "{}")])
+        self.assertIsInstance(result, dict)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0], calls[1])
+        self.assertEqual(sleeps, [5.0])
+        self.assertEqual(len(registrations), 1)
+        self.assertNotIn("force_new_generation", registrations[0])
+        self.assertEqual(queries, [])
+
     def test_known_connect_and_jump_handshake_failures_reconnect(self):
         for error in [
             "ssh: connect to host test-node port 22: Connection refused",
@@ -79,6 +92,13 @@ class WgsSshRetryTests(unittest.TestCase):
 
     def test_auth_business_or_ambiguous_disconnect_never_replays(self):
         for reply in [self.reply(error="Permission denied (publickey)."),
+                      self.reply(error="Connection to 192.0.2.200 port 22 timed out"),
+                      self.reply(error="Connection timed out during banner exchange\n"
+                                       "Connection to 192.0.2.200 port 22 timed out\n"
+                                       "Traceback: remote error"),
+                      self.reply(error="Connection timed out during banner exchange\n"
+                                       "Connection to 192.0.2.200 port 22 timed out",
+                                 stdout="remote execution started"),
                       self.reply(error="Host key verification failed."),
                       self.reply(error="client_loop: send disconnect: Broken pipe"),
                       self.reply(1, "project directory already exists"),

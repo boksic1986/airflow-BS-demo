@@ -1,5 +1,15 @@
 # SERVER_INFO.md
 
+## 2026-09-27 node200 banner timeout observation
+
+Production worker/backend still consume20260927-p0-local-84510df. Exact run
+WGS_20260927_090701_56DC81 sampleinfo prepare failed on node200:22 banner timeout;
+subsequent worker TCP/banner read succeeded in3.89s (OpenSSH_9.3). Authentication
+was subsequently verified with ssh -N -T using worker's existing config/key:
+ctapa publickey authentication succeeded; no remote execution requested.
+No services, runtime permissions or keys changed.
+Retry-classifier omission documented in latest HANDOFF; not yet fixed.
+
 ## 2026-09-27 authorized cleanup scanner exclusions (latest)
 
 Only wgs-intake-scanner was recreated from private

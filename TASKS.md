@@ -1,5 +1,14 @@
 # Active test-branch tasks
 
+## SSH-BANNER-20260927 (diagnosis only)
+
+- [x] Locate exact prepare task log and compare deployed classifier.
+- [x] Check worker-to-node200 current SSH banner (read-only, reachable).
+- [x] Verify configured ctapa publickey authentication without a remote command;
+  inspect exact attempt sidecars/project existence, no preparation outputs found.
+- [ ] Pending approval: narrowly cover two-line pre-auth banner timeout; preserve
+  ambiguous-execution safeguards, minimal affected fixture only. No run restarted.
+
 ## BS96-CLOUD-CLEANUP-20260927
 
 - [x] Record exact user scope, live IDs/paths and pending/offline protection.

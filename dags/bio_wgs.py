@@ -72,7 +72,10 @@ def _ssh_failed_before_execution(completed: subprocess.CompletedProcess[str]) ->
         r"ssh: connect to host \S+ port \d+: (?:Connection timed out|Connection refused|No route to host)",
         r"(?:kex_exchange_identification|ssh_exchange_identification): (?:read: Connection reset(?: by peer)?|Connection closed by remote host)",
     )
-    trailer = r"Connection (?:closed|reset) by \S+ port \d+"
+    trailer = (
+        r"(?:Connection (?:closed|reset) by \S+ port \d+|"
+        r"Connection to \S+ port \d+ timed out)"
+    )
     return bool(lines) and any(
         re.fullmatch(pattern, line) for line in lines for pattern in primary
     ) and all(

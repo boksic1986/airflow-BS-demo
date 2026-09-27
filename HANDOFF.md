@@ -1,5 +1,54 @@
 # Handoff
 
+## 2026-09-27 — SSH timeout correction authorized; deployment planned
+
+User says continue after proposed narrow fix and original-run recovery.
+Scope: bio_wgs.py SSH trailer classification, affected retry fixture and docs.
+BS10610 isolated no-network cached Airflow image reproduced1/6 failure on the
+new two-line fixture; after minimal classifier fix all6 tests pass. No clinical
+test/network/database mounted. Output/stdout/unknown-error refusal preserved.
+Production preflight: server96, existing P0 Airflow mounts, no active DAG/task.
+Plan: immutable single DAG file, change only its bind on Airflow API/scheduler/
+worker after config validation, preserve all other services/flags/mounts; retain
+exact rollback. Recover only WGS_20260927_090701_56DC81 through normal API;
+three-stage resume creates next attempt for sampleinfo and retains approval gates.
+Do not auto-approve configuration or analysis. No new batch, no data deletion.
+
+## 2026-09-27 — sampleinfo preparation SSH diagnosis (read-only)
+
+Follow-up check requested by user: actual worker SSH configuration is ctapa to
+172.17.61.200:22, ConnectTimeout10, BatchModeyes. Authentication-only ssh -N -T
+with the existing configured identity succeeded using publickey; no remote
+command was requested. Exact attempt request directory contains only
+prepare_sampleinfo.json, no status/log sidecars. Corresponding control workdir
+and expected WGS_20260919A-test_T7Hg38V4.2.2 project directory are absent.
+Therefore no observed preparation outputs or receipts exist for this attempt.
+No credentials, permissions, code, database, Airflow state or tasks were changed.
+Local rg wildcard-path invocation failed with Windows path syntax; corrected to
+rg scripts -g filename-pattern. No remote failure/retry occurred in this check.
+
+User reported production run WGS_20260927_090701_56DC81, batch20260919A-test.
+Read-only diagnosis only; no retry, deployment, database or workflow changes.
+Airflow worker task prepare_wgs_sampleinfo/attempt=1.log records SSH exit255:
+Connection timed out during banner exchange, followed by
+Connection to 172.17.61.200 port 22 timed out. One invocation at17:07:09 CST;
+unclassified failure at17:07:19, no terminal receipt visible after30s, task failed
+17:07:50. This is before authenticated remote execution, not a biological rule
+or cloud-data missing-file error. Cause of node200 banner delay is not established.
+Live worker-to-node200 TCP banner probe subsequently received OpenSSH_9.3 in3.89s;
+this proves current banner reachability, not authentication or workflow success.
+Deployed bio_wgs.py classifier accepts first line but rejects the second line:
+all stderr lines must match, so intended5s/10s reconnect path was not entered.
+Existing test fixture covers only the single-line banner error. Proposed narrow
+follow-up: classify exact known pre-auth timeout trailer and add two-line fixture,
+retain refusal for ambiguous post-execution errors. No implementation authorized
+or performed this turn. Do not blindly rerun or clear Airflow tasks.
+Host/mounts unchanged: server96, worker/backend releases/20260927-p0-local-84510df.
+Protected runtime traversal encountered Permission denied on unrelated
+ops/rollback-20260919B-20260920; no permission bypass or retry. Scoped run request
+file exists. No business test run. Only HANDOFF/CURRENT_STATE/TASKS/SERVER_INFO
+documentation updated; no rollback needed for the read-only diagnosis.
+
 ## 2026-09-27 — WES cloud cleanup authorized; preflight
 
 Completed: all8 listed SFS directories removed and both parent inventories empty;

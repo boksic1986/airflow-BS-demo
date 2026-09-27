@@ -1,5 +1,15 @@
 # Current state
 
+## 2026-09-27 production prepare SSH failure diagnosed (not fixed)
+
+Run WGS_20260927_090701_56DC81 failed preparing sampleinfo: node200 SSH banner
+timeout, exit255. Current banner reachable in3.89s from actual Airflow worker.
+Follow-up: actual worker ctapa publickey authentication succeeds; exact attempt
+has only request JSON, with no status sidecars/control workdir/project directory.
+Deployed pre-execution retry classifier omits the second OpenSSH timeout line,
+so this known handshake failure bypassed5s/10s reconnect. No restart or code
+change performed; narrow classifier/fixture correction awaits implementation.
+
 ## 2026-09-27 WES cloud cleanup completed
 
 User included20260921B. Removed8 exact SFS batch directories and8 OBS prefixes

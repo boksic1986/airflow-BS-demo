@@ -1,5 +1,14 @@
 # Airflow DAG specification
 
+## SSH banner timeout trailer (2026-09-27)
+
+WGS pre-execution reconnect accepts the OpenSSH companion line
+`Connection to <host> port <port> timed out` only alongside a recognized
+pre-session error. The trailer alone remains insufficient. Exit255, empty
+stdout and fully recognized stderr are still required; remote/business or
+ambiguous post-execution output is never automatically replayed. Existing
+three-invocation limit,5s/10s delays and original registration/generation remain.
+
 ## DAG discovery isolation (2026-09-27 test branch)
 
 `bio_wgs_native_monitor`, `bio_wgs_maintenance` and
