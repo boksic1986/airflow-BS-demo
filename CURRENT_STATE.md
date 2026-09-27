@@ -1,5 +1,15 @@
 # Current state
 
+## 2026-09-27 Operator fix deployed; retry exposed WGS permission-contract conflict
+
+Sourcea1c5387 deployed only node200 gate, SHA08c236984cc64d1bd209468e92d88828abb11998ded8a66d641c64218422eefd.
+Original run attempt3 passed schema3 materialization but WGS prepare exited2 at
+17:45:58 CST: release prepare/cce_pipeline_adapter.py:348 requires2775/0664/0775,
+while genuine r3 profile pins0755/0644/0755. Profile hash matches registered value.
+Project directory absent; execution approval unset, no cloud analysis started.
+Do not alter permissions or immutable source in place. WGS source-owner correction
+and coordinated matching release are the next scope; see dated release note.
+
 ## 2026-09-27 Operator schema3 fix verified; production deployment authorized
 
 Shared prepare/Step7 transformation accepts native schema3 without legacy paths;

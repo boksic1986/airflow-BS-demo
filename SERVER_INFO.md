@@ -1,5 +1,15 @@
 # SERVER_INFO.md
 
+## 2026-09-27 node200 Operator gate compatibility deployment
+
+Sourcea1c5387; only /home/ctapa/.config/airflow-wgs/wgs_runtime_gate.py replaced.
+SHA08c236984cc64d1bd209468e92d88828abb11998ded8a66d641c64218422eefd;
+ownerctapa and existing private script0600 retained. Exact backup in
+.operator-schema3-20260927/wgs_runtime_gate.before.py. Paired helper/policy hashes
+unchanged; no service restart or scanner change. Original run attempt3 passed
+Operator handling, then WGS prepare rejected r3 permission modes; no analysis
+directory or execution approval. See docs/releases/2026-09-27-operator-schema3-bs96.md.
+
 ## 2026-09-27 production Operator/gate compatibility observation
 
 ctapa on t640: active Operator at runtime/tools/cce-pipeline/0.8.7/operator.yaml

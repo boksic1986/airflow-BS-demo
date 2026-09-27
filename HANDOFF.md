@@ -1,5 +1,30 @@
 # Handoff
 
+## 2026-09-27 — Operator fix deployed and retried; separate WGS release blocker
+
+Sourcea1c5387 committed on jiucheng/test/wgs-local-main-sync-20260917 (not pushed).
+Gate atomic deployment succeeded asctapa; exact before/after SHA, preserved mode,
+backup and minimal test command recorded in dated Operator release note. No
+containers restarted, native helper/policies unchanged. Standard resume accepted
+attempt3. Sampleinfo succeeded; reused prior user-approved all/default through
+approve-wgs-config only. Execution approval was not requested or granted.
+
+Live17:45:58 CST attempt3 prepare_wgs_analysis failed with native exit2. Private
+prepare log reports WGS CCE permissions must be bioinfo/520 with2775/0664/0775.
+Read-only source inspection locates hardcoded expected_permissions at immutable
+WGS release prepare/cce_pipeline_adapter.py:338-348. Registered r3 profile has
+bioinfo/520 and0755/0644/0755; SHA5e83e5ed63300fd26de51e84dea137fdd3f3413f3bb15651862563719335aad6
+is unchanged and matches release registration. Attempt3 frozen Operator exists,
+schema3 without paths, proving original compatibility failure was passed.
+Exact project directory remains absent. API failed/attempt3, execution approval
+unset; no actual cloud jobs, workflow results, patient data or pending modified.
+
+Next: coordinate correction in WGS dev_CJC_4.2.2_cloud and matching audited release,
+not an in-place immutable patch, profile permission downgrade or broad chmod.
+This extends beyond the single platform gate fix; ask user before source/release
+changes. No more retries while the native/profile contract conflicts. Local rg
+with a wildcard path failed once; corrected to directory plus -g filter.
+
 ## 2026-09-27 — Operator schema3 correction authorized and verified
 
 User explicitly requests fix, commit and retry. Scope: shared Operator transform
