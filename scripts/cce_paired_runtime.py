@@ -306,8 +306,13 @@ def _registered_request(payload, gate, pipeline):
     digest = _request_digest(registered,pipeline)
     if registered != public or digest != registered.get('request_hash'):
         raise RuntimeError('registered recovery request changed or hash differs')
-    if pipeline == 'wgs' and Path(registered['control_workdir']) != path.parent:
-        raise RuntimeError('recovery journal must belong to registered request scope')
+    if pipeline == 'wgs':
+        # Requests and runtime control files have separate approved roots.
+        control = gate._workdir(registered)
+        expected = (Path(gate.RUNTIME_RUN_ROOT).resolve() / registered['analysis_id']
+                    / f"attempt-{registered['attempt']}")
+        if control != expected:
+            raise RuntimeError('recovery control directory must belong to registered attempt scope')
     return path, raw
 
 
@@ -315,6 +320,10 @@ def _request_digest(registered,pipeline):
     excluded = {'request_hash'} if pipeline == 'gatk' else {
         'execution_id', 'generation', 'request_hash', 'predecessor_execution_id',
         'predecessor_generation', 'predecessor_receipt_hash'}
+    # Initial WGS dispatch adds version2 after hashing. Recovery hashes a frozen
+    # request that already contains it; retain that producer's digest contract.
+    if pipeline == 'wgs' and not registered.get('resume_action_id'):
+        excluded.add('orchestration_contract_version')
     return hashlib.sha256(json.dumps({k:v for k,v in registered.items() if k not in excluded},
         sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 

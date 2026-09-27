@@ -1,5 +1,15 @@
 # SERVER_INFO.md
 
+## 2026-09-27 paired request validator deployment
+
+BS96 services unchanged. Node200/t640 ctapa private airflow-wgs paired module
+SHA7b12e143; active paired-writers-088-441d5e7 policy SHAfc1c6379. Bootstrap and
+native0.8.8 unchanged; original private0600 modes preserved. Exact old module and
+policy backed up at runtime/repair-backups/paired-request-20260927. Read-only
+selected-runtime pin check and original Step1 request validation passed. Same
+attempt1 recovery for146B51 generation2 running:14:54:50Z1.69GB/482.17GB bytes,
+API running/error null and live upload log advancing. See HANDOFF.
+
 ## 2026-09-27 14:02Z BS96 current WGS441d5e7 / external native0.8.8
 
 Current catalog wgs-4.2.2-441d5e7, native0.8.8/source417de59, profile wgs-4.2.2/r3.

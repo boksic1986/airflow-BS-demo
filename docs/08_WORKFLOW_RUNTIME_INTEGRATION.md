@@ -1,5 +1,20 @@
 # Workflow runtime integration
 
+## Paired request validation (2026-09-27)
+
+WGS initial dispatch hashes the body before adding the v2 execution envelope,
+including `orchestration_contract_version`. Same-attempt recovery retains version2
+in its frozen body before hashing; `resume_action_id` selects that existing producer
+contract. The paired consumer preserves both contracts without rewriting requests.
+GATK digest coverage is unchanged. Request/public equality, execution identity,
+predecessor and v2 entry checks remain mandatory.
+
+WGS requests live in REQUEST_ROOT, not in the runtime control directory. Validate
+control_workdir through the gate and require the exact configured
+RUNTIME_RUN_ROOT/analysis_id/attempt-N path. Do not equate it with request.parent,
+allow an arbitrary directory, or move the existing request/journal evidence.
+Producer-derived synthetic regression: scripts/tests/test_paired_request_contract.py.
+
 Configuration-only release identity (2026-09-27): runtime stage requests preserve
 the catalog's optional safe configuration qualifier after the source commit prefix.
 No stage, workflow rule, request hash, frozen profile or execution approval behavior

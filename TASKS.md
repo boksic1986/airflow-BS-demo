@@ -1,5 +1,13 @@
 # Active test-branch tasks
 
+## P0-STEP1-REQUEST-CONTRACT-20260927
+
+- [x] Identify real producer/consumer hash mismatch before native upload launch.
+- [x] Identify request-root versus runtime-root comparison error.
+- [x] User confirms bounded paired-validator fix; no WGS/native source changes.
+- [x] Producer-derived minimal BS10610 regression:8 passed; scoped node200 deployment.
+- [x] Same-attempt Step1 recovery:API running, actual upload bytes advancing; prepared data preserved.
+
 ## WGS-SUBMIT-REPLACE-20260927
 
 - [x] Confirm exact failed56DC81/no execution, original4-row sampleinfo unchanged.

@@ -1,5 +1,78 @@
 # Handoff
 
+## 2026-09-27 approved paired-validator repair deployed, Step1 resumed
+
+Only scripts/cce_paired_runtime.py implementation changed: initial WGS digest omits
+post-hash version envelope, recovery keeps the existing frozen-body version, GATK
+unchanged; control_workdir must equal approved runtime root/analysis/attempt.
+Public request equality, digest, v2 entry and predecessor protections retained.
+Added one producer-derived synthetic test file, updated docs08/state/tasks/server.
+
+BS10610/server10610 actual backend image8491604ee01d and source20260926-p0-e358aad
+verified. Disposable cached-image test: network none, read-only root, uid6708:520,
+candidate source read-only and scoped evidence writable; no DB/credentials/business
+mounts. Final `python -m pytest -q -p no:cacheprovider
+scripts/tests/test_paired_request_contract.py` passed8 in0.73s. Evidence:
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/20260927-paired-request-contract/evidence`.
+RED reproduced original mismatch, then recovery-specific regression before final
+GREEN. Full suites/canaries not run per user's minimum-test scope. Setup issues:
+initial tar referenced nonexistent context module (exit1, rebuilt source archive);
+first pytest invocation lacked writable TMPDIR (exit1, corrected to /evidence).
+Host reports unsupported swap accounting, memory limit still enabled.
+
+Production BS96/server96 live backendd898d622b254 /84510df plus953ff94 overlays
+unchanged. Unfiltered runs API read timed out25s; bounded active-status reads returned
+no running/queued/publishing/downloading runs, node200 had no gate workers. No DB
+direct mutation. Node200/t640 ctapa6801:520 actual old module matched repository
+except these two checks. Module SHA7b12e143d2aa48c8c1db3a48cb141f263638d7fa9ab48a9d2990082c1ce49bfc;
+policy paired-writers-088-441d5e7.json SHAfc1c6379379fec1b59cfa8665811e2b257ca53b2a460292092db5bee21d8c9e6.
+Private control file modes0600 preserved; no project/output permission change.
+Rollback copies and deployed.json under
+`/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime/repair-backups/paired-request-20260927`.
+Restore module and policy together only in an idle window. Native0.8.8, WGS441d5e7,
+r3 profile, bootstrap, scanner flags, images and all services unchanged. Deployment
+first shell wrapper did not execute (readback old hashes); copy-then-run executed
+once and validated existing request without rewriting it.
+
+Normal POST resume-stage for WGS_20260927_141652_146B51, attempt1, step1_upload,
+idempotency key paired-request-contract-fix-20260927-146B51 returned queued;
+action resume_aa5a2aca4e8ad16435f6752b, generation2,
+execution wse_7a08827725c2f24671d54622. At14:53Z node receipt running, worker72768;
+8 files/482168174652 bytes planned, initial byte count0. At14:54:50Z readback:
+1688899418 bytes uploaded,335061972 B/s, healthy running generation2. Backend API
+running/error null, recovery DagRun suffix resume_aa5a2aca4e8ad16435f6752b; worker
+log contains advancing obsutil progress. Upload recovery confirmed. No manual
+status rewrite, new attempt, prepare, data deletion or changes to pending.
+Later workflow stages and entire analysis completion not verified. Next: let the
+existing DAG continue; do not resubmit this already-running recovery action.
+
+## 2026-09-27 new run Step1 rejection: paired request contract mismatch
+
+User reports upload failure and requests repair. BS96/server96 backendd898d622b254
+unchanged. New runWGS_20260927_141652_146B51 attempt1 now failed after the user
+approved config/execution;4 selected samples. Preparation succeeded. Worker log
+74ce1286c69cbeaf53df shows cce_paired_runtime._registered_request rejected before
+transfer Popen: `registered recovery request changed or hash differs`.
+No evidence of an OBS transfer error; native Step1 was not launched by this worker.
+
+Read-only node200 calculation confirms backend request hash11e1222e matches when
+orchestration_contract_version is excluded along with execution/predecessor envelope
+fields. Backend computes hash first, then adds version2; paired consumer erroneously
+includes version2. Existing synthetic fixtures calculate hash with the consumer and
+miss this producer/consumer mismatch. Second wrong assertion requires control_workdir
+== request.parent, while actual contract uses runtime/runs/<id>/attempt-1 and requests
+live under runtime/runner-requests/<id>/attempt-1. Deployed gate _workdir matches the
+approved RUNTIME_RUN_ROOT/<id>/attempt-1. Do not edit the immutable request/hash to
+hide either mismatch or weaken identity fences.
+
+User approved bounded repair: only paired request validation changes,
+producer-derived synthetic regression on BS10610, then deploy exact platform module
+with updated deployment pin and use same-attempt resume-stage Step1. No WGS/native
+source release, dependency install or cloud cleanup. BS10610 reachable/server10610;
+No retry submitted during diagnosis. Authorization includes exact node200 module
+and platform policy pin update, then one same-attempt Step1 resume-stage action.
+Preserve all project/raw/result/pending/request evidence and all other releases.
+
 ## 2026-09-27 failed submit deleted and original sampleinfo resubmitted
 
 User explicitly requested deletion/recreation instead of one-record release rebind.

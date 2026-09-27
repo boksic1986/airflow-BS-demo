@@ -1,5 +1,19 @@
 # Current state
 
+## 2026-09-27 upload blocked before native Step1
+
+User approved new146B51 configuration/execution after the preceding handoff.
+Preparation passed; attempt1 Step1 failed at paired request validation before
+transfer launch. User approved the bounded platform-only correction. Initial and
+recovery request hashes now follow their existing producers; control paths validate
+against the exact approved runtime attempt, not the request directory. BS10610
+focused synthetic regression:8 passed. Node200 module/policy pin deployed with
+backup, no service recreation or workflow changes. Same-attempt resume-stage
+queued as resume_aa5a2aca4e8ad16435f6752b, Step1 generation2 running at14:53Z.
+At14:54:50Z actual bytes1688899418/482168174652 (8 files), speed335061972 B/s;
+API status running/error null on the recovery DagRun. Upload recovery confirmed,
+not whole analysis completion. Prepared project/config/attempt unchanged.
+
 ## 2026-09-27 original failed submit replaced, awaiting user configuration
 
 User authorized removing old56DC81 submit and resubmitting its original sampleinfo.
