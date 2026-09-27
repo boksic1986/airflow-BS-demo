@@ -2,6 +2,15 @@
 
 ## 2026-09-27 — latest user retains r3; r4 superseded before publication
 
+Publisher follow-up: r3 candidate now at
+D:/pipeline/task-artifacts/wgs-422-release-20260927/wgs-4.2.2-r3-permissions-candidate.yaml,
+SHAdaad51fcbaaa35352e7504a1943890ab75f5285f9677db17f7cbc5ec034e282a (local check).
+Static consumer audit confirms uniqueness byrelease_id, not profile_id/revision;
+new catalog identity with same revisionr3 and separately frozen profile path can
+retain old hashes/history. Proposed asset20260927.3-wgs422-permissions and catalog
+wgs-4.2.2-d38322e-permissions are not published/registered. Permission scope and
+original-run rebinding still await user decision. Source/receipt validation stays.
+
 User replied to publication-boundary question: stillr3, do not updater4. This is
 a revision constraint, not explicit consent to metadata normalization or run
 rebinding. Sent correction to WGS publisher: retainr3, only2775/0664/0775;
