@@ -1,5 +1,23 @@
 # Current state
 
+## 2026-09-27 r3 permissions published; platform activation blocked
+
+User authorized the exact139 pipeline/resource files. Original publisher completed
+official asset20260927.3-wgs422-permissions, PASS/state_verified=true; r3 profile
+SHAdaad51fcbaaa35352e7504a1943890ab75f5285f9677db17f7cbc5ec034e282a.
+Postcheck:138 files0664, monitor0775, allUID10001/GID520 unchanged;14 existing
+parents unchanged. Payload hashes unchanged. All exact temporary Jobs/ConfigMaps
+removed. No native reinstall, image build or workflow source change.
+
+Live production validation corrected an earlier audit mistake: catalog accepts
+only wgs-X.Y.Z-<7hex>, not proposed wgs-4.2.2-d38322e-permissions. Genuine receipt
+fe530b2022a536e0a106d90f1d49b233051016ad5e8d066e46a9162c4614f31d retained,
+not registered. Same-ID replacement is also forbidden. Asked user for minimum
+release-identity compatibility scope; do not silently overwrite history.
+BS96 window restored, gateway200; current remainswgs-4.2.2-d38322e.
+ctapa mapping and failed attempt3 unchanged, no retry. Thus permission publication
+is complete but original preparation issue is NOT yet fully resolved.
+
 ## 2026-09-27 metadata approval received; publication held on broader file effects
 
 User approved publisher metadata permissions. Productionpreflight11:15:55Z idle

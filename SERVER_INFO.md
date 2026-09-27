@@ -1,5 +1,17 @@
 # SERVER_INFO.md
 
+## 2026-09-27 permission publication window restored
+
+BS96 backend/scanner recreated only for temporary WGS admission freeze11:38Z;
+idle business/Airflow/leases all0 before and after freeze. Restored11:45Z from
+/data/airflow-WGS/wgs-r3-permissions-20260927-control/restore.json;
+images/source mounts unchanged, execution/scan/auto-dispatch originaltrue.
+Existing scanner exclusions and watermark retained. nginx syntaxcheck/reload
+succeeded, gateway200 via direct no-proxy access. Native0.8.7 unchanged.
+Official SFS permission publication passed; platform current stilld38322e oldr3.
+New receipt held because live catalog ID regex rejects-permissions; no ctapa
+mapping or run mutation. See latest HANDOFF for exact evidence and blocker.
+
 ## 2026-09-27 node200 Operator gate compatibility deployment
 
 Sourcea1c5387; only /home/ctapa/.config/airflow-wgs/wgs_runtime_gate.py replaced.

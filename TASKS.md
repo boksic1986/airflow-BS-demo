@@ -4,14 +4,14 @@
 
 - [x] Record user choice:bioinfo/520,2775/0664/0775; do not change WGS prepare.
 - [x] Original publisher staged a minimal candidate; user then rejected r4.
-- [ ] Retain revisionr3 as explicitly requested; publisher checks same-revision
-  genuine receipt/catalog procedure. Do not deploy the superseded r4 candidate.
+- [x] Retain revisionr3; official same-content permission publication completed.
 - [x] User confirms publisher-owned .cce-assets metadata normalization scope.
-- [ ] Additional scope discovered: standard publish replaces130 pipeline+9resource
-  files applying new permissions; confirm exact-file authorization or an existing
-  profile-only route. No production freeze/publication yet.
-- [ ] Verify idle production and serialize necessary shared publication/binding.
-- [ ] Preserve history; resolve explicit old-run rebinding choice before retry.
+- [x] User authorized130 pipeline+9resource file permissions; live postcheck passed.
+- [x] Freeze idle production for publication, restore exact flags afterwards.
+- [ ] Correct earlier catalog audit: suffixed release identity is rejected by live
+  regex and commit check. User decision pending on minimum compatibility change.
+- [ ] Register/bind correctedr3 without overwriting history, then bounded original
+  run recovery. Existing attempt3 remains failed; no retry or execution approval.
 - [ ] Record live result and commit platform documentation, no redundant tests.
 
 ## OPERATOR-SCHEMA3-20260927 (fixed/deployed; retry blocked by separate WGS contract)

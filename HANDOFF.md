@@ -1,5 +1,57 @@
 # Handoff
 
+## 2026-09-27 authorized permission publication completed; identity blocker
+
+Scope: user explicitly authorized139 manifest files and prior publisher metadata.
+Publisher owner verified beforeUID10001/GID520 matched staging;138 ordinaryfiles
+0644->0664 andmonitor0755->0775. All139 postchecks passed,14 existing parent
+dirs unchanged, publisher metadata35files0664/6dirs2775/group520. No ACL mutation;
+ACL xattr unsupported, so no ACL backup promise. Same content payload hashes.
+Persistent before/after POSIX records localD:/pipeline/task-artifacts/
+wgs-422-release-20260927 and remoteWGS_test/cce-evidence task root:
+beforeSHA5f4cc57380c8be81e2363dc50b59bd71f063369ece5f3963e9c52114f4d3f7c7,
+afterSHA73fe878ee2bdd2907294d08fd2cc7f7ee94c9e0fb480af1b68298db147224e6e.
+No business batch, FASTQ, result, pending deletion or modification.
+
+BS96 server96/source20260927-p0-local-84510df verified;11:38:26Z idleall0.
+Private freeze/restore Compose both validated. Recreated only backend/scanner,
+backendexecutionfalse, bothautodispatchfalse;11:39:15Z idleall0 confirmed.
+Publisher officialpublish succeeded: asset20260927.3-wgs422-permissions,
+profile revisionr3/SHAdaad51fc..., receiptfe530b2022a536e0a106d90f1d49b233051016ad5e8d066e46a9162c4614f31d,
+PASS/state_verified=true. Localregistration-permissions.json preserves genuine
+receipt. Owner reports both reader Jobs/ConfigMaps and formal asset Job/ConfigMap
+precisely cleaned after evidence retention. No new tests/nativeinstall/imagebuild.
+
+Audit correction: previous claim newcatalogID could use-permissions was incomplete.
+Livebackend RELEASE_ID_RE onlyaccepts wgs-X.Y.Z-7hex; _validate_release alsochecks
+lastsegment against sourcecommit. register model calls this validator. Therefore
+heldctapa binding/catalog activation and asked user for minimum compatibility
+scope. Never fabricate receipt or overwriteoldentry. User approval pending.
+Original attempt3 remains failed, noDB mutation/retry/executionapproval this turn.
+
+11:45Z restored privatecontrol/restore.json (not historic scanner config).
+nginx -t then graceful reload succeeded. Gateway direct --noproxy health200;
+firstproxy-routed curl returned403, not application health failure. Initialhost
+python command unavailable(exit127), usedpython3 for boundedflag verification.
+Unusedactivate.py/bind_node.py remain taskhelpers only, not run. No source edits
+this turn; platform docs updated. Native/WGS payloadversion remain0.8.7/V4.2.2.
+Next: obtain ID-compatibility scope; minimalremote regression andconsumer audit,
+then shortwindow forregistration/ctapabinding, preservedhistoryprepare recovery.
+Rollback: originalPOSIXrecord retained; do not blindly roll back sharedpermissions
+while consumers active. Oldprofile/catalog/ctapamappings were never changed.
+
+## 2026-09-27 — user authorizes139 listed file permission correction
+
+Latest user says the139 files may have permissions corrected directly, and only
+if that is cumbersome considers native0.8.7 changes. Prefer existing standard
+publication; do not develop/reinstall native preemptively. Keep r3, identical
+payload bytes and current owner where verified, no business batches/FASTQ/results.
+Publisher assigned one necessary reader/metadata-backup preflight for exact139
+files and .cce-assets, including uid/gid/mode/ACL, without broad business backup.
+If staged UID10001 differs from existing target owners, report rather than
+silently treat chown as authorized permission-only work. Shared apply remains
+held pending platform freeze/idle notification. No new P0 tests or image build.
+
 ## 2026-09-27 — native owner confirms no supported profile-only publication
 
 Read-only native owner audit: accepted0.8.7 main8323567ce2e7 release.py binding
