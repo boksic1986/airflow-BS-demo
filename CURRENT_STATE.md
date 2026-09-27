@@ -1,5 +1,13 @@
 # Current state
 
+## 2026-09-27 latest scope: Step1-2 complete; downstream only
+
+User explicitly closes Step1-2 and excludes gen2 pre-analysis timeout from this
+test round. Existing Step1/initial Step2 receipts remain the actual pass evidence;
+pre-START replacement failure is not a recovery PASS. Continue Step3-6 only,
+preserving the same test workdir/checkpoint and failed evidence. No new product
+fix, whole-case rerun or production change. Original runtime owner executes.
+
 ## 2026-09-27 correction: preserve this case, replace the pre-START Master
 
 User challenges restarting the synthetic case. Read-only source review confirms

@@ -1,5 +1,13 @@
 # Active test-branch tasks
 
+Latest user scope supersedes restart/recovery proposals below:
+- [x] Step1 testing complete (actual native upload rc0).
+- [x] Step2 testing complete (actual initial same-UID reconnect/START pass).
+- [ ] Step3 remaining analysis/checkpoint reuse.
+- [ ] Step4-6 publish/download/materialize and exact test-Job reclamation.
+Gen2 pre-START timeout excluded by user, not asserted fixed or passed. Do not
+repeat Step1-2 tests or implement the pre-START recovery contract this turn.
+
 Latest clarification: do NOT treat fresh-case restart as necessary. Same-workdir
 replacement is the desired route. Read-only review identified a native/platform
 pre-START failure recovery contract gap, beyond the corrected driver selector.

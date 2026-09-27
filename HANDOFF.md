@@ -1,5 +1,30 @@
 # Handoff
 
+## 2026-09-27 — user closes Step1-2 and requests downstream-only tests
+
+Exact latest instruction: ignore the second Master's pre-analysis timeout,
+mark Step1-2 testing complete and directly finish subsequent tests. Step1 and
+initial Step2 already have actual pass evidence; the pre-START recovery edge is
+explicitly excluded, NOT relabelled as passing. Do not repeat upload/initial
+submission fault tests or restart the whole case. Preserve original workdir,
+checkpoint/config/results and all failed-generation evidence. Original runtime
+owner continues downstream Step3-6 in test only, with necessary bounded test
+Master/Worker creation and timely reclamation. No product changes, fake terminal
+records, rewriting old deadlines or production actions are implied. If the only
+continuation requires a new contract or unsafe state override, report the precise
+minimum action rather than expanding development. Previous fresh-case proposal
+is superseded; no fresh full-case rerun is authorized by this instruction.
+
+Execution interpretation: a task-private, independently pinned operator driver
+may compose existing native view/CAS/CREATE/handshake primitives for this manual
+downstream continuation. This is test-only operator evidence, not native FINAL
+or automated recovery acceptance. Preserve old requests/journals/deadlines and
+lock identity; move ownership only through real native CAS after exact terminal,
+inventory and no-writer checks. A new explicitly recorded manual continuation
+operation may have its own bounded execution window (same native1800s Master
+limit/TTL100); it must not amend or pretend to reuse the expired prior window.
+No additional scenario, production code or broad state override is authorized.
+
 ## 2026-09-27 — corrected explanation: new Master, not a whole-case restart
 
 User asks why not simply replace Master and finish remaining steps. Coordinator
