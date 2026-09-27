@@ -1,5 +1,17 @@
 # Handoff
 
+## 2026-09-27 — native owner confirms no supported profile-only publication
+
+Read-only native owner audit: accepted0.8.7 main8323567ce2e7 release.py binding
+requires both pipeline and resource update-only components; documented release
+publish runs assets validate/apply/status before genuine receipt. Profile CLI only
+diff/validate; register only consumes a receipt. Empty-manifest behavior is not a
+documented/tested contract and must not be used as a workaround. Existing parent
+dirs remain untouched; manifest files are replaced with normalized staging modes.
+No native edits, tests or publication performed. User has been asked to approve
+the exact130 pipeline+9resource file side effects in PERMISSION_SCOPE.md; until
+then no production freeze, shared writes, new receipt or recovery retry.
+
 ## 2026-09-27 — corrected precise publication side effects, still no writes
 
 Read owner report D:/pipeline/task-artifacts/wgs-422-release-20260927/PERMISSION_SCOPE.md
