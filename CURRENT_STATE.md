@@ -1,5 +1,13 @@
 # Current state
 
+## 2026-09-27 WES cloud cleanup completed
+
+User included20260921B. Removed8 exact SFS batch directories and8 OBS prefixes
+(134 objects); both WES SFS parents empty, OBS parents0 files/0B. Details in
+docs/releases/2026-09-27-wes-cloud-cleanup.md. WES DB/offline/pending preserved,
+shared assets and personal/test trees untouched; maintenance Job removed.
+Old WGS multipart403 issue deferred by user. No backup/recovery guarantee.
+
 ## 2026-09-27 authorized BS96 WGS cleanup completed; multipart/WES outstanding
 
 User authorized four failed WGS20260921B/C/D/E histories and cloud data,
@@ -11,7 +19,7 @@ detached. Other DB runs retained. Scanner existing ignore list adds exact B/D
 chips to prevent re-submission. Offline data untouched.25 WGS SFS trees and34
 OBS FASTQ/result prefixes removed, final inventories empty. Other15 WGS DB runs
 retained. Five old incomplete OBS uploads remain: first abort returned403 and
-remaining aborts were not attempted. WES older-cloud scope awaiting reply.
+remaining aborts were not attempted. Subsequent WES authorization/results above.
 Temporary cloud helper removed. No code changes/tests or deletion backup.
 
 ## 2026-09-27 BS96 WGS d38322e/r3 serial publication complete (latest)

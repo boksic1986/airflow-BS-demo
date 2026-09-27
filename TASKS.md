@@ -7,7 +7,7 @@
 - [x] Delete exact four failed run histories/31 samples; pending content unchanged.
 - [x] Delete25 exact authorized WGS SFS trees and34 OBS complete-object prefixes.
 - [ ] Five old incomplete OBS uploads: first abort403, needs authorized IAM capability.
-- [ ] Apply confirmed WES expired-cloud scope if user includes it.
+- [x] User included WES20260921B: removed8 SFS directories/8 OBS prefixes,134 objects; DB/offline/pending retained.
 - [x] Record actual per-target outcomes, remaining protections and no-backup fact.
 
 ## WGS422-D38322E-BS96-WINDOW-20260927

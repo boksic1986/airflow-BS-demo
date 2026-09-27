@@ -1,5 +1,31 @@
 # Handoff
 
+## 2026-09-27 — WES cloud cleanup authorized; preflight
+
+Completed: all8 listed SFS directories removed and both parent inventories empty;
+8 OBS prefixes/134 objects removed with zero failures, parent listings0 files/0B.
+Dedicated maintenance Job deleted. Detailed per-target receipts/outcomes in
+docs/releases/2026-09-27-wes-cloud-cleanup.md. No DB/offline/pending changes,
+no business tests. Nothing to roll back in code; deleted data has no backup or
+guaranteed recovery. Old WGS multipart permission issue remains deferred.
+Changed files: this handoff, CURRENT_STATE.md, TASKS.md and dated WES record.
+Commands: read-only DB/Airflow/Pod inventory, precise SFS rmtree and OBS rm,
+post-action inventories and own maintenance Job removal, all successful.
+
+User explicitly includes 20260921B and requests clearing WES cloud batch data.
+Scope: exact batch children inventoried under SFS gatk-cloud/runs/WES_Clinical,
+wgs-obs-sync/Project_result/WES_Clinical and OBS Project_fastq/WES_Clinical,
+Project_result/WES_Clinical. Record each resolved target before deletion.
+Read-only BS96 DB/Airflow occupancy checks are part of cleanup preflight only.
+Protect all offline projects/results/FASTQ/sampleinfo, pending, WES database
+records, shared resources/pipelines/evidence and unrelated cloud prefixes.
+No multipart-upload retries, no business tests, no workflow/service changes.
+No backup is requested or created; deletion recovery is not guaranteed.
+Exact pre-action targets: docs/releases/2026-09-27-wes-cloud-cleanup.md (8 SFS
+directories and8 OBS prefixes). Five GATK records are success; active Airflow
+DAG list empty; no live analysis Pod targets these paths. Only the dedicated
+bs96-wes-cleanup-20260927 maintenance Job may be deleted after this operation.
+
 ## 2026-09-27 — Authorized BS96 WGS cleanup; incomplete uploads/WES outstanding
 
 Completed: four exact AnalysisRuns/31 samples and owned projections deleted;
