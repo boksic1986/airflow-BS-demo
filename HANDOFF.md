@@ -1,5 +1,38 @@
 # Handoff
 
+## 2026-09-27 — r4 permission candidate prepared; awaiting publication boundaries
+
+WGS publisher's exact candidate:
+D:/pipeline/task-artifacts/wgs-422-release-20260927/wgs-4.2.2-r4.yaml,
+SHA4eea1a03b1aded68e5843d70e9cc2cd016af949ce60e24558f28cd4ab38e8d67.
+Owner reports diff limited to revisionr3->r4 and three user-selected permission
+values2775/0664/0775, retainingbioinfo/520. Local hash independently confirmed.
+Owner found native assets/release_runtime.py:731 normalizes the entire publisher
+.cce-assets state tree; line639 handles staging and selected parent chmod also
+exists. Asked user whether standard publisher-owned metadata normalization is
+allowed, excluding business batches/FASTQ/results/reference trees. Separate
+question asks exact failed run retained-history rebinding versus user resubmit.
+Both unresolved; no production freeze, publication, catalog/DB mutation or retry
+this turn. No redundant tests: only static candidate field/hash inspection.
+Next: obtain these scope decisions, fresh idle window, publisher official receipt,
+normal catalog/ctapa binding and exact flag restoration. r3 remains rollback/current.
+No WGS prepare or platform product source change is needed for this chosen fix.
+
+## 2026-09-27 — user chooses2775/0664/0775; minimal profile publication coordination
+
+Current authorization: use WGS prepare'sbioinfo/520,2775/0664/0775. This supersedes
+the prior proposed source fix; no WGS prepare behavior change, recursive chmod,
+old-result migration or secret widening. Target remains production BS96/server96,
+control/data/airflow-WGS; live backend365beab02248 consumes20260927-p0-local-84510df.
+Current release d38322e/r3; original runfailed/attempt3, no committed execution.
+Original WGS-pipeline publisher (01a09149-ad9d-7e92-b98a-16d9cae075e2) requested
+to stage profile/receipt only and hold shared writes until explicit idle window.
+Platform owns bounded admission freeze/restoration and registry/ctapa mappings.
+No image/native/package/version bump or repeated P0 tests are authorized here.
+Ordinary Resume retains recorded CCE release; asked user whether exact run may
+be rebound for a new attempt with retained history, or user will submit anew.
+Do not overwrite catalog identity/frozen r3 or mutate DB without that decision.
+
 ## 2026-09-27 — Operator fix deployed and retried; separate WGS release blocker
 
 Sourcea1c5387 committed on jiucheng/test/wgs-local-main-sync-20260917 (not pushed).

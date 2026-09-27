@@ -149,6 +149,14 @@ Never copy test runtime, evidence, credentials or database to production.
 
 ## Permission contract
 
+- User clarification (2026-09-27): for this WGS CCE profile correction, follow
+  WGS prepare's `bioinfo/520` contract: directories `2775`, ordinary files `0664`,
+  executables `0775`. This supersedes the earlier0755/0644/0755 choice for these
+  WGS profile-managed outputs. It does not authorize recursive changes to existing
+  projects, widening credentials, root ownership, or changes to other pipelines.
+  Rebind profile/asset/catalog identities through the normal release procedure;
+  do not edit a published profile in place or bypass prepare validation.
+
 - User clarification (2026-09-26; revised design, not a completed rollout): NEW
   business project/output directories and executable scripts use0755; ordinary
   business files and exported evidence use0644. Credentials and necessary private

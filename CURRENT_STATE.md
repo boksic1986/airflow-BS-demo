@@ -1,5 +1,18 @@
 # Current state
 
+## 2026-09-27 user selected WGS prepare permission standard
+
+Latest user instruction chooses2775/0664/0775 withbioinfo/520; the proposed WGS
+prepare code relaxation is withdrawn. Scope is a matching profile release,
+not a recursive permission migration. Original WGS publisher asked to prepare
+only the necessary profile/receipt change and hold shared writes until the
+platform maintenance window. Existing failed attempt remains pinned to r3;
+requested user choice on retained-history rebinding versus a new submission.
+Publisher prepared local r4 candidate, SHA4eea1a03b1aded68e5843d70e9cc2cd016af949ce60e24558f28cd4ab38e8d67;
+only revision and three permission fields differ. Publication held: standard
+publisher normalizes its entire .cce-assets metadata tree; explicit scope
+confirmation requested. No production freeze, profile switch or retry this turn.
+
 ## 2026-09-27 Operator fix deployed; retry exposed WGS permission-contract conflict
 
 Sourcea1c5387 deployed only node200 gate, SHA08c236984cc64d1bd209468e92d88828abb11998ded8a66d641c64218422eefd.

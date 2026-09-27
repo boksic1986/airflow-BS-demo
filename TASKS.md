@@ -1,5 +1,15 @@
 # Active test-branch tasks
 
+## WGS-PROFILE-PERMISSIONS-20260927 (authorized profile correction)
+
+- [x] Record user choice:bioinfo/520,2775/0664/0775; do not change WGS prepare.
+- [x] Original publisher stages minimal r4 profile; preserve r3, source/images/assets.
+- [ ] User confirms publisher-owned .cce-assets metadata normalization scope;
+  no genuine new receipt can be produced before the authorized publication.
+- [ ] Verify idle production and serialize necessary shared publication/binding.
+- [ ] Preserve history; resolve explicit old-run rebinding choice before retry.
+- [ ] Record live result and commit platform documentation, no redundant tests.
+
 ## OPERATOR-SCHEMA3-20260927 (fixed/deployed; retry blocked by separate WGS contract)
 
 - [x] Confirm native0.8.7 Operator validates without legacy paths; deployed gate
@@ -10,8 +20,8 @@
 - [x] Attempt3 confirms frozen schema3 config without paths; native prepare now
   rejects registered r3 permission modes0755/0644/0755 against stale hardcoded
   2775/0664/0775. No project created or execution approved.
-- [ ] Separate WGS source correction/release needs coordination; do not patch
-  immutable release or change business permissions to bypass this mismatch.
+- [x] User chose profile permissions matching WGS prepare, not WGS source changes;
+  follow WGS-PROFILE-PERMISSIONS-20260927 instead of relaxing native validation.
 
 ## SSH-BANNER-20260927 (completed)
 
