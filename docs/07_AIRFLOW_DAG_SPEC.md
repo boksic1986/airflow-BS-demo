@@ -1,5 +1,16 @@
 # Airflow DAG specification
 
+## DAG discovery isolation (2026-09-27 test branch)
+
+`bio_wgs_native_monitor`, `bio_wgs_maintenance` and
+`bio_gatk_maintenance` retain their existing DAG IDs, tasks and runtime API
+calls. They load helpers from `bio_wgs` or `bio_gatk` only when a task executes,
+not at module import time. This keeps Airflow's DAG-folder scan from registering
+the main `bio_wgs`/`bio_gatk` DAG a second time from an auxiliary file. A real
+DagBag discovery test requires zero import errors and the main DAGs' own files
+as their discovery owners. This does not change execution gates or authorize a
+business run.
+
 ## WGS independent Step7 maintenance (2026-09-22 candidate)
 
 New requests use bio_wgs_maintenance (max_active_runs=1), with only

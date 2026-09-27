@@ -6,7 +6,12 @@ import re
 from airflow import DAG
 from airflow.exceptions import AirflowFailException
 from airflow.sensors.python import PythonSensor
-from bio_wgs import _backend_json
+
+
+def _backend_json(*args, **kwargs):
+    # Import only when the task executes; DAG discovery must not load bio_wgs here.
+    from bio_wgs import _backend_json as request
+    return request(*args, **kwargs)
 
 
 def observe(**context):

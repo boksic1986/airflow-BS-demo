@@ -11,7 +11,12 @@ from airflow import DAG
 from airflow.exceptions import AirflowFailException
 from airflow.operators.python import PythonOperator
 from airflow.sensors.python import PythonSensor
-from bio_wgs import _backend_json, BackendTransportUnavailable
+
+
+def _backend_json(*args, **kwargs):
+    # Import only when the task executes; DAG discovery must not load bio_wgs here.
+    from bio_wgs import _backend_json as request
+    return request(*args, **kwargs)
 
 
 DELAYS = (30, 60, 120)
@@ -72,6 +77,8 @@ def probe(context, action=None, generation=None):
 
 
 def registered_context(context):
+    from bio_wgs import BackendTransportUnavailable
+
     aid, attempt, action, generation = identity(context)
     query = urlencode({'attempt': attempt, 'generation': generation, 'dag_run_id': context['dag_run'].run_id})
     for index in range(len(DELAYS) + 1):
@@ -84,6 +91,8 @@ def registered_context(context):
 
 
 def start_cleanup(**context):
+    from bio_wgs import BackendTransportUnavailable
+
     aid, attempt, action, generation = identity(context)
     registered = registered_context(context)
     previous = registered.get('action') if registered.get('registered') else None
