@@ -1,5 +1,26 @@
 # Current state
 
+## 2026-09-27 test entry corrected; original replacement expired
+
+Owner completed task-artifact-only resume_selection correction, driver SHA256
+da909464370c6062ee32593613242b7333f50e012e3d983c998de24fa20330fe.
+One node200 nipttest offline RED/GREEN entry check passed; coordinator read exact
+diff, check output and hash. This is not cloud replay acceptance. Product code,
+running candidate and original REQUEST/pins are unchanged. Gen2 Master actual
+Failed/BackoffLimitExceeded at01:05:05Z after pre-START payload timeout; its exact
+UID absent at1790471188.1964965. No gen2 Worker; CREATE remains25.
+Old deadline expired, so no legal same-operation replay remains. Fresh isolated
+execution of the same case is awaiting user confirmation; no new case/run was
+submitted. Cross-Master successful completion and Step3-6 remain open.
+
+## 2026-09-27 approved test-driver continuation correction
+
+User approved the minimal same-operation synthetic resume entry correction.
+Original runtime owner is continuing; product code and extra test scenarios are
+out of scope. First verify the actual gen2 UID/journal/original deadline; preserve
+original REQUEST and failure evidence. No deadline reset, fabricated receipt or
+new generation is implied. Successful replacement and Step3-6 remain unaccepted.
+
 ## 2026-09-27 COMBINED01: same-UID pass, replacement handoff interrupted
 
 Latest user scope is minimal current combined case only; no extra normal rerun

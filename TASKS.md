@@ -1,5 +1,19 @@
 # Active test-branch tasks
 
+- [x] Minimal synthetic same-operation created/POD_READY selector corrected;
+  one remote node200 nipttest offline RED/GREEN check, not cloud acceptance.
+- [x] Preserve original gen2 timeout failure and exact UID reclamation evidence.
+- [ ] Obtain user decision on fresh isolated execution of the SAME combined
+  case: original deadline expired, Job reclaimed, no valid gen2 FINAL for gen3.
+- [ ] Successful replacement/checkpoint invariance/Step3-6 (still NOT accepted).
+No product edits/deployment/new CREATE this turn; cumulative25 remains unchanged.
+
+Current next action: user approved minimal same-operation test-driver resume
+entry correction. Existing runtime owner checks gen2 actual state/deadline and
+continues only where the existing journal permits. No product change, guard
+bypass, original evidence rewrite or extra testcase. Earlier pending-decision
+text below is superseded; full replacement/Step3-6 are still open.
+
 Latest result: COMBINED01 native same-UID CREATE-loss reentry PASS; complete
 gen1 failure/TTL collected; genuine gen2 Master created/bound but PAYLOAD copy
 hit TLS handshake timeout before START.25 cumulative Jobs, no gen2 Worker.

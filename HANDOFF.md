@@ -1,5 +1,56 @@
 # Handoff
 
+## 2026-09-27 — minimal entry fix done; original gen2 expired and reclaimed
+
+Goal: execute only the approved synthetic same-action continuation correction.
+Owner changed task-artifact combined_driver.py only. New resume_selection reads
+the actual created journal's original gen1 source, validates gen2/action/UID,
+manifest/directory owner/platform and original deadlines, and retains native
+storage validation/RecoveryCapability/CAS. No production/runtime source change.
+Driver SHA da909464370c6062ee32593613242b7333f50e012e3d983c998de24fa20330fe;
+original4852af86 preserved. No in-place active REQUEST/pin/trust migration.
+
+Owner ran one offline entry RED/GREEN check on node200 nipttest Python, using
+real JSON/path guards and read-only API fixture. It is not cloud replay PASS.
+Coordinator read exact patch, full green output and actual driver hash, not
+another test execution. Artifact root D:/pipeline/task-artifacts/
+wgs422-p0-integration-20260926/p0-native-smoke-20260927/harness-reentry-review:
+RESULT.md, combined_driver.patch, combined_driver.before.py, reentry-{red,green}.log.
+
+Actual gen2 Master UIDa17e48cb-1380-41f9-a3ff-cfe3c829604e terminal Failed /
+BackoffLimitExceeded at2026-09-27T01:05:05Z; owner captured payload upload
+600s timeout log. Coordinator read its terminal JSON and exact UID reclamation
+record: absent_epoch1790471188.1964965. Original deadline1790471074.5420542
+expired; no gen2 Worker, no additional CREATE (cumulative25). Existing observer
+finished. No claim that every earlier helper has independent cleanup evidence.
+
+Same-operation replay is now unavailable. Ordinary gen3 needs gen2-bound FINAL;
+pre-START timeout exits before terminal-writer installation, so gen1 FINAL must
+not be relabelled. Minimum product-unchanged route is fresh frozen identity and
+isolated output for the SAME synthetic case, with corrected driver pinned before
+freeze; retain old lock/data/evidence. User confirmation requested asynchronously,
+not yet received. No fresh run prepared/submitted. Successful recovery/checkpoint
+invariance/Step3-6 remain unaccepted. Do not silently add pre-START product fixes.
+
+Coordinator files: CURRENT_STATE.md, TASKS.md, HANDOFF.md only. git diff --check
+passed; no coordinator runtime tests/SSH or service changes. Production, scanners,
+shared profiles/assets and existing data untouched. Rollback is docs-only; new
+driver is not deployed and original task-artifact copy is preserved. Next action
+depends on user decision, not more diagnostics or a repeated full test suite.
+
+## 2026-09-27 — approved minimal same-operation test-driver continuation
+
+User answered "同意" to correcting only the synthetic driver's same-operation
+resume entry and continuing the remaining combined smoke steps. This authorizes
+the necessary narrowly scoped trusted test-entry/pin update, not product changes,
+guard bypass, evidence replacement, deadline extension or an extra test suite.
+Original runtime owner must first check the actual replacement UID/journal and
+original deadline. Reuse the same action/generation/UID where still legal; retain
+the frozen request and all original failure evidence. If its deadline has elapsed,
+report that state and the legal continuation requirement instead of resetting it.
+Coordinator delegates runtime execution to the existing owner; no production or
+data deletion is authorized. Remaining success chain is not yet accepted.
+
 ## 2026-09-27 — COMBINED01 actual progress and interrupted replacement
 
 User further requests fewer redundant tests and fast completion. Owner was told
