@@ -1,5 +1,19 @@
 # Handoff
 
+## 2026-09-27 P1 test-branch push
+
+User explicitly requests test-branch commit and push. P1 source5c29d86 already
+exists on jiucheng/test/wgs-local-main-sync-20260917; worktree initially clean.
+Fresh targeted fetch shows divergence0/22, so origin can fast-forward, including
+the prior fixes already synchronized to main/production. Only state/tasks/handoff
+updated for this Git-only operation. Push explicit HEAD to that test ref without
+force; verify ls-remote equals local HEAD afterward. Command output is push-result
+authority. No main/production update, runtime SSH, service/flag change, database
+access or batch retry. No tests repeated:52 focused passes belong to5c29d86 and
+the new change is documentation only; git diff --check validates these notes.
+P2 remains open. Rollback, if requested, uses scoped revert, never forced shared
+history rewriting. Deployment remains a separate task requiring explicit scope.
+
 ## 2026-09-27 bounded P1 repair — source verified, no deployment
 
 Goal: user says "先修复P1" after the audit. Only F1-F3 authorized; no P2,

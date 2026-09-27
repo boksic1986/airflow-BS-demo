@@ -6,6 +6,8 @@
 - [x] F2: resumed Step1 -> first Step2 reuses initial submission under owner fences.
 - [x] F3: query deadline independent of compute opt-in; quota remains disabled.
 - [x] BS10610 targeted red/green verification and runtime-contract documentation.
+- [x] Commit P1 as5c29d86 on the existing test branch; verify fast-forward ancestry.
+- User authorizes pushing only jiucheng/test/wgs-local-main-sync-20260917.
 - Not included: P2 lifecycle, historical request backfill, production deployment,
   automatic batch retry or a new cloud fault campaign.
 

@@ -1,5 +1,12 @@
 # Current state
 
+## 2026-09-27 P1 test-branch push authorization
+
+P1 source5c29d86 is committed on jiucheng/test/wgs-local-main-sync-20260917.
+User requests push of this test branch only. Fresh fetch shows0 remote-only and
+22 local-only commits, including earlier main/production fixes; fast-forward,
+no merge conflict. No new product edits, deployment or repeated runtime tests.
+
 ## 2026-09-27 P0 P1 source corrections verified (not deployed)
 
 User authorized F1-F3 only. Corrected WGS automatic-recovery control-directory
