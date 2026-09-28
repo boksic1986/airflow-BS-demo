@@ -1,5 +1,22 @@
 # Active test-branch tasks
 
+## P0-WGS-TRACKER-PROJECTION-20260928 — source ready for review
+
+Owner: Airflow/backend observer; coordinator owns production review and rollout.
+
+- [x] Reproduce the failed PREPARE projection despite a successful current
+  contract-v2 generation, and the stale finished time after failed-to-running
+  `sync-airflow`, with two synthetic BS10610 regressions.
+- [x] Restrict PREPARE reopening to a validated current, newer generation and
+  a nonfailed recovery status; retain terminal execution guards.
+- [x] Clear old `pipeline_finished_at` only when WGS `sync-airflow` moves a
+  previously failed run to submitted/running.
+- [x] Run only the two focused tests on BS10610 in an isolated container;
+  both passed after the patch. No local runtime test or production action.
+- [ ] Coordinator reviews the commit and, if approved, owns a limited
+  backend/observer production deployment and normal receipt reconciliation.
+
+
 ## P0-WGS-STEP3-LOCK-20260928 — fix committed; Step3 monitoring recovered
 
 Owner: Backend for the transaction fix; coordinator for production release and

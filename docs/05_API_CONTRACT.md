@@ -1,5 +1,17 @@
 # API contract
 
+## WGS recovered Tracker projection (2026-09-28 candidate)
+
+The existing `sync-airflow` action uses the run's bound DagRun state. When a
+previously failed WGS run is confirmed `queued` or `running`, it clears the old
+`ended_at`, `error_summary`, and `pipeline_finished_at`; it does not change the
+response schema. The existing authenticated internal `stage-status` GET may
+re-ingest a PREPARE status file. Only a receipt bound to the current attempt,
+execution ID, request hash, and newer contract-v2 generation may reopen that
+stage's old failed display projection. Stale or foreign receipts cannot do so,
+and a successful current generation remains terminal. No API or DB migration is
+added.
+
 ## Configuration-only WGS release registration (2026-09-27)
 
 Release identities accept `wgs-X.Y.Z-<7 hex>[-configuration-revision]`.

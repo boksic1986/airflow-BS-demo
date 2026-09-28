@@ -1,5 +1,17 @@
 # Current state
 
+## 2026-09-28 WGS A/C Tracker recovery projection candidate
+
+On the existing production-source baseline, a narrow backend/observer patch
+lets a validated newer PREPARE generation replace an old failed stage display
+row and clears a failed run's historical `pipeline_finished_at` when its bound
+DagRun returns to an active state through `sync-airflow`. Two synthetic tests
+failed for the reported symptoms before the patch and passed on isolated
+BS10610 source afterward. This branch has not been deployed to production.
+The coordinator already restored A/C overall status through the normal API;
+C's PREPARE display still needs the reviewed source deployed and its existing
+receipt re-ingested through the normal stage-status path. See HANDOFF.
+
 ## 2026-09-28 WGS B Step3 registration lock fix
 
 Backend commit `a2d0eef` moves contract-v2 runtime evidence synchronization for

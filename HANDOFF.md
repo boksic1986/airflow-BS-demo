@@ -1,5 +1,74 @@
 # Handoff
 
+## 2026-09-28 — WGS A/C Tracker recovery projection candidate
+
+### Goal and result
+
+Repair two persisted display artifacts after same-attempt Airflow recovery:
+C's `prepare_analysis` execution generation 2 was successful while the older
+`run_stage_state` still showed failed; A/C had returned to running through the
+normal sync API while `pipeline_finished_at` retained the prior failure time.
+This branch changes only the projection paths. The coordinator reports A/C
+overall status already restored through the normal API. No production state was
+changed by this task, and deployment remains with the coordinator after review.
+
+### Changes
+
+- `backend/app/wgs_observer.py`: PREPARE projection may reopen an old failed
+  row only after current contract-v2 execution identity/generation validation
+  and a newer generation's accepted/running/success receipt. Existing timestamp
+  and terminal transition guards remain in force. Old or foreign generation,
+  current failure/cancellation, and success regression do not gain authority.
+- `backend/app/diagnostics_service.py`: failed-to-submitted/running WGS
+  `sync-airflow` clears the prior `pipeline_finished_at` alongside the existing
+  `ended_at` and error reset.
+- `backend/tests/test_wgs_tracker_recovery_projection.py`: two synthetic
+  regressions for both reported symptoms, including old/foreign and terminal
+  replay rejection. Contract notes in `docs/05_API_CONTRACT.md` and
+  `docs/08_WORKFLOW_RUNTIME_INTEGRATION.md`; state in `CURRENT_STATE.md` and
+  task in `TASKS.md`.
+
+### Verification and environment
+
+BS10610 hostname was `server10610`. The test control root's `current` symlink
+resolved to `releases/20260912-opt-4d3d24e6`, while the running backend and
+observer `/app` mounts used `releases/20260926-p0-e358aad/backend` read-only.
+The backend reported `PLATFORM_ENVIRONMENT=BS10610-Test`, scanning false,
+auto-dispatch false, execution true, and contract v2 true. No running service
+was restarted or remounted. An isolated source copy under
+`candidates/tracker-recovery-20260928/backend` was mounted read-only into a
+disposable backend-image container with network disabled.
+The local `a2d0eef` baseline `main.py` SHA-256 is `975e1504…`, and its
+`wgs_observer.py` SHA-256 is `6526bad1…`, matching both production hashes
+reported by the coordinator. No production host was queried by this task.
+
+- Before product edits: `python -m pytest -q -p no:cacheprovider
+  tests/test_wgs_tracker_recovery_projection.py` yielded **2 failed** for the
+  exact stale stage and finished-time assertions.
+- After product edits and an exact already-successful generation-2 replay
+  fixture: the same BS10610 command yielded **2 passed in 0.70s**.
+- `git diff --check` passed before the final documentation update. Local
+  runtime tests were not run, per the user instruction. No broader suite,
+  production SSH, cloud operation, database edit, or deployment was run.
+
+The periodic Airflow observer selects WGS statuses only from submitted,
+queued, and running in `pipeline_registry_service.py`; a persisted failed row
+is therefore skipped by `sync_active_airflow_once`. This patch leaves that
+global polling policy unchanged. The coordinator used the normal per-run
+`sync-airflow` API to restore A/C overall status.
+
+### Remaining work and rollback
+
+Coordinator review and an authorized limited production deployment remain.
+After deployment, the existing authenticated internal `stage-status` GET for
+C's `prepare_analysis` can re-ingest its existing bound status file; a missing,
+older, or identity-mismatched receipt remains blocked and must be investigated
+without direct DB edits. A/C overall status needs no synthetic rewrite.
+Rollback restores these two prior source files and restarts only affected
+services under the normal release preflight; there is no migration. A residual
+failed display remains possible if the bound status file cannot be re-ingested.
+
+
 ## 2026-09-28 — WGS B Step3 stage-registration self-lock
 
 ### Goal and result

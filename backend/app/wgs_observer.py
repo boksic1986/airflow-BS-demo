@@ -637,6 +637,11 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                 message=str(payload.get("message") or "") or None,
                 evidence_key=str(resolved.relative_to(request_root)),
                 receipt_hash=terminal_receipt_hash,
+                allow_terminal_retry=bool(
+                    contract_v2
+                    and execution.generation > 1
+                    and status in {"accepted", "running", "success", "complete", "succeeded"}
+                ),
             )
         elif stage == "step2_master":
             upsert_stage_state(
@@ -1460,8 +1465,8 @@ def upsert_stage_state(
             # Terminal evidence is monotonic. A later file may refresh the same
             # terminal result, but it must never reverse success into failure
             # (or failure into success) or move the stage back to running.
-            # A restricted runtime retry is the only exception: its archived
-            # generation and positive retry_no prove this is newer execution.
+            # Only a caller that validated a newer execution generation or a
+            # restricted runtime retry may reopen a failed display row.
             if incoming_terminal is None or incoming_terminal != previous_terminal:
                 return row
         if retrying_failed_stage:

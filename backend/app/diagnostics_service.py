@@ -126,6 +126,8 @@ def sync_wgs_airflow_status(*, session: Session, airflow_client, analysis_id: st
     else:
         run.ended_at = None
         run.error_summary = None
+        if previous_status == "failed" and run.status in {"submitted", "running"}:
+            run.pipeline_finished_at = None
     if run.status == "failed":
         run.error_summary = build_wgs_error_summary(run=run, airflow_payload=airflow_payload, settings=settings)
     elif run.status == "success":

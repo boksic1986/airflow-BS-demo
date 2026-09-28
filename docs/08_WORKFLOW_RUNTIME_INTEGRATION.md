@@ -1,5 +1,15 @@
 # Workflow runtime integration
 
+## WGS PREPARE recovery projection (2026-09-28 candidate)
+
+The backend observer retains append-only contract-v2 PREPARE execution history.
+After validating the current attempt, execution ID, generation, and request
+hash, a newer generation's accepted/running/success status may replace an old
+failed `run_stage_state` display row. The display row alone never authorizes a
+stage transition; the current execution transition and its terminal receipt
+remain authoritative. Stale/foreign generations and terminal regressions stay
+rejected. The runtime request and receipt formats are unchanged.
+
 ## Paired request validation (2026-09-27)
 
 WGS initial dispatch hashes the body before adding the v2 execution envelope,
