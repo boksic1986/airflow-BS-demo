@@ -1,5 +1,57 @@
 # Handoff
 
+## 2026-09-28 — WGS/GATK repair source synchronized to main and production
+
+### Goal and completed work
+
+User authorized syncing the already reviewed repair chain to Git `main` and
+`jiucheng/release/production`; the coordinator owns BS96 deployment. The source
+branch `7e936ea` and both target refs `744cd22` diverged at `84510df` (five
+source-only versus 23 target-only commits), so a direct fast-forward from the
+source would have dropped deployed fixes. An isolated integration worktree at
+`C:/Users/11217/.codex/worktrees/main-prod-sync-20260928/airflow-demo`
+started from `origin/main` and cherry-picked the five source commits in order:
+`a2d0eef`, `b3e1e40`, `4763e1a`, `ac2fc11`, `7e936ea`. Their integrated
+commits are `84ef722`, `b38f748`, `a3e953a`, `0ba2730`, `9f98617`.
+
+The Step3 lock code, WGS recovered Tracker projection and GATK transfer-wait
+projection match the reviewed source exactly. Target release catalog, WGS
+runtime adapter, WGS DAG, paired runtime and gate code were preserved. Conflict
+resolution was additive in `CURRENT_STATE.md`, `TASKS.md`, `HANDOFF.md`,
+`docs/05_API_CONTRACT.md` and `docs/08_WORKFLOW_RUNTIME_INTEGRATION.md`; all
+target content remained. Remote `main` and production were atomically pushed
+without force to code checkpoint `9f98617d70e50f9d62bddb6abff14b95b1377da1`.
+Both unattached local branches were fast-forwarded to the same checkpoint.
+This separate closing commit updates only `CURRENT_STATE.md`, `TASKS.md` and
+`HANDOFF.md`; its final remote SHA is verified after pushing it. The original
+source worktree and UE01 worktree remain untouched.
+
+### Verification and limitations
+
+- `git merge-base` confirmed `origin/main` as ancestor of the integration;
+  `git rev-list --left-right --count origin/main...9f98617` returned `0 5`.
+- `git diff --exit-code 7e936ea 9f98617` across the five backend product
+  files and three focused test files was empty. The same comparison against
+  target `744cd22` for release catalog, runtime adapter, WGS DAG, paired
+  runtime and gate was empty.
+- The five affected documentation files had zero deletions relative to target;
+  `git diff --check` passed and no conflict markers remained. Both remote refs
+  read back as `9f98617` after the atomic push; the integration worktree was
+  clean before this closing entry.
+- Existing BS10610 focused evidence is reused: Step3 lock two cases and GATK
+  wait four cases passed; WGS Tracker projection two cases passed. No runtime
+  suite was rerun because source code is byte-identical and the user requested
+  minimum testing. No BS96 SSH, deployment, database, lease or running-batch
+  operation occurred in this Git task.
+
+### Remaining work and rollback
+
+Coordinator performs the separately authorized BS96 preflight, limited release,
+health checks and rollback documentation. Any source rollback should use scoped
+reverts after review; never reset shared branches or assume Git changes reverse
+a live deployment. The integration adds no database migration. Source worktrees
+are retained for review.
+
 ## 2026-09-28 — UI-TRANSFER-WAIT-20260928 GATK waiting display candidate
 
 ### Goal and completed work

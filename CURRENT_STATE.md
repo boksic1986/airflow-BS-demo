@@ -1,5 +1,19 @@
 # Current state
 
+## 2026-09-28 main/production source integration for WGS and GATK UI fixes
+
+The Git-only integration starts from main/production `744cd22`, retaining all
+23 target-only commits, and incorporates the five reviewed Step3 lock, WGS
+Tracker recovery and GATK transfer-wait commits. Code checkpoint `9f98617`
+matches the tested source candidate for the five changed backend product files
+and three focused test files. Target release catalog, runtime adapter, WGS DAG,
+paired runtime and gate files are unchanged. The three state files and two
+contracts had additive documentation conflict resolutions; target content was
+retained. Both remote branches were atomically pushed to the code checkpoint,
+and local branches fast-forwarded. This closing entry changes documentation
+only. BS96 deployment and health validation are owned by the coordinator and
+are not claimed here. See HANDOFF.
+
 ## 2026-09-28 GATK transfer wait UI projection candidate
 
 GATK Step1 upload and Step5 download acquire-slot markers remain persisted as

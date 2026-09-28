@@ -1,5 +1,22 @@
 # Active test-branch tasks
 
+## P0-UI-MAIN-PRODUCTION-SYNC-20260928 — Git source synchronized
+
+Owner: Git integration; coordinator owns BS96 release and validation.
+
+- [x] Fetch and compare the two target branches at `744cd22`; confirm their
+  23 target-only commits and the candidate's five repair commits diverged from
+  common base `84510df`.
+- [x] Integrate all five commits on top of target main, preserving its existing
+  release, DAG and runtime fixes; resolve only additive documentation conflicts.
+- [x] Confirm tested product/test files match candidate `7e936ea` and target
+  release/DAG/runtime files match `744cd22`; `git diff --check` passed.
+- [x] Atomically push the integrated code checkpoint `9f98617` to remote main
+  and production, then fast-forward both local branch refs. Close state docs
+  separately and verify final remote heads after that docs-only push.
+- [ ] Coordinator performs the separately authorized BS96 release, health
+  checks and rollback record.
+
 ## UI-TRANSFER-WAIT-20260928 — source ready for review
 
 Owner: Backend display projection; coordinator owns review and any rollout.
