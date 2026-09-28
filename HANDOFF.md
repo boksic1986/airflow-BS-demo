@@ -67,10 +67,35 @@ allowlist behavior and was not changed. For batch `20260927B`, the coordinator r
 only the 14 failed/upstream-failed task instances in the original DagRun
 `WGS_20260928_101112_11111E-a1`. Step1/Step2 were excluded, the Master UID was
 unchanged, and the DagRun returned to `queued`. Step3 task pickup and subsequent
-progress are still pending coordinator observation. The new production release
-path and rollback release path were not included in the status sent to this
+progress were subsequently confirmed by the coordinator. The production release
+and rollback release paths were not included in the status sent to this
 task; record those from the coordinator's deployment audit rather than infer
-them. The pre-hotfix backend source was mounted from
+them.
+
+The coordinator confirmed the first bridge observation at 12:57:48Z:
+`start_step3_monitor` succeeded, `wait_step3_analysis` was `up_for_reschedule`,
+Tracker was `stage3running`, and the same Master was `RUNNING` with
+`normal=true`. Monitoring was healthy with no error; the initial rule snapshot
+showed 3/223 (1.3%), including `pre_process_Dedup` and
+`pre_process_mapping`. The first bridge result took about four minutes after
+dispatch but completed. A read-only node200 `/bin/true` probe returned 0 in
+0.27s. Step3 monitoring is recovered while the analysis continues to run; the
+original Master was left in place.
+
+Read-only review of the repository source found the normal rule-evidence path
+uses `kubectl exec` to read cursor-based JSONL chunks, but the bridge's
+`subprocess.run` calls do not set a timeout, and the runtime gate also waits for
+the bridge without a timeout. The outer Step3 monitor deadline is checked only
+after evidence synchronization returns, so it cannot bound a hung bridge
+invocation. The documented large-run path optimizes Job-state reads by
+projecting compact snapshots and fetching full Job JSON only for nonterminal
+Jobs. This source review did not verify the installed node200 bridge hash, so
+it does not establish that the repository code is byte-identical to the
+production bridge or explain the earlier delay. The successful bridge response
+and fast `/bin/true` probe show the monitor and SSH path were responsive at the
+reported observation time.
+
+The pre-hotfix backend source was mounted from
 `/data/airflow-WGS/releases/20260927-p0-local-84510df/backend` and can be
 reconstructed from `84510df` (`main.py` SHA
 `ff0f3be345680893893e5d52875f4a7be96a286c4e3a37427694a5595df27bf9`). No
@@ -78,9 +103,10 @@ database rollback is needed because there is no schema change.
 
 ### Next action and risk
 
-Coordinator: confirm that the cleared `start_step3_monitor` task registers,
-continues monitoring the existing Master UID, and advances the same DagRun.
-Do not resubmit Step2, restart the Master, or create a new DagRun for this fix.
+The Step3 monitor has registered and returned live rule progress. Coordinator
+continues ordinary observation of the same running analysis. No recovery action
+is requested from this backend task. Do not resubmit Step2, restart the Master,
+or create a new DagRun for this fix.
 If the hotfix must be rolled back, use the normal release rollback procedure
 to restore the recorded pre-hotfix backend source; do not mutate the run or
 workflow state as part of code rollback.

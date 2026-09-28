@@ -19,9 +19,18 @@ The coordinator owns the new release path and rollback record.
 
 For WGS batch `20260927B`, the coordinator reports one same-DagRun Airflow
 clear of 14 `failed`/`upstream_failed` task instances. Step1/Step2 were excluded,
-and the active Master UID was unchanged. The DagRun is `queued`; Step3 pickup and
-continued runtime progress remain to be observed. This task performed no
-production mutation and did not restart Airflow, the Master, or node200.
+and the active Master UID was unchanged. The DagRun returned to `queued`
+immediately after the clear. By 12:57:48Z, the coordinator had confirmed
+`start_step3_monitor` succeeded, `wait_step3_analysis` was
+`up_for_reschedule`, and Tracker reported `stage3running`. The existing Master
+was `RUNNING` with `normal=true`; monitoring was `healthy` with no error, and
+the first rule snapshot showed 3/223 rules (1.3%), including
+`pre_process_Dedup` and `pre_process_mapping`. A read-only node200 `/bin/true`
+probe returned 0 in 0.27s. The first bridge observation arrived about four
+minutes after dispatch but returned successfully. Step3 monitoring is recorded
+as recovered; the analysis itself remains running. The Master was not replaced.
+This task performed no production mutation and did not restart Airflow, the
+Master, or node200.
 
 ## 2026-09-27 Airflow repair branch synchronization
 

@@ -1,6 +1,6 @@
 # Active test-branch tasks
 
-## P0-WGS-STEP3-LOCK-20260928 — fix committed; runtime progress monitoring remains
+## P0-WGS-STEP3-LOCK-20260928 — fix committed; Step3 monitoring recovered
 
 Owner: Backend for the transaction fix; coordinator for production release and
 same-DagRun recovery.
@@ -21,7 +21,11 @@ same-DagRun recovery.
   backend-only rebuild, followed by a same-DagRun clear of only 14 failed or
   upstream-failed Airflow tasks; Step1/Step2 and the active Master were
   preserved.
-- [ ] Coordinator to confirm Step3 task pickup and continued analysis progress.
+- [x] Coordinator confirmed Step3 monitor registration and continued progress:
+  Master `RUNNING`, monitoring healthy, first rule snapshot 3/223 (1.3%). The
+  same Master remains in use; the analysis is still running.
+- [x] Record that the first bridge response took about four minutes but
+  completed. A read-only node200 `/bin/true` probe returned 0 in 0.27s.
 
 Scope excludes new run submission, Step2 resubmission, Master restart, broad
 backend suite execution, Airflow/DAG changes and production rollback.
