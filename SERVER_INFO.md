@@ -1,5 +1,26 @@
 # SERVER_INFO.md
 
+## 2026-09-28 BS96 Tracker and GATK waiting display overlays
+
+Coordinator-reported `ssh BS96` target: `server96`, account `chenjc`
+(`6708:520`). Source `a8ae5fe`; effective base `84510df` and existing overlays
+remain. Historical `current` symlink was not moved. New read-only release root:
+`/data/airflow-WGS/releases/20260928-tracker-wait-a8ae5fe`. Private control:
+`/data/airflow-WGS/tracker-wait-a8ae5fe-control`; its `rollback.json` retains
+the prior complete backend/observer Compose configurations, including private
+environment values, and is not copied into Git. Selected backend overlays are
+`gatk_workspace_service.py`, `pipeline_registry_service.py`,
+`diagnostics_service.py`, `wgs_observer.py`; observer receives only the latter
+two. The Step3 `main.py` lock fix was already active and was not overlaid again.
+
+Only backend `0d69172001b2 -> 6718484b355c` and wgs-run-observer
+`442874a2b576 -> 4d27b967e20d` were recreated with `--no-deps --pull never`.
+Both retain image ID prefix `0e2d6f0c`, restart count zero; all other container
+IDs were preserved. Compose config, nginx syntax/reload and LAN port 12959
+`/api/health` passed (200). Scanner enabled=true; auto-dispatch=false.
+Release evidence and rollback scope:
+[2026-09-28 release record](docs/releases/2026-09-28-tracker-wait-bs96.md).
+
 ## 2026-09-27 paired request validator deployment
 
 BS96 services unchanged. Node200/t640 ctapa private airflow-wgs paired module

@@ -1,5 +1,21 @@
 # Active test-branch tasks
 
+## P0-TRACKER-WAIT-BS96-RELEASE-20260928 — limited release complete
+
+Owner: Coordinator for BS96 release; Docs for the source-side record.
+
+- [x] Confirm server96 identity, effective base/overlays, mount/env parity,
+  Compose validity and exact four source hashes before a two-service switch.
+- [x] Recreate only backend and wgs-run-observer from the reviewed read-only
+  overlays; preserve other container IDs, image, gates and current symlink.
+- [x] Check nginx and LAN gateway health; re-ingest C's existing PREPARE
+  generation-2 receipt via normal stage-status and read Tracker projections.
+- [x] Record A/C and WES waiting display, unchanged scanner/dispatch gates,
+  private rollback control and the `limit=100` probe correction.
+- [ ] Separately assess C's stale historical `pipeline_finished_at`; do not
+  fabricate terminal state or directly edit production DB. Continue observing
+  D's actual run status rather than treating 100% as completion.
+
 ## P0-UI-MAIN-PRODUCTION-SYNC-20260928 — Git source synchronized
 
 Owner: Git integration; coordinator owns BS96 release and validation.
@@ -14,10 +30,10 @@ Owner: Git integration; coordinator owns BS96 release and validation.
 - [x] Atomically push the integrated code checkpoint `9f98617` to remote main
   and production, then fast-forward both local branch refs. Close state docs
   separately and verify final remote heads after that docs-only push.
-- [ ] Coordinator performs the separately authorized BS96 release, health
-  checks and rollback record.
+- [x] Coordinator completed the separately authorized BS96 limited release and
+  health checks; see the 2026-09-28 release record.
 
-## UI-TRANSFER-WAIT-20260928 — source ready for review
+## UI-TRANSFER-WAIT-20260928 — deployed BS96
 
 Owner: Backend display projection; coordinator owns review and any rollout.
 
@@ -30,10 +46,10 @@ Owner: Backend display projection; coordinator owns review and any rollout.
   and terminal run presentation.
 - [x] Run focused synthetic regressions in an isolated BS10610 backend image:
   2 expected RED failures before the code change, then 4 GREEN cases.
-- [ ] Coordinator reviews this separate source commit and decides whether to
-  deploy under a new authorized release task.
+- [x] Coordinator reviewed and deployed the projection in the limited BS96
+  backend/observer release; no real transfer was started for acceptance.
 
-## P0-WGS-TRACKER-PROJECTION-20260928 — source ready for review
+## P0-WGS-TRACKER-PROJECTION-20260928 — deployed BS96
 
 Owner: Airflow/backend observer; coordinator owns production review and rollout.
 
@@ -46,8 +62,9 @@ Owner: Airflow/backend observer; coordinator owns production review and rollout.
   previously failed run to submitted/running.
 - [x] Run only the two focused tests on BS10610 in an isolated container;
   both passed after the patch. No local runtime test or production action.
-- [ ] Coordinator reviews the commit and, if approved, owns a limited
-  backend/observer production deployment and normal receipt reconciliation.
+- [x] Coordinator deployed the reviewed backend/observer projection and
+  re-ingested C's existing PREPARE generation-2 success receipt through the
+  normal stage-status API. C's old finished timestamp remains a separate issue.
 
 
 ## P0-WGS-STEP3-LOCK-20260928 — fix committed; Step3 monitoring recovered

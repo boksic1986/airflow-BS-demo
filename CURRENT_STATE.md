@@ -1,5 +1,23 @@
 # Current state
 
+## 2026-09-28 BS96 WGS Tracker and GATK wait display release
+
+The coordinator reports a limited BS96 deployment from source `a8ae5fe`.
+`backend` and `wgs-run-observer` now read the four reviewed backend display
+overlays from `/data/airflow-WGS/releases/20260928-tracker-wait-a8ae5fe`;
+the existing Step3 lock fix and all other mounts, containers and runtime gates
+were preserved. Gateway `/api/health` returned 200 after the two-service
+switch. Existing C attempt-1 PREPARE generation-2 success was re-ingested
+through normal stage-status; C and A now show the upload waiting projection.
+The observed WES GATK run also shows `running` / `Uploading FASTQ` / `waiting`
+with no percentage. Scanner remains enabled, auto-dispatch disabled; no new
+batch, upload, cloud or lease operation was performed for this release.
+
+Known limit: C retains historical `pipeline_finished_at=13:10:00.716975Z`
+because it was already running before this projection release. No direct DB
+change was made. D shows 100% progress but remains running; terminal completion
+is not asserted. See [release record](docs/releases/2026-09-28-tracker-wait-bs96.md).
+
 ## 2026-09-28 main/production source integration for WGS and GATK UI fixes
 
 The Git-only integration starts from main/production `744cd22`, retaining all
@@ -22,8 +40,8 @@ projections now show `waiting`, `Uploading FASTQ` or `Downloading GATK results`,
 an English current item and unavailable progress. Registered execution/transfer,
 truly running stages without telemetry and terminal runs retain their existing
 presentation. An isolated BS10610 backend-image run of the focused synthetic
-suite passed 4 cases. This source candidate is not deployed or pushed;
-coordinator review and any authorized rollout remain pending. See HANDOFF.
+suite passed 4 cases. This was the source candidate checkpoint; its reviewed
+projection is now deployed on BS96 as recorded above. See HANDOFF.
 
 ## 2026-09-28 WGS A/C Tracker recovery projection candidate
 
@@ -32,10 +50,10 @@ lets a validated newer PREPARE generation replace an old failed stage display
 row and clears a failed run's historical `pipeline_finished_at` when its bound
 DagRun returns to an active state through `sync-airflow`. Two synthetic tests
 failed for the reported symptoms before the patch and passed on isolated
-BS10610 source afterward. This branch has not been deployed to production.
-The coordinator already restored A/C overall status through the normal API;
-C's PREPARE display still needs the reviewed source deployed and its existing
-receipt re-ingested through the normal stage-status path. See HANDOFF.
+BS10610 source afterward. This was the source candidate checkpoint. The
+reviewed projection is now deployed and C's existing PREPARE receipt was
+re-ingested through the normal stage-status path. The historical finished time
+limitation remains as recorded above. See HANDOFF.
 
 ## 2026-09-28 WGS B Step3 registration lock fix
 

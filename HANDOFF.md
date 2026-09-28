@@ -1,5 +1,72 @@
 # Handoff
 
+## 2026-09-28 — BS96 WGS Tracker and GATK wait display release recorded
+
+### Goal and result
+
+Record the coordinator's completed, user-authorized limited BS96 deployment of
+the reviewed WGS Tracker recovery and GATK transfer-wait projections. This
+agent changed documentation only. Production source pin was `a8ae5fe`; actual
+runtime kept base `84510df`, prior overlays and the historical `current`
+symlink. No new business task, upload, cloud operation, lease change or direct
+database edit was performed for the release.
+
+### Environment, selected services and checks
+
+- Coordinator preflight: `ssh BS96` reached `server96`, `chenjc` (`6708:520`).
+  New read-only file-overlay release is
+  `/data/airflow-WGS/releases/20260928-tracker-wait-a8ae5fe`; private control
+  is `/data/airflow-WGS/tracker-wait-a8ae5fe-control`. No directory permission
+  mutation was reported. The private `rollback.json` contains the prior full
+  backend/observer Compose configurations including environment values; do not
+  copy or print it into Git or logs.
+- Backend has four reviewed overlays (`gatk_workspace_service.py`,
+  `pipeline_registry_service.py`, `diagnostics_service.py`,
+  `wgs_observer.py`); observer has only the latter two. Step3 `main.py` was
+  already active and was not overwritten. Exact source SHA-256 values are in
+  [the release record](docs/releases/2026-09-28-tracker-wait-bs96.md).
+  Effective Compose structure, environment and mounts matched the prior
+  service apart from these selected read-only overlays; `compose config -q`
+  passed.
+- Coordinator ran `up --no-deps --pull never backend wgs-run-observer`.
+  Backend ID `0d69172001b2 -> 6718484b355c`; observer ID
+  `442874a2b576 -> 4d27b967e20d`. Same image ID prefix `0e2d6f0c`, zero
+  restarts; every other container ID was retained. Nginx syntax check and
+  graceful reload passed; LAN port 12959 `/api/health` returned 200. Scanner
+  stayed enabled=true and auto-dispatch=false.
+- Only C's existing attempt-1 PREPARE generation-2 success receipt was
+  re-ingested through normal stage-status: success, ready=true,
+  artifact_pending=false. Tracker C showed running / Uploading FASTQ / waiting
+  / null percentage (11 samples); A showed the same waiting display. WES
+  `GATK_20260928_105710_C05CE4` showed the same display (43 samples). D still
+  showed 100% while running; terminal completion is not claimed.
+
+### Commands, files, limits and next step
+
+This docs agent read `AGENTS.md` instructions, the environment boundary and
+prior release format, then used only local Git/document checks. No BS96 command,
+runtime test or service operation was run in this docs task. Focused BS10610
+evidence was reused: two WGS Tracker and four GATK waiting cases passed.
+Changed files: `CURRENT_STATE.md`, `TASKS.md`, `HANDOFF.md`, `SERVER_INFO.md`
+and `docs/releases/2026-09-28-tracker-wait-bs96.md`. The integration worktree
+was clean at `a8ae5fe` before documentation edits; `git diff --check` and
+release-note link/path checks passed. The final docs-only commit and remote
+branch heads are verified in this task's Git delivery record.
+
+C's old `pipeline_finished_at=13:10:00.716975Z` persists because C was
+already running, outside the failed-to-running cleanup condition. Leave it
+untouched pending a separate scoped decision; do not infer completion from
+D's 100% progress. A coordinator read-only review probe used unsupported
+`limit=100` and got HTTP 422, followed by a local `KeyError`; using the
+documented limit 50 succeeded. This was not a production service failure.
+
+Rollback, if separately needed, uses the private control `rollback.json` with
+Compose project `airflow-wgs` to recreate only backend and wgs-run-observer,
+then gracefully reload nginx; preserve other services and batches. The next
+work is a separate decision on C's historical finished timestamp and normal
+observation of D's true terminal state. No product-code or database change is
+authorized by this handoff.
+
 ## 2026-09-28 — WGS/GATK repair source synchronized to main and production
 
 ### Goal and completed work
