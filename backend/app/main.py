@@ -2118,6 +2118,75 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
     if stage_name == "step7_cleanup" and not _wgs_platform_execution_enabled():
         raise HTTPException(status_code=409, detail={"code": "WGS_RUNTIME_DISABLED", "message": "WGS execution is disabled; Step7 was not registered."})
     try:
+        pre_sync_contract_v2 = None
+        if not request.resume_action_id and (
+            request.force_new_generation or stage_name == "step3_monitor"
+        ):
+            settings = get_settings()
+            with get_sessionmaker()() as preflight_session:
+                preflight_run = preflight_session.scalar(
+                    select(AnalysisRun)
+                    .where(
+                        AnalysisRun.analysis_id == analysis_id,
+                        AnalysisRun.pipeline_name == "wgs",
+                    )
+                    .execution_options(populate_existing=True)
+                )
+                if preflight_run is None or preflight_run.attempt != request.attempt:
+                    raise ValueError("unknown active WGS attempt")
+                preflight_params = dict(preflight_run.params_json or {})
+                if (
+                    stage_name != "step7_cleanup"
+                    and preflight_params.get("resume_action_id")
+                ):
+                    raise ValueError(
+                        "stage registration requires the current recovery identity"
+                    )
+                pre_sync_contract_v2 = bool(
+                    getattr(settings, "wgs_contract_v2_enabled", False)
+                ) and int(preflight_params.get("orchestration_contract_version") or 1) == 2
+                if (
+                    pre_sync_contract_v2
+                    and request.force_new_generation
+                    and stage_name == "step7_cleanup"
+                    and stage_name in SUPPORTED_RUNTIME_SYNC_STAGES
+                ):
+                    authorize_step7_runtime(
+                        session=preflight_session,
+                        run=preflight_run,
+                        action_id=str(request.maintenance_action_id or ""),
+                    )
+            if pre_sync_contract_v2:
+                sync_stages = []
+                if (
+                    request.force_new_generation
+                    and stage_name in SUPPORTED_RUNTIME_SYNC_STAGES
+                ):
+                    sync_stages.append(stage_name)
+                if stage_name == "step3_monitor":
+                    sync_stages.append("step2_master")
+                if sync_stages:
+                    command_prefix = (
+                        "wgs-local-runtime"
+                        if stage_name == "local_analysis"
+                        else "wgs-runtime"
+                    )
+                    expected_command = (
+                        f"{command_prefix} {analysis_id} {request.attempt} {stage_name}"
+                    )
+                    if request.command != expected_command:
+                        raise ValueError(
+                            "runtime command does not match the registered stage"
+                        )
+                    for sync_stage in dict.fromkeys(sync_stages):
+                        sync_runtime_stage_artifacts(
+                            session_factory=get_sessionmaker(),
+                            request_root=Path(settings.wgs_runtime_request_root),
+                            transfer_spool_root=Path(settings.wgs_transfer_spool_root),
+                            analysis_id=analysis_id,
+                            attempt=request.attempt,
+                            stage=sync_stage,
+                        )
         with get_sessionmaker()() as session:
             if stage_name == 'publish_recovery':
                 from app.cce_publish_recovery import control_publish_dispatch
@@ -2591,6 +2660,13 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
             contract_v2 = bool(getattr(settings, "wgs_contract_v2_enabled", False)) and int(
                 params.get("orchestration_contract_version") or 1
             ) == 2
+            if (
+                pre_sync_contract_v2 is not None
+                and contract_v2 != pre_sync_contract_v2
+            ):
+                raise ValueError(
+                    "WGS orchestration contract changed during stage registration"
+                )
             if contract_v2:
                 contract = load_wgs_stage_contract(
                     Path(settings.wgs_stage_contract_path)
@@ -2601,27 +2677,6 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                         "mode": contract.heavy_io.mode,
                         "unit": "work_pod",
                     }
-                if (
-                    request.force_new_generation
-                    and stage_name in SUPPORTED_RUNTIME_SYNC_STAGES
-                ):
-                    sync_runtime_stage_artifacts(
-                        session_factory=get_sessionmaker(),
-                        request_root=Path(settings.wgs_runtime_request_root),
-                        transfer_spool_root=Path(settings.wgs_transfer_spool_root),
-                        analysis_id=analysis_id,
-                        attempt=request.attempt,
-                        stage=stage_name,
-                    )
-                if stage_name == "step3_monitor":
-                    sync_runtime_stage_artifacts(
-                        session_factory=get_sessionmaker(),
-                        request_root=Path(settings.wgs_runtime_request_root),
-                        transfer_spool_root=Path(settings.wgs_transfer_spool_root),
-                        analysis_id=analysis_id,
-                        attempt=request.attempt,
-                        stage="step2_master",
-                    )
                 execution = register_stage_execution(
                     session=session,
                     run=run,
