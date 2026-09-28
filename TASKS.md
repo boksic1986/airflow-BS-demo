@@ -1,5 +1,16 @@
 # Active test-branch tasks
 
+## GATK-PROD-COMPAT-20260928 (complete; no patch)
+
+- [x] Compare the actual integration worktree diff with the seven WGS P0 items.
+- [x] Read the deployed GATK gate identity and paired-activation presence on t640
+  through the approved ctapa SSH route, without using the restricted runner.
+- [x] Conclude no GATK patch is needed: current production GATK does not select
+  the paired runtime; the only explicit GATK timeout delta already uses its
+  existing 72-hour Step3 wait bound.
+- No source change, test rerun, batch submission, deployment or push. Applicability
+  table and read-only evidence are recorded in the latest HANDOFF entry.
+
 ## AIRFLOW-REPAIR-SYNC-20260927
 
 - [x] Verify main/production origins at0b35278, clean source03dc8d7, and fast-forward ancestry.

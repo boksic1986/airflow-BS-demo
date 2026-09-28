@@ -1,5 +1,63 @@
 # Handoff
 
+## 2026-09-28 GATK-PROD-COMPAT (no patch)
+
+Goal: assess only whether the recent WGS P0 changes need GATK equivalents. User
+explicitly excluded a full GATK/history audit, runtime rerun, native upgrade and
+production change. Worktree `C:\Users\11217\.codex\worktrees\gatk-prod-compat\airflow-demo`,
+branch `jiucheng/airflow/GATK-PROD-COMPAT-gatk-runtime`, base/HEAD
+`744cd22e09127137a55468cad0c9f14760fb6901`; integration comparison was
+`744cd22..257931c9b6cb157f7de29c45b0b73a30b0a85dfa`.
+
+| WGS P0 item | Actual recent diff and GATK applicability | Decision |
+|---|---|---|
+| Request hash / control root | The integration HANDOFF records the earlier paired-validator fix aligning WGS initial/recovery request hashes; that WGS contract is already in the comparison base. The committed delta here normalizes only WGS `control_workdir`. GATK keeps a separate recovery validator. | No port. |
+| Initial CREATE deadline / first Master after upload resume | The uncommitted paired-runtime diff now takes the original deadline from native `_master_create_intent`; that shared helper would also serve GATK if paired runtime were loaded. The no-Master upload-resume/prestart branch is explicitly WGS-only. Current production GATK has no paired module or activation manifest. | Common helper unreachable today; no current GATK patch. |
+| Step2 successful predecessor receipt | The uncommitted `_inactive_dispatcher` shortcut handles synchronous Step2 terminal status only under `pipeline == 'wgs'`, with registered-request/receipt identity checks. The normal predecessor-receipt contract is unchanged. | No GATK port. |
+| Step3 reconnect progress / Master identity | The uncommitted monitor change preserves nested Master/job/namespace/run-label fields only for WGS. `cce_recovery_policy.py` explicitly records GATK's existing 72-hour Step3 timeout. The paired reconnect identity path is not loaded by current production GATK. | No duplicate GATK patch. |
+| Step4 old action / old generation | `cce_publish_recovery.py` accepts sealed previous-generation Step4 evidence only for WGS (`pipeline == 'wgs'`). | No GATK port. |
+| Step6 dispatcher evidence sync | The uncommitted `_inactive_dispatcher` synchronous-status shortcut includes Step6 only for WGS (`pipeline == 'wgs'`). | Do not transplant. |
+| Successful final bulk inventory | The uncommitted workload probe adds namespace bulk inventory, but `_release_registered_writer` enables it only with `bulk_inventory=(pipeline == 'wgs')`. The deployed GATK gate has no paired-runtime binding. | No current GATK patch. |
+
+Read-only production evidence: SSH as `ctapa` through the approved BS96 TCP
+jump, using strict host-key checking against the existing node200 IP entry; the
+observed t640 ED25519 fingerprint matched the recorded
+`SHA256:KKSrhbpZdPlBe7ej63ZaYhvYwWhQpdEnGejD59NGMv4`. The installed GATK gate
+SHA256 is `b3230de8fcdba8806a91e247679c38d40ae57cd8b02280276e64f33e6f88ec0f`.
+The same private GATK root has no `cce_paired_runtime.py` or
+`cce-paired-deployment-v1.json`; its gate source contains no paired-module
+reference. Its hash matches the existing 2026-09-16 GATK deployment record and
+does **not** match the integration worktree gate SHA256
+`9d2585d74aa40d2172d4098c716e14fc349aabcea2b62b294ebefcbf7c68cac7`. The
+forced-command wrapper hash is
+`0c4fc77ccf3f12c991f418bf03a898287a0c4f3a4e7dfc93e7d647525276940a`; its
+resolved entry is `readonly runtime_gate="${config_dir}/gatk_runtime_gate.py"`
+followed by `exec "${GATK_PYTHON}" "${runtime_gate}" "$@"`. The latest
+recorded successful GATK run is from 2026-09-24 and completed Step3-Step6/finalize;
+this is historical evidence, not a fresh live run check.
+
+Commands/effects: inspected only the integration diff and HANDOFF, then read the
+GATK gate, paired-module/manifest presence and forced-command entry on t640.
+Integration worktree working-tree diffs were inspected only in the specified
+paired runtime, publish recovery, inventory and workload files. No tests,
+database/cloud query, batch submission, runtime modification, deployment, native
+upgrade or push. Direct local SSH to `172.17.61.200` timed out before remote
+execution; `ssh -J NGS` reached node005 but timed out forwarding to t640. An
+initial strict check using `HostKeyAlias=t640` found no local alias entry; the
+same pinned host key was present under the IP, and a strict BS96 TCP jump then
+succeeded. A first forced-command read timed out during SSH banner exchange; one
+bounded retry succeeded. The initial activation import returned `FileNotFoundError`
+because the paired module is absent; a metadata-only read confirmed absence. A
+source-text probe hit Python 3.6's default ASCII decode on a non-ASCII comment;
+the corrected bytes-only reference check succeeded. A keyscan probe was
+incompatible with the server's preferred KEX. No failed probe ran a command on
+t640; the successful reads were metadata/source inspection only. The temporary
+local SSH forward was stopped.
+
+Conclusion: no GATK patch. Keep the future unified-runtime work in its separate
+UE review/release; this compatibility gate does not authorize production rollout.
+
+
 ## 2026-09-27 authorized main/production repair synchronization
 
 User requests Airflow repair code on main and production. Fetch/ls-remote show

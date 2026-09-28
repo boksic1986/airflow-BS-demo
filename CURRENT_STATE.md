@@ -1,5 +1,19 @@
 # Current state
 
+## 2026-09-28 GATK-PROD-COMPAT gate
+
+Compared the integration commit delta and targeted uncommitted P0 source diffs
+against the seven WGS items. Production t640's GATK gate is the recorded deployed SHA256
+`b3230de8fcdba8806a91e247679c38d40ae57cd8b02280276e64f33e6f88ec0f`; its
+private GATK directory has no `cce_paired_runtime.py` or paired deployment
+manifest, and the gate does not reference that module. Current GATK does not
+enter the paired-runtime paths changed by the WGS P0 work. No GATK code patch
+is indicated. The private gate hash differs from the source worktree's
+`gatk_runtime_gate.py` SHA256 `9d2585d74aa40d2172d4098c716e14fc349aabcea2b62b294ebefcbf7c68cac7`;
+the configured forced-command wrapper executes the private gate path. The latest
+recorded GATK success completed Step3-Step6/finalize on 2026-09-24; no fresh run
+or whole-chain validation was performed.
+
 ## 2026-09-27 Airflow repair branch synchronization
 
 User requests main and jiucheng/release/production synchronization. Both fetched
