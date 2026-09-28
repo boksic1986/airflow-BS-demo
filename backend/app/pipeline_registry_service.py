@@ -339,6 +339,7 @@ def _project_gatk_rule_context(*, run, **_) -> dict[str, Any]:
 
 
 def _project_gatk_progress(*, session, run, payload, **_) -> dict[str, Any]:
+    from app.gatk_workspace_service import project_gatk_transfer_wait
     from app.wgs_stage_estimates import attach_stage_estimates
     stage = gatk_stage_definition(run.current_stage)
     stage_rows = list(
@@ -382,7 +383,10 @@ def _project_gatk_progress(*, session, run, payload, **_) -> dict[str, Any]:
         ),
         "airflow_tasks": [],
     }
-    return attach_stage_estimates(session, run, result)
+    return project_gatk_transfer_wait(
+        session=session, run=run, stage_row=stage_row,
+        payload=attach_stage_estimates(session, run, result),
+    )
 
 
 def _project_wgs_rule_context(*, run, **_) -> dict[str, Any]:

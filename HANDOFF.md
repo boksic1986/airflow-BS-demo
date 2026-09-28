@@ -1,5 +1,68 @@
 # Handoff
 
+## 2026-09-28 — UI-TRANSFER-WAIT-20260928 GATK waiting display candidate
+
+### Goal and completed work
+
+Show the exact unregistered GATK Step1/Step5 acquire-slot wait in WES Run
+Tracker and Run Detail as `Uploading FASTQ` / `Downloading GATK results`,
+`waiting`, an English current item, and unavailable progress. The existing
+frontend therefore displays `Waiting to start` and an empty bar. The database
+keeps its Chinese `queued` stage row and `gatk-transfer-slot` source. No DAG,
+slot, lease, persisted run status or scheduler behavior changed.
+
+Source branch: `jiucheng/backend/ui-transfer-wait-20260928`, in the existing
+isolated worktree; this change is a separate commit for review.
+
+Only the current run/attempt and Step1/Step5 acquire-slot marker is projected.
+A registered `PipelineStageExecution` or `TransferJob`, a stage already running
+without telemetry, or a terminal run is left alone. Both API paths use the same
+read-only helper: `gatk_workspace_service.py` for Run Detail and
+`pipeline_registry_service.py` for Run Tracker.
+
+Changed files: `backend/app/gatk_workspace_service.py`,
+`backend/app/pipeline_registry_service.py`,
+`backend/tests/test_gatk_transfer_wait.py`, `docs/05_API_CONTRACT.md`,
+`docs/06_FRONTEND_SPEC.md`, `CURRENT_STATE.md`, `TASKS.md`, and `HANDOFF.md`.
+
+### Verification and environment
+
+Before remote work, BS10610 resolved as `server10610`. Its control `current`
+symlink was `releases/20260912-opt-4d3d24e6`; the running backend `/app`
+bind was read-only from `releases/20260926-p0-e358aad/backend`. Backend image
+was `sha256:8491604ee01d9b3a84d74e7edf233a9d5dd20ddbf14f8a646c25c05f8729efed`.
+Observed gates: `PLATFORM_ENVIRONMENT=BS10610-Test`, scan=false,
+auto_dispatch=false, execution=true, contract_v2=true. The disposable test
+container used `--network none --read-only --tmpfs /tmp` and mounted only
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/ui-transfer-wait-20260928/backend`
+read-only. It did not touch running services or a business database.
+
+- Command in the isolated image: `python -m pytest -q -p no:cacheprovider
+  tests/test_gatk_transfer_wait.py` with `PYTHONPATH=/candidate/backend`.
+  Before product edits: **2 expected failures, 2 passes** in 1.16s (both
+  upload/download workspace waits still showed their stored queued labels).
+  After product edits: **4 passes** in 2.34s; after strengthening the stored-row
+  and terminal Tracker assertions, final rerun **4 passes** in 1.77s. These
+  cover both Tracker paths, unchanged stored rows, acquired-but-not-started
+  item, missing-telemetry
+  running stage, registered execution, and terminal run guards.
+- Failed preflight command: a combined `docker inspect --format` invocation;
+  exit code 1; stderr `template parsing error: unexpected "\\" in operand`.
+  Cause: PowerShell-to-remote quoting of the Go template. Fix: inspect mounts
+  and image separately; both succeeded before the test was run. No runtime
+  change or retry of a failing workload resulted.
+- Local runtime tests were not run because this workstation is for editing/Git
+  only. No broader backend suite, frontend test, production SSH, real batch,
+  deployment, push, or lease mutation was performed.
+
+### Remaining work and rollback
+
+Coordinator reviews this independent source commit and owns any authorized
+release. This is display-only source with no migration: revert the two backend
+projection edits to restore the previous API display. The principal risk is a
+stale queued marker temporarily displaying as waiting; the current-attempt,
+registered-execution/transfer and terminal guards limit that case.
+
 ## 2026-09-28 — WGS A/C Tracker recovery projection candidate
 
 ### Goal and result

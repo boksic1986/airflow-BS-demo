@@ -1,5 +1,21 @@
 # Active test-branch tasks
 
+## UI-TRANSFER-WAIT-20260928 — source ready for review
+
+Owner: Backend display projection; coordinator owns review and any rollout.
+
+- [x] Confirm the stored GATK Step1/Step5 acquire-slot marker and both Tracker
+  and Run Detail projection paths.
+- [x] Project only the current-attempt unregistered transfer wait as `waiting`
+  with English upload/download labels and unavailable progress, without writing
+  the marker or changing scheduling.
+- [x] Preserve registered execution/transfer, running stages without telemetry,
+  and terminal run presentation.
+- [x] Run focused synthetic regressions in an isolated BS10610 backend image:
+  2 expected RED failures before the code change, then 4 GREEN cases.
+- [ ] Coordinator reviews this separate source commit and decides whether to
+  deploy under a new authorized release task.
+
 ## P0-WGS-TRACKER-PROJECTION-20260928 — source ready for review
 
 Owner: Airflow/backend observer; coordinator owns production review and rollout.

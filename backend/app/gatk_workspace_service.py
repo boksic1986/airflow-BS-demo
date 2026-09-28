@@ -3,11 +3,72 @@ from __future__ import annotations
 from sqlalchemy import case, func, select
 
 from app.gatk_stage_contract import gatk_stage_definition, project_gatk_orchestration
-from app.models import AnalysisRun, RuleState, RunStageState, Sample, TransferJob
+from app.models import AnalysisRun, PipelineStageExecution, RuleState, RunStageState, Sample, TransferJob
 
 
 ACTIVE = {"accepted", "submitted", "queued", "running", "started", "retrying"}
 FAILED = {"failed", "error", "terminated", "canceled"}
+
+
+def project_gatk_transfer_wait(*, session, run: AnalysisRun, stage_row: RunStageState | None, payload: dict) -> dict:
+    """Present the exact acquire-slot marker as waiting on read, without rewriting it."""
+    stages = {
+        "step1_upload": ("Uploading FASTQ", "upload"),
+        "step5_download": ("Downloading GATK results", "download"),
+    }
+    if (
+        run.pipeline_name != "gatk"
+        or str(run.status or "").lower() not in {"submitted", "queued", "running"}
+        or stage_row is None
+        or stage_row.stage_code != gatk_stage_definition(run.current_stage).code
+        or stage_row.stage_code not in stages
+        or stage_row.stage_status != "queued"
+        or stage_row.progress_source != "gatk-transfer-slot"
+        or stage_row.progress_available
+    ):
+        return payload
+    stage_code = stage_row.stage_code
+    if session.scalar(select(PipelineStageExecution.id).where(
+        PipelineStageExecution.pipeline_name == "gatk",
+        PipelineStageExecution.analysis_id == run.analysis_id,
+        PipelineStageExecution.attempt == run.attempt,
+        PipelineStageExecution.stage_code == stage_code,
+    ).limit(1)) is not None:
+        return payload
+    label, direction = stages[stage_code]
+    if session.scalar(select(TransferJob.id).where(
+        TransferJob.analysis_id == run.analysis_id,
+        TransferJob.attempt == run.attempt,
+        TransferJob.direction == direction,
+    ).limit(1)) is not None:
+        return payload
+    item = (
+        f"Waiting for {direction} to start"
+        if stage_row.current_item == "槽位已取得，等待启动传输"
+        else f"Waiting for OBS {direction} slot"
+    )
+    projected = {
+        **payload,
+        "current_step": label,
+        "current_rule": None,
+        "current_sample": None,
+        "stage_label": label,
+        "stage_status": "waiting",
+        "progress_available": False,
+        "percent": None,
+        "progress_percent": None,
+        "completed_units": None,
+        "total_units": None,
+        "unit": None,
+        "speed_bps": None,
+        "eta_seconds": None,
+        "current_item": item,
+        "note": item,
+    }
+    for stage in projected.get("orchestration_stages", []):
+        if stage.get("stage_code") == stage_code:
+            stage.update(label=label, status="waiting", stage_status="waiting", completed_jobs=0)
+    return projected
 
 
 def build_gatk_workspace(*, session, run: AnalysisRun, run_payload: dict) -> dict:
@@ -115,6 +176,9 @@ def build_gatk_workspace(*, session, run: AnalysisRun, run_payload: dict) -> dic
     }
     from app.wgs_stage_estimates import attach_stage_estimates
     attach_stage_estimates(session, run, result["progress"])
+    result["progress"] = project_gatk_transfer_wait(
+        session=session, run=run, stage_row=stage_row, payload=result["progress"]
+    )
     return result
 
 def _serialize_transfer(row: TransferJob | None) -> dict | None:

@@ -1,5 +1,16 @@
 # Current state
 
+## 2026-09-28 GATK transfer wait UI projection candidate
+
+GATK Step1 upload and Step5 download acquire-slot markers remain persisted as
+`queued` with source `gatk-transfer-slot`. The Run Tracker and Run Detail read
+projections now show `waiting`, `Uploading FASTQ` or `Downloading GATK results`,
+an English current item and unavailable progress. Registered execution/transfer,
+truly running stages without telemetry and terminal runs retain their existing
+presentation. An isolated BS10610 backend-image run of the focused synthetic
+suite passed 4 cases. This source candidate is not deployed or pushed;
+coordinator review and any authorized rollout remain pending. See HANDOFF.
+
 ## 2026-09-28 WGS A/C Tracker recovery projection candidate
 
 On the existing production-source baseline, a narrow backend/observer patch

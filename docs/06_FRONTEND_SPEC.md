@@ -1,5 +1,15 @@
 # Frontend specification
 
+## GATK transfer-slot waiting projection (2026-09-28, source only)
+
+Run Tracker and Run Detail Current progress consume the GATK API's Step1/Step5
+waiting projection. Before transfer registration, they show `Uploading FASTQ`
+or `Downloading GATK results`, status `waiting`, `Waiting to start`, and an
+empty progress bar. The backend supplies an English current item describing
+slot wait or acquired-but-not-started. Registered running transfer progress,
+including missing telemetry, and terminal run views retain their existing
+presentation. No frontend rendering or scheduling behavior changes.
+
 ## Task6 monitor reconnect control (2026-09-25, source only)
 
 Existing same-attempt ResumeStagePanel also serves WGS/GATK CCE query attention

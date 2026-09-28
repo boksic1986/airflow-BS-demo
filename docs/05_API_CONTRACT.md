@@ -721,6 +721,14 @@ distinguishing waiting capacity from acquired-but-not-started. Run status stays
 running; real stage registration resets the standard stage label. This is based
 on actual acquire calls, not guessed from elapsed time or missing telemetry.
 
+The GATK Run Tracker and Run Detail workspace read projections display this
+exact current-attempt acquire-slot marker as `waiting`, with stage labels
+`Uploading FASTQ` (Step1) or `Downloading GATK results` (Step5), an English
+waiting item, unavailable progress, and no percentage. The persisted queued
+marker and overall run status are unchanged. A registered stage execution or
+transfer job, a truly running stage with missing telemetry, and a terminal run
+do not receive this waiting projection.
+
 ## GATK terminal transfer convergence (2026-09-14)
 
 Existing internal GATK stage-status polling now idempotently reconciles the
