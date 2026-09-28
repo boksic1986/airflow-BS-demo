@@ -1,5 +1,90 @@
 # Handoff
 
+## 2026-09-28 — WGS B Step3 stage-registration self-lock
+
+### Goal and result
+
+Remove the PostgreSQL self-lock from contract-v2 stage registration without
+resubmitting Step2 or replacing the active WGS Master. The source fix is
+committed as `a2d0eef` on
+`jiucheng/backend/20260928-step3-registration-lockfix`, based on production
+source commit `84510df`. The tested `backend/app/main.py` SHA-256 is
+`975e1504441784162420691528ca3afbaa3fb6d0980f8b5b217b1d2e2d582ba5`.
+
+The endpoint now checks the current run/attempt in a short unlocked session,
+closes that session, imports the relevant runtime evidence, then obtains the
+original `FOR UPDATE` lock and repeats the active-run and remaining gates.
+`resume_action_id` retains its original early-return path. Forced Step7 cleanup
+also pre-validates the maintenance action and still re-authorizes it under the
+locked transaction. No API schema or database migration changed.
+
+### Files
+
+- `backend/app/main.py`
+- `backend/tests/test_wgs_only_platform.py`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+
+### Verification
+
+- BS10610 (`ssh BS10610`, hostname `server10610`), using the disposable test
+  database through a unique temporary schema: targeted regression
+  `test_runtime_stage_sync_does_not_self_lock_run_row` passed both parameter
+  cases in 1.89 s. Output: `2 passed, 1 warning`; the warning is the existing
+  Starlette `anyio.abc.BlockingPortal` deprecation.
+- The imported module path was the isolated candidate under
+  `/tmp/step3-stage-lockfix-20260928-84510df/backend/app/main.py`; its hash
+  matched the worktree source. Each temporary PostgreSQL schema was dropped in
+  the test `finally` block. The test used a synthetic service-token override;
+  no deployed credential or DSN was printed.
+- `git diff --check` passed before commit.
+- The full backend suite was not run; the coordinator requested only this
+  focused PostgreSQL lock regression. No production or Airflow command was run
+  by this implementation task after scope narrowed to the fix. Earlier
+  production access was read-only source/log inspection; no production
+  mutation was performed here.
+
+Harness corrections before the passing run: the create-run endpoint returns
+201; the internal token getter needed an in-test synthetic override; the test
+reads `request_hash` from the execution row rather than the endpoint response.
+An earlier lock-timeout result came from the old `/app` source because Docker
+copied candidate files with unreadable permissions. The final run explicitly
+preloaded the verified candidate module at SHA `975e1504…` and passed.
+
+### Runtime coordination and boundaries
+
+BS10610 preflight found the test backend `/app` bind mount read-only. Test source
+was staged only under `/tmp/step3-stage-lockfix-20260928-84510df` on the test
+host/container; no service was restarted and the actual `/app` mount was not
+modified. The test uses the disposable BS10610 backend database in a unique
+schema and removes that schema. No workflow dispatch was made.
+
+The coordinator reports that BS96 activated this exact backend file by
+rebuilding only the backend; other container IDs were preserved, and LAN/API
+health returned 200. The loopback gateway's 403 remained the pre-existing LAN
+allowlist behavior and was not changed. For batch `20260927B`, the coordinator reports clearing
+only the 14 failed/upstream-failed task instances in the original DagRun
+`WGS_20260928_101112_11111E-a1`. Step1/Step2 were excluded, the Master UID was
+unchanged, and the DagRun returned to `queued`. Step3 task pickup and subsequent
+progress are still pending coordinator observation. The new production release
+path and rollback release path were not included in the status sent to this
+task; record those from the coordinator's deployment audit rather than infer
+them. The pre-hotfix backend source was mounted from
+`/data/airflow-WGS/releases/20260927-p0-local-84510df/backend` and can be
+reconstructed from `84510df` (`main.py` SHA
+`ff0f3be345680893893e5d52875f4a7be96a286c4e3a37427694a5595df27bf9`). No
+database rollback is needed because there is no schema change.
+
+### Next action and risk
+
+Coordinator: confirm that the cleared `start_step3_monitor` task registers,
+continues monitoring the existing Master UID, and advances the same DagRun.
+Do not resubmit Step2, restart the Master, or create a new DagRun for this fix.
+If the hotfix must be rolled back, use the normal release rollback procedure
+to restore the recorded pre-hotfix backend source; do not mutate the run or
+workflow state as part of code rollback.
+
 ## 2026-09-27 authorized main/production repair synchronization
 
 User requests Airflow repair code on main and production. Fetch/ls-remote show

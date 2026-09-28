@@ -1,5 +1,31 @@
 # Active test-branch tasks
 
+## P0-WGS-STEP3-LOCK-20260928 — fix committed; runtime progress monitoring remains
+
+Owner: Backend for the transaction fix; coordinator for production release and
+same-DagRun recovery.
+
+- [x] Confirm the production lock cycle: the stage endpoint held
+  `AnalysisRun FOR UPDATE` while evidence sync opened a second session that
+  attempted to lock the same run row.
+- [x] Move the contract-v2 Step3 and forced-generation evidence sync before the
+  locked registration transaction; close the preflight session first, then
+  re-read and revalidate under the original lock.
+- [x] Preserve command, attempt, recovery and Step7 maintenance authorization
+  checks; do not add sync to the `resume_action_id` early-return path.
+- [x] Commit source and regression as `a2d0eef`, based on production source
+  commit `84510df`.
+- [x] Run the targeted PostgreSQL regression on BS10610: two parameter cases
+  passed (Step3 receipt sync and `force_new_generation`).
+- [x] Coordinator reports BS96 activation of the tested `main.py` SHA using a
+  backend-only rebuild, followed by a same-DagRun clear of only 14 failed or
+  upstream-failed Airflow tasks; Step1/Step2 and the active Master were
+  preserved.
+- [ ] Coordinator to confirm Step3 task pickup and continued analysis progress.
+
+Scope excludes new run submission, Step2 resubmission, Master restart, broad
+backend suite execution, Airflow/DAG changes and production rollback.
+
 ## AIRFLOW-REPAIR-SYNC-20260927
 
 - [x] Verify main/production origins at0b35278, clean source03dc8d7, and fast-forward ancestry.

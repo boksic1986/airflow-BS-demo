@@ -1,5 +1,28 @@
 # Current state
 
+## 2026-09-28 WGS B Step3 registration lock fix
+
+Backend commit `a2d0eef` moves contract-v2 runtime evidence synchronization for
+Step3 and `force_new_generation` ahead of the AnalysisRun row lock. The
+preflight session checks the current WGS attempt and closes before sync; the
+existing locked read and all stage/recovery/command gates remain in place. A
+two-case PostgreSQL regression passed on BS10610. `backend/app/main.py`
+SHA-256 is `975e1504441784162420691528ca3afbaa3fb6d0980f8b5b217b1d2e2d582ba5`.
+
+The coordinator reports that this exact backend file was activated on BS96
+with only the backend rebuilt; other container IDs were preserved and the
+gateway/API health check passed from the LAN. The production source before the
+hotfix was based on `84510df`; its backend mount was
+`/data/airflow-WGS/releases/20260927-p0-local-84510df/backend`, with the prior
+`main.py` SHA-256 `ff0f3be345680893893e5d52875f4a7be96a286c4e3a37427694a5595df27bf9`.
+The coordinator owns the new release path and rollback record.
+
+For WGS batch `20260927B`, the coordinator reports one same-DagRun Airflow
+clear of 14 `failed`/`upstream_failed` task instances. Step1/Step2 were excluded,
+and the active Master UID was unchanged. The DagRun is `queued`; Step3 pickup and
+continued runtime progress remain to be observed. This task performed no
+production mutation and did not restart Airflow, the Master, or node200.
+
 ## 2026-09-27 Airflow repair branch synchronization
 
 User requests main and jiucheng/release/production synchronization. Both fetched
