@@ -9,6 +9,29 @@ stdout and fully recognized stderr are still required; remote/business or
 ambiguous post-execution output is never automatically replayed. Existing
 three-invocation limit,5s/10s delays and original registration/generation remain.
 
+## UE-04 unified stage client (2026-09-30, source only)
+
+Newly marked WGS/GATK Step1–Step6 registrations return the exact frozen
+execution ID, generation, request hash and `stage_execution` marker. The DAGs
+obtain the full native ref by the fixed read-only `--native-observe` command,
+compare it with that registration, and use the fixed `--native-submit` command
+with the same ref. A marked submit sends one SSH request per task invocation;
+an uncertain response is reconciled by observing that ref. Airflow task retries
+reuse the same registration and rely on the native launch fence to attach to
+an existing dispatch or start a first dispatch that never happened. A native
+`unknown` result never advances a stage or authorizes a second launch within
+the same invocation. Older unmarked frozen requests retain their prior gate
+path.
+
+WGS Step2 keeps its existing `submit_step2_master` task and `wgs_cce_runs`
+pool, holding the task until a matching native terminal result; no additional
+Step2 sensor or shared stage deadline is introduced. Step6 still requires
+`wait_step6_materialize` before `finalize_run`; native success and the current
+business receipt must both be visible. GATK keeps its submit/wait task graph
+and evaluates both tasks through the same client. The original task/sensor
+timeouts and the separate Step4 publish recovery authorization remain in
+force. This candidate has not been installed on node200 or deployed.
+
 ## DAG discovery isolation (2026-09-27 test branch)
 
 `bio_wgs_native_monitor`, `bio_wgs_maintenance` and

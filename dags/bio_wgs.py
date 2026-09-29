@@ -20,6 +20,14 @@ from airflow.sensors.python import PythonSensor
 from airflow.utils.task_group import TaskGroup
 from airflow.utils.trigger_rule import TriggerRule
 
+from common.stage_execution import (
+    DispatchUncertain,
+    execution_ref_from_registration,
+    observe_stage,
+    submit_and_await,
+    submit_stage,
+)
+
 
 ANALYSIS_ID_RE = re.compile(r"^WGS_[0-9]{8}_[0-9]{6}_[A-F0-9]{6}$")
 RUNNER_STAGES = {
@@ -247,7 +255,11 @@ def register_stage(stage: str, **context: Any) -> dict[str, Any]:
     if conf.get('resume_action_id') or stage in {"step4_publish", "release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
         request_payload["dag_run_id"] = context["dag_run"].run_id
     task_instance = context.get("ti") or context.get("task_instance")
-    if int(getattr(task_instance, "try_number", 1) or 1) > 1:
+    # A retried Step1-6 task must reattach its registered execution. A new
+    # generation is authorized by the explicit recovery API, not try_number.
+    if (int(getattr(task_instance, "try_number", 1) or 1) > 1
+            and (stage not in RECOVERY_STAGES or conf.get("maintenance_mode") is not None
+                 or runner_stage != stage)):
         request_payload["force_new_generation"] = True
     path = f"/api/internal/wgs/runs/{conf['analysis_id']}/stages/{runner_stage}"
     for registration_attempt in range(
@@ -281,6 +293,33 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
     from cce_publish_dispatch import enabled, start_publish
     if runner_stage == 'step4_publish' and enabled(conf):
         return start_publish(_stage_query_json,pipeline='wgs',conf=conf,dag_run_id=context['dag_run'].run_id)
+    marker = registered.get("stage_execution")
+    if marker is not None:
+        if marker != {"protocol": "cce.stage-execution.v1"} or runner_stage not in RECOVERY_STAGES:
+            raise AirflowFailException("unsupported registered WGS stage execution")
+        initial = _native_observe_stage(conf, runner_stage, registered)
+        ref = execution_ref_from_registration(
+            initial, registered, pipeline="wgs", stage=runner_stage
+        )
+        dispatch = lambda exact: _native_dispatch_stage(conf, runner_stage, exact)
+        observe = lambda current: _native_observe_stage(conf, runner_stage, current)
+        if runner_stage == "step2_master":
+            result = submit_and_await(
+                execution_ref=ref, dispatch=dispatch, observe=observe,
+                deadline=None,
+            )
+        else:
+            result = submit_stage(
+                execution_ref=ref, dispatch=dispatch, observe=observe, deadline=None
+            )
+        if result["state"] in {"failed", "canceled"}:
+            raise AirflowFailException(f"registered WGS stage {runner_stage} ended {result['state']}")
+        if runner_stage == "step3_monitor" and result["state"] != "unknown":
+            _backend_json(
+                f"/api/internal/wgs/runs/{conf['analysis_id']}/observer/activate",
+                method="POST", payload={"attempt": conf["attempt"]},
+            )
+        return result
     command = [
         "ssh",
         "-tt",
@@ -456,6 +495,86 @@ def _runner_reply(stdout: str) -> dict[str, Any]:
     return {}
 
 
+_NATIVE_SUBMIT_TASK = {
+    "step1_upload": "input_transfer.start_step1_upload",
+    "step2_master": "submit_step2_master",
+    "step3_monitor": "start_step3_monitor",
+    "step4_publish": "start_step4_publish",
+    "step5_download": "result_transfer.start_step5_download",
+    "step6_materialize": "materialize_step6_results",
+}
+
+
+def _native_ssh_command(*arguments: str) -> list[str]:
+    return [
+        "ssh", "-tt", "-F",
+        os.getenv("WGS_SSH_CONFIG_PATH", "/opt/airflow/ssh/config"),
+        os.getenv("WGS_RUNNER_200_ALIAS", "wgs-node200"),
+        os.getenv("WGS_RUNNER_200_COMMAND", "/home/ctapa/.config/airflow-wgs/forced-command.sh"),
+        *arguments,
+    ]
+
+
+def _native_observe_stage(conf: dict, stage: str, identity: dict) -> dict:
+    if (identity.get("analysis_id") != conf["analysis_id"]
+            or identity.get("attempt") != conf["attempt"]
+            or identity.get("stage") != stage):
+        raise AirflowFailException("native WGS observation identity differs")
+    generation = identity.get("stage_generation", identity.get("generation"))
+    command = _native_ssh_command(
+        "--native-observe", str(conf["analysis_id"]), str(conf["attempt"]), stage,
+        str(identity.get("execution_id")), str(generation), str(identity.get("request_hash")),
+    )
+    for attempt in range(1, RUNNER_REQUEST_VISIBILITY_ATTEMPTS + 1):
+        completed = subprocess.run(
+            command, check=False, stdin=subprocess.DEVNULL,
+            capture_output=True, text=True,
+        )
+        if completed.returncode == 0:
+            return _runner_reply(completed.stdout)
+        if not _runner_request_not_yet_visible(completed) or attempt == RUNNER_REQUEST_VISIBILITY_ATTEMPTS:
+            break
+        time.sleep(RUNNER_REQUEST_VISIBILITY_DELAY_SECONDS)
+    if completed.returncode == 255:
+        raise BackendTransportUnavailable("native WGS observation transport unavailable")
+    raise AirflowFailException("native WGS observation rejected the registered identity")
+
+
+def _native_dispatch_stage(conf: dict, stage: str, identity: dict) -> dict:
+    if (identity.get("analysis_id") != conf["analysis_id"]
+            or identity.get("attempt") != conf["attempt"]
+            or identity.get("stage") != stage):
+        raise AirflowFailException("native WGS dispatch identity differs")
+    command = _native_ssh_command(
+        "--native-submit", str(conf["analysis_id"]), str(conf["attempt"]), stage,
+        str(identity["execution_id"]), str(identity["stage_generation"]),
+        str(identity["request_hash"]),
+    )
+    completed = subprocess.run(
+        command, check=False, stdin=subprocess.DEVNULL,
+        capture_output=True, text=True,
+    )
+    if completed.returncode:
+        raise DispatchUncertain("native WGS dispatch outcome requires exact observation")
+    result = _runner_reply(completed.stdout)
+    if result.get("schema") != "cce.stage-execution.snapshot.v1":
+        raise DispatchUncertain("native WGS dispatch reply lacks a full snapshot")
+    return result
+
+
+def _native_submitted_snapshot(stage: str, context: dict) -> dict | None:
+    task = _NATIVE_SUBMIT_TASK.get(stage)
+    ti = context.get("ti") or context.get("task_instance")
+    if task is None or ti is None:
+        return None
+    value = ti.xcom_pull(task_ids=task)
+    if isinstance(value, dict) and value.get("schema") == "cce.stage-execution.snapshot.v1":
+        return value
+    if isinstance(value, dict) and ("execution_ref" in value or "schema" in value):
+        raise AirflowFailException("WGS submit XCom contains an invalid native snapshot")
+    return None
+
+
 def stage_ready(stage: str, **context: Any) -> bool:
     conf = dict(context["dag_run"].conf or {})
     if not stage_should_run(stage, conf):
@@ -485,6 +604,25 @@ def stage_ready(stage: str, **context: Any) -> bool:
             return False
         if recovery.get('status') in {'delegated', 'superseded'}:
             raise AirflowSkipException('Compute recovery delegated to the current DagRun')
+    submitted = _native_submitted_snapshot(runner_stage, context)
+    if submitted is not None:
+        ref = submitted["execution_ref"]
+        if (ref.get("pipeline") != "wgs" or ref.get("analysis_id") != conf["analysis_id"]
+                or ref.get("attempt") != conf["attempt"] or ref.get("stage") != runner_stage):
+            raise AirflowFailException("WGS sensor native execution identity differs")
+        current = observe_stage(
+            execution_ref=ref,
+            observe=lambda exact: _native_observe_stage(conf, runner_stage, exact),
+        )
+        if current["state"] == "succeeded":
+            visible = (payload.get("retry_no") == ref["stage_generation"] - 1
+                       and payload.get("ready") is True)
+            payload = {**payload, "ready": visible, "failed": False}
+        elif current["state"] in {"failed", "canceled"}:
+            payload = {**payload, "ready": False, "failed": True,
+                       "message": f"registered WGS stage {runner_stage} ended {current['state']}"}
+        else:
+            return False
     if runner_stage == "step3_monitor" and (
         payload.get("failed") or payload.get("ready")
     ):
