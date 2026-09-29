@@ -3,9 +3,32 @@
   "release_id": "wgs-4.2.1-cc9bde3",
   "verified_equivalent_releases": {
     "wgs-4.2.1-34bfcbf": "34bfcbf82238af684d005314360c9c9739377351",
-    "wgs-4.2.1-ebf1f4b": "ebf1f4bf2512feecdc3762e463145130192ca8bb"
+    "wgs-4.2.1-ebf1f4b": "ebf1f4bf2512feecdc3762e463145130192ca8bb",
+    "wgs-4.2.2-441d5e7": "441d5e7e78e00baed084479b50041bf917ff0b6f"
+  },
+  "verified_rule_additions": {
+    "wgs-4.2.2-441d5e7": {
+      "concatSpecialSNV_fam_SNVannotation_strict_CS": "Carrier screening",
+      "CS_concatSpecialSNV_fam_SNVannotation_strict_CS": "Carrier screening",
+      "concatSpecialSNV_fam_SNVannotation_lenient_CS": "Carrier screening",
+      "CS_concatSpecialSNV_fam_SNVannotation_lenient_CS": "Carrier screening",
+      "concatSpecialSNV_fam_SNVannotation_strict": "SNV analysis",
+      "SNV_concatSpecialSNV_fam_SNVannotation_strict": "SNV analysis",
+      "concatSpecialSNV_fam_SNVannotation_lenient": "SNV analysis",
+      "SNV_concatSpecialSNV_fam_SNVannotation_lenient": "SNV analysis",
+      "concatSpecialSNV_solo_SNVannotation_strict": "SNV analysis",
+      "SNV_concatSpecialSNV_solo_SNVannotation_strict": "SNV analysis",
+      "concatSpecialSNV_solo_SNVannotation_lenient": "SNV analysis",
+      "SNV_concatSpecialSNV_solo_SNVannotation_lenient": "SNV analysis"
+    }
   },
   "verified_source_overrides": {
+    "wgs-4.2.2-441d5e7": {
+      "rule/ROH.smk": "764355f20b21a05e1d184f707c2396d74bfffaae",
+      "rule/SMA.smk": "2d91062ce0d468eb5bbaedc32258e575e15bf94a",
+      "rule/WGS_CS.smk": "1c7a78f072063c53c0a623767e4bc4181fef5694",
+      "rule/WGS_SNV.smk": "c06b1cb57054d81537c7f812bc4460fa4c3c0c61"
+    },
     "wgs-4.2.1-ebf1f4b": {
       "rule/ROH.smk": "764355f20b21a05e1d184f707c2396d74bfffaae",
       "rule/WGS_SNV.smk": "8a027c7556d72a418631dc99da4faa5ef84841a1"

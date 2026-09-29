@@ -50,7 +50,10 @@ def _pinned_wgs_rules(release_id):
     # Equivalence is only the audited rule-to-phase inventory, not biological
     # behavior. Changed source blobs are recorded in verified_source_overrides.
     supported = {PINNED_WGS_PHASES["release_id"], *PINNED_WGS_PHASES.get("verified_equivalent_releases", {})}
-    return PINNED_WGS_PHASES["rules"] if release_id in supported else {}
+    if release_id not in supported:
+        return {}
+    return {**PINNED_WGS_PHASES["rules"],
+            **PINNED_WGS_PHASES.get("verified_rule_additions", {}).get(release_id, {})}
 
 
 def _pinned_gatk_rules(release_id):
