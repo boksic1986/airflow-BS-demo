@@ -1,20 +1,25 @@
 # Active test-branch tasks
 
-## UE-02-STAGE-EXECUTOR-GATES-20260929 (platform checkpoint; blocked on binding contract)
+## UE-02-STAGE-EXECUTOR-GATES-20260929 (source complete; not deployed)
 
-- [x] Confirm native `StageExecutor` source commit `9272f2c` and its trusted
-  resolver, per-generation terminal receipt, process-quiescence and file-mode
-  requirements. No wheel install or production gate change.
+- [x] Confirm native `StageExecutor` final source commit `6c0aee2`, trusted
+  resolver, distinct private per-generation terminal receipt, process-quiescence
+  and 0600 control-file requirements. No wheel install or production gate change.
 - [x] Make registered downstream dispatch import only the validated WGS or
   GATK gate. The focused BS10610 synthetic test is RED before the change and
   GREEN 4/4 afterward for package and standalone imports.
-- [x] Audit existing WGS and GATK request/status history against native
-  old/new generation bindings. Current fixed `.status.json` layouts cannot
-  safely supply distinct durable terminal receipt paths.
-- [ ] Agree a narrow native/platform previous-generation binding contract;
-  then wire both thin gate adapters and complete UE-02 acceptance. Keep unknown
-  evidence fail-closed and retain GATK/WGS business handlers.
-- [ ] Coordinator review and one UE-02 source closeout. No UE-03–06, DAG,
+- [x] Freeze exact current request and binding in private registration;
+  publish/read a distinct terminal control receipt per generation while retaining
+  the existing shared WGS/GATK business status and handlers.
+- [x] Wire both gate CLIs, Step4 dispatch/observation and paired writer fence.
+  An older shared dispatch may precede a valid successor freeze, but native
+  still requires the old terminal and quiescent worker. Reject null/invalid
+  markers, legacy evidence and missing WGS/GATK request with private evidence.
+- [x] Run only the four focused BS10610 synthetic platform files against native
+  `6c0aee2`: 30 passed, 0 skipped; raw log/JUnit/input hashes in `HANDOFF.md`.
+- [x] Complete independent four-item delta review: Ready, no remaining
+  Critical/Important finding. Source closeout is recorded in `HANDOFF.md`.
+  No UE-03–06, DAG,
   backend shared observation, node200, wheel install or production in this task.
 
 ## UE-01-STAGE-EXECUTION-CONTRACT-20260928 (source complete; awaiting review)

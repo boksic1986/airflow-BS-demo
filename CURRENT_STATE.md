@@ -1,17 +1,26 @@
 # Current state
 
-## 2026-09-29 UE-02 platform gate checkpoint (source only; adapter pending)
+## 2026-09-29 UE-02 native platform gate source complete (not deployed)
 
-The isolated platform branch `jiucheng/airflow/UE02-stage-executor-gates` now
-selects only the registered pipeline's gate in `run_registered_stage`. Its
-single focused BS10610 synthetic test failed on the previous dual import and
-passed 4/4 after the change, covering package and standalone script imports.
-Native `StageExecutor` is committed at `9272f2c`, but the WGS/GATK fixed
-status-sidecar layouts cannot yet provide its distinct old/new generation
-status bindings under its same-directory constraint. No executor gate switch,
-wheel install, node200 or production operation has occurred. The coordinator
-must resolve the narrow receipt/binding interface before the remaining UE-02
-thin wiring. The selected-gate checkpoint is source-only in the isolated branch.
+The isolated `jiucheng/airflow/UE02-stage-executor-gates` branch now connects
+marked WGS/GATK Step1–Step6 gates, Step4 publish observation and paired writer
+fences to native `StageExecutor` source `6c0aee2`. Exact old-generation request
+and terminal evidence are stored privately per generation; the shared business
+status remains in its existing location. Ordinary Step4 and opted-in publish
+deadline paths remain distinct. Invalid/null markers, legacy sidecars and
+unknown worker evidence fail closed. The previous selected-gate 4/4 synthetic
+check remains recorded below in `HANDOFF.md`.
+
+BS10610 isolated candidate `ue02-stage-executor-gates-20260929` ran four
+focused files against the native source: 30 passed, 0 skipped. Raw log SHA-256
+`f02db17e9e2f808ae7be4375beeb6dbbb29cce1d12dfe4de3b949ab0a1b3b6ed`;
+JUnit SHA-256 `a6521601dc3e88206ee69fbdf4b42c27671e3b05e47631a393d4144e824508b4`.
+The initial collection/import failure and one assertion/dependency round were
+fixed before this final run. Independent review found four direct wiring issues;
+their corrections and focused assertions are included. Its final delta review
+reported Ready with no remaining Critical or Important finding. DAG/backend
+asynchronous consumption is UE-04. No wheel install,
+node200, production, analysis submission, service restart or push occurred.
 
 ## 2026-09-29 UE-01 stage-execution contract (source complete; not deployed)
 
@@ -31,7 +40,7 @@ failed on that new assertion and passed after the narrow platform correction:
 final `1 passed in 0.07s`. Raw red/green output and the exact command are in
 the latest `HANDOFF.md` entry. No local pytest, full suite,
 service/container test, node200 access or production action was performed.
-UE-02 remains gated on coordinator review.
+This was the UE-01 closeout gate; the later UE-02 outcome is recorded above.
 
 ## 2026-09-28 GATK-PROD-COMPAT gate
 

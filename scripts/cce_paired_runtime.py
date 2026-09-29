@@ -455,6 +455,46 @@ def _inactive_dispatcher(path, gate, pipeline):
     """A free lock/dead parent alone is not terminal dispatcher evidence."""
     worker = path.with_suffix('.worker.json' if pipeline == 'wgs' else '.worker.state.json')
     status = path.with_suffix('.status.json')
+    native_dispatch = path.with_suffix('.stage-execution.dispatch.json')
+    if os.path.lexists(path):
+        request = json.loads(_read_registered(path))
+        if not isinstance(request, dict):
+            raise RuntimeError('other dispatcher request is invalid')
+        marked = 'stage_execution' in request
+        if not marked and os.path.lexists(native_dispatch):
+            raise RuntimeError('native dispatcher belongs to a different protocol')
+        if marked:
+            if request['stage_execution'] != {'protocol': STAGE_EXECUTION_PROTOCOL}:
+                raise RuntimeError('other dispatcher protocol is unsupported')
+            if __package__:
+                from .cce_stage_execution_adapter import executor_for_registered
+            else:
+                from cce_stage_execution_adapter import executor_for_registered
+            executor, ref, binding = executor_for_registered(
+                request, gate=gate, pipeline=pipeline)
+            if (binding.request_path != path
+                    or binding.dispatch_path != native_dispatch):
+                raise RuntimeError('native dispatcher lock or dispatch path differs')
+            # Callers hold both exact stage locks through their writer decision.
+            quiet = executor.writer_quiescent(ref, locks_held=True)
+            if quiet is False:
+                raise RuntimeError('native dispatcher is active or uncertain')
+            if quiet is True:
+                if os.path.lexists(worker):
+                    raise RuntimeError('legacy dispatcher evidence remains beside native terminal')
+                return
+            # No native dispatch: legacy evidence still has to be reconciled.
+            if os.path.lexists(native_dispatch):
+                raise RuntimeError('native dispatcher evidence became uncertain')
+    else:
+        suffix = '.request.json' if pipeline == 'gatk' else '.json'
+        stage = path.name[:-len(suffix)] if path.name.endswith(suffix) else None
+        if (os.path.lexists(native_dispatch)
+                or (stage in COMMANDS and any(os.path.lexists(
+                    path.parent / directory / stage)
+                    for directory in ('stage-execution-registration',
+                                      'stage-execution-terminal')))):
+            raise RuntimeError('native dispatcher request is missing')
     if not worker.exists() and not status.exists():
         return  # Registered but never dispatched, or no request yet.
     if not worker.exists() or not status.exists() or not path.exists():

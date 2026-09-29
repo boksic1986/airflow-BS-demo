@@ -1,5 +1,95 @@
 # Handoff
 
+## 2026-09-29 UE-02 native platform gate source closeout
+
+**Goal and boundary.** Connect only marked, registered WGS/GATK Step1–Step6
+requests to native `StageExecutor`, including Step4 publish observation and the
+paired writer fence. Worktree:
+`C:\Users\11217\.codex\worktrees\gatk-prod-compat\airflow-demo`, branch
+`jiucheng/airflow/UE02-stage-executor-gates`, starting at source checkpoint
+`ca15d6ea6a077208ff870b7a17178f0b050fc558`. Native source HEAD on BS10610
+is `6c0aee2b326b774c5d6dff570f31718048a8eec7`; no native file was edited
+here. No DAG/backend shared observation, wheel install, node200, production,
+analysis submit, deployment, service restart, push or deletion was authorized or
+performed.
+
+**Completed source.** New `scripts/cce_stage_execution_adapter.py` provides
+read-only `executor_for_registered` and the `submit_registered_stage` /
+`run_registered_worker` paths. Its selected gate, worker command, handler and
+paths are fixed by trusted local code. The adapter freezes exact request bytes,
+batch binding and native ref in per-generation private registration, validates
+business terminal identity/schema/hash, and publishes a separate private
+per-generation native receipt. Old refs resolve from that registration and
+optional equal request-history; an older dispatch can coexist with a first
+successor freeze, but native submit still decides receipt and worker
+quiescence. Private control directories are owner-only 0700 and files 0600.
+Legacy worker/status/log evidence and invalid explicit markers fail closed.
+`ComputeIdentity` is not projected; the private receipt records null.
+
+`scripts/wgs_runtime_gate.py` and `scripts/gatk_runtime_gate.py` select the native
+path only for marked Step1–Step6, retain their existing business handlers, and
+reject marked requests at old worker entries. WGS keeps the native-open
+`.worker.log` while archiving old business status. `scripts/cce_publish_recovery.py`
+routes marked Step4 dispatch/observation through native evidence;
+`scripts/cce_paired_runtime.py` checks native writer quiescence under both exact
+stage locks, including missing WGS `<stage>.json` and GATK
+`<stage>.request.json` with residual private evidence. Opted-in Step4 publish
+rechecks deadline under native launch lock for a fresh launch, while a duplicate
+can reattach after expiry. Ordinary Step4 without publish opt-in follows its
+existing handler and stage timer. Four independent review findings on valid
+successor freeze, explicit null marker, missing WGS request and ordinary Step4
+were corrected with focused assertions. The independent delta review concluded
+Ready with no remaining Critical or Important finding.
+
+**Changed files.** Five runtime files above, plus
+`scripts/tests/test_cce_stage_execution_adapter.py`,
+`scripts/tests/test_wgs_native_stage_gate.py`,
+`scripts/tests/test_gatk_stage_execution_gate.py`,
+`scripts/tests/test_cce_native_consumers.py`, this handoff, `CURRENT_STATE.md`,
+`TASKS.md` and `docs/08_WORKFLOW_RUNTIME_INTEGRATION.md`. The existing untracked
+`.codex-artifacts/` is a UE-01 backup and was left untouched. No current
+production data or B/D batch record was modified.
+
+**BS10610 verification.** Read-only preflight confirmed hostname `server10610`,
+current control release `20260912-opt-4d3d24e6`, disabled test intake/automatic
+dispatch and native source HEAD above. Only the isolated candidate
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/ue02-stage-executor-gates-20260929`
+was updated. It used nipttest Python with `PYTHONPATH` pointing at that exact
+native source and ran:
+
+```text
+python -m pytest -q scripts/tests/test_cce_stage_execution_adapter.py scripts/tests/test_gatk_stage_execution_gate.py scripts/tests/test_wgs_native_stage_gate.py scripts/tests/test_cce_native_consumers.py --tb=short --junitxml=<evidence>/ue02-platform-gates.xml
+```
+
+Final result: **30 passed, 0 skipped in 0.29s**. Raw log:
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue02-stage-executor-gates-20260929/ue02-platform-gates.log`,
+SHA-256 `f02db17e9e2f808ae7be4375beeb6dbbb29cce1d12dfe4de3b949ab0a1b3b6ed`.
+JUnit SHA-256 `a6521601dc3e88206ee69fbdf4b42c27671e3b05e47631a393d4144e824508b4`.
+Exact candidate/native input manifest:
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue02-stage-executor-gates-20260929/ue02-platform-inputs.sha256`,
+SHA-256 `6627b11b2b22b8230a4db11354075b95341f6033aa3ad2ad237763ada7ab4394`.
+Candidate input hashes were checked against local source; native module SHA-256
+is `21b505da319cc752c5694f2b42e4082dd02dc47e3c7ddad895fdb87b08581bd2`.
+Local `git diff --check` and Python syntax compilation passed. The earlier
+selected-gate package/standalone import check was 4/4 in the same candidate.
+
+**Failure record.** First focused pytest exited 1 during collection because
+the new GATK test imported an old helper absent from the minimal candidate;
+its assertion was made self-contained. The next run exited 1 with 25 passed /
+5 failed: four tests lacked the unchanged `wgs_release_runtime.py` candidate
+dependency, and one orphan-dispatch assertion expected a different fail-closed
+message. The dependency was copied only into the candidate, and the assertion
+now supplies a valid same-ref dispatch without frozen registration. The final
+run above is green. No blind retry or broader test suite was run.
+
+**Outstanding and rollback.** UE-04 must decide DAG/backend acceptance of native
+asynchronous launches, shared read model and active old-request overwrite
+recovery; GATK `resume` remains disabled in the shipped registry. A worker whose
+active old request was overwritten before it wrote terminal evidence stays
+unknown and requires reconciliation. Synthetic tests do not prove a real FASTQ
+transfer, CCE Job, installed native wheel or production compatibility. Source
+rollback is a scoped revert of this UE-02 commit; no runtime state changed.
+
 ## 2026-09-29 UE-02 platform selected-gate checkpoint (adapter blocked)
 
 Follow-up source map after checkpoint commit
