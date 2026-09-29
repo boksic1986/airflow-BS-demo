@@ -639,6 +639,48 @@ def test_step4_does_not_retry_an_unrelated_failure(monkeypatch) -> None:
         )
 
 
+def test_ttl_downstream_preserves_paired_stage_precedence(tmp_path: Path, monkeypatch) -> None:
+    gate = load_gate()
+    monkeypatch.setitem(sys.modules, gate.__name__, gate)
+    monkeypatch.syspath_prepend(str(ROOT))
+    import cce_paired_runtime as paired_runtime
+
+    analysis_id = "GATK_20260908_120000_A1B2C3"
+    bundle = tmp_path / "run" / "cce"
+    bundle.mkdir(parents=True)
+    for stage_script in (
+        "Step3_status.sh", "Step4_publish_results.sh", "Step5_download_verify.sh"
+    ):
+        (bundle / stage_script).write_text("#!/bin/sh\n", encoding="utf-8")
+    payload = {
+        "analysis_id": analysis_id,
+        "attempt": 1,
+        "generation": 2,
+        "request_hash": "a" * 64,
+        "runtime_workdir": str(bundle.parent),
+    }
+
+    for stage in ("step4_publish", "step5_download"):
+        monkeypatch.setattr(paired_runtime, "stage_command", lambda *a, **k: ["paired"])
+        assert gate._step(payload, stage) == ["paired"]
+
+        def invalid_trust(*args, **kwargs):
+            raise RuntimeError("paired trust invalid")
+
+        monkeypatch.setattr(paired_runtime, "stage_command", invalid_trust)
+        with pytest.raises(RuntimeError, match="paired trust invalid"):
+            gate._step(payload, stage)
+
+        monkeypatch.setattr(paired_runtime, "stage_command", lambda *a, **k: None)
+        command = gate._step(payload, stage)
+        assert Path(command[1]).name == "gatk_ttl_downstream.py"
+        assert command[-5:] == [analysis_id, "1", stage, "2", "a" * 64]
+
+    assert gate._step(payload, "step3_monitor") == [
+        "bash", str(bundle / "Step3_status.sh")
+    ]
+
+
 def test_step6_materializes_to_approved_gatk_result_root(
     tmp_path: Path, monkeypatch
 ) -> None:

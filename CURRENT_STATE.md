@@ -1,5 +1,24 @@
 # Current state
 
+## 2026-09-29 WES/GATK 20260927B Step4 terminal-Master repair candidate
+
+`GATK_20260929_024231_F246CD` attempt 1 completed Step3, then Step4 failed
+because its frozen runtime required a live successful Master Job. The exact
+Master manifest has `ttlSecondsAfterFinished: 100`; Job and Pod were absent.
+An earlier read-only reader found native SFS `RUN_COMPLETE.json` for the
+original UID. The local mirror still lacks that file, so the real frozen
+validator has not yet accepted success. No analysis rerun is warranted.
+
+An isolated Step4/5 gate candidate uses the original frozen writer decision,
+request hash, UID-bound handoff, both run-label inventories, a constrained
+read-only reader and the original native success verifier. BS10610 ran the two
+affected synthetic test files against the original node gate: 45 passed.
+After current-main integration, the 21 TTL-specific tests passed, including
+paired-route precedence; seven unrelated old gate tests failed in the partial
+isolation candidate and are recorded in HANDOFF. Production release and
+same-attempt downstream recovery remain pending; BS96 code and run state are
+unchanged.
+
 ## 2026-09-28 BS96 WGS Tracker and GATK wait display release
 
 The coordinator reports a limited BS96 deployment from source `a8ae5fe`.

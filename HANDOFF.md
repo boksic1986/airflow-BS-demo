@@ -1,5 +1,51 @@
 # Handoff
 
+## 2026-09-29 — GATK terminal-Master Step4/5 code checkpoint
+
+Goal: repair only WES/GATK `20260927B` Publish results after its successful
+Master disappeared; do not rerun analysis. The isolated candidate adds
+`scripts/gatk_ttl_downstream.py`, routes unpaired Step4/5 through it after
+`cce_paired_runtime.stage_command` has had precedence, and adds focused tests.
+No DAG, API, database, TTL, original workload or frozen bundle is changed.
+
+Read-only production evidence: BS96 `server96`, node200 `t640`; original run
+`GATK_20260929_024231_F246CD` attempt 1, Master
+`cce-master-f0db57be1ca1a60a6628` UID
+`faecf4ae-562d-42f9-a449-18bf50b90c9c`. Step3 completed, Step4 failed
+with `Step4 requires a successful Master Job`, and Step5/6 did not start.
+Master manifest TTL is 100 seconds; exact Job/Pod were absent. A prior
+short-lived reader saw native SFS `RUN_COMPLETE.json` state `SUCCEEDED` for
+the original UID, but deletion event was not observed. On node200, the real
+frozen module under configured `nipttest` Python reports writer inactive and
+handoff/binding matching. Its local mirror lacks `RUN_COMPLETE.json`, so
+native success has not yet been accepted; the constrained reader must refresh
+the mirror before any downstream stage.
+
+BS10610 `server10610` isolated candidate
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/gatk-ttl-downstream-20260929`
+used backend image `8491604ee01d`, `--network none`, source mounted read-only.
+`python -m pytest -q -p no:cacheprovider
+scripts/tests/test_gatk_runtime_gate.py scripts/tests/test_gatk_ttl_downstream.py`
+returned 45 passed in 0.68s. Focused RED reproduced six pre-fix safety
+gaps. No test service restart, real submission or BS96 mutation occurred.
+
+Current-main integration kept `cce_paired_runtime.stage_command` first and
+added the helper only to its unactivated fallback. BS10610 then ran the
+TTL-specific subset of those same two test files: 21 passed, 24 deselected
+in 0.32s. A broader two-file run on this partial isolated candidate returned
+38 passed, 7 failed: five old Step3 fixtures could not resolve the main gate's
+`cce_paired_runtime` import from their isolated module-loading path, and two
+old prepare/CLI fixtures lacked
+the lock-file parent directory required by current main. These are not
+claimed as passing and were not changed to expand this scoped repair.
+
+Next: record exact commit, actual production mounts/gate path/hash, active-run
+check, rollback copy and service restart list. Follow
+`docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md` for production approval.
+If released, only the same-attempt Step4 action may resume; then verify
+Step4–6 and delivery. Rollback restores the previous node gate and removes
+only the new helper; preserve all run data, evidence and cloud resources.
+
 ## 2026-09-28 — BS96 WGS Tracker and GATK wait display release recorded
 
 ### Goal and result

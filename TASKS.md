@@ -1,5 +1,25 @@
 # Active test-branch tasks
 
+## GATK-TTL-DOWNSTREAM-20260929 — candidate validated, production pending
+
+Owner: workflow/runtime + QA. Scope: GATK Step4/5 only after the original
+successful Master Job disappears; preserve frozen attempt and existing stage
+functions. No DAG/API/DB/TTL, Master/Worker or analysis change.
+
+- [x] Confirm exact WES run, Step3 completion, absent Master and native SFS
+  success for original UID. TTL deletion is likely, not proven by a delete event.
+- [x] Add bounded gate helper and focused RED/GREEN tests; BS10610 isolated
+  container result: 45 passed, no biological submission.
+- [x] Integrate into a current-main candidate while preserving paired stage
+  precedence; 21 TTL-specific BS10610 tests passed.
+- [ ] Record production active-run/mount/path/rollback preflight and obtain
+  exact rollout approval.
+- [ ] If released, resume only the same attempt's Step4 and verify Step4–6.
+
+The helper may delete only its own verified-UID temporary reader. It must not
+delete original analysis resources, SFS, OBS, local data or evidence. Unknown
+Kubernetes state or contradictory native evidence blocks recovery.
+
 ## P0-TRACKER-WAIT-BS96-RELEASE-20260928 — limited release complete
 
 Owner: Coordinator for BS96 release; Docs for the source-side record.

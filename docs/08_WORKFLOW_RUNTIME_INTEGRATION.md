@@ -1,5 +1,30 @@
 # Workflow runtime integration
 
+## GATK terminal Master TTL and downstream stages (2026-09-29 candidate)
+
+WES/GATK `20260927B` (`GATK_20260929_024231_F246CD`, attempt 1) completed
+Step3; Step4 then reported `Step4 requires a successful Master Job`. The
+frozen Master has a 100-second terminal TTL and was absent at inspection.
+An earlier run-scoped reader found the original UID's successful native
+`RUN_COMPLETE.json` on SFS; the deletion event itself was not observed.
+The local mirror still lacks the terminal record, so Airflow Step3 success or
+Job absence alone must not authorize publish.
+
+For an unregistered legacy GATK run, Step4/5 may use a restricted fallback
+only after the gate recomputes the canonical request hash and checks the exact
+attempt/generation, frozen handoff and UID, batch-lock owner and terminal
+inventories under both existing run labels. A same-request reader may refresh
+native evidence with only a read-only SFS mount and scratch volume; its UID is
+verified for cleanup. The frozen `_recovery_native_success` then must verify
+the complete UID-bound terminal and workflow marker before the original Step4
+or Step5 function runs. The existing paired `stage_command` route takes
+precedence; active/invalid writer policy, query uncertainty or contradictory
+evidence never falls back. No Master replacement, analysis rerun, TTL change
+or new API/schema is introduced. BS10610 passed 45 synthetic tests for the
+original gate candidate and 21 TTL-specific tests after current-main
+integration. The real native terminal acceptance and production rollout are
+pending.
+
 ## WGS PREPARE recovery projection (2026-09-28 candidate)
 
 The backend observer retains append-only contract-v2 PREPARE execution history.

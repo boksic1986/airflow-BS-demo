@@ -306,6 +306,19 @@ def _step(payload: dict[str, Any], stage: str) -> list[str]:
     script = _bundle(payload) / STAGE_SCRIPTS[stage]
     if not script.is_file() or script.is_symlink():
         raise RuntimeError(f"frozen GATK stage script is unavailable: {script.name}")
+    if stage in {"step4_publish", "step5_download"}:
+        helper = Path(__file__).with_name("gatk_ttl_downstream.py")
+        if not helper.is_file() or helper.is_symlink():
+            raise RuntimeError("GATK downstream helper is unavailable")
+        return [
+            os.environ.get("GATK_PYTHON", sys.executable),
+            str(helper),
+            str(payload["analysis_id"]),
+            str(payload["attempt"]),
+            stage,
+            str(payload["generation"]),
+            str(payload["request_hash"]),
+        ]
     return ["bash", str(script)]
 
 
