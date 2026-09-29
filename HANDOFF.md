@@ -2,6 +2,48 @@
 
 ## 2026-10-01 W423 Airflow integration source checkpoint
 
+## 2026-09-29 — WGS C Step5 Tracker stage regression candidate
+
+Goal: show WGS C's real Step5 download in Run Tracker and `/progress` after
+its original DagRun advanced, without changing transfer execution or measured
+progress. The source of the wrong Step4 display is a late Step4 status replay
+that overwrites `AnalysisRun.current_stage` and status; `/progress` then trusts
+that field even after a later Step5 execution and stage row exist.
+
+Changes: `backend/app/wgs_observer.py` skips only Step4 run-level writes when
+the same attempt has a Step5/6 execution registered after the current Step4
+generation; it still projects the Step4 receipt. `backend/app/wgs_timing_service.py`
+read-only projects a later registered Step5/6 stage and retains the live BS96
+Airflow-current-step override. Row ID order prevents old downstream history
+from hiding a newer Step4 recovery generation. Tests cover both orders and
+recorded transfer fields. `docs/05_API_CONTRACT.md`, `CURRENT_STATE.md`,
+`TASKS.md` and this handoff describe the behavior.
+
+Commands/results: BS10610 identity `server10610`, current control release
+`20260912-opt-4d3d24e6`, backend image `sha256:8491604ee01d...`, `/app`
+read-only from `20260926-p0-e358aad/backend`. An isolated candidate under
+`candidates/wgs-stage-regression-20260929` used the actual BS96 observer and
+timing overlays plus focused synthetic tests. A network-disabled, read-only
+container with scratch under task-specific `WGS_test/cce-evidence` passed
+`python -m pytest -q -p no:cacheprovider tests/test_wgs_timing_service.py
+tests/test_wgs_observer.py::test_step4_receipt_does_not_regress_newer_downstream_execution
+tests/test_wgs_shared_transfer_progress.py --tb=short`: 45 passed in 3.27 s.
+First focused run exited 1 only because the synthetic fixture expected null
+speed while the TransferJob model stores zero by default; expectation was
+corrected to the stored value, and the rerun passed 26 tests. `git diff --check`
+passed. No BS96 database, service, DagRun or transfer was changed here.
+
+Production release boundary: only the exact `wgs_timing_service.py` and
+`wgs_observer.py` candidate overlays are intended. The observer module is
+mounted by both backend and WGS run observer containers; both need the updated
+overlay for the prevention half of the fix. The current BS96 overlays are the
+rollback bytes. The local branch's separate unreleased GATK observer edits
+must not be included in a production overlay. Coordinator must confirm C's
+Step5 live status and heartbeat at release time; the projection preserves the
+recorded transfer snapshot and does not certify that a stale transfer is live.
+
+## 2026-09-29 — WGS original Step4 begin digest repair candidate
+
 ## 2026-09-29 GATK r4 Rules phase source candidate
 
 Goal: classify Rules/phase summaries for the new frozen GATK r4 release.

@@ -23,6 +23,7 @@ from app.models import (
     TransferJob,
     TransferFileState,
     WgsMaintenanceAction,
+    WgsStageExecution,
 )
 from app.wgs_evidence_binding import (
     CCE_RUN_LABEL_PATTERN,
@@ -659,22 +660,32 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
         elif stage == "step4_publish":
             if status not in {"accepted", "running", "success", "failed"}:
                 raise ValueError("Step4 publish status is invalid")
-            analysis.current_stage = stage
-            if status == "failed":
-                analysis.status = "failed"
-                analysis.error_summary = str(payload.get("message") or "") or None
-                analysis.ended_at = heartbeat
-                analysis.pipeline_finished_at = heartbeat
-            elif str(analysis.status or "").lower() not in {
-                "failed",
-                "cancelled",
-                "success",
-                "unknown_interrupted",
-            }:
-                analysis.status = "publishing"
-                analysis.error_summary = None
-                analysis.ended_at = None
-                analysis.pipeline_finished_at = None
+            downstream_started = bool(contract_v2 and session.scalar(
+                select(WgsStageExecution.id).where(
+                    WgsStageExecution.analysis_id == analysis_id,
+                    WgsStageExecution.attempt == attempt,
+                    WgsStageExecution.stage_code.in_(("step5_download", "step6_materialize")),
+                    WgsStageExecution.status.in_(("accepted", "running", "success", "failed", "canceled")),
+                    WgsStageExecution.id > execution.id,
+                ).limit(1)
+            ))
+            if not downstream_started:
+                analysis.current_stage = stage
+                if status == "failed":
+                    analysis.status = "failed"
+                    analysis.error_summary = str(payload.get("message") or "") or None
+                    analysis.ended_at = heartbeat
+                    analysis.pipeline_finished_at = heartbeat
+                elif str(analysis.status or "").lower() not in {
+                    "failed",
+                    "cancelled",
+                    "success",
+                    "unknown_interrupted",
+                }:
+                    analysis.status = "publishing"
+                    analysis.error_summary = None
+                    analysis.ended_at = None
+                    analysis.pipeline_finished_at = None
             upsert_stage_state(
                 session,
                 analysis_id=analysis_id,

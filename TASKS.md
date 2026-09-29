@@ -2,6 +2,21 @@
 
 ## W423-JR-01-05-AIRFLOW-20261001
 
+## P0-WGS-TRACKER-STEP5-20260929 — backend candidate
+
+Owner: Backend; coordinator owns BS96 release and live acceptance.
+
+- [x] Confirm C Step5 runtime evidence and identify the Step4 replay plus
+  `/progress` stage-selection causes of the Tracker regression.
+- [x] Preserve current production overlays and add a same-attempt execution
+  order fence to Step4 run-level writes and a read-only downstream projection.
+- [x] Cover late Step4 receipt, new Step4 recovery, measured transfer fields
+  and shared Tracker/detail behavior; isolated BS10610 run: 45 passed.
+- [ ] Coordinator reviews exact two-file production diff, releases backend and
+  WGS run observer together, then verifies C Tracker and live Step5 evidence.
+
+## P0-WGS-STEP4-DISPATCH-HASH-20260929 — backend candidate
+
 ## GATK-R4-RULE-PHASES-20260929 — backend source candidate
 
 Owner: Backend; coordinator owns production review and any release.

@@ -750,6 +750,17 @@ heartbeat come from that same snapshot. No detailed/current transfer means
 unavailable numeric progress, not fallback to stale integer stage progress.
 No endpoint/schema/DB migration or workflow state mutation is introduced.
 
+For contract-v2 WGS runs, a repeated Step4 status receipt must not move the
+run-level stage or status back to Step4 after a later Step5/6 execution is
+registered in the same attempt. The receipt still updates Step4 evidence.
+`GET /api/runs/{analysis_id}/progress` selects a registered downstream stage
+with a stage-state row when its execution is newer than the latest Step4
+generation. This read-only correction also covers runs whose stage was already
+regressed by an older observer. A new Step4 recovery generation takes precedence
+over earlier Step5/6 history. Transfer percent, bytes, speed, ETA and heartbeat
+continue to come from the recorded transfer snapshot; the projection does not
+infer new measurements.
+
 
 ## GATK recovery and explicit Step7 (2026-09-14)
 

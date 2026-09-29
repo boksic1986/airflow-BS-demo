@@ -2,6 +2,23 @@
 
 ## 2026-10-01 W423 joint release source integration in progress
 
+## 2026-09-29 WGS C Step5 Tracker stage candidate
+
+After the coordinator's Step4 hash release and original-DagRun continuation,
+WGS C entered Step5 download, while Tracker still showed Step4 success. The
+existing observer replay of Step4 status can regress `AnalysisRun.current_stage`
+and status; the progress API then trusts that old stage. A two-module backend
+candidate guards run-level Step4 writes when the same attempt has a later
+registered Step5/6 execution, and selects that later stage read-only for
+already-regressed records. Execution row IDs establish causal order, so a new
+Step4 recovery generation is not hidden by historical Step5 evidence. Actual
+BS96 overlays were used as the release baseline; the unreleased local GATK
+observer edits are excluded. Isolated BS10610 regression passed 45 tests.
+The coordinator owns any BS96 release of the backend and WGS observer mounts;
+this candidate made no production change.
+
+## 2026-09-29 WGS Step4 dispatch digest candidate
+
 ## 2026-09-29 GATK r4 Rules phase source candidate
 
 The production Rules page for the new GATK r4 analysis displayed `Unknown`
