@@ -8,7 +8,9 @@ This module neither emits a terminal seal nor authorizes automatic recovery.
 """
 import hashlib
 import json
+import math
 import re
+import time
 from pathlib import Path
 
 if __package__:
@@ -278,11 +280,14 @@ def probe_submission_inventory(*, runtime, config, master_job, expected_context,
                                journal_bytes, checkpoint_bytes, candidate_bytes,
                                manifest_bytes, timeout_seconds=120):
     """Reconcile all validated intents, never a caller-chosen subset of Workers."""
+    from cce_pipeline.master_job import run_label as native_run_label
     inventory = validate_submission_inventory(expected_context=expected_context,
         journal_bytes=journal_bytes, checkpoint_bytes=checkpoint_bytes,
         candidate_bytes=candidate_bytes, manifest_bytes=manifest_bytes)
     observation = probe_bound_workloads(runtime=runtime, config=config,
-        namespace=expected_context["namespace"], master_job=master_job,
+        namespace=expected_context["namespace"],
+        run_label=native_run_label(expected_context["run_id"]),
+        master_job=master_job,
         master_job_uid=expected_context["master_job_uid"], master_pod_uid=expected_context["master_pod_uid"],
         workers=inventory["workers"], timeout_seconds=timeout_seconds)
     return dict(inventory=inventory, observation=observation)
@@ -467,10 +472,18 @@ class RecoveryCapability:
     def inspect(self):
         value=self._authorized()
         workers=lineage_workers(self.runtime,self.contract,self.bundle,value,self.history_bundles)
+        remaining=(self.compute_deadline-time.time()
+                   if self.compute_deadline is not None else None)
+        if remaining is not None:
+            _require(type(self.compute_deadline) in {int,float}
+                     and math.isfinite(self.compute_deadline) and remaining > 0)
         observation=probe_final_workloads(runtime=self.runtime,config=self.config,
             namespace=self.contract['kubernetes']['namespace'],run_label=self.run_label,
             master_job=self.contract['kubernetes']['master_job'],master_job_uid=self.expected_job_uid,
-            master_state=value['terminal']['state'],workers=workers)
+            master_state=value['terminal']['state'],workers=workers,
+            timeout_seconds=min(120,max(1,math.ceil(remaining))) if remaining is not None else 120)
+        if self.compute_deadline is not None:
+            _require(time.time() < self.compute_deadline)
         return {**value,'observation':observation}
 
     def lock_context(self,master_uid=''):

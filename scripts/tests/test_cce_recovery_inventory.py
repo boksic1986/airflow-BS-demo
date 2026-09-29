@@ -143,16 +143,26 @@ def test_control_candidate_cannot_skip_inventory_or_expand_query(control_inputs,
 
 
 @pytest.mark.parametrize("active", [False, True])
-def test_validated_inventory_drives_every_exact_worker_query(inputs, cluster, active):
+def test_validated_inventory_drives_one_native_inventory_round(inputs, cluster, active):
+    from cce_pipeline.master_job import run_label as native_run_label
+
     objects, calls, runtime = cluster
+    context, rows, failure, manifest = inputs
+    runtime.run_label = native_run_label(context["run_id"])
+    assert runtime.run_label != context["run_id"]
+    for name in ("worker", "not-created"):
+        objects.pop(("job", name))
+        objects.pop(("pods", name))
     objects["job", "admitted"] = job("admitted", "admitted-uid", "Complete")
     objects["pods", "admitted"] = dict(kind="PodList", metadata={},
         items=[pod("admitted-pod", "admitted-pod-uid", "admitted-uid", 0)])
     objects["job", "rejected"] = None
     objects["pods", "rejected"] = dict(kind="PodList", metadata={}, items=[])
+    for entry in (objects["job", "master"], objects["pods", "master"]["items"][0],
+                  objects["job", "admitted"], objects["pods", "admitted"]["items"][0]):
+        entry["metadata"]["labels"]["cce.biosan.cn/run-id"] = runtime.run_label
     if active:
         objects["job", "admitted"]["status"]["active"] = 1
-    context, rows, failure, manifest = inputs
     raw, checkpoint = journal(rows)
     module = importlib.import_module("scripts.cce_recovery_inventory")
     kwargs = dict(runtime=runtime, config={"kubernetes": {"namespace": "test"}},
@@ -167,7 +177,7 @@ def test_validated_inventory_drives_every_exact_worker_query(inputs, cluster, ac
         assert result["observation"]["workers"] == [
             dict(name="admitted", uid="admitted-uid", job_state="Complete", pods=1),
             dict(name="rejected", uid=None, job_state="absent", pods=0)]
-        assert len(calls) == 6
+        assert len(calls) == 5
 
 
 @pytest.mark.parametrize("pipeline", ["wgs", "gatk"])

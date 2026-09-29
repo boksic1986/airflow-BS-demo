@@ -1,5 +1,46 @@
 # Workflow runtime integration
 
+## UE-03 shared workload inventory (2026-09-29; source only)
+
+The native query source at commit `6f5c120` accepts fixed, read-only
+`_recovery_query(config, "jobs", "--chunk-size=0", timeout=...)` and the
+corresponding `pods` form. It retains typed query errors, the 4 MiB response
+limit, and rejection of incomplete or paginated lists. Platform workload
+observation now uses this interface only; it does not construct a second
+kubectl/subprocess path.
+
+Each proof reads complete run-label Job and Pod lists, complete namespace Job
+and Pod lists, and the exact current Master Job. A shared in-memory index
+compares the two lists by frozen name, UID, run label, Pod owner, terminal state
+and container exits. A namespace object from another run is ignored unless its
+name, UID, label or owner conflicts with the bound run. A missing Worker
+requires its validated persisted terminal and no residual Pods; 404 alone is
+insufficient. A changed but individually valid inventory raises
+`InventoryMoved`; an identity or terminal conflict fails closed. Active
+Workers can be counted for observation but cannot satisfy recovery or final
+writer release. Release and lock CAS take fresh proof rather than reusing a
+previous list. Total query budget is at most 120 seconds and each native query
+at most 30 seconds; the original compute deadline further bounds recovery
+inspection when one was frozen.
+
+`probe_bound_workloads` uses the same index. Its run label comes from the
+native `master_job.run_label` transformation of the validated submission
+context's raw `run_id`; the raw ID is never used as a Kubernetes label. This
+helper still requires the exact failed Master and its terminal Pod because
+that earlier submission snapshot does not contain a sufficient persisted
+replacement for the Pod diagnostics. The final recovery path accepts TTL
+reclamation only with complete persisted native FINAL and Worker terminals.
+These are observations, not dispatch or deletion authority.
+
+The Heavy global collector excludes only Jobs with the explicit native
+`cce-pipeline/action=evidence-reader` annotation. Native evidence-reader and
+directory-probe helpers carry this annotation even when copied from the
+Master template. Unmarked WGS Masters with missing Heavy configuration still
+produce `master_configuration_inconsistent`; GATK Masters keep their existing
+quota separation. The source change does not alter any production Job or
+snapshot. Native directory-probe retry and original stage deadline handling
+are tracked separately by the native UE-03 owner.
+
 ## UE-02 native gate wiring (2026-09-29; source only)
 
 Native cce-pipeline source `6c0aee2` permits an absolute, generation-private
@@ -1129,22 +1170,24 @@ still allowed afterward. Eight tests of this existing entry passed on BS10610.
 This is one entry-point fence, not completion of generic resume, GATK, Step7,
 dispatch or PostgreSQL concurrency acceptance. No unrelated regression rerun.
 
-### Bound workload observations (2026-09-23, not a terminal seal)
+### Bound workload observations (2026-09-23 baseline, superseded query mechanics)
 
-`scripts/cce_recovery_workloads.py:probe_bound_workloads` issues read-only
-exact-name Job and job-name-selected Pod queries through the frozen runtime's
-kubectl command builder. Configured namespace must match the frozen binding.
+`scripts/cce_recovery_workloads.py:probe_bound_workloads` originally issued
+per-Worker exact-name Job and job-name-selected Pod queries. UE-03 replaces
+those query mechanics with the shared five-query native inventory above.
+Configured namespace must match the frozen binding.
 The exact Master Job UID must be Failed/inactive, and the bound Master Pod UID
 must appear among terminated, correctly owned Pods. Worker UIDs are exact;
-missing Jobs still require querying their residual Pods. An expected absent
+missing Jobs still require checking their residual Pods. An expected absent
 Worker with no known UID cannot adopt an unexpected Job/Pod.
 
 All main/init/ephemeral container status inventories must match Pod specs and
 show terminated exit codes. Active/deleting/foreign/ambiguous objects, missing
 Pod lists, pagination, failed queries and changed identities reject. Only a
-successful exact-name --ignore-not-found query may represent an absent Job.
-Each command has at most30s and the caller's overall budget at most300s (default
-120s). No Kubernetes writes, deletion, file mutation or status changes occur.
+complete namespace list can now establish absence, with the separate exact
+Master read checked for movement. Each command has at most 30 seconds and the
+overall query budget at most 120 seconds. No Kubernetes writes, deletion, file
+mutation or status changes occur.
 
 Caller MUST first bind a complete submission journal and admitted Worker
 manifest to the frozen Master context; an arbitrary list is not complete proof.

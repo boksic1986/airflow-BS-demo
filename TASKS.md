@@ -1,5 +1,30 @@
 # Active test-branch tasks
 
+## UE-03-INVENTORY-PROBE-20260929 (platform query slice source complete; probe retry open)
+
+- [x] Pair platform fixed namespace Job/Pod LIST calls with native
+  `_recovery_query` commit `6f5c120`; preserve typed errors, 4 MiB limit,
+  complete-list checks, exact Master GET and 120-second/30-second budgets.
+- [x] Share one in-memory, identity-bound inventory through failure evidence,
+  manual recovery inspection, active observation, bound diagnostics and final
+  writer release. Ignore unrelated namespace batches, reject bound
+  name/UID/owner/label conflicts, and requery at lock CAS.
+- [x] Keep active Worker counts observational; replacement and release require
+  strict inactive proof. Derive the bound helper's run label from the pinned
+  native `run_label(raw run_id)` function.
+- [x] Exclude only explicit `cce-pipeline/action=evidence-reader` helpers from
+  Heavy global Master counts; unmarked malformed WGS Master stays unavailable.
+- [x] BS10610 scoped synthetic RED/GREEN: 275 reclaimed Workers changed
+  554 queries to five per proof; final pinned-native set 35 passed, zero skipped.
+  Evidence paths and hashes are in `HANDOFF.md`.
+- [ ] Native directory-probe retries (2s/5s, at most three read-only attempts)
+  and targeted `tests/test_directory_probe_retry.py` acceptance. The native
+  Step1–Step6 chain lacks a trusted original stage deadline; do not create a
+  fresh budget in its place. Coordinate the deadline interface before closing
+  UE-03.
+- [ ] Final UE-03 paired review and downstream UE-04 handoff after the native
+  probe contract is resolved. No production activation in this task.
+
 ## UE-02-STAGE-EXECUTOR-GATES-20260929 (source complete; not deployed)
 
 - [x] Confirm native `StageExecutor` final source commit `6c0aee2`, trusted

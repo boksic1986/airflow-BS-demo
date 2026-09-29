@@ -1,5 +1,118 @@
 # Handoff
 
+## 2026-09-29 UE-03 bounded inventory and Heavy role source checkpoint
+
+**Goal and authority.** Continue the approved unified-stage UE-03 source work
+in the isolated
+`C:\Users\11217\.codex\worktrees\gatk-prod-compat\airflow-demo` worktree,
+branch `jiucheng/airflow/UE03-inventory-probe`, based on UE-02 platform commit
+`3d5174ca7b53a6b304b39f5a74c76eff6af617c2`. Only platform source,
+synthetic tests and state documents changed here. The existing untracked
+`.codex-artifacts/` UE-01 backup was preserved. No user batch B/D, original
+FASTQ, analysis directory, database, production release, node200, wheel,
+service, Git remote or live CCE Job was touched.
+
+**Paired native interface.** On BS10610 the owner committed query-only native
+source `6f5c12027a8d3d88424ef0b335f7dddcc9a35f5a` in
+`/mnt/biodevrwbi/33.chenjiucheng/project/wgs-cloud-platform/projects/huawei-cloud-runtime`.
+`_recovery_query(config, "jobs", "--chunk-size=0", timeout=...)` and the
+equivalent `pods` form return native parsed JSON, enforce the 4 MiB cap,
+reject pagination and preserve typed query errors. Exact source file SHA-256
+for the platform acceptance was
+`d4f09a557f2edc93c7010b7a2d1a41a0ed7bc392a004a16bf8451d52ba1eae4f`.
+The platform no longer calls `_run/_kubectl` or `subprocess.run` for the
+bound inventory.
+
+**Completed platform slice.** `probe_final_workloads` and
+`probe_bound_workloads` use one run-label Job/Pod pair, one namespace Job/Pod
+pair, and one exact Master GET per proof. Full lists are indexed by frozen
+name/UID/run label and every relevant Pod owner reference; unrelated batches
+in the namespace are ignored. Pagination, malformed inventory, identity
+conflicts, active work at a replacement/release gate and missing persisted
+terminal proof fail closed. A legitimate move between reads raises
+`InventoryMoved`. Failure evidence, `RecoveryCapability.inspect`, active
+Worker observation and final writer release inherit this common query path.
+Inspect and lock CAS perform separate fresh rounds. The bound submission
+helper derives its Kubernetes selector through the pinned native
+`master_job.run_label(raw run_id)`; it does not use the raw ID as a label.
+Each query is bounded by 30 seconds and each inventory by 120 seconds;
+recovery inspection additionally uses its frozen original compute deadline.
+
+The Heavy global collector now skips only nonterminal Jobs annotated
+`cce-pipeline/action=evidence-reader`. The fixed native source confirms
+both evidence-reader and directory-probe helper producers carry this action,
+although the current production objects were not inspected for this field.
+An unmarked WGS Master without the required Heavy env still yields
+`master_configuration_inconsistent`. GATK's quota distinction is unchanged.
+
+**Changed files.** `scripts/cce_recovery_workloads.py`,
+`scripts/cce_recovery_inventory.py`, `backend/app/heavy_global_snapshot.py`;
+the new `scripts/tests/test_cce_final_bulk_inventory.py` and updated
+`scripts/tests/test_cce_recovery_workloads.py`,
+`scripts/tests/test_cce_recovery_inventory.py`,
+`scripts/tests/test_p02_final_inventory.py`,
+`scripts/tests/test_heavy_global_snapshot.py`; this handoff,
+`CURRENT_STATE.md`, `TASKS.md`, and
+`docs/08_WORKFLOW_RUNTIME_INTEGRATION.md`.
+`scripts/cce_recovery_failure.py` and `scripts/cce_paired_runtime.py`
+remain unchanged consumers of the shared entry.
+
+**BS10610 synthetic evidence.** Read-only preflight confirmed
+`server10610`, current control release `20260912-opt-4d3d24e6`, disabled
+test intake/automatic dispatch and the source commit above. The only copied
+platform candidate was
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/ue03-inventory-probe-20260929`;
+evidence is under
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue03-inventory-probe-20260929`.
+The first 275-Worker target failed as expected: **554 native-query calls
+versus the required five**. The final fixture imports the real native module
+from the fixed absolute source, verifies its file SHA-256, and substitutes
+only the subprocess transport with synthetic JSON. It covers failed
+classification, active observation versus replacement, final release and
+fresh lock-CAS proof. The final scoped command, using nipttest Python and
+`PYTHONDONTWRITEBYTECODE=1`, was:
+
+```text
+python -m pytest scripts/tests/test_cce_final_bulk_inventory.py scripts/tests/test_cce_recovery_workloads.py scripts/tests/test_cce_recovery_inventory.py::test_validated_inventory_drives_one_native_inventory_round scripts/tests/test_heavy_global_snapshot.py -q --tb=short -p no:cacheprovider --junitxml=<evidence>/ue03-platform.xml
+```
+
+The command required `CCE_PLUGIN_SOURCE=<fixed native repository root>`,
+`CCE_NATIVE_QUERY_SHA256=d4f09a557f2edc93c7010b7a2d1a41a0ed7bc392a004a16bf8451d52ba1eae4f`,
+`PYTHONPATH=<fixed native repository>/src`, and
+`HEAVY_TEST_MODULE=<candidate>/backend/app/heavy_global_snapshot.py`.
+Result: **35 passed, zero skipped, 0.38 seconds**. Raw log SHA-256
+`ff6b43805e71905fa2e83010e53c6cc9cadc1215eac2296bb68df530844a0c3f`;
+JUnit SHA-256
+`9cd207ecb92d2b1f8f45dd3073ef5fca672505292ca51b798bc2d10309e20e5b`;
+input manifest SHA-256
+`e9d2edf38c119cbc0abefcffeb76face70351b251fb7bb7a7c5a90ee003a116e`.
+Every listed candidate input hash matched the local source. The Heavy role
+test separately showed the expected RED result `waiting/mode=None` before
+the fix and 5/5 GREEN after it. Local syntax parsing and `git diff --check`
+were clean.
+
+**Failed command and limitation.** A targeted run of
+`scripts/tests/test_p02_final_inventory.py` in nipttest exited 1 during
+collection, first because the plugin source path was absent, then after
+adding it because that current plugin imports `typing.Self` and nipttest is
+Python 3.9. No test body ran, and no compatibility shim or environment
+upgrade was applied. The existing selected-monitor fixture includes
+`probe_waiting_workers`; it was not rerun under this incompatible plugin
+source. The new 275-Worker fixture exercises its real shared failure
+collector but does not recreate the entire registered monitor process.
+
+**Open work, risk and rollback.** Native directory-probe retry is **not in
+commit `6f5c120`**. The native Step1–Step6 call chain does not yet carry a
+trusted original stage deadline. The owner correctly withheld 2s/5s
+read-only retries rather than fabricating a fresh 120-second window. Step6
+registered payloads also have no original absolute stage deadline; their
+inventory remains bounded by the existing in-process 120-second cap and the
+external stage timer. Resolve deadline plumbing and run the targeted native
+`tests/test_directory_probe_retry.py` before declaring UE-03 complete.
+Synthetic source tests do not establish live-cluster or installed-wheel
+behavior. This source slice can be reverted by its scoped platform commit;
+no runtime state was changed.
+
 ## 2026-09-29 UE-02 native platform gate source closeout
 
 **Goal and boundary.** Connect only marked, registered WGS/GATK Step1–Step6

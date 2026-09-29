@@ -1,5 +1,33 @@
 # Current state
 
+## 2026-09-29 UE-03 shared inventory platform source (query slice; not deployed)
+
+The isolated `jiucheng/airflow/UE03-inventory-probe` branch now uses one
+bounded native-query inventory for failed recovery evidence, manual recovery
+inspection, active Worker observation, exact bound diagnostics and final
+writer release. The paired native namespace-list query is committed as
+`6f5c120`; the platform test pins its actual source SHA-256
+`d4f09a557f2edc93c7010b7a2d1a41a0ed7bc392a004a16bf8451d52ba1eae4f`.
+The Heavy global collector now excludes only the explicit native
+`evidence-reader` helper role, retaining fail-closed handling of unmarked
+WGS Masters with missing Heavy configuration.
+
+BS10610 isolated synthetic candidate `ue03-inventory-probe-20260929`:
+initial 275-Worker fixture showed 554 old queries against the required five;
+after the change the scoped set passed **35/35, zero skipped** against the
+real pinned native `_recovery_query` with only its transport mocked. Raw
+log SHA-256 `ff6b43805e71905fa2e83010e53c6cc9cadc1215eac2296bb68df530844a0c3f`;
+JUnit SHA-256 `9cd207ecb92d2b1f8f45dd3073ef5fca672505292ca51b798bc2d10309e20e5b`.
+Exact inputs and the separate Heavy RED/GREEN are recorded in `HANDOFF.md`.
+No wheel install, push, node200, production, real batch, service or database
+change occurred.
+
+UE-03 is **not fully closed**: native directory-probe retry needs a trusted
+original stage deadline across its Step1–Step6 call chain. The native owner
+did not invent a new 120-second window and has not committed the probe retry.
+The platform query/Heavy slice can be reviewed independently; directory
+retry and its targeted native evidence remain outstanding.
+
 ## 2026-09-29 UE-02 native platform gate source complete (not deployed)
 
 The isolated `jiucheng/airflow/UE02-stage-executor-gates` branch now connects
