@@ -1,5 +1,106 @@
 # Handoff
 
+## 2026-09-30 UE-04 source checkpoint committed (not deployed)
+
+**Goal and authority.** UE-04 registered WGS/GATK Step1–Step6 source
+integration is committed as `a6c31d1` on the isolated
+`jiucheng/airflow/UE04-unified-stage-execution` branch, after platform gate
+commits through `0feec86`/`5fd01a9` and DAG client `7ee7d7c`. The old
+`20260927B` Step1 case was complete before this work. No node200, BS96,
+production, real-batch, wheel, service, database, cleanup, deployment or
+release action was authorized or performed. Pre-existing untracked
+`.codex-artifacts/` was preserved.
+
+**Implemented.** R1 now ingests the latest Step2 receipt outside the first
+run-lock session and rechecks attempt, DagRun, recovery action and stop state
+before normal/P0 Step3 registration or public Resume side effects. Reused
+Step3 remains tied to its exact predecessor execution/generation/hash. F4
+requires the current Step6 business receipt and a fresh exact native succeeded
+snapshot to finalize marked WGS/GATK; WGS additionally rechecks the frozen
+producer digest before selecting marked versus legacy behavior and refuses
+late finalize after a stop. Airflow success alone cannot project full CCE
+business success; WGS canary/local projection remains intact. F3 recognizes
+only the persisted authorized current GATK recovery DagRun and its frozen
+`conf`. Marked Step1–Step6 sensors without submit XCom re-observe the exact
+current native ref before advancing. Legacy unmarked paths remain explicit.
+
+**Files.** Backend source: `main.py`, `wgs_resume_service.py`,
+`wgs_stage_execution_service.py`, `diagnostics_service.py`,
+`stage_execution_contract.py`, `gatk_runtime_service.py`,
+`gatk_airflow_sync.py`; WGS/GATK focused backend tests. DAG source:
+`bio_wgs.py`, `bio_gatk.py` and their focused tests. Contracts:
+`docs/05_API_CONTRACT.md`, `docs/07_AIRFLOW_DAG_SPEC.md`,
+`docs/08_WORKFLOW_RUNTIME_INTEGRATION.md`; state: `CURRENT_STATE.md`,
+`TASKS.md`, this handoff. No database model, frontend or production workflow
+core file was changed.
+
+**BS10610 environment and commands.** `ssh BS10610 hostname` returned
+`server10610`; the current test release resolved to
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260912-opt-4d3d24e6`.
+All Python checks used isolated candidate mounts, `docker run --rm --network
+none --read-only --tmpfs /tmp`, no application service or live database.
+Backend image `8491604ee01d` ran `python -m pytest
+tests/test_wgs_resume_stage.py tests/test_wgs_f4_airflow_sync.py -q
+--tb=short -p no:cacheprovider`: 50 passed, 1 dependency deprecation warning;
+JUnit `/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue04-r1-20260930/ue04-wgs-f4-digest-combined.xml`
+SHA-256 `71063ac4a566f4c9954d628c4e43ca3b5bbda7516a08f12ecc03f90a29306c4c`.
+After the final WGS status-reader refinement, only `-k missing_marker` ran:
+1 passed, 45 deselected; JUnit `ue04-wgs-f4-downgrade-delta.xml` in the same
+evidence directory, SHA-256
+`f9a129f8a6412a2868f8f382e1bfee0643be3521c215aed268757de1f16bb628`.
+GATK backend `python -m pytest -q tests/test_gatk_resume_stage.py
+tests/test_gatk_runtime_service.py --tb=short -p no:cacheprovider` passed
+28 before the last marker/conf change; new focused cases then passed 7/7.
+Raw delta log `/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue04-gatk-f4-20260930/backend-marker-conf-green.log`
+SHA-256 `7b250f88b42211589717e3548646056eb8cf1771ab1ad4fd75a8fb469061a2e7`
+ends `7 passed in 0.78s`.
+
+Airflow image `58195672af68` ran the WGS DAG test file as Python unittest:
+18 passed before the no-XCom change. Its new focused test passed 1/1; raw
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue04-dag-sensor-20260930/delta-green.log`
+SHA-256 `e4fbc219285698b658a6ec4d15173e66dd46f2483a179b6c111a47c9fd09ecc2`
+ends `Ran 1 test in 0.852s`, `OK`. GATK DAG focused 4 and shared 16
+passed before its no-XCom change; new focused 1/1 raw
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue04-gatk-f4-20260930/dag-no-xcom-green.log`
+SHA-256 `4728cb3e361fc1f8a702d5c4e94259b238800ad86136c2306f729e548db81368`
+ends `Ran 1 test in 0.001s`, `OK`. Earlier shared client 16/16 and
+targeted two-DAG DagBag import passed. Latest source matched the BS10610
+candidate SHA-256: `main.py` `52d8cb9b8bc56ad1e35d6a493af79e711fe1d4a424ad19bfe1f69f6bffd8960b`,
+WGS DAG `bde72f6946465d690ae3856be4bb760071c14c68479bfa7406d4cf39616ddfa0`,
+GATK runtime service `145f7469332eebac3118f75a20312a5ee1bd4dc513512a1dc1b9c3be56f1fdbd`,
+GATK DAG `fe7665d8ce697772d257958a1f338638a5188f6b1d1e75703dae62a0884712ef`.
+`git diff --check` and the source commit's staged diff check were clean.
+
+**Master TTL source and evidence limit.** Platform
+`scripts/cce_paired_runtime.py:174-193` selects only deployment-trusted,
+SHA-pinned CLI/platform/guard paths. `stage_command:200-209` routes registered
+Step4/5 to the fixed platform entry; `_predecessor:1149-1182` validates the
+previous exact business receipt; `_selected_registered:1355-1363` reads its
+`cce_master_binding`; `downstream_registered:1256-1270` passes the selected
+bundle and UID to native `step4`/`step5`. The adapter's fixed handler/worker
+route is in `scripts/cce_stage_execution_adapter.py:444-485`; request fields
+cannot select executable code. The separately committed native `4fa85874`
+has `cce_batch_runtime.py` SHA-256
+`ae52b7601c3ea59e5e294bb3bf695802efc69f3d5b60333bd6b422c47bd14c53`.
+Its existing ordinary v2 Step3-to-Step4/log-export TTL test passed 1/1;
+Step5 follows source delegation, not that test's direct invocation. Existing
+platform selected-Master Step4/5 tests stub log download, and
+`test_gatk_thin_binding` stubs the adapter itself. These tests do not prove a
+complete paired TTL run or an active deployed policy pin to `4fa85874`.
+
+**Failure and next phase.** A WGS DAG check initially used backend image
+`8491604ee01d` and exited 1 during collection with `ModuleNotFoundError:
+airflow`; cause was the image choice. Repeating on the Airflow image yielded
+18/18. Earlier full DAG-folder import lacked unrelated
+`snakemake_interface_logger_plugins`; `airflow dags list` lacked an initialized
+ephemeral metadata DB, so neither is acceptance evidence. No full latest
+backend suite, installed native wheel, node200 behavior, deployed policy pin,
+paired TTL end-to-end run or production validation was performed. The planned
+UE-06 candidate installation must check its actual entry and pin with its
+approved minimal runtime validation; this UE-04 source checkpoint does not
+authorize that phase. Rollback is to leave the branch unmerged or revert
+`a6c31d1`; there is no deployed state to undo.
+
 ## 2026-09-29 UE-03 bounded inventory and Heavy role source checkpoint
 
 **Goal and authority.** Continue the approved unified-stage UE-03 source work

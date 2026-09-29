@@ -1,5 +1,32 @@
 # Active test-branch tasks
 
+## UE-04-UNIFIED-STAGE-EXECUTION-20260930 (source checkpoint complete; not deployed)
+
+- [x] Marked WGS/GATK gate bridge, exact native submit/observe CLI and frozen
+  request identity: platform commits through `0feec86` and `5fd01a9`.
+- [x] Shared DAG client and WGS/GATK native Step1–Step6 wiring: `7ee7d7c`;
+  isolated BS10610 focused 16/16 and targeted two-DAG import passed.
+- [x] R1: normal/P0 WGS Step3 requires latest Step2 receipt; internal and public
+  Resume recheck attempt, DagRun, action and stop after the ingestion session.
+- [x] F4: require current Step6 business receipt and a fresh, exact native
+  succeeded observation before WGS/GATK finalize; block Airflow success-only
+  reconciliation from projecting business success; reject WGS frozen-marker
+  downgrade and late finalize after a stop.
+- [x] F3: accept only the persisted, authorized current same-attempt GATK
+  recovery DagRun and its frozen `conf` in Airflow reconciliation.
+- [x] WGS/GATK exact stage-status marker, fresh native observation when a marked
+  submit XCom is absent, source review and scoped BS10610 synthetic deltas.
+- [x] Review the platform selected-Master Step4/5 call chain against native
+  `4fa85874` and record the precise existing directed-test coverage limits.
+- [x] API/DAG/runtime docs updated and source committed as `a6c31d1`.
+- [ ] UE-06, separately authorized: check the candidate installation's actual
+  native entry and policy pin, then run its planned minimal runtime validation.
+  UE-04 performed no wheel, node200, production, real batch, service, database,
+  cleanup or release action.
+
+Step1 and the old `20260927B` screenshot are complete historical context,
+not active UE-04 work. Existing `.codex-artifacts/` remains untracked and intact.
+
 ## UE-03-INVENTORY-PROBE-20260929 (platform query slice source complete; probe retry open)
 
 - [x] Pair platform fixed namespace Job/Pod LIST calls with native

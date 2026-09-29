@@ -1,5 +1,40 @@
 # Current state
 
+## 2026-09-30 UE-04 unified stage execution (source checkpoint committed; not deployed)
+
+The current task is UE-04 source integration for registered WGS/GATK Step1–Step6.
+Step1 transfer work and the old `20260927B` screenshot are historical context,
+not active UE-04 work. This task has no production, node200, real-batch, wheel,
+service, database, cleanup or release authorization.
+
+The platform gate bridge is committed through `0feec86` and `5fd01a9`; the
+shared native DAG client is `7ee7d7c`. Source commit `a6c31d1` completes the
+WGS Step3 latest-Step2 receipt and identity barrier (R1), WGS/GATK Step6
+business-receipt plus fresh native-terminal finalization (F4), GATK authorized
+current recovery DagRun and frozen-conf reconciliation (F3), and exact marked
+stage status/sensor handling when submit XCom is absent. Administrative DagRun
+success alone cannot project a full CCE analysis to business success. WGS
+validation canaries and local runs retain their existing projection. This is
+source only on the isolated branch; no production activation follows.
+
+BS10610 synthetic evidence is cumulative, not one final end-to-end run: the
+WGS backend files passed 50 tests before the last status-reader refinement,
+which passed its focused 1-test delta; WGS DAG passed 18 before the no-XCom
+change, then its focused 1-test delta. GATK backend passed 28 before its final
+marker/conf refinements, then 7 focused tests; GATK DAG passed 20 before the
+no-XCom change, then its focused 1-test delta. Earlier client tests passed
+16 and targeted two-DAG import. Full-folder import/CLI list did not provide
+acceptance because the isolated image lacked an unrelated plugin and an
+initialized metadata DB. See the latest `HANDOFF.md` for exact evidence paths.
+
+The paired native Master TTL source is separately committed as `4fa85874`.
+Platform registered Step4/5 passes a selected bundle and exact UID; the native
+ordinary v2 fallback uses the persisted handoff after a valid terminal. Existing
+tests cover these paths separately with stated mocks, not a complete paired TTL
+run. No deployed policy pin to `4fa85874`, node200 installation, production
+validation or release has been verified or authorized. The pre-existing
+untracked `.codex-artifacts/` directory remains untouched.
+
 ## 2026-09-29 UE-03 shared inventory platform source (query slice; not deployed)
 
 The isolated `jiucheng/airflow/UE03-inventory-probe` branch now uses one
