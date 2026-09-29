@@ -23,6 +23,7 @@ from app.models import (
     Sample,
     TransferJob,
 )
+from app.stage_execution_contract import freeze_stage_execution_protocol
 from app.wgs_observer import ingest_bound_pipeline_evidence_once
 
 
@@ -195,6 +196,8 @@ def register_gatk_stage(
             from app.cce_publish_recovery import freeze_publish_request
             freeze_publish_request(run=run,request=request,latest=latest,
                 now=datetime.now(timezone.utc),timeout_seconds=48*3600)
+        if stage != 'prepare':
+            freeze_stage_execution_protocol(request)
         request_hash = _canonical_hash(request)
         request["request_hash"] = request_hash
     execution = PipelineStageExecution(

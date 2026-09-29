@@ -1,5 +1,130 @@
 # Handoff
 
+## 2026-09-29 UE-01 stage-execution contract source closeout
+
+Goal: finish only UE-01's platform request marker, pathless identity/snapshot
+mapping and one cross-repository synthetic fixture. Worktree/branch:
+`C:\Users\11217\.codex\worktrees\gatk-prod-compat\airflow-demo`,
+`jiucheng/airflow/UE01-stage-execution-contract`, base `dcd7390`.
+The 2026-09-28 blocker entry below is historical and superseded by this result.
+
+BS10610 read-only preflight confirmed `server10610`, control root
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS`, current release
+`20260912-opt-4d3d24e6`, actual backend `/app` mount from
+`20260926-p0-e358aad/backend`, and disabled intake/auto-dispatch gates. The
+approved synthetic candidate was
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/ue01-stage-execution-contract-20260928`.
+Its older platform module/test copies (SHA-256 `e6ff0363...` / `1df50728...`)
+were replaced with the exact current worktree bytes after local backup. Final
+candidate SHA-256: `scripts/cce_paired_runtime.py` `b1eedef3f2ca23f57492dcf928b314b16af94ca0e50b930998e706f87715fc3e`,
+single fixture `f0601651c2da2b0104b1f6aa985e2002b9938ba669fd9d8cbd160eb4c6a048bf`,
+and platform marker module `895955cde9d562e683f45c151b98656869b02d9e319fb514806a1fb41d5eb170`.
+Native source was the real BS10610 checkout, commit `254527c573a525f8663ba567666eadf9fe45252e`,
+module `src/cce_pipeline/stage_execution.py` SHA-256
+`d9f69cdc8eb998b0dc1257f00fb1a21fffcdb1fb086ece415e2c75127c603b40`;
+both prior token/SHA-256 regex anchors are now corrected. We did not edit native.
+
+Exact single fixture command, from the candidate directory:
+
+```bash
+PYTHONPATH=/mnt/biodevrwbi/33.chenjiucheng/project/wgs-cloud-platform/projects/huawei-cloud-runtime/src \
+/sg2/33.chenjiucheng/software/miniforge3/envs/nipttest/bin/python -m pytest -q \
+  scripts/tests/test_cce_stage_execution_contract.py::test_current_execution_contract --tb=short
+```
+
+The SSH invocation ran from that directory and redirected stdout/stderr to a
+task-specific evidence file. The first run after native correction passed (exit
+0, `1 passed in 0.45s`):
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue01-stage-execution-20260929-platform/pytest-single.log`,
+SHA-256 `718af798eb1450a812074f301573c1f498edd3575a2450f85ee649d7e03c3c72`.
+Final static review found that the platform registry mapping accepted a present
+but disabled handler, whereas native `resolve_handler_key` rejects `None`,
+`False` and empty string. Added assertions within this same fixture: RED exit 1,
+`1 failed in 0.10s`, because no `RuntimeError` was raised. A three-line platform
+guard now matches the native resolver; final GREEN exit 0, `1 passed in 0.07s`.
+Raw logs are in the same evidence directory as `pytest-disabled-red.log`
+(SHA-256 `f2e6cab3c818c9b09e6cec72701d1952a36a5935554f21c628c0d70b5ccac0a0`)
+and `pytest-final.log`
+(SHA-256 `e8c2ebdecc6c68bd31c948de0b0c1dd4c57dd47d093194a6c1d241c65727824d`).
+The earlier native regex failures are historical contract failures, not the
+RED for this final platform change. `git diff --check` passed. Local pytest,
+full suites, backend registration integration, service/container runs, cloud
+Jobs, node200 and production were not run or touched: the approved UE-01 gate
+requested only this fixture. The WGS/GATK registration call sites were reviewed
+statically, not accepted by a running backend. No push, merge, wheel install or
+deployment. UE-02 waits for coordinator approval. Rollback of
+this source-only change is a scoped commit revert; runtime state is unaffected.
+
+Related deltas to retain when later phases integrate (prior recorded deployment
+fingerprints are not a fresh production recheck in this UE-01 task):
+
+| Source and status | UE-01 need | Later handling |
+| --- | --- | --- |
+| `744cd22`/`03dc8d7` baseline WGS initial/recovery hash and control-root fix | Required baseline; keep request/hash semantics and historical registrations | Preserve through UE-02–06 |
+| Production private GATK gate SHA `b3230de8...`, no paired module/manifest | Leave untouched; not a UE-01 consumer | Define trusted resolver/handler boundary at UE-02 before selecting a gate |
+| Deployed backend overlays: `9c7fc93` Step4 digest, `e634ca4` Stage4-to-5 fence, WGS phase policy later synced to source by `a85cfb6` | Not in this branch; do not overwrite or bulk copy | Reconcile per consumer in UE-04/05/06 |
+| Test-only `5c29d86` and integration worktree's uncommitted P0 paired/inventory/recovery changes | Do not copy the dirty tree for UE-01 | Select exact dependencies in UE-02/03/04/05 |
+| Production frontend Resume visibility, separate GATK transfer `a3c177a` and r4 phase `6d11712` candidates | No UI or phase promotion here | Keep separate release decisions; no dirty UI copy |
+| Production WGS selector 0.8.8/`57483541`; candidate native 0.8.9/`254527c` | Use real 0.8.9 source for this fixture only | UE-06 checks wheel/consumer/mount/selector pins; frozen WES bundles do not auto-upgrade |
+
+
+## 2026-09-28 UE-01 stage-execution contract (in progress; shared fixture blocked)
+
+Goal: implement the approved UE-01 producer/consumer contract in the Airflow
+platform only, coordinate with the native owner, run only the exact synthetic
+fixture on BS10610, update this handoff/state, and stop before UE-02–06 or any
+production deployment. Worktree `C:\Users\11217\.codex\worktrees\gatk-prod-compat\airflow-demo`,
+branch `jiucheng/airflow/UE01-stage-execution-contract`, based on audit docs
+commit `dcd7390893e3d4b6e25b7c15d4b1de96dbf231ef`.
+
+Platform implementation adds the request marker before the first new WGS/GATK
+stage request hash, keeps existing matching legacy WGS registrations reusable,
+leaves immutable GATK prepare unchanged, maps v2 `generation` to native
+`stage_generation`, validates trusted pipeline/stage registry keys, and maps
+native snapshot state without treating unknown or canceled as authorization to
+advance/retry/release. `docs/08_WORKFLOW_RUNTIME_INTEGRATION.md` records canonical
+JSON, digest envelope, identity, snapshot, status and deadline boundaries.
+
+Modified/untracked platform files: `backend/app/gatk_runtime_service.py`,
+`backend/app/wgs_stage_execution_service.py`, new
+`backend/app/stage_execution_contract.py`, `scripts/cce_paired_runtime.py`, new
+`scripts/tests/test_cce_stage_execution_contract.py`, and
+`docs/08_WORKFLOW_RUNTIME_INTEGRATION.md`. `git diff --check` passed. No platform
+test was run locally.
+
+Only authorized runtime fixture command so far (on synthetic candidate
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/ue01-stage-execution-contract-20260928`):
+
+```bash
+PYTHONPATH=/mnt/biodevrwbi/33.chenjiucheng/project/wgs-cloud-platform/projects/huawei-cloud-runtime/src \
+/sg2/33.chenjiucheng/software/miniforge3/envs/nipttest/bin/python -m pytest -q \
+  scripts/tests/test_cce_stage_execution_contract.py::test_current_execution_contract --tb=short
+```
+
+First run failed at native `resolve_handler_key("wgs", ...)`: `_TOKEN_RE` used
+a raw pattern with a literal `\\Z`. The native owner corrected that one anchor.
+The same test node then advanced to `ExecutionRef.from_trusted_registration`
+and failed because `_SHA256_RE` still uses a literal `\\Z`, rejecting the
+valid 64-character `request_hash`. Current observed native source hash is
+`104eb78c6e804f01359f1081c17e567acb508bd308612a30508ef7692cabfbd0`; its token
+anchor is corrected but SHA anchor is not. The coordinator has re-dispatched the
+native owner to correct the SHA line. This Airflow task must not edit the
+separate native checkout. Rerun only this same node after that exact source line
+changes; do not mask the native validation in the platform fixture.
+
+Boundary: BS10610 host-level synthetic fixture only. No node200 connection,
+test/production container, production database, deployment, data operation,
+native checkout edit, or push was performed by this platform task. The user
+provided node200 access guidance (`ssh NGS` or cpata SSH key); it does not change
+the agreed BS10610 target. Native source remains on its separate owner branch.
+
+Next: wait for a visible native source correction, then rerun the single fixture.
+If green, perform final diff review, finish this section and the
+task trackers with exact result, then commit only UE-01 Airflow files/docs. If it
+still fails, diagnose that failure and again limit reruns to this node. No commit
+or completion claim yet. Rollback for the Airflow task is a scoped revert of its
+UE-01 commit; no running platform release was changed.
+
 ## 2026-09-28 GATK-PROD-COMPAT (no patch)
 
 Goal: assess only whether the recent WGS P0 changes need GATK equivalents. User

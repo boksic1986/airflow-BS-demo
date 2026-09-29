@@ -1,5 +1,19 @@
 # Active test-branch tasks
 
+## UE-01-STAGE-EXECUTION-CONTRACT-20260928 (source complete; awaiting review)
+
+- [x] Freeze the approved `cce.stage-execution.v1` request marker and pathless
+  platform identity/snapshot mapping for WGS and GATK.
+- [x] Add the one synthetic cross-repository fixture and document the UE-01
+  identity, canonical JSON, status and deadline boundaries.
+- [x] Confirm the native token and SHA-256 regex corrections in the real
+  BS10610 source. The same `test_current_execution_contract` exposed a disabled
+  handler registry mismatch during final UE-01 review; narrow red/green ended
+  at 1 passed in 0.07s, with both raw logs retained.
+- [x] Review and commit only UE-01 platform files, docs/08 and own handoff.
+  No node200 or production change is included.
+- [ ] Coordinator review and UE-02 release gate; no UE-02 implementation here.
+
 ## GATK-PROD-COMPAT-20260928 (complete; no patch)
 
 - [x] Compare the actual integration worktree diff with the seven WGS P0 items.

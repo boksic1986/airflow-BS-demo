@@ -19,6 +19,8 @@ import re
 from types import SimpleNamespace
 
 PLATFORM_SOURCE = Path(__file__).resolve()
+STAGE_EXECUTION_PROTOCOL = 'cce.stage-execution.v1'
+STAGE_EXECUTION_TOKEN_RE = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}')
 DEPLOYMENT_TRUST_ROOT = PLATFORM_SOURCE.parent
 DEPLOYMENT_TRUST_PATH = DEPLOYMENT_TRUST_ROOT / 'cce-paired-deployment-v1.json'
 COMMANDS = dict(step1_upload='step1-upload', step2_master='step2-run',
@@ -326,6 +328,108 @@ def _request_digest(registered,pipeline):
         excluded.add('orchestration_contract_version')
     return hashlib.sha256(json.dumps({k:v for k,v in registered.items() if k not in excluded},
         sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+
+
+def execution_identity_from_registered_request(payload, *, pipeline, handler_registry):
+    """Map a verified v2 request to the public, pathless execution identity."""
+    if (not isinstance(payload, dict) or not isinstance(pipeline, str)
+            or not STAGE_EXECUTION_TOKEN_RE.fullmatch(pipeline)):
+        raise RuntimeError('registered stage execution identity is invalid')
+    stage = payload.get('stage')
+    if not isinstance(stage, str) or not STAGE_EXECUTION_TOKEN_RE.fullmatch(stage):
+        raise RuntimeError('registered stage execution stage is invalid')
+    if not isinstance(handler_registry, dict) or (pipeline, stage) not in handler_registry:
+        raise RuntimeError('stage execution handler registry key is unsupported')
+    handler = handler_registry[(pipeline, stage)]
+    if handler is None or handler is False or handler == '':
+        raise RuntimeError('stage execution handler registry key is unsupported')
+    if payload.get('stage_execution') != {'protocol': STAGE_EXECUTION_PROTOCOL}:
+        raise RuntimeError('unsupported stage execution protocol')
+    if payload.get('orchestration_contract_version') != 2:
+        raise RuntimeError('stage execution requires platform contract v2')
+    if payload.get('pipeline') not in (None, pipeline):
+        raise RuntimeError('registered stage execution pipeline differs')
+    if (not isinstance(payload.get('analysis_id'), str)
+            or not STAGE_EXECUTION_TOKEN_RE.fullmatch(payload['analysis_id'])
+            or not isinstance(payload.get('execution_id'), str)
+            or not STAGE_EXECUTION_TOKEN_RE.fullmatch(payload['execution_id'])
+            or type(payload.get('attempt')) is not int or payload['attempt'] < 1
+            or type(payload.get('generation')) is not int or payload['generation'] < 1
+            or not isinstance(payload.get('request_hash'), str)
+            or not re.fullmatch(r'[0-9a-f]{64}', payload['request_hash'])):
+        raise RuntimeError('registered stage execution identity is incomplete')
+    return {
+        'protocol': STAGE_EXECUTION_PROTOCOL,
+        'pipeline': pipeline,
+        'analysis_id': payload['analysis_id'],
+        'attempt': payload['attempt'],
+        'stage': stage,
+        'execution_id': payload['execution_id'],
+        'stage_generation': payload['generation'],
+        'request_hash': payload['request_hash'],
+    }
+
+
+def platform_status_from_snapshot(payload, snapshot, *, expected_ref, pipeline, handler_registry):
+    """Validate a native snapshot against its registration and project its state."""
+    identity = execution_identity_from_registered_request(
+        payload, pipeline=pipeline, handler_registry=handler_registry
+    )
+    expected = expected_ref.to_dict() if hasattr(expected_ref, 'to_dict') else expected_ref
+    if (not isinstance(expected, dict)
+            or set(expected) != set(identity) | {'registration_sha256'}
+            or any(expected.get(key) != value for key, value in identity.items())
+            or not isinstance(expected.get('registration_sha256'), str)
+            or not re.fullmatch(r'[0-9a-f]{64}', expected['registration_sha256'])):
+        raise RuntimeError('expected execution identity is invalid')
+    snapshot_keys = {
+        'schema', 'execution_ref', 'state', 'evidence_ref', 'runtime_identity',
+        'compute_identity', 'observation_health',
+    }
+    if (not isinstance(snapshot, dict) or set(snapshot) != snapshot_keys
+            or snapshot.get('schema') != 'cce.stage-execution.snapshot.v1'
+            or snapshot.get('execution_ref') != expected):
+        raise RuntimeError('native execution snapshot identity differs')
+    state = snapshot.get('state')
+    health = snapshot.get('observation_health')
+    if state not in {'accepted', 'running', 'succeeded', 'failed', 'canceled', 'unknown'}:
+        raise RuntimeError('native execution snapshot state is unsupported')
+    if health not in {'healthy', 'degraded'} or (state == 'unknown' and health != 'degraded'):
+        raise RuntimeError('native execution observation health is invalid')
+    runtime_identity = snapshot.get('runtime_identity')
+    if runtime_identity is not None and (
+        not isinstance(runtime_identity, dict)
+        or set(runtime_identity) != {'boot_id', 'pid', 'starttime_ticks', 'process_group_id'}
+        or not isinstance(runtime_identity.get('boot_id'), str)
+        or not STAGE_EXECUTION_TOKEN_RE.fullmatch(runtime_identity['boot_id'])
+        or any(type(runtime_identity.get(key)) is not int or runtime_identity[key] < 1
+               for key in ('pid', 'starttime_ticks', 'process_group_id'))
+    ):
+        raise RuntimeError('native runtime process identity is invalid')
+    compute_identity = snapshot.get('compute_identity')
+    if compute_identity is not None and (
+        not isinstance(compute_identity, dict)
+        or set(compute_identity) != {'compute_generation', 'master_uid'}
+        or (compute_identity.get('compute_generation') is not None
+            and (type(compute_identity['compute_generation']) is not int
+                 or compute_identity['compute_generation'] < 1))
+        or (compute_identity.get('master_uid') is not None
+            and (not isinstance(compute_identity['master_uid'], str)
+                 or not STAGE_EXECUTION_TOKEN_RE.fullmatch(compute_identity['master_uid'])))
+    ):
+        raise RuntimeError('native compute identity is invalid')
+    evidence_ref = snapshot.get('evidence_ref')
+    if (evidence_ref is not None and (not isinstance(evidence_ref, str)
+                                      or not STAGE_EXECUTION_TOKEN_RE.fullmatch(evidence_ref))):
+        raise RuntimeError('native execution evidence reference is invalid')
+    return {
+        'accepted': 'accepted',
+        'running': 'running',
+        'succeeded': 'success',
+        'failed': 'failed',
+        'canceled': 'canceled',
+        'unknown': None,
+    }[state]
 
 
 @contextmanager

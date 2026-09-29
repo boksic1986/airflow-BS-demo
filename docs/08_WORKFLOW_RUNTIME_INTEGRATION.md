@@ -1,5 +1,50 @@
 # Workflow runtime integration
 
+## Unified stage execution v1: UE-01 contract (2026-09-28)
+
+New WGS and GATK Step1–Step6 stage requests freeze the top-level extension
+`stage_execution: {"protocol":"cce.stage-execution.v1"}` before computing their
+existing `request_hash`. The platform `orchestration_contract_version=2` remains
+unchanged. Existing frozen requests retain their original bytes and hashes;
+legacy WGS re-entry returns the matching registration without adding the marker,
+and the immutable GATK prepare request remains outside this stage protocol.
+
+The pathless `ExecutionRef` carries `protocol`, registry-key `pipeline`,
+`analysis_id`, `attempt`, `stage`, `execution_id`, `stage_generation`,
+`request_hash`, and `registration_sha256`. Platform `generation` maps to
+`stage_generation` only at the adapter boundary; the existing seven-key
+`platform_execution` object is unchanged. Identity tokens use 1–256 ASCII
+characters, beginning with an alphanumeric and continuing with alphanumerics,
+underscore, dot, colon or hyphen; attempt and generation are positive integers
+(not booleans). The registration digest is SHA-256 of canonical UTF-8 JSON
+using sorted keys, compact separators, `ensure_ascii=False`,
+`allow_nan=False`, and no trailing newline. Its envelope contains the eight ref
+identity fields other than `registration_sha256`, plus the trusted frozen
+`runtime_binding`. Mutable state, runtime evidence and post-registration CREATE
+deadlines are excluded. A deadline already frozen in the request is covered by
+its `request_hash`; deadlines remain governed by their original stage-specific
+source and timer. The public ref has no deadline, filesystem path, command or
+module field.
+
+`ExecutionSnapshot` uses schema `cce.stage-execution.snapshot.v1` and carries the
+complete `execution_ref`, state, opaque `evidence_ref`, nullable process
+`runtime_identity`, separate nullable CCE `compute_identity`, and independent
+`observation_health`. States are `accepted`, `running`, `succeeded`, `failed`,
+`canceled`, and `unknown`. Platform `success` maps to native `succeeded`; `failed`
+and `canceled` retain their meanings. `unknown` must be marked degraded and does
+not overwrite the last confirmed platform state. It never authorizes another
+dispatch, stage advancement, lock release, or recovery. Read-only `canceled` adds
+no cancellation API and does not prove remote compute quiescence.
+
+The node200 gate/operator Python owns the deployment-fixed resolver and
+`(pipeline, stage)` handler registry. Unknown or disabled registry keys fail
+closed. The Airflow container does not import the native wheel or accept a
+request-selected path or command. UE-01 adds the contract mapping and request
+marker only; later lifecycle work remains separately gated. The sole platform
+fixture is
+`scripts/tests/test_cce_stage_execution_contract.py::test_current_execution_contract`,
+run on BS10610's synthetic test environment.
+
 ## Paired request validation (2026-09-27)
 
 WGS initial dispatch hashes the body before adding the v2 execution envelope,

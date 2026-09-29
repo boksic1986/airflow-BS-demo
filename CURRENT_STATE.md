@@ -1,5 +1,25 @@
 # Current state
 
+## 2026-09-29 UE-01 stage-execution contract (source complete; not deployed)
+
+Platform changes freeze `stage_execution: {"protocol":"cce.stage-execution.v1"}`
+before hashes for newly registered WGS/GATK stages and add a pathless native
+identity/snapshot adapter. Existing WGS v2 registrations with matching legacy
+hashes remain reusable; immutable GATK prepare remains outside the marker. The
+contract and sole synthetic fixture are recorded in `docs/08_WORKFLOW_RUNTIME_INTEGRATION.md`.
+
+The earlier native token and SHA-256 regex blockers are resolved in the current
+BS10610 source module (SHA-256
+`d9f69cdc8eb998b0dc1257f00fb1a21fffcdb1fb086ece415e2c75127c603b40`).
+The single approved synthetic fixture first passed against the corrected native
+source. Static UE-01 review then found that the platform mapping accepted a
+registered but disabled handler, unlike the native resolver. The same fixture
+failed on that new assertion and passed after the narrow platform correction:
+final `1 passed in 0.07s`. Raw red/green output and the exact command are in
+the latest `HANDOFF.md` entry. No local pytest, full suite,
+service/container test, node200 access or production action was performed.
+UE-02 remains gated on coordinator review.
+
 ## 2026-09-28 GATK-PROD-COMPAT gate
 
 Compared the integration commit delta and targeted uncommitted P0 source diffs

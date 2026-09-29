@@ -9,6 +9,7 @@ import secrets
 from sqlalchemy import func, select
 
 from app.models import AnalysisRun, WgsStageExecution
+from app.stage_execution_contract import freeze_stage_execution_protocol
 from app.wgs_stage_catalog import WgsStageContract
 
 
@@ -56,6 +57,18 @@ def register_stage_execution(*, session, run: AnalysisRun, contract: WgsStageCon
         from app.cce_publish_recovery import freeze_publish_request
         freeze_publish_request(run=run,request=request_payload,latest=latest,now=now,
             timeout_seconds=definition.timeout_seconds)
+    # Preserve a still-current legacy v2 registration on re-entry. A new
+    # generation freezes the protocol marker before its request hash.
+    if "stage_execution" in request_payload:
+        freeze_stage_execution_protocol(request_payload)
+    current_request_hash = _sha256(request_payload)
+    reusable = latest is not None and latest.request_hash == current_request_hash and (
+        not force_new_generation or latest.status in ACTIVE
+        or (stage_code == 'step4_publish' and request_payload.get('publish_dispatch_version') == 1)
+    )
+    if reusable:
+        return latest
+    freeze_stage_execution_protocol(request_payload)
     request_hash = _sha256(request_payload)
     if latest is not None and latest.request_hash == request_hash and (
         not force_new_generation or latest.status in ACTIVE
