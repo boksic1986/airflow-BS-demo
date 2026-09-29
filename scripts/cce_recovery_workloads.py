@@ -179,12 +179,8 @@ def _live_inventory(*, runtime, config, namespace, run_label, bound, master_job,
         deadline = min(deadline, query_deadline_monotonic)
 
     def query(*arguments):
-        for delay in (0, 2, 5) if reconnect_transient else (0,):
-            if delay:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    raise ValueError("workload query budget exhausted")
-                time.sleep(min(delay, remaining))
+        delay = 2
+        while True:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise ValueError("workload query budget exhausted")
@@ -193,8 +189,11 @@ def _live_inventory(*, runtime, config, namespace, run_label, bound, master_job,
             except runtime.RecoveryQueryError as error:
                 if not reconnect_transient or error.code not in {'TRANSPORT', 'SERVICE'}:
                     raise
-                if delay == 5:
-                    raise
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise ValueError("workload query budget exhausted") from error
+                time.sleep(min(delay, remaining))
+                delay = 5
                 continue
             if time.monotonic() >= deadline:
                 raise ValueError("workload query budget exhausted")

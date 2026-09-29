@@ -6,9 +6,10 @@ The registered Step6 final writer now creates one local monotonic 120-second
 read window. Both full native workload inventories, including the fresh CAS
 proof, and the paired native directory-lock release receive the same absolute
 deadline. Each workload query remains at most 30 seconds. Only typed native
-`TRANSPORT` and `SERVICE` failures reconnect that read-only query (up to two
-bounded retries); malformed, incomplete, conflicting or active inventories
-still fail closed. The query retry sits inside the final inventory call, so it
+`TRANSPORT` and `SERVICE` failures reconnect that read-only query with
+deadline-bound backoff, starting at 2 seconds and capped at 5 seconds.
+Malformed, incomplete, conflicting or active inventories still fail closed.
+The query retry sits inside the final inventory call, so it
 does not rerun Step6 materialization or repeat the release write. The Step3
 compute deadline and Step4 publish deadline do not govern later Step6 release.
 

@@ -291,7 +291,8 @@ def test_final_release_reconnect_does_not_repeat_materialization_or_cas(
                           else command[6:-2])
             if query == ("jobs", "-l", f"cce.biosan.cn/run-id={cluster.run_label}", "--chunk-size=0"):
                 attempts["labelled_jobs"] += 1
-                if attempts["labelled_jobs"] == 2:
+                if ((outcome == "reconnect" and 2 <= attempts["labelled_jobs"] <= 5)
+                        or (outcome == "budget" and attempts["labelled_jobs"] == 2)):
                     if outcome == "budget":
                         clock["now"] = 121
                     return subprocess.CompletedProcess(command, 1, b"", b"connection reset by peer")
@@ -300,14 +301,14 @@ def test_final_release_reconnect_does_not_repeat_materialization_or_cas(
                 clock["now"] = 100  # Preflight consumed the shared window.
             return value
         monkeypatch.setattr(native, "_run", transport)
-    if outcome == "budget":
+    if outcome in {"reconnect", "budget"}:
         fake_time = SimpleNamespace(monotonic=lambda: clock["now"], time=lambda: 1000 + clock["now"],
                                     sleep=lambda seconds: clock.__setitem__("now", clock["now"] + seconds))
         monkeypatch.setattr(paired, "time", fake_time)
         monkeypatch.setattr(workloads, "time", fake_time)
     if outcome == "reconnect":
         checks = _release_registered_final(cluster, monkeypatch, tmp_path)
-        assert attempts["labelled_jobs"] == 3  # Preflight, CAS transient, fresh CAS read.
+        assert attempts["labelled_jobs"] == 6  # Preflight, four transient CAS reads, then fresh proof.
         assert checks == Counter(materialized_checks=2, release_calls=1, verified_release_proofs=1)
         assert cluster.lock_mutated is True
         _assert_query_rounds(cluster, 2)
