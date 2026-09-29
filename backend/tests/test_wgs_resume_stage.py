@@ -297,6 +297,9 @@ def test_stage_handler_replays_current_stage_and_blocks_prepare(setup, monkeypat
             resume_action_id=receipt['action_id'], dag_run_id=dag_id))
     current = register('step3_monitor')
     assert current['generation'] == receipt['generation']
+    frozen = json.loads(setup[3].read_text())
+    assert current['request_hash'] == frozen['request_hash']
+    assert current['stage_execution'] == frozen['stage_execution']
     assert register('step3_monitor') == current
     with pytest.raises(HTTPException) as error:
         register('prepare')
