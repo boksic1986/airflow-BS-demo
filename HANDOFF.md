@@ -103,15 +103,46 @@ collector but does not recreate the entire registered monitor process.
 
 **Open work, risk and rollback.** Native directory-probe retry is **not in
 commit `6f5c120`**. The native Step1–Step6 call chain does not yet carry a
-trusted original stage deadline. The owner correctly withheld 2s/5s
-read-only retries rather than fabricating a fresh 120-second window. Step6
-registered payloads also have no original absolute stage deadline; their
-inventory remains bounded by the existing in-process 120-second cap and the
-external stage timer. Resolve deadline plumbing and run the targeted native
-`tests/test_directory_probe_retry.py` before declaring UE-03 complete.
+trusted original stage deadline. The owner withheld 2s/5s read-only retries
+pending a decision on how they relate to the original stage/helper remaining
+time. The 120-second total probe budget and 30-second single-operation budget
+are bounds on one probe, **not** a newly created original stage deadline.
+Existing external Airflow stage timers remain external where no absolute
+deadline was frozen. Resolve that semantic boundary and run the targeted
+native `tests/test_directory_probe_retry.py` before declaring UE-03 complete.
 Synthetic source tests do not establish live-cluster or installed-wheel
 behavior. This source slice can be reverted by its scoped platform commit;
 no runtime state was changed.
+
+**Directory-probe deadline map (read-only, no implementation).** Ordinary
+registered Step1/4/6 reaches native `writer_for_bundle.validate` through
+`scripts/cce_paired_runtime.py:192-209` (`stage_command`),
+`:1252-1274` (`downstream_registered`) and `:1322-1397`
+(`_selected_registered`). The native CLI also constructs the writer in
+`cce_batch_runtime.py:3545-3579`. Native `ProtectedWriter.claim/enter`,
+`writer_for_bundle.validate` and `protected_stage` lead to either
+`current_master_storage_identity` or `cloud_storage_identity`, then
+`_directory_probe_identity` (`cce_writer_guard.py:247-264`), whose current
+read-only exec timeout is 30 seconds. The live-Master path checks UID and
+volume binding before and after. The helper path checks its exact Job/Pod and
+PVC/PV; CREATE 30 seconds, Pod wait 60 seconds, cleanup 90 seconds and helper
+Job `activeDeadlineSeconds=600` are separate operation/helper limits, not
+the original stage deadline. The helper journal does not freeze an absolute
+helper expiry, so retry must not restart a 600-second helper lifetime.
+
+WGS `config/wgs_stage_contract.yaml` supplies relative Step1/4/6 timeouts
+of 172800/172800/86400 seconds, and Airflow WGS sensors have corresponding
+relative timers. GATK has relative Airflow wait timers and a separate
+15-minute runner execution timeout. None is an absolute deadline passed to
+the native writer. Only opted-in Step4 currently freezes `publish_deadline`
+at first registration (`backend/app/cce_publish_recovery.py:23-39`, called by
+WGS/GATK runtime services); it is still not passed to the directory probe.
+Step1 and Step6 frozen requests contain no authenticated original absolute
+deadline. The narrow existing Step4 route, if chosen, is trusted frozen
+`publish_deadline` through platform stage selection to native writer
+validation and then to the live-Master/helper identity probe; no new
+`ExecutionRef` field is needed. Step1/6 and helper original-time semantics
+remain a coordination decision, not a claimed completed implementation.
 
 ## 2026-09-29 UE-02 native platform gate source closeout
 
