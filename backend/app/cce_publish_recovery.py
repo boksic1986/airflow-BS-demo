@@ -88,16 +88,20 @@ def control_publish_dispatch(*, session, settings, pipeline, analysis_id, attemp
     if not path.resolve().is_relative_to(root) or path.is_symlink() or path.stat().st_size>2*1024*1024:
         raise ValueError('invalid registered Step4 request path')
     request=json.loads(path.read_bytes())
-    excluded={'request_hash'} if pipeline=='gatk' else {'execution_id','generation','request_hash',
-        'predecessor_execution_id','predecessor_generation','predecessor_receipt_hash'}
-    digest=hashlib.sha256(json.dumps({k:v for k,v in request.items() if k not in excluded},
-        sort_keys=True,separators=(',',':')).encode()).hexdigest()
     if (request.get('analysis_id')!=analysis_id or request.get('attempt')!=attempt
             or request.get('stage')!='step4_publish' or request.get('orchestration_contract_version')!=2
             or type(request.get('publish_dispatch_version')) is not int or request['publish_dispatch_version']!=1
             or any(request.get(k)!=getattr(row,k) for k in ('execution_id','generation','request_hash'))
-            or digest!=row.request_hash or request.get('publish_deadline')!=(run.params_json or {}).get('cce_publish_deadline')):
+            or request.get('publish_deadline')!=(run.params_json or {}).get('cce_publish_deadline')):
         raise ValueError('registered Step4 dispatch authority differs')
+    if pipeline=='wgs':
+        from app.wgs_stage_execution_service import require_frozen_request_digest
+        require_frozen_request_digest(request, row)
+    else:
+        digest=hashlib.sha256(json.dumps({k:v for k,v in request.items() if k!='request_hash'},
+            sort_keys=True,separators=(',',':')).encode()).hexdigest()
+        if digest!=row.request_hash:
+            raise ValueError('registered Step4 dispatch authority differs')
     deadline=_date(request['publish_deadline'])
     args=dict(session=session,analysis_id=analysis_id,attempt=attempt,dag_run_id=dag_run_id,
         execution_id=row.execution_id,now=now)

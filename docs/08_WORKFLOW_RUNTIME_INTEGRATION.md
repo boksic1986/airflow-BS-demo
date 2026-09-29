@@ -1,5 +1,26 @@
 # Workflow runtime integration
 
+## UE-05 final writer query window (2026-09-30; source pairing in progress)
+
+The registered Step6 final writer now creates one local monotonic 120-second
+read window. Both full native workload inventories, including the fresh CAS
+proof, and the paired native directory-lock release receive the same absolute
+deadline. Each workload query remains at most 30 seconds. Only typed native
+`TRANSPORT` and `SERVICE` failures reconnect that read-only query (up to two
+bounded retries); malformed, incomplete, conflicting or active inventories
+still fail closed. The query retry sits inside the final inventory call, so it
+does not rerun Step6 materialization or repeat the release write. The Step3
+compute deadline and Step4 publish deadline do not govern later Step6 release.
+
+The platform delta was exercised with a pinned native read-only query and a
+stubbed lock release callback. It proves the platform deadline propagation
+and fresh inventory calls, not the paired native lock signature, actual CAS,
+installed wheel or live cloud behavior. The native owner validates the lock
+path separately before paired delivery. Missing lock/journal without trusted
+release proof remains an unknown outcome; the platform does not reconstruct a
+lock or infer release from a missing Job.
+
+
 ## UE-04 receipt and native terminal convergence (2026-09-30; source only)
 
 WGS normal and P0 recovery Step3 registration require the latest successful

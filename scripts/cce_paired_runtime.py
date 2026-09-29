@@ -12,6 +12,7 @@ from pathlib import Path
 import stat
 import struct
 import sys
+import time
 from contextlib import ExitStack, contextmanager, nullcontext, redirect_stdout
 import io
 import fcntl
@@ -1286,6 +1287,9 @@ def _release_registered_writer(payload, binding, gate, pipeline,
     else:
         from cce_recovery_inventory import lineage_workers
         from cce_recovery_workloads import probe_final_workloads
+    # Step6 has no frozen final-release deadline. Step3's compute deadline and
+    # Step4's publish deadline do not govern this later read-only finalization.
+    release_query_deadline = time.monotonic() + 120
     with ExitStack() as locks:
         current_path, current_raw = _registered_request(payload, gate, pipeline)
         for stage in ('prepare', *COMMANDS, 'step7_cleanup'):
@@ -1308,7 +1312,8 @@ def _release_registered_writer(payload, binding, gate, pipeline,
             probe_final_workloads(runtime=runtime, config=config,
                 namespace=contract['kubernetes']['namespace'], run_label=binding['run_label'],
                 master_job=contract['kubernetes']['master_job'], master_job_uid=uid,
-                master_state='SUCCEEDED', workers=workers)
+                master_state='SUCCEEDED', workers=workers,
+                query_deadline_monotonic=release_query_deadline, reconnect_transient=True)
             return value['terminal']['submission_snapshot_sha256']
 
         evidence()  # Also required on an idempotent RELEASED replay.
@@ -1320,7 +1325,8 @@ def _release_registered_writer(payload, binding, gate, pipeline,
                 identity=identity,owner=owner,evidence_sha256=evidence(),inventory_complete=True,
                 workers_inactive=True,dispatcher_inactive=True,master_state='SUCCEEDED',protected_writes_complete=True)
         runtime._release_batch_lock(contract,config,lock_context=writer.context,
-            journal=writer.journal,save_journal=writer.save_journal,verify=proof)
+            journal=writer.journal,save_journal=writer.save_journal,verify=proof,
+            release_query_deadline=release_query_deadline)
 
 
 def _selected_registered(payload, *, binding, gate, pipeline, operation=None, runtime=None, query_owner=None):

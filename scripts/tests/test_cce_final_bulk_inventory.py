@@ -21,6 +21,7 @@ from cce_pipeline.assets import cce_batch_runtime as native
 from scripts import cce_paired_runtime as paired
 from scripts import cce_recovery_failure as failure
 from scripts import cce_recovery_inventory as inventory
+from scripts import cce_recovery_workloads as workloads
 
 
 class _Cluster:
@@ -214,6 +215,48 @@ def _capability(cluster, monkeypatch, terminal, tmp_path):
     return cap
 
 
+def _release_registered_final(cluster, monkeypatch, tmp_path, *, missing_lock=False):
+    selected = tmp_path / "selected"
+    monkeypatch.setattr(paired, "_registered_request",
+        lambda payload, gate, pipeline: (tmp_path / "step6_materialize.json", b"registered"))
+    monkeypatch.setattr(paired, "_read_registered", lambda path: b"registered")
+    monkeypatch.setattr(paired, "_exclusive", lambda path: nullcontext())
+    monkeypatch.setattr(paired, "_inactive_dispatcher", lambda *args: None)
+    monkeypatch.setattr(paired, "_source_history", lambda *args: ())
+    monkeypatch.setattr(inventory, "lineage_workers", lambda *args: cluster.workers)
+    writer = SimpleNamespace(context={}, validate=lambda: None,
+                             journal={}, save_journal=lambda value: None)
+    checks = Counter()
+    def materialized(*args):
+        checks["materialized_checks"] += 1
+    monkeypatch.setattr(native, "_require_materialized", materialized)
+    monkeypatch.setattr(native, "_recovery_final_evidence", lambda *args: {
+        "terminal": {"state": "SUCCEEDED", "submission_snapshot_sha256": "c" * 64},
+        "snapshot": {}})
+    monkeypatch.setattr(native, "_directory_lock_identity", lambda *args:
+        ("lock", {"run": "synthetic"}, {"master_uid": cluster.master_uid}))
+    def release(*args, verify, release_query_deadline=None, **kwargs):
+        checks["release_calls"] += 1
+        assert release_query_deadline is not None
+        if missing_lock:
+            raise RuntimeError("directory lock missing; release outcome unknown")
+        proof = verify({"metadata": {"uid": "lock-uid", "resourceVersion": "1"}}, "release")
+        assert proof["evidence_sha256"] == "c" * 64
+        checks["verified_release_proofs"] += 1
+        cluster.lock_mutated = True
+    monkeypatch.setattr(native, "_release_batch_lock", release)
+    gate = SimpleNamespace(_request_path=lambda analysis_id, attempt, stage:
+        tmp_path / f"{stage}.json")
+    paired._release_registered_writer(
+        {"analysis_id": "synthetic-analysis", "attempt": 1},
+        {"run_label": cluster.run_label}, gate, "wgs", cluster.runtime, tmp_path,
+        selected, cluster.master_uid,
+        {"identity": {}, "kubernetes": {"namespace": cluster.namespace,
+                           "master_job": cluster.master_name}},
+        cluster.config, writer)
+    return checks
+
+
 def test_reclaimed_inventory_consumers_share_bounded_queries(cluster, monkeypatch, tmp_path):
     """275 reclaimed Workers cost one fixed inventory round per consumer."""
     selected = tmp_path / "selected"
@@ -229,36 +272,51 @@ def test_reclaimed_inventory_consumers_share_bounded_queries(cluster, monkeypatc
     _assert_query_rounds(cluster, 1)
 
     cluster.calls.clear()
-    monkeypatch.setattr(paired, "_registered_request",
-        lambda payload, gate, pipeline: (tmp_path / "step6_materialize.json", b"registered"))
-    monkeypatch.setattr(paired, "_read_registered", lambda path: b"registered")
-    monkeypatch.setattr(paired, "_exclusive", lambda path: nullcontext())
-    monkeypatch.setattr(paired, "_inactive_dispatcher", lambda *args: None)
-    monkeypatch.setattr(paired, "_source_history", lambda *args: ())
-    writer = SimpleNamespace(context={}, validate=lambda: None,
-                             journal={}, save_journal=lambda value: None)
-    monkeypatch.setattr(native, "_require_materialized", lambda *args: None)
-    monkeypatch.setattr(native, "_recovery_final_evidence", lambda *args: {
-        "terminal": {"state": "SUCCEEDED", "submission_snapshot_sha256": "c" * 64},
-        "snapshot": {}})
-    monkeypatch.setattr(native, "_directory_lock_identity", lambda *args:
-        ("lock", {"run": "synthetic"}, {"master_uid": cluster.master_uid}))
-    def release(*args, verify, **kwargs):
-        proof = verify({"metadata": {"uid": "lock-uid", "resourceVersion": "1"}}, "release")
-        assert proof["evidence_sha256"] == "c" * 64
-        cluster.lock_mutated = True
-    monkeypatch.setattr(native, "_release_batch_lock", release)
-    gate = SimpleNamespace(_request_path=lambda analysis_id, attempt, stage:
-        tmp_path / f"{stage}.json")
-    paired._release_registered_writer(
-        {"analysis_id": "synthetic-analysis", "attempt": 1},
-        {"run_label": cluster.run_label}, gate, "wgs", cluster.runtime, tmp_path,
-        selected, cluster.master_uid,
-        {"identity": {}, "kubernetes": {"namespace": cluster.namespace,
-                           "master_job": cluster.master_name}},
-        cluster.config, writer)
+    checks = _release_registered_final(cluster, monkeypatch, tmp_path)
     assert cluster.lock_mutated is True
+    assert checks == Counter(materialized_checks=2, release_calls=1, verified_release_proofs=1)
     _assert_query_rounds(cluster, 2)  # Pre-release and fresh release-CAS rounds.
+
+
+@pytest.mark.parametrize("outcome", ["reconnect", "budget", "missing_lock"])
+def test_final_release_reconnect_does_not_repeat_materialization_or_cas(
+        cluster, monkeypatch, tmp_path, outcome):
+    """A typed CAS-proof read retry shares the original preflight deadline."""
+    clock = {"now": 0.0}
+    if outcome != "missing_lock":
+        real_transport = cluster.transport
+        attempts = Counter()
+        def transport(command, *, check, capture, timeout):
+            query = tuple(command[6:-3] if command[-3] == "--ignore-not-found"
+                          else command[6:-2])
+            if query == ("jobs", "-l", f"cce.biosan.cn/run-id={cluster.run_label}", "--chunk-size=0"):
+                attempts["labelled_jobs"] += 1
+                if attempts["labelled_jobs"] == 2:
+                    if outcome == "budget":
+                        clock["now"] = 121
+                    return subprocess.CompletedProcess(command, 1, b"", b"connection reset by peer")
+            value = real_transport(command, check=check, capture=capture, timeout=timeout)
+            if outcome == "budget" and query == ("job", cluster.master_name):
+                clock["now"] = 100  # Preflight consumed the shared window.
+            return value
+        monkeypatch.setattr(native, "_run", transport)
+    if outcome == "budget":
+        fake_time = SimpleNamespace(monotonic=lambda: clock["now"], time=lambda: 1000 + clock["now"],
+                                    sleep=lambda seconds: clock.__setitem__("now", clock["now"] + seconds))
+        monkeypatch.setattr(paired, "time", fake_time)
+        monkeypatch.setattr(workloads, "time", fake_time)
+    if outcome == "reconnect":
+        checks = _release_registered_final(cluster, monkeypatch, tmp_path)
+        assert attempts["labelled_jobs"] == 3  # Preflight, CAS transient, fresh CAS read.
+        assert checks == Counter(materialized_checks=2, release_calls=1, verified_release_proofs=1)
+        assert cluster.lock_mutated is True
+        _assert_query_rounds(cluster, 2)
+    else:
+        with pytest.raises((ValueError, RuntimeError), match=(
+                "budget exhausted" if outcome == "budget" else "lock missing")):
+            _release_registered_final(cluster, monkeypatch, tmp_path,
+                                      missing_lock=outcome == "missing_lock")
+        assert cluster.lock_mutated is False
 
 
 def test_active_bulk_observation_cannot_authorize_replacement(cluster, monkeypatch, tmp_path):

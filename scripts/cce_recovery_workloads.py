@@ -6,6 +6,7 @@ This probe cannot prove that list's completeness or classify workflow failures.
 It does not issue a seal, authorize resume, delete workloads, or change status.
 Queries are observations, not an atomic cluster transaction: recheck at dispatch.
 """
+import math
 import re
 import time
 
@@ -165,7 +166,8 @@ def _complete_list(value, kind):
 
 
 def _live_inventory(*, runtime, config, namespace, run_label, bound, master_job,
-                    timeout_seconds, allow_active_workers=False):
+                    timeout_seconds, allow_active_workers=False,
+                    query_deadline_monotonic=None, reconnect_transient=False):
     """One native-query inventory round, shared by recovery and final release.
 
     The namespace lists detect bound objects with changed labels. The run-label
@@ -173,15 +175,30 @@ def _live_inventory(*, runtime, config, namespace, run_label, bound, master_job,
     single label list alone proves that a reclaimed Worker is gone.
     """
     deadline = time.monotonic() + timeout_seconds
+    if query_deadline_monotonic is not None:
+        deadline = min(deadline, query_deadline_monotonic)
 
     def query(*arguments):
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            raise ValueError("workload query budget exhausted")
-        value = runtime._recovery_query(config, *arguments, timeout=min(30, remaining))
-        if time.monotonic() >= deadline:
-            raise ValueError("workload query budget exhausted")
-        return value
+        for delay in (0, 2, 5) if reconnect_transient else (0,):
+            if delay:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise ValueError("workload query budget exhausted")
+                time.sleep(min(delay, remaining))
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ValueError("workload query budget exhausted")
+            try:
+                value = runtime._recovery_query(config, *arguments, timeout=min(30, remaining))
+            except runtime.RecoveryQueryError as error:
+                if not reconnect_transient or error.code not in {'TRANSPORT', 'SERVICE'}:
+                    raise
+                if delay == 5:
+                    raise
+                continue
+            if time.monotonic() >= deadline:
+                raise ValueError("workload query budget exhausted")
+            return value
 
     selector = "cce.biosan.cn/run-id=" + run_label
     run_jobs = _complete_list(query("jobs", "-l", selector, "--chunk-size=0"), "Job")
@@ -308,7 +325,8 @@ def _live_inventory(*, runtime, config, namespace, run_label, bound, master_job,
 
 def probe_final_workloads(*, runtime, config, namespace, run_label, master_job,
                           master_job_uid, master_state, workers, timeout_seconds=120,
-                          allow_active_workers=False):
+                          allow_active_workers=False, query_deadline_monotonic=None,
+                          reconnect_transient=False):
     """Reconcile FINAL native inventory against full live lists and exact names.
 
     Absence only counts after a successful GET and requires a persisted exact
@@ -320,6 +338,10 @@ def probe_final_workloads(*, runtime, config, namespace, run_label, master_job,
             or not isinstance(workers,list) or len(workers)>4096
             or type(timeout_seconds) is not int or not 0 < timeout_seconds <= 120):
         raise ValueError('invalid final workload binding')
+    if (query_deadline_monotonic is not None and
+            (type(query_deadline_monotonic) not in {int, float}
+             or not math.isfinite(query_deadline_monotonic))):
+        raise ValueError('invalid final workload query deadline')
     bound={master_job:{'uid':master_job_uid,'terminal_state':master_state}}
     for worker in workers:
         worker=_object(worker)
@@ -332,7 +354,9 @@ def probe_final_workloads(*, runtime, config, namespace, run_label, master_job,
     jobs, _, pods, master = _live_inventory(
         runtime=runtime, config=config, namespace=namespace, run_label=run_label,
         bound=bound, master_job=master_job, timeout_seconds=timeout_seconds,
-        allow_active_workers=allow_active_workers)
+        allow_active_workers=allow_active_workers,
+        query_deadline_monotonic=query_deadline_monotonic,
+        reconnect_transient=reconnect_transient)
     observations=[]
     for name,worker in bound.items():
         job=master if name==master_job else jobs.get(name)

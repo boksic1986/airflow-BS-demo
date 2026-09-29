@@ -1,5 +1,17 @@
 # API contract
 
+## UE-05 Step4 frozen request validation (2026-09-30; source only)
+
+The existing authenticated internal Step4 publish-control request uses the
+registered stage row and frozen request. WGS now applies the same
+version-correct `require_frozen_request_digest` check as its other current
+stage consumers: initial dispatch added v2 after the original producer hash,
+whereas same-attempt recovery included v2 in that hash. GATK retains its
+canonical frozen-request digest. This changes no route, request field,
+response field, database schema, public recovery budget or dispatch deadline.
+It is not deployed or approved for production use.
+
+
 ## UE-04 exact stage completion and same-attempt recovery (2026-09-30; source only)
 
 The existing service-token internal WGS/GATK `stage-status` GET projects the
