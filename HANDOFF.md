@@ -1,5 +1,104 @@
 # Handoff
 
+## 2026-09-30 UE-05 work started (source only)
+
+**Goal and boundary.** Continue after committed UE-04 on branch
+`jiucheng/airflow/UE05-native-recovery-consumers`. Implement only R2, R4 and
+final writer read-only transient reconnect, using BS10610 isolated synthetic
+delta evidence. No node200, BS96, production, real batch, wheel, database,
+service, cleanup, deployment or release is authorized. Preserve the existing
+untracked `.codex-artifacts/` directory.
+
+**Current findings.** R2's queued action and compute terminal currently have
+separate checks, and poll can persist a terminal marker before the bound
+terminal receipt is fully validated. R4's Step3 reconnect observation is a
+read-only UI diagnostic; failure/cleanup callers do not currently carry a
+fresh six-stage native snapshot. Do not infer failure or quiet from unknown.
+Final release already has two intentional inventory rounds (pre-release and
+CAS verification); only typed transient query reads may reconnect. Native
+owner confirmed the narrow `release_query_deadline` internal signature and is
+validating its separate source; this platform checkpoint does not include or
+verify that native change.
+
+**Preflight.** Local source/document reading and `git status` were read-only.
+`ssh BS10610 hostname` returned `server10610`; native `RecoveryQueryError`
+and `_recovery_query` signatures were read from its separate source checkout.
+All UE-05 execution evidence below is isolated synthetic, with no application
+service or live database write.
+
+**Open work and rollback.** R2 and R4 need a narrow authenticated native
+snapshot transport decision before implementation. The Worker-probe nonce and
+its 600-second quiescence check must remain distinct from the stage snapshot.
+No deployed state exists; rollback is to leave this isolated branch unmerged.
+
+**Platform checkpoint review.** The R2 three-file draft in the working tree
+passed its preliminary WGS/GATK node (2/2), but follow-up review found that it
+does not bind the action to the frozen Step3 request/ref and accepts a business
+success row before the DAG's fresh native observation. It is not accepted,
+committed or counted as R2 proof. The frozen-request and exact native snapshot
+handoff must be designed together with R4; do not treat the existing
+`worker_observation` Worker-probe nonce as a stage snapshot without an explicit
+shape check. The R2 RED/GREEN logs remain diagnostic only at
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue05-r2-20260930/`:
+`r2-red-true.log` reproduced WGS/GATK `needs_attention` instead of expected
+`waiting`; `r2-final.log` recorded 2 passed, SHA-256
+`4cb12f7705a528eb45dd4e1a7f5b0292a10da786772f950c0ab37b5d42577aa9`.
+These results do not cover the newly identified frozen-request/native-terminal
+gap; no R2 acceptance or source commit follows from them.
+
+**Accepted partial source commit.** `4cb6e0d` contains only F7, platform
+final-release read-window source, their two focused fixtures, and docs/05 and
+docs/08. The R2 draft and R4 are outside this commit. No push, merge or
+deployment was performed.
+
+F7 WGS Step4 digest source is limited to `backend/app/cce_publish_recovery.py`
+and its one existing test node. On BS10610 the node first failed at the
+registered authority digest check, then passed 1/1 in a network-disabled,
+read-only backend container. The command selected only
+`backend/tests/test_cce_publish_recovery.py::test_wgs_publish_control_accepts_initial_and_recovery_frozen_digests[wgs]`
+with `python -m pytest -q`, using `docker run --network none --read-only
+--tmpfs /tmp` and isolated candidate `candidates/ue05-f7-20260930`.
+Evidence root is `/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/`.
+Raw RED `ue05-f7-20260930/red.log` SHA-256
+`49e7a4b64e1066019dbae9943fa27a5267ff925d794e68416138ae56e385dce4`;
+GREEN `ue05-f7-20260930/green.log` SHA-256
+`2ba01686be7c8a931be88186592674924cf06a514ef11f71f1f7f39dafe467e7`;
+the raw log ends `1 passed, 26 deselected in 0.53s`.
+GREEN JUnit SHA-256
+`548e0d176233d8e66c9e6243c707c37a7e35d96c50a37d2d2aef6795fb561653`.
+Candidate source/test SHA-256 were
+`b27660639b5c3b5e7434e58c9ccc772a6f86c6786e98ee86e104e0f8f9f6d2f5` /
+`72bdd5c0475359e7ada6e26513f326ca6daff35ef59451e10260dbca2697507c`.
+
+Final-release platform source is limited to `scripts/cce_paired_runtime.py`,
+`scripts/cce_recovery_workloads.py` and the single delta node in the existing
+bulk-inventory fixture. BS10610 `server10610` control root resolved to release
+`20260912-opt-4d3d24e6`; intake/auto dispatch remained false. In isolated
+candidate `ue05-final-release-20260930`, the pinned native read-only query
+source SHA-256 was `ae52b7601c3ea59e5e294bb3bf695802efc69f3d5b60333bd6b422c47bd14c53`.
+The command selected only
+`scripts/tests/test_cce_final_bulk_inventory.py::test_final_release_reconnect_does_not_repeat_materialization_or_cas`
+with `python -m pytest -q --tb=short -p no:cacheprovider`; it used the
+candidate and native `src` on `PYTHONPATH`, plus `CCE_PLUGIN_SOURCE` and the
+fixed `CCE_NATIVE_QUERY_SHA256`. No application container or live database
+was involved.
+The revised node injected typed transient at the CAS-proof read, exhausted
+the shared budget after preflight, and denied a stubbed missing lock: 3/3
+passed. Raw `ue05-final-release-20260930/final-release-green2.log` SHA-256
+`55425a44f4e6135845da2ab1ca1820f7d67faf2a96c6f6ec55e32faf4394e8d4`;
+JUnit SHA-256
+`d6cd8aa43d29f25da5f7b4397c723b0d1596076ce526f814710374904f31ddd8`.
+Matching local/remote candidate source SHA-256: paired runtime
+`fdc23a33f0d805bd923b6a31d5f70a381164f5b2a523160c621167aaf3d285ab`,
+workloads `18842e5d31362ff4029c7398370f103c329ada87812f97ae2498cab092ec2145`,
+test `712ddbd9d57b62596436387acbb0d19e87194478178f215cf3d7a40c35467373`.
+The native `_release_batch_lock` was stubbed for this platform delta, so this
+does not prove the real native signature, CAS, installed wheel or cloud path.
+Native owner source changed during a subsequent baseline attempt; its fixed
+SHA guard rejected all three cases during fixture setup, so that attempt is
+not a valid RED and was not rerun. Raw log SHA-256
+`04017d46f0f9ffb95d13f5d3bfabd49266babce5df172b6862a5abcc5040ba7f`.
+
 ## 2026-09-30 UE-04 source checkpoint committed (not deployed)
 
 **Goal and authority.** UE-04 registered WGS/GATK Step1–Step6 source

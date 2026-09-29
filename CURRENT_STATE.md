@@ -1,5 +1,32 @@
 # Current state
 
+## 2026-09-30 UE-05 recovery consumers (source in progress; not deployed)
+
+UE-04 source is committed. The current isolated branch is
+`jiucheng/airflow/UE05-native-recovery-consumers`. Scope is the R2 bound
+manual/automatic compute-terminal permit, R4 six-stage unknown/failure and
+cleanup fences, and final writer read-only transient query reconnection.
+Only the affected public WGS sync path and frozen-request digest consumer may
+change as required. This is source development and BS10610 isolated synthetic
+validation, not a node200, BS96, production, real-batch, wheel, database,
+service, cleanup or release action. Existing `.codex-artifacts/` is preserved.
+
+R4 inspection identified a current interface gap: failure callbacks and
+cleanup requests do not carry the UE-04 exact native stage snapshot, while the
+existing Step3 reconnect observation is UI-only. The six-stage fence must not
+infer terminal or quiet from it. The platform final-release query source now
+passes the narrow monotonic deadline interface; paired native validation is
+owned separately.
+
+The platform final-release read window and WGS Step4 version-correct frozen
+digest are committed as `4cb6e0d` with narrow BS10610 synthetic GREEN evidence.
+Final-release evidence
+uses a stub for the native lock release; paired native lock verification is a
+separate owner task. An R2 draft passed its first target node, but review found
+it did not bind the action to the frozen request or require the exact native
+compute terminal. That GREEN is not R2 acceptance. R2 and R4 need one minimal
+authenticated snapshot handoff decision before their source can be completed.
+
 ## 2026-09-30 UE-04 unified stage execution (source checkpoint committed; not deployed)
 
 The current task is UE-04 source integration for registered WGS/GATK Step1–Step6.

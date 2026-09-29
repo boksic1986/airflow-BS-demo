@@ -1,5 +1,25 @@
 # Active test-branch tasks
 
+## UE-05-RECOVERY-CONSUMERS-20260930 (source in progress; not deployed)
+
+- [ ] R2: share one exact bound compute-terminal permit between manual/automatic
+  poll and reservation; preserve queued downstream authorization, original
+  budget/deadline, idempotence and stop/active/unknown fences. Current draft
+  passed a preliminary node but lacks frozen-request and fresh native-terminal
+  proof; it is not accepted or committed.
+- [ ] R4: protect all six marked stages from unknown-as-failed or
+  unknown-as-quiescent decisions in failure callbacks, cleanup and affected
+  public WGS sync; reuse UE-04 exact native snapshots.
+- [x] Platform final-release source: retry only typed transient read-only inventory queries
+  within one 120-second total budget, 30 seconds per query and any applicable
+  original deadline; preserve fresh CAS proof and one write. The platform
+  synthetic delta passed; paired native lock behavior remains separate.
+- [x] F7: WGS Step4 initial/recovery frozen request uses the producer's
+  version-correct digest validator; GATK canonical validation is unchanged.
+  F7 and platform final-release source/docs checkpoint: `4cb6e0d`.
+- [ ] Use only planned BS10610 isolated synthetic delta nodes; update API and
+  runtime documentation, state and handoff. No UE-06 installation or release.
+
 ## UE-04-UNIFIED-STAGE-EXECUTION-20260930 (source checkpoint complete; not deployed)
 
 - [x] Marked WGS/GATK gate bridge, exact native submit/observe CLI and frozen
