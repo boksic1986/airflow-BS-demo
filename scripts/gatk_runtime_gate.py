@@ -1303,9 +1303,12 @@ def start(analysis_id: str, attempt: int, stage: str,
         return _start_legacy(analysis_id, attempt, stage, generation)
     if stage in NATIVE_STAGES:
         _, payload = _load(analysis_id, attempt, stage, generation)
+        if native_expected_hash is not None and (
+            payload.get("stage_execution") != {"protocol": "cce.stage-execution.v1"}
+            or payload.get("request_hash") != native_expected_hash
+        ):
+            raise ValueError("native GATK dispatch was superseded")
         if "stage_execution" in payload:
-            if native_expected_hash is not None and payload.get("request_hash") != native_expected_hash:
-                raise ValueError("native GATK dispatch was superseded")
             if expected_hash is not None and payload.get("request_hash") != expected_hash:
                 raise ValueError("Step4 dispatch was superseded")
             if stage == "step4_publish" and (

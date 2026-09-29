@@ -168,3 +168,27 @@ def test_marked_submit_fences_exact_identity_before_dispatch(pipeline, monkeypat
     with pytest.raises((ValueError, SystemExit), match="exact --native-submit"):
         gate.main()
     assert dispatched == [payload]
+
+
+def test_gatk_second_load_cannot_drop_native_marker(monkeypatch):
+    gate = _gate("gatk_runtime_gate.py")
+    payload = {
+        "analysis_id": ANALYSIS_GATK,
+        "attempt": 1,
+        "stage": "step1_upload",
+        "generation": 1,
+        "execution_id": f"{ANALYSIS_GATK}-a1-step1_upload-g1",
+        "request_hash": "a" * 64,
+        "stage_execution": PROTOCOL,
+    }
+    changed = dict(payload)
+    changed.pop("stage_execution")
+    loads = iter((payload, changed))
+    monkeypatch.setattr(gate, "_load", lambda *_args: (Path("synthetic.json"), next(loads)))
+    monkeypatch.setattr(gate, "_dispatch_lock", lambda *_args: pytest.fail("legacy dispatcher selected"))
+    monkeypatch.setattr(sys, "argv", [
+        "gatk_runtime_gate.py", "--native-submit", ANALYSIS_GATK, "1",
+        "step1_upload", payload["execution_id"], "1", payload["request_hash"],
+    ])
+    with pytest.raises(SystemExit, match="superseded"):
+        gate.main()
