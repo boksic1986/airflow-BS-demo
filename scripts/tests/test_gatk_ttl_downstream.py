@@ -159,8 +159,7 @@ def attempt(tmp_path: Path, monkeypatch):
             return {'kind': 'List', 'metadata': {'continue': ''}, 'items': []}
 
         def _kubectl_json(config, kind, name, *args, **kwargs):
-            assert kind in {'jobs', 'pods'}
-            return _inventory_result(config, kind, name, *args, source='kubectl_json')
+            raise AssertionError('second-label inventory must use raw complete JSON')
 
         def _recovery_query(config, kind, name, *args, **kwargs):
             bundle = Path(config['bundle'])
@@ -284,8 +283,26 @@ def attempt(tmp_path: Path, monkeypatch):
         def _kubectl(config, *args):
             return ['kubectl', str(config['bundle']), *args]
 
-        def _run(command, *, input_bytes, check=False, capture=True, timeout=30, **kwargs):
+        def _run(command, *, input_bytes=None, check=False, capture=True, timeout=30, **kwargs):
             bundle = Path(command[1])
+            if command[2] == 'get':
+                assert len(command) == 9 and command[3] in {'jobs', 'pods'}
+                assert command[4] == '-l' and command[6:] == ['--chunk-size=0', '-o', 'json']
+                assert command[5] == 'cce-pipeline/run-id=' + contract_run_id(bundle)
+                assert input_bytes is None and check is False and capture is True and timeout == 30
+                listing = _inventory_result(
+                    {'bundle': str(bundle)}, command[3], '-l', command[5],
+                    '--chunk-size=0', source='raw_get',
+                )
+                scenario = json.loads((bundle / 'scenario.json').read_text())
+                if scenario.get('second_inventory_output') == 'empty':
+                    return SimpleNamespace(returncode=0, stdout=b'', stderr=b'')
+                if scenario.get('second_inventory_output') == 'incomplete':
+                    listing['metadata']['continue'] = 'next-page'
+                return SimpleNamespace(
+                    returncode=0, stdout=json.dumps(listing).encode('utf-8'), stderr=b'',
+                )
+            assert command[2] == 'delete' and input_bytes is not None
             path = bundle / 'reader-deletions.json'
             deletions = json.loads(path.read_text()) if path.is_file() else []
             deletions.append({
@@ -511,8 +528,30 @@ def test_ttl_downstream_fences_both_run_labels_and_active_second_label_pod(
         f"cce-pipeline/run-id={RUN_ID}",
     }
     assert all(
-        query["source"] == "kubectl_json"
+        query["source"] == "raw_get"
         for query in queries if query["selector"].startswith("cce-pipeline/run-id=")
+    )
+    assert not (attempt / "reader-created.json").exists()
+    assert not (attempt / "native-call.json").exists()
+
+
+@pytest.mark.parametrize("output", ("empty", "incomplete"))
+def test_ttl_downstream_rejects_unproved_raw_second_label_inventory(
+    attempt: Path, monkeypatch, output: str
+) -> None:
+    (attempt / "scenario.json").write_text(json.dumps({
+        "query": "absent", "reader": "missing_terminal",
+        "second_inventory_output": output,
+    }), encoding="utf-8")
+    downstream = load_downstream(monkeypatch)
+
+    with pytest.raises((RuntimeError, ValueError)):
+        downstream.run_stage(ANALYSIS_ID, 1, "step4_publish", 2, request_hash("step4_publish"))
+    queries = json.loads((attempt / "inventory-queries.json").read_text())
+    assert any(
+        query == {"kind": "jobs", "selector": f"cce-pipeline/run-id={RUN_ID}",
+                  "source": "raw_get"}
+        for query in queries
     )
     assert not (attempt / "reader-created.json").exists()
     assert not (attempt / "native-call.json").exists()

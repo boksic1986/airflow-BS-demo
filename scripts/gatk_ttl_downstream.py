@@ -69,9 +69,45 @@ def _inventory_is_terminal(
             if label_key == "cce.biosan.cn/run-id":
                 listing = runtime._recovery_query(config, kind, "-l", selector, "--chunk-size=0")
             else:
-                listing = runtime._kubectl_json(
-                    config, kind, "-l", selector, "--chunk-size=0", timeout=30
+                result = runtime._run(
+                    runtime._kubectl(config, "get", kind, "-l", selector, "--chunk-size=0", "-o", "json"),
+                    check=False,
+                    capture=True,
+                    timeout=30,
                 )
+                if result.returncode:
+                    raise DownstreamGuardError("GATK run inventory is unavailable or incomplete")
+
+                def unique_pairs(items: list[tuple[str, Any]]) -> dict[str, Any]:
+                    value: dict[str, Any] = {}
+                    for key, item in items:
+                        if key in value:
+                            raise ValueError("duplicate JSON key")
+                        value[key] = item
+                    return value
+
+                def reject_nonfinite(_value: str) -> None:
+                    raise ValueError("nonfinite JSON value")
+
+                try:
+                    raw = result.stdout
+                    if isinstance(raw, bytes):
+                        if len(raw) > 4 * 1024 * 1024:
+                            raise ValueError("oversized response")
+                        response = raw.decode("utf-8")
+                    elif isinstance(raw, str):
+                        if len(raw) > 4 * 1024 * 1024 or len(raw.encode("utf-8")) > 4 * 1024 * 1024:
+                            raise ValueError("oversized response")
+                        response = raw
+                    else:
+                        raise ValueError("missing response")
+                    if not response.strip():
+                        raise ValueError("empty response")
+                    listing = json.loads(
+                        response, object_pairs_hook=unique_pairs, parse_constant=reject_nonfinite
+                    )
+                except (ValueError, UnicodeError, RecursionError, TypeError) as error:
+                    raise DownstreamGuardError("GATK run inventory is invalid") from error
             metadata = listing.get("metadata") if isinstance(listing, dict) else None
             if (
                 not isinstance(listing, dict)
