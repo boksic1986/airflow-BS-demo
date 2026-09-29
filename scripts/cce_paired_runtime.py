@@ -928,20 +928,24 @@ def resume_registered(payload, *, binding, gate, pipeline):
             or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', str(payload.get('resume_action_id') or ''))):
         raise RuntimeError('registered replacement requires Step2 or Step3 recovery')
     path, raw = _registered_request(payload, gate, pipeline)
+    if __package__:
+        from .cce_recovery_deadline import deadline_epoch, monitor_wait
+    else:
+        from cce_recovery_deadline import deadline_epoch, monitor_wait
+    monitor_wait(payload, 0)
+    original_deadline = deadline_epoch(payload)
     bundle = Path(binding['cce_bundle'])
     contract, config, modules = runtime._load(bundle, None)
-    writer = runtime.writer_for_bundle(runtime, bundle, contract, config)
+    writer = runtime.writer_for_bundle(runtime, bundle, contract, config,
+        **({'probe_deadline_epoch':original_deadline} if original_deadline is not None else {}))
     if writer is None:
         raise RuntimeError('trusted per-run writer registration required')
     if __package__:
         from .cce_recovery_inventory import RecoveryCapability
-        from .cce_recovery_deadline import deadline_epoch, monitor_wait
         from . import wgs_resume, gatk_resume
     else:
         from cce_recovery_inventory import RecoveryCapability
-        from cce_recovery_deadline import deadline_epoch, monitor_wait
         import wgs_resume, gatk_resume
-    monitor_wait(payload, 0)
     with ExitStack() as stack:
         # Exclude launches as well as execution. The current worker lock is
         # owned by the restricted gate, so it must not be acquired twice.
@@ -1024,7 +1028,7 @@ def resume_registered(payload, *, binding, gate, pipeline):
 
         capability = RecoveryCapability(bundle=source, origin_bundle=bundle, expected_job_uid=old_uid, context=context,
             authorize=authorize, verify_lock=verify_lock, platform_execution=platform,
-            compute_deadline=deadline_epoch(payload),
+            compute_deadline=original_deadline,
             history_bundles=_source_history(path.parent,pipeline,runtime,bundle,contract,source))
         if pipeline == 'wgs':
             result = wgs_resume.resume_master(payload=payload, binding=binding, runtime=runtime, recovery=capability)

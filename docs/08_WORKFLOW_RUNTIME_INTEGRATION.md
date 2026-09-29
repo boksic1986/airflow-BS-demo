@@ -41,6 +41,17 @@ quota separation. The source change does not alter any production Job or
 snapshot. Native directory-probe retry and original stage deadline handling
 are tracked separately by the native UE-03 owner.
 
+The only current platform writer entry with an applicable frozen absolute
+deadline is registered Step2/3 compute recovery: `resume_registered` validates
+the exact request, checks `cce_recovery_deadline`, and passes that same epoch
+to the native writer's optional internal probe limit. Without that field it
+uses the existing writer call. Ordinary Step3 observation skips writer
+validation. Step4's `publish_deadline` applies to fresh dispatch only;
+reattachment and an already started business worker must not inherit it as a
+probe or stage-completion deadline. Ordinary Step1/4/6 have no applicable
+frozen absolute deadline. The native directory probe retains its own bounded
+read-only operation budget, without creating a new stage lifetime.
+
 ## UE-02 native gate wiring (2026-09-29; source only)
 
 Native cce-pipeline source `6c0aee2` permits an absolute, generation-private

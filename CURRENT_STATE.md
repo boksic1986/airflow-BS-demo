@@ -23,10 +23,15 @@ No wheel install, push, node200, production, real batch, service or database
 change occurred.
 
 UE-03 is **not fully closed**: native directory-probe retry needs a trusted
-original stage deadline across its Step1–Step6 call chain. The native owner
-did not invent a new 120-second window and has not committed the probe retry.
-The platform query/Heavy slice can be reviewed independently; directory
-retry and its targeted native evidence remain outstanding.
+original deadline where one already governs the probe. The platform now
+passes the authenticated Step2/3 `cce_recovery_deadline` to the native writer
+only in `resume_registered`; its isolated BS10610 test passed 10/10. Step4
+`publish_deadline` limits fresh dispatch, not the background worker, and
+ordinary Step1/4/6 requests have no applicable frozen absolute deadline.
+The native owner has not yet committed the bounded directory-probe retry.
+The platform query/Heavy slice can be reviewed independently; native retry
+and its targeted evidence remain outstanding. Neither the 120-second local
+probe budget nor helper TTL is a new business-stage deadline.
 
 ## 2026-09-29 UE-02 native platform gate source complete (not deployed)
 

@@ -101,15 +101,55 @@ upgrade was applied. The existing selected-monitor fixture includes
 source. The new 275-Worker fixture exercises its real shared failure
 collector but does not recreate the entire registered monitor process.
 
+**Recovery probe deadline handoff.** After the query/Heavy checkpoint, the
+platform passed only the authenticated Step2/3 `cce_recovery_deadline` from
+`scripts/cce_paired_runtime.py:resume_registered` to native
+`writer_for_bundle(..., probe_deadline_epoch=...)`. The registered request is
+checked before reading the deadline; the existing `monitor_wait(payload, 0)`
+check now runs before writer construction. The same parsed epoch is used by
+`RecoveryCapability`. Requests without a frozen deadline keep the previous
+writer call. Normal Step3 observation does not validate the writer. Step4
+`publish_deadline` limits fresh dispatch and was deliberately not passed to
+an already started worker. No request, `ExecutionRef`, CLI or database field
+changed.
+
+The new isolated BS10610 synthetic file
+`scripts/tests/test_cce_probe_deadline_handoff.py` first failed as expected:
+6 failed, 3 passed because the original writer call omitted the frozen value
+and malformed deadlines reached writer construction. The first post-edit
+candidate run exited 1 during import because its isolated copy lacked the
+unchanged `scripts/cce_recovery_deadline.py`; that dependency was copied into
+the candidate, not edited. The final scoped command was:
+
+```text
+PYTHONPATH=<ue03 candidate> PYTHONDONTWRITEBYTECODE=1 <nipttest python> -m pytest <candidate>/scripts/tests/test_cce_probe_deadline_handoff.py -q --tb=short -p no:cacheprovider --junitxml=<evidence>/ue03-probe-deadline-final.xml
+```
+
+Result: **10 passed, zero skipped, 0.08 seconds**. Candidate source SHA-256:
+`scripts/cce_paired_runtime.py`
+`8f41e690c745ee821a0c2a928fe67d7dcf0c49e17193491fc3a21484d7949505`,
+unchanged `scripts/cce_recovery_deadline.py`
+`91bdf3559dbd9643c1d2c9bb607ad51c1f16a4d7c1017dd1b1c7c1c44fd2cc38`,
+and focused test
+`489989f0806f6c91415fbb7728d18dcbb2ae12083279fa88eaf7c72546fa2fcd`.
+Final raw log SHA-256
+`39bfbb45c5e58525f3aa3d49882de78d6995eb885dd8b35e2f146811755f3724`;
+JUnit SHA-256
+`3d7a998f0b1eaf9cfed3c1d8daaaf6d5f4b9ec4e448ac197eecc4087cfc13fbd`.
+Evidence is under the same `WGS_test/cce-evidence/ue03-inventory-probe-20260929`
+root. The existing 35-query/Heavy set was not rerun. Native optional-writer
+signature and directory retries still require their separate source commit
+and targeted acceptance before this platform call can be used in a release.
+
 **Open work, risk and rollback.** Native directory-probe retry is **not in
-commit `6f5c120`**. The native Step1–Step6 call chain does not yet carry a
-trusted original stage deadline. The owner withheld 2s/5s read-only retries
-pending a decision on how they relate to the original stage/helper remaining
-time. The 120-second total probe budget and 30-second single-operation budget
-are bounds on one probe, **not** a newly created original stage deadline.
-Existing external Airflow stage timers remain external where no absolute
-deadline was frozen. Resolve that semantic boundary and run the targeted
-native `tests/test_directory_probe_retry.py` before declaring UE-03 complete.
+commit `6f5c120`**. The native owner is implementing same-bound-Pod read-only
+2s/5s retries with a 120-second total and 30-second per-operation limit.
+These bounds are **not** a newly created business stage deadline. Ordinary
+Step1/4/6 have no applicable frozen absolute deadline and retain their
+external Airflow stage timers. The frozen compute recovery deadline must cap
+its own writer probe. Run the targeted native
+`tests/test_directory_probe_retry.py` and review the paired source before
+declaring UE-03 complete.
 Synthetic source tests do not establish live-cluster or installed-wheel
 behavior. This source slice can be reverted by its scoped platform commit;
 no runtime state was changed.
@@ -134,15 +174,14 @@ WGS `config/wgs_stage_contract.yaml` supplies relative Step1/4/6 timeouts
 of 172800/172800/86400 seconds, and Airflow WGS sensors have corresponding
 relative timers. GATK has relative Airflow wait timers and a separate
 15-minute runner execution timeout. None is an absolute deadline passed to
-the native writer. Only opted-in Step4 currently freezes `publish_deadline`
-at first registration (`backend/app/cce_publish_recovery.py:23-39`, called by
-WGS/GATK runtime services); it is still not passed to the directory probe.
-Step1 and Step6 frozen requests contain no authenticated original absolute
-deadline. The narrow existing Step4 route, if chosen, is trusted frozen
-`publish_deadline` through platform stage selection to native writer
-validation and then to the live-Master/helper identity probe; no new
-`ExecutionRef` field is needed. Step1/6 and helper original-time semantics
-remain a coordination decision, not a claimed completed implementation.
+the native writer. Only opted-in Step4 freezes `publish_deadline` at first
+registration (`backend/app/cce_publish_recovery.py:23-39`), but that value
+governs fresh dispatch only; it is not a deadline for an already started
+worker or writer probe. Step1 and Step6 frozen requests contain no
+authenticated original absolute deadline. Registered Step2/3 compute recovery
+has an applicable `cce_recovery_deadline`, now passed internally in
+`resume_registered` only. The helper's original lifecycle and local probe
+budgets stay separate; no new `ExecutionRef` field is needed.
 
 ## 2026-09-29 UE-02 native platform gate source closeout
 

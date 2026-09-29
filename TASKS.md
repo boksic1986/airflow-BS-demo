@@ -17,11 +17,17 @@
 - [x] BS10610 scoped synthetic RED/GREEN: 275 reclaimed Workers changed
   554 queries to five per proof; final pinned-native set 35 passed, zero skipped.
   Evidence paths and hashes are in `HANDOFF.md`.
+- [x] Pass the existing authenticated `cce_recovery_deadline` only from the
+  Step2/3 `resume_registered` recovery path into the native writer's optional
+  internal probe deadline; preserve the old writer call when absent. The
+  BS10610 isolated handoff synthetic is 10 passed, zero skipped. Step4's
+  `publish_deadline` only limits fresh dispatch, not its background worker.
 - [ ] Native directory-probe retries (2s/5s, at most three read-only attempts)
-  and targeted `tests/test_directory_probe_retry.py` acceptance. The native
-  Step1–Step6 chain lacks a trusted original stage deadline; do not create a
-  fresh budget in its place. Coordinate the deadline interface before closing
-  UE-03.
+  and targeted `tests/test_directory_probe_retry.py` acceptance. Ordinary
+  Step1/4/6 have no applicable frozen absolute deadline; keep their existing
+  external stage limits and do not create a new business deadline. The bounded
+  native probe operation must use the original deadline on the recovery path
+  above when it exists.
 - [ ] Final UE-03 paired review and downstream UE-04 handoff after the native
   probe contract is resolved. No production activation in this task.
 
