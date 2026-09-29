@@ -158,9 +158,14 @@ They do not infer business success from an accepted launch or SSH exit code.
 The restricted GATK `--native-observe` command requires the current frozen
 analysis, attempt, stage, execution ID, generation and request hash, then calls
 the shared adapter's read-only `observe(ref)`; WGS uses its corresponding fixed
-command. `unknown` is returned as evidence for same-ref reconciliation and
-never authorizes another launch. Unmarked requests continue through their
-existing gate path. This source bridge is not deployed to node200.
+command. Marked DAG dispatch uses the fixed restricted `--native-submit` with
+the same six identity fields and rejects a superseded generation or hash
+before any native submit; the adapter independently rechecks frozen bytes
+under its launch fence. The old `wgs-runtime`/`gatk-runtime` CLI shape rejects
+marked requests, while unmarked frozen requests retain their existing path.
+Step4's separately authorized `--publish-dispatch` keeps its exact hash fence.
+`unknown` is returned as evidence for same-ref reconciliation and never
+authorizes another launch. This source bridge is not deployed to node200.
 
 ## Paired request validation (2026-09-27)
 

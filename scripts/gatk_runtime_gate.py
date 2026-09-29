@@ -1259,7 +1259,8 @@ def _execute(analysis_id: str, attempt: int, stage: str, generation: int | None 
 
 
 def start(analysis_id: str, attempt: int, stage: str,
-          generation: int | None = None, *, expected_hash: str | None = None) -> dict[str, Any]:
+          generation: int | None = None, *, expected_hash: str | None = None,
+          native_expected_hash: str | None = None) -> dict[str, Any]:
     if stage == 'prepare':
         path = _request_path(analysis_id, attempt, stage)
         with _dispatch_lock(path.with_suffix('.launch.lock')):
@@ -1303,6 +1304,8 @@ def start(analysis_id: str, attempt: int, stage: str,
     if stage in NATIVE_STAGES:
         _, payload = _load(analysis_id, attempt, stage, generation)
         if "stage_execution" in payload:
+            if native_expected_hash is not None and payload.get("request_hash") != native_expected_hash:
+                raise ValueError("native GATK dispatch was superseded")
             if expected_hash is not None and payload.get("request_hash") != expected_hash:
                 raise ValueError("Step4 dispatch was superseded")
             if stage == "step4_publish" and (
@@ -1376,6 +1379,8 @@ def _native_observe_command(arguments: list[str]) -> dict[str, Any]:
     _, payload = _load(analysis_id, int(attempt_text), stage, int(generation_text))
     if payload.get("stage_execution") != {"protocol": "cce.stage-execution.v1"}:
         raise ValueError("GATK native observation requires registered protocol")
+    if type(payload.get("generation")) is not int or payload["generation"] != int(generation_text):
+        raise ValueError("GATK native observation generation was superseded")
     if payload.get("execution_id") != execution_id or payload.get("request_hash") != request_hash:
         raise ValueError("GATK native observation identity was superseded")
     executor, ref, _ = _stage_execution_adapter().executor_for_registered(
@@ -1384,7 +1389,36 @@ def _native_observe_command(arguments: list[str]) -> dict[str, Any]:
     return executor.observe(ref).to_dict()
 
 
+def _native_submit_command(arguments: list[str]) -> dict[str, Any]:
+    """Submit only the exact current frozen GATK execution."""
+    if len(arguments) != 7 or arguments[0] != "--native-submit":
+        raise ValueError("invalid GATK native submit command")
+    _, analysis_id, attempt_text, stage, execution_id, generation_text, request_hash = arguments
+    if (
+        ANALYSIS_ID.fullmatch(analysis_id) is None
+        or re.fullmatch(r"[1-9][0-9]{0,8}", attempt_text) is None
+        or re.fullmatch(r"[1-9][0-9]{0,8}", generation_text) is None
+        or stage not in NATIVE_STAGES
+    ):
+        raise ValueError("invalid GATK native submit identity")
+    _, payload = _load(analysis_id, int(attempt_text), stage, int(generation_text))
+    if payload.get("stage_execution") != {"protocol": "cce.stage-execution.v1"}:
+        raise ValueError("GATK native submit requires registered protocol")
+    if type(payload.get("generation")) is not int or payload["generation"] != int(generation_text):
+        raise ValueError("GATK native submit generation was superseded")
+    if payload.get("execution_id") != execution_id or payload.get("request_hash") != request_hash:
+        raise ValueError("GATK native submit identity was superseded")
+    return start(analysis_id, int(attempt_text), stage, int(generation_text),
+                 native_expected_hash=request_hash)
+
+
 def main() -> None:
+    if sys.argv[1:2] == ["--native-submit"]:
+        try:
+            print(json.dumps(_native_submit_command(sys.argv[1:]), sort_keys=True))
+        except (OSError, RuntimeError, ValueError) as exc:
+            raise SystemExit(f"GATK runtime rejected: {exc}") from exc
+        return
     if sys.argv[1:2] == ["--native-observe"]:
         try:
             print(json.dumps(_native_observe_command(sys.argv[1:]), sort_keys=True))
@@ -1424,6 +1458,10 @@ def main() -> None:
         elif mode == "_worker":
             _execute(analysis_id, int(attempt_text), stage, generation)
         else:
+            if stage in NATIVE_STAGES:
+                _, payload = _load(analysis_id, int(attempt_text), stage, generation)
+                if "stage_execution" in payload:
+                    raise RuntimeError("marked GATK stage requires exact --native-submit identity")
             print(
                 json.dumps(
                     start(analysis_id, int(attempt_text), stage, generation),

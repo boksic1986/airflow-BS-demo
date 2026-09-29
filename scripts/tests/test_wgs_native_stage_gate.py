@@ -46,7 +46,9 @@ def test_new_marker_selects_native_submit_for_former_synchronous_stages(
     monkeypatch.syspath_prepend(str(SCRIPTS))
     monkeypatch.delenv("SSH_ORIGINAL_COMMAND", raising=False)
     monkeypatch.setenv("WGS_RELEASE_RUNTIMES_JSON", "{}")
-    monkeypatch.setattr(sys, "argv", ["wgs_runtime_gate.py", "wgs-runtime", analysis_id, "1", stage])
+    monkeypatch.setattr(sys, "argv", ["wgs_runtime_gate.py", "--native-submit",
+                                          analysis_id, "1", stage,
+                                          "registered-execution", "2", "a" * 64])
     monkeypatch.setattr(gate, "load_request", lambda *_args: payload)
     monkeypatch.setattr(gate, "start_native_stage", lambda value: selected.append(value) or {
         "status": "accepted", "stage": stage, "generation": 2,

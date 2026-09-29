@@ -3386,9 +3386,9 @@ def step7_probe(analysis_id: str, attempt: int, action: str, generation: int) ->
         return {**result, 'status': 'not_started'}
 
 
-def _native_cli_payload(arguments: list[str], *, worker: bool) -> dict[str, Any]:
+def _native_cli_payload(arguments: list[str], *, worker: bool, submit: bool = False) -> dict[str, Any]:
     expected = 5 if worker else 7
-    verb = "_native_worker" if worker else "--native-observe"
+    verb = "_native_worker" if worker else "--native-submit" if submit else "--native-observe"
     if len(arguments) != expected or arguments[0] != verb:
         raise ValueError("invalid WGS native stage command")
     analysis_id, attempt_text, stage = arguments[1:4]
@@ -3441,6 +3441,11 @@ def main() -> int:
         CCE_PIPELINE_BIN = select_release_runtime(payload, default_cli=CCE_PIPELINE_BIN)
         print(json.dumps(observe_native_stage(payload).to_dict(), sort_keys=True))
         return 0
+    if parts[:1] == ["--native-submit"]:
+        payload = _native_cli_payload(parts, worker=False, submit=True)
+        CCE_PIPELINE_BIN = select_release_runtime(payload, default_cli=CCE_PIPELINE_BIN)
+        print(json.dumps(start_native_stage(payload), sort_keys=True))
+        return 0
     if parts and parts[0] in {'wgs-step7-status', 'wgs-step7-start'}:
         if len(parts) != 5:
             raise ValueError('invalid Step7 operation')
@@ -3481,8 +3486,7 @@ def main() -> int:
             raise RuntimeError("native stage execution cannot use the legacy worker")
         return _run_worker(payload)
     if _uses_native_stage_execution(payload):
-        print(json.dumps(start_native_stage(payload), sort_keys=True))
-        return 0
+        raise ValueError("marked WGS stage requires exact --native-submit identity")
     if stage in ASYNC_STAGES:
         print(json.dumps(start_async_stage(payload), sort_keys=True))
         return 0

@@ -114,3 +114,57 @@ def test_gatk_thin_binding(monkeypatch, capsys):
     with pytest.raises((ValueError, SystemExit), match="superseded|identity"):
         gate.main()
     assert [call[0] for call in calls] == ["submit", "observe"]
+
+
+@pytest.mark.parametrize("pipeline", ["wgs", "gatk"])
+def test_marked_submit_fences_exact_identity_before_dispatch(pipeline, monkeypatch, capsys):
+    gate = _gate(f"{pipeline}_runtime_gate.py")
+    analysis_id = ANALYSIS_WGS if pipeline == "wgs" else ANALYSIS_GATK
+    payload = {
+        "analysis_id": analysis_id,
+        "attempt": 1,
+        "stage": "step1_upload",
+        "generation": 2,
+        "execution_id": f"{analysis_id}-a1-step1_upload-g2",
+        "request_hash": "a" * 64,
+        "stage_execution": PROTOCOL,
+    }
+    if pipeline == "wgs":
+        monkeypatch.syspath_prepend(str(SCRIPTS))
+        monkeypatch.delenv("SSH_ORIGINAL_COMMAND", raising=False)
+        monkeypatch.setenv("WGS_RELEASE_RUNTIMES_JSON", "{}")
+        monkeypatch.setattr(gate, "load_request", lambda *_args: payload)
+    else:
+        monkeypatch.setattr(gate, "_load", lambda *_args: (Path("synthetic.json"), payload))
+    dispatched = []
+    result = _snapshot(pipeline, payload, "accepted").to_dict()
+    if pipeline == "wgs":
+        monkeypatch.setattr(gate, "start_native_stage", lambda value: dispatched.append(value) or result)
+    else:
+        monkeypatch.setattr(gate, "start", lambda *_args, **_kwargs: dispatched.append(payload) or result)
+    command = [
+        f"{pipeline}_runtime_gate.py", "--native-submit", analysis_id, "1",
+        "step1_upload", payload["execution_id"], "2", payload["request_hash"],
+    ]
+    monkeypatch.setattr(sys, "argv", command)
+    gate.main()
+    assert json.loads(capsys.readouterr().out) == result
+    assert dispatched == [payload]
+
+    monkeypatch.setattr(sys, "argv", [*command[:-2], "1", command[-1]])
+    with pytest.raises((ValueError, SystemExit), match="superseded|identity|generation"):
+        gate.main()
+    monkeypatch.setattr(sys, "argv", [*command[:-1], "c" * 64])
+    with pytest.raises((ValueError, SystemExit), match="superseded|identity"):
+        gate.main()
+    assert dispatched == [payload]
+
+    legacy_shape = (
+        [f"{pipeline}_runtime_gate.py", "wgs-runtime", analysis_id, "1", "step1_upload"]
+        if pipeline == "wgs"
+        else [f"{pipeline}_runtime_gate.py", "gatk-runtime", analysis_id, "1", "step1_upload", "2"]
+    )
+    monkeypatch.setattr(sys, "argv", legacy_shape)
+    with pytest.raises((ValueError, SystemExit), match="exact --native-submit"):
+        gate.main()
+    assert dispatched == [payload]

@@ -62,7 +62,8 @@ def test_marked_stage_unknown_never_falls_back_to_legacy_worker(tmp_path, monkey
     monkeypatch.setattr(
         sys,
         "argv",
-        ["gatk_runtime_gate.py", "gatk-runtime", analysis_id, "1", "step1_upload", "1"],
+        ["gatk_runtime_gate.py", "--native-submit", analysis_id, "1",
+         "step1_upload", payload["execution_id"], "1", payload["request_hash"]],
     )
     gate.main()
     assert json.loads(capsys.readouterr().out) == {"state": "unknown"}
