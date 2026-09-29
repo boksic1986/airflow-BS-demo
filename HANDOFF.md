@@ -2,6 +2,21 @@
 
 ## 2026-09-29 UE-02 platform selected-gate checkpoint (adapter blocked)
 
+Follow-up source map after checkpoint commit
+`7b199f07e2cd214727a2a232e237907b76a52d1d`: the pending adapter
+consumer list is in `docs/08_WORKFLOW_RUNTIME_INTEGRATION.md` under "UE-02
+adapter wiring map". It includes both gate CLIs, Step4 `--publish-dispatch`
+and `observe_locked`, paired `_inactive_dispatcher` calls from recovery and
+final writer release, and the backend's old request-only archive. WGS archives
+old status/worker/log but not its overwritten request, so native old-ref
+resolution cannot read the current request as history. WGS's old
+generation archiver also moves `.worker.log`; native submit opens that same
+path before its child runs. A direct reuse would misfile a live new-generation
+log. This map is documentation only; no gate executor code or runtime state
+changed. Native needs to settle trusted previous-generation receipt resolution,
+legacy active-writer checking under the launch lock, and the WGS control-log
+collision before platform wiring proceeds.
+
 Goal: wire trusted WGS/GATK Step1-Step6 gates to native `StageExecutor` after
 UE-01, without changing DAG/backend shared observation, deploying a wheel, or
 touching production. Worktree/branch:

@@ -21,6 +21,35 @@ terminal receipt there and the reader must validate its exact execution ref.
 The existing paired `_inactive_dispatcher` check reads legacy worker sidecars,
 so native dispatch also needs a trusted quiescence check before re-entry.
 
+### UE-02 adapter wiring map (pending native binding decision)
+
+| Consumer | Current source entry | Required new-protocol boundary |
+| --- | --- | --- |
+| GATK restricted CLI | `gatk_runtime_gate.py` `start`/`_execute` and its `_worker` CLI | Step1-Step6 delegate launch/takeover/observe to the one native executor; retain `_execute_stage`, `_write_status`, `prepare` and Step7 business behavior. Validate the registered request, release pin, and exact ref before choosing a fixed handler. |
+| WGS restricted CLI | `wgs_runtime_gate.py` `main`, `start_async_stage`, `_run_worker`, and `_run_synchronous_stage` | Select the native path only for registered new-protocol Step1-Step6 requests; retain `run_stage` and the business status projection. Do not call the old launcher and native submit for one ref. Step2/Step6 DAG consumption of an accepted launch is UE-04. |
+| Step4 publish | `cce_publish_recovery.py` `publish_dispatch_command` and `observe_locked` | Preserve request digest/deadline checks; route a selected new-protocol dispatch and observation through native evidence. The current observer reads legacy `.worker.json`/`.worker.state.json` only. |
+| Paired recovery/final writer | `cce_paired_runtime.py` `_inactive_dispatcher`, called by `resume_registered` and `_release_registered_writer` | Under existing cross-stage launch/worker locks, validate native terminal receipt **and** quiescent worker group before treating another stage as inactive. Missing or mismatched native/legacy evidence remains closed. |
+| Prior generation binding | WGS `history/<stage>/generation-N/`; GATK backend `request-history/<stage>/generation-N.json` | Resolve the old ref from trusted registration and a durable distinct terminal receipt. WGS archives old status/worker/log but not the overwritten request; GATK archives only the old request. A copied database projection or a fabricated status path cannot authorize submit. Historical-registration changes belong with UE-04 unless the native/platform owners agree a narrower UE-02 interface. |
+
+The native executor writes dispatch/lock/log control files, not its
+`status_path`. A selected adapter must publish a validated, durable terminal
+receipt at its per-generation binding before native can mark dispatch finished.
+Existing shared `.status.json` files remain business projections; the private
+control receipt requires its own exact-ref validation and 0600 storage. A
+pre-existing legacy sidecar without trusted terminal and quiescence evidence
+must prevent native launch rather than be silently ignored.
+WGS `load_request` alone validates only its current basic request shape; the
+adapter must retain the paired `_registered_request` byte/hash check and UE-01
+trusted identity conversion before creating `ExecutionRef`. Native successor
+submit also resolves the previous ref, so a current overwritten request is
+not a valid source for that older identity.
+WGS `_prepare_contract_generation` currently archives the fixed business
+`.status.json`, `.worker.json` **and** `.worker.log`; native submit opens that
+same `.worker.log` before its child runs. Calling the old archiver inside the
+new handler would move the new worker's live log into old-generation history.
+The owners must define a launch-locked legacy fence/archival point and a
+control-log path that cannot be moved as an old business log before wiring WGS.
+
 ## Unified stage execution v1: UE-01 contract (2026-09-28)
 
 New WGS and GATK Step1–Step6 stage requests freeze the top-level extension
