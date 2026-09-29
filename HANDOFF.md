@@ -99,6 +99,32 @@ SHA guard rejected all three cases during fixture setup, so that attempt is
 not a valid RED and was not rerun. Raw log SHA-256
 `04017d46f0f9ffb95d13f5d3bfabd49266babce5df172b6862a5abcc5040ba7f`.
 
+**Final-read backoff refinement.** Follow-up platform commit `be0adb8`
+replaces the fixed three-attempt cap with shared-deadline-bound 2/5/5-second
+backoff only for final-release typed read-only `TRANSPORT`/`SERVICE` queries.
+The existing single CAS and preflight/CAS inventory rounds remain. The same
+fixture's `reconnect` parameter injects four brief typed failures at the
+second (CAS-proof) inventory using a fake clock. An isolated copy of native
+query source was pinned under candidate `ue05-final-release-20260930/native`
+with SHA-256 `0a544c77bcbeb26249c2369eb6992dfc9239f85f185998721cbb9a978615f896`,
+avoiding concurrent edits in the native owner's worktree. With the previous
+fixed-three platform source, only this parameter failed 1/1 on the fourth
+`TRANSPORT`; raw `backoff-red.log` SHA-256
+`37daed57def1275c557749298b125bf6e1d55e0d1e1c4f99af336ab855ee333b`.
+With the refined platform source, only this parameter passed 1/1 in 0.20s;
+raw `backoff-green2.log` SHA-256
+`a5661b00cbecc1e68a12fba8ecc0bc387e39a4e0685ca0771cdab3fbaa483098`,
+JUnit SHA-256
+`e3f3284d3828de54a648f78b2adb6df445a0218e82e4dd3ac7811671ff4bb49e`.
+Matching local/remote source SHA-256: workloads
+`aabf27cf7b39eaeb591b5742dac1c8f74892f7d9a446154cf41fb7a0cd906a4d`,
+fixture `556bfa9d27db0441b7d3a66ffd51c9e32abdf6322285277b19f30b8668b03656`.
+The already-passing budget and missing-lock parameters were not rerun for
+this backoff-only change. The native owner separately committed the matching
+`release_query_deadline` interface and its own targeted evidence as `7172573`;
+no native wheel was installed here. Neither side's synthetic node proves the
+paired installed entry, live CAS or production behavior.
+
 ## 2026-09-30 UE-04 source checkpoint committed (not deployed)
 
 **Goal and authority.** UE-04 registered WGS/GATK Step1–Step6 source

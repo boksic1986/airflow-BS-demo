@@ -17,6 +17,9 @@
 - [x] F7: WGS Step4 initial/recovery frozen request uses the producer's
   version-correct digest validator; GATK canonical validation is unchanged.
   F7 and platform final-release source/docs checkpoint: `4cb6e0d`.
+- [x] Refine the final read-only reconnect to use the same deadline until
+  exhaustion, with 2-second then 5-second capped backoff (`be0adb8`). The
+  native owner's separate source commit is `7172573`; no install/activation.
 - [ ] Use only planned BS10610 isolated synthetic delta nodes; update API and
   runtime documentation, state and handoff. No UE-06 installation or release.
 

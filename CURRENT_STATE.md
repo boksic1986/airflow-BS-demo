@@ -26,6 +26,12 @@ separate owner task. An R2 draft passed its first target node, but review found
 it did not bind the action to the frozen request or require the exact native
 compute terminal. That GREEN is not R2 acceptance. R2 and R4 need one minimal
 authenticated snapshot handoff decision before their source can be completed.
+The final-release read retry was refined in `be0adb8`: typed transient reads
+continue with 2-second then 5-second capped backoff until the same shared
+deadline, rather than stopping after three attempts. Its single added CAS-read
+parameter passed with a fake clock. The native owner committed the paired
+internal lock deadline source separately as `7172573`; neither commit installs
+a wheel or activates a test/production service.
 
 ## 2026-09-30 UE-04 unified stage execution (source checkpoint committed; not deployed)
 
