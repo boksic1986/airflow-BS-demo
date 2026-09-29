@@ -17,7 +17,7 @@ def load_gate():
     return module
 
 
-def test_marked_stage_unknown_never_falls_back_to_legacy_worker(tmp_path, monkeypatch):
+def test_marked_stage_unknown_never_falls_back_to_legacy_worker(tmp_path, monkeypatch, capsys):
     gate = load_gate()
     monkeypatch.setitem(sys.modules, gate.__name__, gate)
     monkeypatch.setenv("GATK_RUNTIME_REQUEST_ROOT", str(tmp_path))
@@ -41,7 +41,7 @@ def test_marked_stage_unknown_never_falls_back_to_legacy_worker(tmp_path, monkey
 
     def submit(value, *, gate, pipeline):
         submissions.append((value, pipeline))
-        return SimpleNamespace(state="unknown")
+        return SimpleNamespace(state="unknown", to_dict=lambda: {"state": "unknown"})
 
     monkeypatch.setattr(
         gate,
@@ -64,8 +64,8 @@ def test_marked_stage_unknown_never_falls_back_to_legacy_worker(tmp_path, monkey
         "argv",
         ["gatk_runtime_gate.py", "gatk-runtime", analysis_id, "1", "step1_upload", "1"],
     )
-    with pytest.raises(SystemExit, match="requires reconciliation: unknown"):
-        gate.main()
+    gate.main()
+    assert json.loads(capsys.readouterr().out) == {"state": "unknown"}
     with pytest.raises(RuntimeError, match="requires its native worker"):
         gate._execute(analysis_id, 1, "step1_upload", 1)
 
@@ -103,7 +103,7 @@ def test_marked_step4_reattaches_after_original_deadline(tmp_path, monkeypatch):
 
     def submit(value, *, gate, pipeline):
         calls.append(("submitted", value, pipeline))
-        return SimpleNamespace(state="running")
+        return SimpleNamespace(state="running", to_dict=lambda: {"state": "running"})
 
     monkeypatch.setitem(
         sys.modules,
@@ -122,7 +122,7 @@ def test_marked_step4_reattaches_after_original_deadline(tmp_path, monkeypatch):
     )
 
     assert gate.start(analysis_id, 1, "step4_publish", 1, expected_hash="b" * 64) == {
-        "status": "running", "stage": "step4_publish", "generation": 1,
+        "state": "running",
     }
     assert calls == [
         ("registered", payload, "gatk"),
@@ -147,7 +147,8 @@ def test_ordinary_step4_native_submit_does_not_require_publish_opt_in(tmp_path, 
                "stage_execution": {"protocol": "cce.stage-execution.v1"}}
     request.write_text(json.dumps(payload), encoding="utf-8")
     monkeypatch.setattr(gate, "_stage_execution_adapter", lambda: SimpleNamespace(
-        submit_registered_stage=lambda *_args, **_kw: SimpleNamespace(state="accepted")))
+        submit_registered_stage=lambda *_args, **_kw: SimpleNamespace(
+            state="accepted", to_dict=lambda: {"state": "accepted"})))
     assert gate.start(analysis_id, 1, "step4_publish", 1) == {
-        "status": "accepted", "stage": "step4_publish", "generation": 1,
+        "state": "accepted",
     }

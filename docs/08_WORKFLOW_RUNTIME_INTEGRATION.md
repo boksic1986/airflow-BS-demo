@@ -151,6 +151,17 @@ fixture is
 `scripts/tests/test_cce_stage_execution_contract.py::test_current_execution_contract`,
 run on BS10610's synthetic test environment.
 
+UE-04 source gate bridge: marked WGS/GATK Step1–Step6 submit commands serialize
+the complete native `ExecutionSnapshot.to_dict()` result, preserving its exact
+execution ref, native state, evidence ref and independent observation health.
+They do not infer business success from an accepted launch or SSH exit code.
+The restricted GATK `--native-observe` command requires the current frozen
+analysis, attempt, stage, execution ID, generation and request hash, then calls
+the shared adapter's read-only `observe(ref)`; WGS uses its corresponding fixed
+command. `unknown` is returned as evidence for same-ref reconciliation and
+never authorizes another launch. Unmarked requests continue through their
+existing gate path. This source bridge is not deployed to node200.
+
 ## Paired request validation (2026-09-27)
 
 WGS initial dispatch hashes the body before adding the v2 execution envelope,

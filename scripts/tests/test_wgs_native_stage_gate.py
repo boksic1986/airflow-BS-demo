@@ -141,10 +141,7 @@ def test_step4_expired_duplicate_reaches_native_submit_without_outer_deadline(
             (value, gate, pipeline)
         ) or types.SimpleNamespace(
             state="running",
-            execution_ref=types.SimpleNamespace(
-                stage_generation=value["generation"],
-                execution_id=value["execution_id"],
-            ),
+            to_dict=lambda: {"schema": "cce.stage-execution.snapshot.v1", "state": "running"},
         ),
     ))
 
@@ -152,10 +149,7 @@ def test_step4_expired_duplicate_reaches_native_submit_without_outer_deadline(
 
     assert registered == [(payload, gate, "wgs")]
     assert submitted == [(payload, gate, "wgs")]
-    assert result == {
-        "status": "running", "stage": "step4_publish", "generation": 1,
-        "execution_id": "registered-execution",
-    }
+    assert result == {"schema": "cce.stage-execution.snapshot.v1", "state": "running"}
 
 
 def test_explicit_null_marker_never_enters_legacy_launcher(monkeypatch):
@@ -184,6 +178,5 @@ def test_ordinary_step4_native_submit_does_not_require_publish_opt_in(monkeypatc
     monkeypatch.setattr(gate, "_truthy", lambda _name: True)
     monkeypatch.setattr(gate, "_native_stage_adapter", lambda: types.SimpleNamespace(
         submit_registered_stage=lambda *_args, **_kw: types.SimpleNamespace(
-            state="accepted", execution_ref=types.SimpleNamespace(
-                stage_generation=1, execution_id="ordinary-step4"))))
-    assert gate.start_native_stage(payload)["status"] == "accepted"
+            state="accepted", to_dict=lambda: {"state": "accepted"})))
+    assert gate.start_native_stage(payload)["state"] == "accepted"

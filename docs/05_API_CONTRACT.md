@@ -1022,6 +1022,15 @@ Internal `/api/internal/gatk/runs/{analysis_id}/stages/{stage}` and
 `/stage-status` routes require the service token and the fixed
 `gatk-runtime-200` adapter identity.
 
+UE-04 source registration replies for WGS and GATK Step1–Step6 include the
+existing frozen `request_hash` and, only when present in the exact immutable
+request, `stage_execution: {"protocol":"cce.stage-execution.v1"}`. WGS normal
+contract-v2 and P0 same-attempt recovery registration return the same fields;
+legacy WGS responses may have a null `request_hash` and omit the marker. GATK
+prepare and older unmarked stage requests omit the marker. The marker is a
+read-only projection for Airflow to select the native stage client; it is not
+accepted from a public caller and does not create or repair a registration.
+
 ## Privacy
 
 Except for the explicitly approved WGS run-detail sample fields below, responses exclude patient names and hospitals. Credentials, raw absolute storage paths and arbitrary filesystem content remain excluded. Artifacts are accessed by controlled keys.

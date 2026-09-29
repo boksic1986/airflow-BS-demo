@@ -6,7 +6,12 @@ from types import SimpleNamespace
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
-from app.gatk_runtime_service import register_gatk_stage, sync_gatk_stage_status
+from app.gatk_runtime_service import (
+    _canonical_hash,
+    _registration_payload,
+    register_gatk_stage,
+    sync_gatk_stage_status,
+)
 from app.models import (
     AnalysisRun,
     Base,
@@ -62,6 +67,32 @@ def _execution(stage: str, generation: int, status: str) -> PipelineStageExecuti
         release_id="gatk-scmc-v7.6.0@bd04f6d",
         receipt_hash="a" * 64 if status == "success" else None,
     )
+
+
+def test_registration_marker_follows_exact_frozen_request(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    row = _execution("step1_upload", 1, "accepted")
+    path = (
+        Path(settings.gatk_runtime_request_root)
+        / ANALYSIS_ID / "attempt-1" / "step1_upload.request.json"
+    )
+    path.parent.mkdir(parents=True)
+    body = {
+        "analysis_id": ANALYSIS_ID,
+        "attempt": 1,
+        "stage": "step1_upload",
+        "generation": 1,
+        "execution_id": row.execution_id,
+        "stage_execution": {"protocol": "cce.stage-execution.v1"},
+    }
+    row.request_hash = _canonical_hash(body)
+    path.write_text(json.dumps({**body, "request_hash": row.request_hash}))
+    assert _registration_payload(row, settings)["stage_execution"] == body["stage_execution"]
+
+    body.pop("stage_execution")
+    row.request_hash = _canonical_hash(body)
+    path.write_text(json.dumps({**body, "request_hash": row.request_hash}))
+    assert "stage_execution" not in _registration_payload(row, settings)
 
 
 def test_failed_stage_projects_terminal_run_state(tmp_path: Path) -> None:

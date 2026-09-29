@@ -125,12 +125,12 @@ def register_gatk_stage(
         saved = json.loads(path.read_text()) if path.is_file() else None
         if latest and saved and saved.get('resume_action_id') == recovery_action.payload_json['action_id']:
             _validate_recovery_request(run, latest, saved)
-            return _execution_payload(latest)
+            return _registration_payload(latest, settings)
     opted_publish = (stage == 'step4_publish' and (run.params_json or {}).get('cce_publish_deadline')
         and ((run.params_json or {}).get('cce_recovery_policy') or {}).get('enabled') is True
         and ((run.params_json or {}).get('cce_recovery_policy') or {}).get('attempt') == attempt)
     if not recovery_action and latest is not None and (latest.status in {"accepted", "running", "success"} or opted_publish):
-        return _execution_payload(latest)
+        return _registration_payload(latest, settings)
     reopening_terminal_stage = latest is not None and latest.status in {
         "failed",
         "canceled",
@@ -251,7 +251,7 @@ def register_gatk_stage(
         session.commit()
     else:
         session.flush()
-    return _execution_payload(execution)
+    return _registration_payload(execution, settings)
 
 
 def _latest_gatk(session, run, stage):
@@ -377,6 +377,26 @@ def _execution_payload(row: PipelineStageExecution) -> dict[str, Any]:
         "status": row.status,
         "request_hash": row.request_hash,
     }
+
+
+def _registration_payload(row: PipelineStageExecution, settings) -> dict[str, Any]:
+    """Project the marker only when it is in this exact frozen stage request."""
+    result = _execution_payload(row)
+    if row.stage_code == "prepare":
+        return result
+    path = _request_path(settings, row.analysis_id, row.attempt, row.stage_code)
+    request = json.loads(path.read_text(encoding="utf-8"))
+    identity = ("analysis_id", "attempt", "stage", "generation", "execution_id", "request_hash")
+    if any(request.get(key) != result[key] for key in identity):
+        raise ValueError("frozen GATK stage request differs from registration")
+    body = {key: value for key, value in request.items() if key != "request_hash"}
+    if _canonical_hash(body) != row.request_hash:
+        raise ValueError("frozen GATK stage request hash differs from registration")
+    if "stage_execution" in request:
+        if request["stage_execution"] != {"protocol": "cce.stage-execution.v1"}:
+            raise ValueError("unsupported frozen GATK stage execution protocol")
+        result["stage_execution"] = request["stage_execution"]
+    return result
 
 
 def sync_gatk_stage_status(

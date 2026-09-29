@@ -1317,13 +1317,7 @@ def start(analysis_id: str, attempt: int, stage: str,
             snapshot = _stage_execution_adapter().submit_registered_stage(
                 payload, gate=sys.modules[__name__], pipeline="gatk"
             )
-            state = getattr(snapshot, "state", None)
-            if state not in {"accepted", "running", "succeeded", "failed", "canceled", "unknown"}:
-                raise RuntimeError("native GATK stage returned an invalid state")
-            if state in {"unknown", "canceled"}:
-                raise RuntimeError(f"native GATK stage requires reconciliation: {state}")
-            return {"status": "success" if state == "succeeded" else state,
-                    "stage": stage, "generation": payload["generation"]}
+            return snapshot.to_dict()
     path = _request_path(analysis_id, attempt, stage)
     with _dispatch_lock(path.with_suffix(".launch.lock")):
         path, payload = _load(analysis_id, attempt, stage, generation)
@@ -1367,7 +1361,36 @@ def start(analysis_id: str, attempt: int, stage: str,
         return {"status": "accepted", "stage": stage, "generation": payload["generation"]}
 
 
+def _native_observe_command(arguments: list[str]) -> dict[str, Any]:
+    """Observe only the exact current registered GATK execution."""
+    if len(arguments) != 7 or arguments[0] != "--native-observe":
+        raise ValueError("invalid GATK native observation command")
+    _, analysis_id, attempt_text, stage, execution_id, generation_text, request_hash = arguments
+    if (
+        ANALYSIS_ID.fullmatch(analysis_id) is None
+        or re.fullmatch(r"[1-9][0-9]{0,8}", attempt_text) is None
+        or re.fullmatch(r"[1-9][0-9]{0,8}", generation_text) is None
+        or stage not in NATIVE_STAGES
+    ):
+        raise ValueError("invalid GATK native observation identity")
+    _, payload = _load(analysis_id, int(attempt_text), stage, int(generation_text))
+    if payload.get("stage_execution") != {"protocol": "cce.stage-execution.v1"}:
+        raise ValueError("GATK native observation requires registered protocol")
+    if payload.get("execution_id") != execution_id or payload.get("request_hash") != request_hash:
+        raise ValueError("GATK native observation identity was superseded")
+    executor, ref, _ = _stage_execution_adapter().executor_for_registered(
+        payload, gate=sys.modules[__name__], pipeline="gatk"
+    )
+    return executor.observe(ref).to_dict()
+
+
 def main() -> None:
+    if sys.argv[1:2] == ["--native-observe"]:
+        try:
+            print(json.dumps(_native_observe_command(sys.argv[1:]), sort_keys=True))
+        except (OSError, RuntimeError, ValueError) as exc:
+            raise SystemExit(f"GATK runtime rejected: {exc}") from exc
+        return
     if sys.argv[1:2] == ['--publish-dispatch']:
         from cce_publish_recovery import publish_dispatch_command
         print(json.dumps(publish_dispatch_command(sys.argv[1:],gate=sys.modules[__name__],pipeline='gatk'),sort_keys=True))

@@ -2160,7 +2160,9 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                         run.current_stage = stage_name
                     session.commit()
                     return {'analysis_id': analysis_id, 'attempt': request.attempt, 'stage': stage_name,
-                        'status': 'accepted', 'generation': payload['generation'], 'execution_id': payload['execution_id']}
+                        'status': 'accepted', 'generation': payload['generation'], 'execution_id': payload['execution_id'],
+                        'request_hash': payload['request_hash'],
+                        **({'stage_execution': payload['stage_execution']} if 'stage_execution' in payload else {})}
             elif stage_name != 'step7_cleanup' and (run.params_json or {}).get('resume_action_id'):
                 raise ValueError('stage registration requires the current recovery identity')
             dispatch = session.scalar(
@@ -2740,6 +2742,8 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 "request_path": str(path),
                 "execution_id": execution.execution_id if contract_v2 else None,
                 "generation": execution.generation if contract_v2 else None,
+                "request_hash": execution.request_hash if contract_v2 else None,
+                **({'stage_execution': payload['stage_execution']} if 'stage_execution' in payload else {}),
             }
     except WgsStagePredecessorPending as exc:
         raise HTTPException(

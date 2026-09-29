@@ -3016,14 +3016,7 @@ def start_native_stage(payload: dict[str, Any]) -> dict[str, Any]:
     snapshot = _native_stage_adapter().submit_registered_stage(
         payload, gate=sys.modules[__name__], pipeline="wgs"
     )
-    if snapshot.state in {"unknown", "failed", "canceled"}:
-        raise RuntimeError(f"WGS native stage state requires reconciliation: {snapshot.state}")
-    return {
-        "status": "complete" if snapshot.state == "succeeded" else snapshot.state,
-        "stage": payload["stage"],
-        "generation": snapshot.execution_ref.stage_generation,
-        "execution_id": snapshot.execution_ref.execution_id,
-    }
+    return snapshot.to_dict()
 
 
 def observe_native_stage(payload: dict[str, Any]):
