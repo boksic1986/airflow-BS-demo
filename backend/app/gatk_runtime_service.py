@@ -23,7 +23,10 @@ from app.models import (
     Sample,
     TransferJob,
 )
-from app.stage_execution_contract import freeze_stage_execution_protocol
+from app.stage_execution_contract import (
+    freeze_stage_execution_protocol,
+    require_native_stage_success,
+)
 from app.wgs_observer import ingest_bound_pipeline_evidence_once
 
 
@@ -385,7 +388,14 @@ def _registration_payload(row: PipelineStageExecution, settings) -> dict[str, An
     if row.stage_code == "prepare":
         return result
     path = _request_path(settings, row.analysis_id, row.attempt, row.stage_code)
-    request = json.loads(path.read_text(encoding="utf-8"))
+    if not path.is_file() or path.is_symlink():
+        raise ValueError("frozen GATK stage request is missing")
+    try:
+        request = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("frozen GATK stage request is invalid") from exc
+    if not isinstance(request, dict):
+        raise ValueError("frozen GATK stage request must be an object")
     identity = ("analysis_id", "attempt", "stage", "generation", "execution_id", "request_hash")
     if any(request.get(key) != result[key] for key in identity):
         raise ValueError("frozen GATK stage request differs from registration")
@@ -428,6 +438,14 @@ def sync_gatk_stage_status(
     )
     if row is None:
         return {"status": "pending", "ready": False, "failed": False}
+    # A later same-attempt DagRun may reuse any registered stage. Project its
+    # marker only from the exact current frozen request so the sensor observes
+    # that native execution, even when the submit task has no XCom.
+    registration = _registration_payload(row, settings) if stage in STAGES[1:] else {}
+    marker = (
+        {"stage_execution": registration["stage_execution"]}
+        if "stage_execution" in registration else {}
+    )
     path = _request_path(settings, analysis_id, attempt, stage)
     sidecar = path.with_suffix(".status.json")
     if sidecar.is_file():
@@ -447,7 +465,7 @@ def sync_gatk_stage_status(
             and observed_generation < row.generation
         ):
             return {
-                **_execution_payload(row),
+                **_execution_payload(row), **marker,
                 "ready": False,
                 "failed": False,
                 "message": (
@@ -486,7 +504,7 @@ def sync_gatk_stage_status(
                 # The observer/control task ended, not necessarily the analysis.
                 # Keep measured stage/run projections and let the sensor stop.
                 session.commit()
-                return {**_execution_payload(row), 'ready': False,
+                return {**_execution_payload(row), **marker, 'ready': False,
                     'failed': row.status in {'failed','canceled'}, 'message': row.message}
             _upsert_gatk_stage_state(
                 session,
@@ -514,7 +532,7 @@ def sync_gatk_stage_status(
     _reconcile_terminal_transfer(session=session, row=row)
     failed = row.status in {"failed", "canceled"}
     return {
-        **_execution_payload(row),
+        **_execution_payload(row), **marker,
         "ready": row.status == "success",
         "failed": failed,
         "message": row.message,
@@ -610,9 +628,44 @@ def _ingest_gatk_evidence(
     )
 
 
+def _require_gatk_step6_receipt(*, settings, row: PipelineStageExecution) -> str:
+    """Recheck the current producer receipt with its existing digest grammar."""
+    path = _request_path(settings, row.analysis_id, row.attempt, row.stage_code).with_suffix(
+        ".status.json"
+    )
+    if not path.is_file() or path.is_symlink():
+        raise ValueError("GATK Step6 business receipt is missing")
+    try:
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("GATK Step6 business receipt is invalid") from exc
+    expected = {
+        "schema_version": "gatk-runtime.status.v1",
+        "orchestration_contract_version": 2,
+        "analysis_id": row.analysis_id,
+        "attempt": row.attempt,
+        "stage": row.stage_code,
+        "generation": row.generation,
+        "execution_id": row.execution_id,
+        "request_hash": row.request_hash,
+        "status": "success",
+    }
+    if (not isinstance(receipt, dict)
+            or any(type(receipt.get(key)) is not type(value) or receipt[key] != value
+                   for key, value in expected.items())
+            or not isinstance(row.receipt_hash, str)
+            or len(row.receipt_hash) != 64
+            or receipt.get("receipt_hash") != row.receipt_hash
+            or _canonical_hash({key: value for key, value in receipt.items()
+                                if key != "receipt_hash"}) != row.receipt_hash):
+        raise ValueError("GATK Step6 business receipt differs from current execution")
+    return row.receipt_hash
+
+
 def finalize_gatk_run(
     *, session: Session, settings, analysis_id: str, attempt: int,
-    resume_action_id: str | None = None, dag_run_id: str | None = None
+    resume_action_id: str | None = None, dag_run_id: str | None = None,
+    worker_observation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     status = sync_gatk_stage_status(
         session=session,
@@ -635,6 +688,39 @@ def finalize_gatk_run(
         from app.cce_resume_dispatch import authorize_recovery_stage
         authorize_recovery_stage(session=session, run=run, action_id=resume_action_id,
             dag_run_id=dag_run_id, stage='finalize_run')
+    step6 = session.scalar(
+        select(PipelineStageExecution).where(
+            PipelineStageExecution.pipeline_name == "gatk",
+            PipelineStageExecution.analysis_id == analysis_id,
+            PipelineStageExecution.attempt == attempt,
+            PipelineStageExecution.stage_code == "step6_materialize",
+        ).order_by(PipelineStageExecution.generation.desc()).limit(1)
+        .execution_options(populate_existing=True)
+    )
+    if (step6 is None or step6.status != "success"
+            or any(status.get(key) != value for key, value in {
+                "execution_id": step6.execution_id,
+                "generation": step6.generation,
+                "request_hash": step6.request_hash,
+            }.items())):
+        raise ValueError("GATK current Step6 has no successful stage receipt")
+    registration = _registration_payload(step6, settings)
+    if registration.get("stage_execution") is not None:
+        if dag_run_id is None or dag_run_id != run.dag_run_id:
+            raise ValueError("GATK finalization DagRun identity differs")
+        if run.status in {
+            "pause_requested", "paused", "cancel_requested", "canceled",
+            "cancelled", "terminated", "delete_requested", "deleted",
+        }:
+            raise ValueError("GATK current run does not permit finalization")
+        receipt_hash = _require_gatk_step6_receipt(settings=settings, row=step6)
+        require_native_stage_success(
+            worker_observation,
+            pipeline="gatk", analysis_id=analysis_id, attempt=attempt,
+            stage="step6_materialize", execution_id=step6.execution_id,
+            generation=step6.generation, request_hash=step6.request_hash,
+            evidence_ref=receipt_hash,
+        )
     now = datetime.now(timezone.utc)
     run.status = "success"
     run.current_stage = "finalize_run"

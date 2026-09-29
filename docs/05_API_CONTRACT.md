@@ -1,5 +1,30 @@
 # API contract
 
+## UE-04 exact stage completion and same-attempt recovery (2026-09-30; source only)
+
+The existing service-token internal WGS/GATK `stage-status` GET projects the
+current registered Step1–Step6 execution ID, generation and request hash. For a
+newly marked request it also projects `stage_execution` from that exact frozen
+request; stale sidecars do not make the stage ready. WGS rechecks the frozen
+request digest against its current database execution before selecting the
+marked or legacy path. The existing internal
+`stages/finalize_run` POST accepts `worker_observation` from the trusted Airflow
+caller. Newly marked Step6 requires the current successful business receipt and
+its matching, freshly observed native `succeeded` snapshot, including the exact
+execution tuple and evidence digest. Missing, old or unknown native evidence
+returns an error and does not finalize the analysis. Existing unmarked requests
+retain their legacy receipt path. No browser endpoint or database field is added.
+
+WGS `POST /api/runs/{analysis_id}/actions/resume-stage` and the internal Step3
+registration may ingest a late current Step2 receipt once. They close the first
+run-lock session before ingestion and then recheck attempt, DagRun, current
+recovery action and stop state under a fresh lock before any Step3 registration
+or dispatch. A changed identity or unavailable receipt returns a conflict.
+The latest Step3 registration and frozen request must bind that exact successful
+Step2 generation and receipt hash. GATK Airflow reconciliation accepts a
+same-attempt recovery DagRun only when it matches the persisted current
+authorized action; DagRun success alone never commits GATK business success.
+
 ## Configuration-only WGS release registration (2026-09-27)
 
 Release identities accept `wgs-X.Y.Z-<7 hex>[-configuration-revision]`.

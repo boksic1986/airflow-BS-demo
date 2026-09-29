@@ -32,6 +32,25 @@ and evaluates both tasks through the same client. The original task/sensor
 timeouts and the separate Step4 publish recovery authorization remain in
 force. This candidate has not been installed on node200 or deployed.
 
+At finalization the WGS and GATK DAGs query current Step6 stage status and
+perform a fresh fixed native observation, including when a recovery DagRun
+reuses a successful Step6 and its submit task has no XCom. They pass the full
+snapshot to the existing internal finalize POST. The backend ties the native
+terminal to the exact current registered business receipt before committing
+success. Older unmarked Step6 requests keep the receipt-only finalization.
+For any newly marked Step1–Step6 whose submit XCom is absent, a stage sensor
+uses the current backend registration to make a fresh exact native observation
+before accepting the business-ready receipt. Missing, stale or unknown native
+evidence cannot advance the sensor; older unmarked registrations retain their
+existing sensor path.
+An Airflow administrator marking a DagRun successful cannot by itself project
+WGS/GATK business success; the guarded finalizer is authoritative. WGS canary
+and local validation scopes retain their existing success projection because
+they do not execute the full CCE Step6 path. GATK reconciliation recognizes an
+explicitly authorized current same-attempt recovery DagRun, not an arbitrary
+run-ID suffix; reconciliation also compares its Airflow `conf` with the frozen
+authorized action before projecting a state.
+
 ## DAG discovery isolation (2026-09-27 test branch)
 
 `bio_wgs_native_monitor`, `bio_wgs_maintenance` and

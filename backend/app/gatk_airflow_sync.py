@@ -14,17 +14,45 @@ from app.diagnostics_service import (
 from app.models import AnalysisRun, PipelineStageExecution, RunAction
 
 
+def _require_current_gatk_dag_run(*, session, run: AnalysisRun) -> dict | None:
+    if run.dag_id != 'bio_gatk' or not run.dag_run_id:
+        raise MissingDagRunError('GATK current attempt has no matching DagRun identity')
+    action_id = (run.params_json or {}).get('resume_action_id')
+    if action_id:
+        from app.cce_resume_dispatch import recovery_action
+        try:
+            action = recovery_action(session, run, action_id)
+        except ValueError as exc:
+            raise MissingDagRunError('GATK current recovery action is unavailable') from exc
+        data = action.payload_json or {}
+        authorized = (
+            action.result_status == 'queued' and data.get('dispatch_state') == 'confirmed'
+        ) or (
+            action.result_status in {'reserved', 'uncertain'}
+            and data.get('dispatch_state') == 'post_intent'
+        )
+        if data.get('dag_run_id') != run.dag_run_id or not authorized:
+            raise MissingDagRunError('GATK current recovery DagRun is not authorized')
+        if not isinstance(data.get('conf'), dict):
+            raise MissingDagRunError('GATK current recovery DagRun has no frozen conf')
+        return data['conf']
+    elif run.dag_run_id != f'{run.analysis_id}-a{run.attempt}':
+        raise MissingDagRunError('GATK current attempt has no matching DagRun identity')
+    return None
+
+
 def sync_gatk_airflow_status(*, session, airflow_client, analysis_id, settings):
     run = session.scalar(select(AnalysisRun).where(
         AnalysisRun.analysis_id == analysis_id,
         AnalysisRun.pipeline_name == 'gatk').with_for_update())
     if run is None:
         return None
-    if run.dag_id != 'bio_gatk' or run.dag_run_id != f'{analysis_id}-a{run.attempt}':
-        raise MissingDagRunError('GATK current attempt has no matching DagRun identity')
+    recovery_conf = _require_current_gatk_dag_run(session=session, run=run)
     payload = airflow_client.get_dag_run(run.dag_id, run.dag_run_id)
     if (payload.get('dag_id'), payload.get('dag_run_id')) != (run.dag_id, run.dag_run_id):
         raise ValueError('GATK Airflow response identity mismatch')
+    if recovery_conf is not None and payload.get('conf') != recovery_conf:
+        raise ValueError('GATK Airflow recovery DagRun conf differs from current action')
     state = payload.get('state')
     if state not in {'running', 'queued', 'success', 'failed'}:
         raise ValueError('GATK Airflow response has no authoritative state')
@@ -69,16 +97,10 @@ def sync_gatk_airflow_status(*, session, airflow_client, analysis_id, settings):
                     'execution_id': current.execution_id}, result_status='running',
                 message='Current DagRun resumed; existing runtime and output retained.'))
     elif state == 'success':
-        materialize = latest.get('step6_materialize')
-        if (materialize is None or materialize.status != 'success'
-            or any(row.status in {'failed', 'canceled', 'cancelled'} for row in latest.values())):
-            return _run_payload(run)
-        run.status = 'success'
-        run.ended_at = _parse_airflow_datetime(payload.get('end_date')) or now
-        run.pipeline_finished_at = run.ended_at
-        run.error_summary = None
-        run.progress_percent = 100
-        run.progress_updated_at = run.ended_at
+        # Airflow success can be an administrative mark-success while the
+        # protected native Step6 is still unknown. Only finalize_gatk_run may
+        # commit business success after its current native terminal guard.
+        return _run_payload(run)
     else:
         run.status = 'failed'
         run.ended_at = _parse_airflow_datetime(payload.get('end_date')) or run.ended_at or now

@@ -1,5 +1,42 @@
 # Workflow runtime integration
 
+## UE-04 receipt and native terminal convergence (2026-09-30; source only)
+
+WGS normal and P0 recovery Step3 registration require the latest successful
+Step2 receipt and bind its execution ID, generation and receipt hash. A late
+Step2 sidecar is ingested once after the first registration transaction releases
+its run lock; the caller then rechecks the current attempt, DagRun, recovery
+action and stop state under a new lock. Reused Step3 registrations and frozen
+recovery requests must still match the current predecessor tuple. This does not
+launch Step2 again or authorize a new Master.
+
+For a newly marked WGS/GATK Step6, the existing business status receipt alone
+does not prove native completion. The finalizer checks the latest registered
+Step6 generation and exact receipt digest, then requires a fresh complete
+`cce.stage-execution.snapshot.v1` from the fixed read-only native observation:
+`state=succeeded`, matching execution ref and `evidence_ref`. Observation
+health remains an independent field; `unknown` cannot finalize. WGS uses the
+SHA-256 of the exact status sidecar bytes, while GATK retains its canonical
+receipt hash. Neither Airflow task success nor a private control receipt by
+itself substitutes for both matching pieces of evidence. Legacy unmarked
+requests keep their historical receipt behavior. These source changes have not
+been deployed to node200 or a production environment.
+
+The WGS frozen request digest is rechecked against the current execution before
+choosing the marked or unmarked Step6 finalization path. The original producer
+hash excludes the six execution-envelope fields, and excludes the later-added
+v2 version for initial dispatch; recovery retains the v2 version in its hash.
+Removing a marker or changing the version therefore cannot downgrade a current
+marked execution into receipt-only completion.
+
+For Master TTL handoff, platform registered Step4/5 already pass the selected
+Master bundle and exact UID to the pinned native entry; native commit `4fa85874`
+adds a separate ordinary v2 Step4/5 fallback to the persisted handoff after a
+valid terminal. The existing platform selected-Master test stubs log download,
+and the native ordinary-path test directly covers Step4/log export but not a
+direct Step5 invocation. Source call-chain inspection does not prove an active
+deployed policy pin or full paired TTL acceptance.
+
 ## UE-03 shared workload inventory (2026-09-29; source only)
 
 The native query source at commit `6f5c120` accepts fixed, read-only

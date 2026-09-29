@@ -100,15 +100,22 @@ def stage_should_run(stage: str, conf: dict[str, Any]) -> bool:
     return required in conf.get('resume_stages', [])
 
 
-def register_stage(stage: str, **context: Any) -> dict[str, Any]:
+def register_stage(
+    stage: str, *, worker_observation: dict[str, Any] | None = None,
+    **context: Any,
+) -> dict[str, Any]:
     conf = dict(context["dag_run"].conf or {})
     if not stage_should_run(stage, conf):
         return {'stage':stage, 'status':'skipped', 'acquired':True}
     payload = {"attempt": conf["attempt"], "adapter": "gatk-runtime-200"}
     if conf.get('resume_action_id'):
         payload['resume_action_id'] = conf['resume_action_id']
-    if conf.get('resume_action_id') or stage in {"step4_publish", "release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
+    if conf.get('resume_action_id') or stage in {"step4_publish", "release_input_transfer_slot", "release_result_transfer_slot", "release_leases", "finalize_run"}:
         payload["dag_run_id"] = context["dag_run"].run_id
+    if worker_observation is not None:
+        if stage != "finalize_run":
+            raise AirflowFailException("native GATK final observation has the wrong stage")
+        payload["worker_observation"] = worker_observation
     return _backend_json(
         f"/api/internal/gatk/runs/{conf['analysis_id']}/stages/{stage}",
         method="POST",
@@ -265,6 +272,43 @@ def _native_submitted_snapshot(stage: str, context: dict) -> dict | None:
     return None
 
 
+def _step6_final_observation(**context: Any) -> dict[str, Any] | None:
+    """Freshly observe the current Step6 before asking backend to finalize."""
+    conf = dict(context["dag_run"].conf or {})
+    stage = "step6_materialize"
+    query = urlencode({"attempt": conf["attempt"], "stage": stage})
+    status = _backend_json(
+        f"/api/internal/gatk/runs/{conf['analysis_id']}/stage-status?{query}"
+    )
+    submitted = _native_submitted_snapshot(stage, context)
+    marker = status.get("stage_execution")
+    if marker is None:
+        if submitted is not None:
+            raise AirflowFailException("GATK Step6 native registration marker disappeared")
+        return None  # Existing unmarked stage retains its legacy finalization.
+    if marker != {"protocol": "cce.stage-execution.v1"}:
+        raise AirflowFailException("GATK Step6 stage execution marker is invalid")
+    if status.get("ready") is not True:
+        raise AirflowException("GATK Step6 business receipt is not ready for finalization")
+    if submitted is None:
+        # Recovery may reuse a successful Step6 and skip its submit task. The
+        # current backend status gives its registered tuple; the gate supplies
+        # the full native ref without a new dispatch or generation.
+        current = _native_observe_stage(conf, stage, status)
+        execution_ref_from_registration(current, status, pipeline="gatk", stage=stage)
+    else:
+        ref = execution_ref_from_registration(
+            submitted, status, pipeline="gatk", stage=stage
+        )
+        current = observe_stage(
+            execution_ref=ref,
+            observe=lambda exact: _native_observe_stage(conf, stage, exact),
+        )
+    if current["state"] != "succeeded":
+        raise AirflowException("GATK Step6 native terminal is not confirmed")
+    return current
+
+
 def stage_ready(stage: str, **context: Any) -> bool:
     conf = dict(context["dag_run"].conf or {})
     if not stage_should_run(stage, conf):
@@ -288,30 +332,33 @@ def stage_ready(stage: str, **context: Any) -> bool:
         if recovery.get('status') in {'delegated', 'superseded'}:
             raise AirflowSkipException('Compute recovery delegated to the current DagRun')
     submitted = _native_submitted_snapshot(stage, context)
-    if submitted is not None:
-        ref = submitted["execution_ref"]
-        if (ref.get("pipeline") != "gatk" or ref.get("analysis_id") != conf["analysis_id"]
-                or ref.get("attempt") != conf["attempt"] or ref.get("stage") != stage):
-            raise AirflowFailException("GATK sensor native execution identity differs")
+    marker = value.get("stage_execution")
+    if marker is None:
+        if submitted is not None:
+            raise AirflowFailException("GATK native registration marker disappeared")
+    elif marker != {"protocol": "cce.stage-execution.v1"} or stage == "prepare":
+        raise AirflowFailException("GATK stage execution marker is invalid")
+    if value.get("failed"):
+        # A terminal runtime receipt is not a transient polling failure.
+        raise AirflowFailException(str(value.get("message") or f"GATK stage failed: {stage}"))
+    if marker is None:
+        return bool(value.get("ready"))  # Existing unmarked stage retains its legacy sensor.
+    if submitted is None:
+        # A same-attempt recovery may reuse the registered stage without a
+        # submit XCom. Observe the latest backend tuple before advancing.
+        current = _native_observe_stage(conf, stage, value)
+        execution_ref_from_registration(current, value, pipeline="gatk", stage=stage)
+    else:
+        ref = execution_ref_from_registration(
+            submitted, value, pipeline="gatk", stage=stage
+        )
         current = observe_stage(
             execution_ref=ref,
             observe=lambda exact: _native_observe_stage(conf, stage, exact),
         )
-        if current["state"] in {"failed", "canceled"}:
-            raise AirflowFailException(f"registered GATK stage {stage} ended {current['state']}")
-        if current["state"] != "succeeded":
-            return False
-        if any(value.get(key) != expected for key, expected in {
-                "execution_id": ref["execution_id"],
-                "generation": ref["stage_generation"],
-                "request_hash": ref["request_hash"],
-        }.items()):
-            return False
-        return value.get("ready") is True
-    if value.get("failed"):
-        # A terminal runtime receipt is not a transient polling failure.
-        raise AirflowFailException(str(value.get("message") or f"GATK stage failed: {stage}"))
-    return bool(value.get("ready"))
+    if current["state"] in {"failed", "canceled"}:
+        raise AirflowFailException(f"registered GATK stage {stage} ended {current['state']}")
+    return current["state"] == "succeeded" and value.get("ready") is True
 
 
 def acquire_transfer_slot(kind: str, **context: Any) -> bool:
@@ -320,7 +367,8 @@ def acquire_transfer_slot(kind: str, **context: Any) -> bool:
 
 
 def release_stage(stage: str, **context: Any) -> dict[str, Any]:
-    result = register_stage(stage, **context)
+    observation = _step6_final_observation(**context) if stage == "finalize_run" else None
+    result = register_stage(stage, worker_observation=observation, **context)
     if stage in {"release_input_transfer_slot", "release_result_transfer_slot", "release_leases"} and result.get("retained"):
         raise RuntimeError("GATK transfer lease was not released: " + str(result.get("reason") or "unknown"))
     return result

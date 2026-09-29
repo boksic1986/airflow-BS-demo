@@ -252,8 +252,12 @@ def register_stage(stage: str, **context: Any) -> dict[str, Any]:
         "maintenance_action_id": conf.get("maintenance_action_id"),
         "resume_action_id": conf.get("resume_action_id"),
     }
-    if conf.get('resume_action_id') or stage in {"step4_publish", "release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
+    if conf.get('resume_action_id') or stage in {"step4_publish", "finalize_run", "release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
         request_payload["dag_run_id"] = context["dag_run"].run_id
+    if stage == "finalize_run":
+        terminal = _step6_finalization_observation(conf, context)
+        if terminal is not None:
+            request_payload["worker_observation"] = terminal
     task_instance = context.get("ti") or context.get("task_instance")
     # A retried Step1-6 task must reattach its registered execution. A new
     # generation is authorized by the explicit recovery API, not try_number.
@@ -575,6 +579,65 @@ def _native_submitted_snapshot(stage: str, context: dict) -> dict | None:
     return None
 
 
+def _status_matches_native_ref(payload: dict, ref: dict) -> bool:
+    return (
+        payload.get("stage_execution") == {"protocol": "cce.stage-execution.v1"}
+        and ref.get("pipeline") == "wgs"
+        and payload.get("analysis_id") == ref.get("analysis_id")
+        and payload.get("attempt") == ref.get("attempt")
+        and payload.get("stage") == ref.get("stage")
+        and payload.get("execution_id") == ref.get("execution_id")
+        and payload.get("generation") == ref.get("stage_generation")
+        and payload.get("request_hash") == ref.get("request_hash")
+    )
+
+
+def _step6_finalization_observation(conf: dict, context: dict) -> dict | None:
+    """Read the current Step6 native terminal even when this DagRun reused Step6."""
+    stage = "step6_materialize"
+    query = urlencode({"attempt": conf["attempt"], "stage": stage})
+    status = _stage_query_json(
+        f"/api/internal/wgs/runs/{conf['analysis_id']}/stage-status?{query}"
+    )
+    if status is None:
+        raise AirflowFailException("Step6 status is unavailable for finalization")
+    submitted = _native_submitted_snapshot(stage, context)
+    marker = status.get("stage_execution")
+    if marker is None:
+        if submitted is not None:
+            raise AirflowFailException("Step6 native registration is unavailable")
+        return None
+    if marker != {"protocol": "cce.stage-execution.v1"}:
+        raise AirflowFailException("Step6 native registration differs")
+    if status.get("ready") is not True or status.get("failed") is True:
+        raise AirflowFailException("Step6 business receipt is not ready")
+    identity = {
+        "analysis_id": conf["analysis_id"],
+        "attempt": conf["attempt"],
+        "stage": stage,
+        "execution_id": status.get("execution_id"),
+        "stage_generation": status.get("generation"),
+        "request_hash": status.get("request_hash"),
+    }
+    if submitted is None:
+        observed = _native_observe_stage(conf, stage, identity)
+        ref = observed.get("execution_ref") if isinstance(observed, dict) else None
+        if not isinstance(ref, dict) or not _status_matches_native_ref(status, ref):
+            raise AirflowFailException("Step6 native terminal identity differs")
+        terminal = observe_stage(execution_ref=ref, observe=lambda _ref: observed)
+    else:
+        ref = submitted.get("execution_ref")
+        if not isinstance(ref, dict) or not _status_matches_native_ref(status, ref):
+            raise AirflowFailException("Step6 submitted identity differs from current receipt")
+        terminal = observe_stage(
+            execution_ref=ref,
+            observe=lambda exact: _native_observe_stage(conf, stage, exact),
+        )
+    if terminal["state"] != "succeeded":
+        raise AirflowFailException("Step6 native terminal is not successful")
+    return terminal
+
+
 def stage_ready(stage: str, **context: Any) -> bool:
     conf = dict(context["dag_run"].conf or {})
     if not stage_should_run(stage, conf):
@@ -605,6 +668,24 @@ def stage_ready(stage: str, **context: Any) -> bool:
         if recovery.get('status') in {'delegated', 'superseded'}:
             raise AirflowSkipException('Compute recovery delegated to the current DagRun')
     submitted = _native_submitted_snapshot(runner_stage, context)
+    fresh_without_xcom = None
+    marker = payload.get("stage_execution")
+    if submitted is None and marker is not None:
+        if marker != {"protocol": "cce.stage-execution.v1"} or runner_stage not in RECOVERY_STAGES:
+            raise AirflowFailException("WGS sensor stage execution marker is invalid")
+        if payload.get("ready") is True:
+            identity = {
+                "analysis_id": conf["analysis_id"], "attempt": conf["attempt"],
+                "stage": runner_stage, "execution_id": payload.get("execution_id"),
+                "stage_generation": payload.get("generation"),
+                "request_hash": payload.get("request_hash"),
+            }
+            fresh_without_xcom = _native_observe_stage(conf, runner_stage, identity)
+            ref = (fresh_without_xcom.get("execution_ref")
+                   if isinstance(fresh_without_xcom, dict) else None)
+            if not isinstance(ref, dict) or not _status_matches_native_ref(payload, ref):
+                raise AirflowFailException("WGS sensor native execution identity differs")
+            submitted = fresh_without_xcom
     if submitted is not None:
         ref = submitted["execution_ref"]
         if (ref.get("pipeline") != "wgs" or ref.get("analysis_id") != conf["analysis_id"]
@@ -612,11 +693,13 @@ def stage_ready(stage: str, **context: Any) -> bool:
             raise AirflowFailException("WGS sensor native execution identity differs")
         current = observe_stage(
             execution_ref=ref,
-            observe=lambda exact: _native_observe_stage(conf, runner_stage, exact),
+            observe=lambda exact: (fresh_without_xcom if fresh_without_xcom is not None
+                                   else _native_observe_stage(conf, runner_stage, exact)),
         )
         if current["state"] == "succeeded":
             visible = (payload.get("retry_no") == ref["stage_generation"] - 1
-                       and payload.get("ready") is True)
+                       and payload.get("ready") is True
+                       and _status_matches_native_ref(payload, ref))
             payload = {**payload, "ready": visible, "failed": False}
         elif current["state"] in {"failed", "canceled"}:
             payload = {**payload, "ready": False, "failed": True,

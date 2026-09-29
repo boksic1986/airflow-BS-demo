@@ -8,6 +8,8 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
+from airflow.exceptions import AirflowFailException
+
 from common import stage_execution
 from common.stage_execution import (
     DispatchUncertain,
@@ -239,20 +241,107 @@ class StageExecutionWaitTests(unittest.TestCase):
             "dag_run": SimpleNamespace(conf=conf, run_id="synthetic"),
             "ti": SimpleNamespace(xcom_pull=lambda **_kw: snapshot("accepted", ref=ref)),
         }
+        status = {
+            "ready": True, "failed": False, "retry_no": 0,
+            "analysis_id": ref["analysis_id"], "attempt": ref["attempt"],
+            "stage": "step6_materialize",
+            "stage_execution": {"protocol": ref["protocol"]},
+            "execution_id": ref["execution_id"],
+            "generation": ref["stage_generation"],
+            "request_hash": ref["request_hash"],
+        }
         with patch.object(bio_wgs, "_require_runtime_enabled"), \
-             patch.object(bio_wgs, "_stage_query_json", return_value={
-                 "ready": True, "failed": False, "retry_no": 0,
-             }), \
+             patch.object(bio_wgs, "_stage_query_json", return_value=status), \
              patch.object(bio_wgs, "_native_observe_stage", return_value=snapshot("running", ref=ref)):
             self.assertFalse(bio_wgs.stage_ready("step6_materialize", **context))
         with patch.object(bio_wgs, "_require_runtime_enabled"), \
              patch.object(bio_wgs, "_stage_query_json", side_effect=[
-                 {"ready": True, "failed": False, "retry_no": 1},
-                 {"ready": True, "failed": False, "retry_no": 0},
+                 {**status, "generation": 2, "retry_no": 1},
+                 status,
              ]), \
              patch.object(bio_wgs, "_native_observe_stage", return_value=snapshot("succeeded", ref=ref)):
             self.assertFalse(bio_wgs.stage_ready("step6_materialize", **context))
             self.assertTrue(bio_wgs.stage_ready("step6_materialize", **context))
+
+    def test_wgs_marked_sensor_without_submit_xcom_observes_exact_native_ref(self) -> None:
+        import bio_wgs
+
+        ref = {**REF, "stage": "step1_upload"}
+        conf = {"analysis_id": ref["analysis_id"], "attempt": ref["attempt"]}
+        context = {
+            "dag_run": SimpleNamespace(conf=conf, run_id="synthetic"),
+            "ti": SimpleNamespace(xcom_pull=lambda **_kw: None),
+        }
+        status = {
+            "analysis_id": ref["analysis_id"], "attempt": ref["attempt"],
+            "stage": ref["stage"], "execution_id": ref["execution_id"],
+            "generation": ref["stage_generation"],
+            "request_hash": ref["request_hash"],
+            "stage_execution": {"protocol": ref["protocol"]},
+            "ready": True, "failed": False, "retry_no": 0,
+        }
+        with patch.object(bio_wgs, "_require_runtime_enabled"), \
+             patch.object(bio_wgs, "_stage_query_json", return_value=status), \
+             patch.object(bio_wgs, "_native_observe_stage", side_effect=[
+                 snapshot("running", ref=ref), snapshot("succeeded", ref=ref),
+             ]) as observe:
+            self.assertFalse(bio_wgs.stage_ready(ref["stage"], **context))
+            self.assertTrue(bio_wgs.stage_ready(ref["stage"], **context))
+            self.assertEqual(observe.call_count, 2)
+            self.assertTrue(all(call.args[2]["request_hash"] == ref["request_hash"]
+                                for call in observe.call_args_list))
+
+    def test_wgs_finalize_reused_step6_requires_fresh_exact_native_terminal(self) -> None:
+        import bio_wgs
+
+        ref = {**REF, "stage": "step6_materialize"}
+        conf = {"analysis_id": ref["analysis_id"], "attempt": ref["attempt"],
+                "params": {"orchestration_contract_version": 2}}
+        context = {
+            "dag_run": SimpleNamespace(conf=conf, run_id="synthetic-resume"),
+            "ti": SimpleNamespace(xcom_pull=lambda **_kw: None),
+        }
+        current = {
+            "ready": True, "status": "success", "failed": False,
+            "analysis_id": ref["analysis_id"], "attempt": ref["attempt"],
+            "stage": "step6_materialize",
+            "stage_execution": {"protocol": ref["protocol"]},
+            "execution_id": ref["execution_id"],
+            "generation": ref["stage_generation"],
+            "request_hash": ref["request_hash"],
+        }
+        with patch.object(bio_wgs, "_require_runtime_enabled"), \
+             patch.object(bio_wgs, "_stage_query_json", return_value=current), \
+             patch.object(bio_wgs, "_native_observe_stage", return_value=snapshot("unknown", ref=ref)), \
+             patch.object(bio_wgs, "_backend_json") as backend:
+            with self.assertRaisesRegex(AirflowFailException, "Step6 native terminal"):
+                bio_wgs.register_stage("finalize_run", **context)
+            backend.assert_not_called()
+        with patch.object(bio_wgs, "_require_runtime_enabled"), \
+             patch.object(bio_wgs, "_stage_query_json", return_value=current), \
+             patch.object(bio_wgs, "_native_observe_stage", return_value=snapshot("succeeded", ref=ref)) as observe, \
+             patch.object(bio_wgs, "_backend_json", return_value={"status": "success"}) as backend:
+            bio_wgs.register_stage("finalize_run", **context)
+            observe.assert_called_once()
+            self.assertEqual(backend.call_args.kwargs["payload"]["worker_observation"],
+                             snapshot("succeeded", ref=ref))
+
+    def test_wgs_finalize_unmarked_v2_step6_preserves_existing_receipt_path(self) -> None:
+        import bio_wgs
+
+        conf = {"analysis_id": REF["analysis_id"], "attempt": 1,
+                "params": {"orchestration_contract_version": 2}}
+        context = {"dag_run": SimpleNamespace(conf=conf, run_id="synthetic-legacy"),
+                   "ti": SimpleNamespace(xcom_pull=lambda **_kw: None)}
+        with patch.object(bio_wgs, "_require_runtime_enabled"), \
+             patch.object(bio_wgs, "_stage_query_json", return_value={
+                 "stage_execution": None, "ready": True, "status": "success",
+             }), \
+             patch.object(bio_wgs, "_native_observe_stage",
+                          side_effect=AssertionError("unmarked Step6 must not native-observe")), \
+             patch.object(bio_wgs, "_backend_json", return_value={"status": "success"}) as backend:
+            bio_wgs.register_stage("finalize_run", **context)
+            self.assertNotIn("worker_observation", backend.call_args.kwargs["payload"])
 
     def test_wgs_retried_native_stage_reattaches_while_maintenance_keeps_retry_gate(self) -> None:
         import bio_wgs

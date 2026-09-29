@@ -9,10 +9,10 @@ from app.cce_resume_dispatch import interrupted_monitor_action, record_monitor_h
 from sqlalchemy import select
 
 from app.models import AnalysisRun, RunAction, RunStageState, WgsStageExecution, WgsExecutionDispatch
-from app.cce_recovery_budget import require_no_pending_compute_recovery
+from app.cce_recovery_budget import STOPPED, require_no_pending_compute_recovery
 from app.wgs_runtime_adapter import write_stage_request
 from app.wgs_stage_catalog import load_wgs_stage_contract
-from app.wgs_stage_execution_service import register_stage_execution
+from app.wgs_stage_execution_service import register_stage_execution, require_current_step3_predecessor
 
 STAGES = ('step1_upload', 'step2_master', 'step3_monitor', 'step4_publish', 'step5_download', 'step6_materialize')
 EXECUTION_KEYS = ('execution_id', 'generation', 'request_hash', 'predecessor_execution_id', 'predecessor_generation', 'predecessor_receipt_hash')
@@ -30,6 +30,8 @@ def register_recovery_stage(*, session, settings, run, stage, action):
     data = action.payload_json
     if stage not in data['resume_stages']:
         raise ValueError('stage is outside the recovery action')
+    if stage == 'step3_monitor':
+        require_current_step3_predecessor(session=session, run=run)
     root = Path(settings.wgs_runtime_request_root) / run.analysis_id / f'attempt-{run.attempt}'
     path = root / f'{stage}.json'
     latest = _latest(session, run, stage)
@@ -37,6 +39,12 @@ def register_recovery_stage(*, session, settings, run, stage, action):
     if latest and saved and saved.get('resume_action_id') == data['action_id']:
         if saved.get('execution_id') != latest.execution_id or saved.get('request_hash') != latest.request_hash:
             raise ValueError('frozen request does not match active execution')
+        if stage == 'step3_monitor':
+            if any(saved.get(key) != getattr(latest, key) for key in (
+                    'generation', 'predecessor_execution_id', 'predecessor_generation',
+                    'predecessor_receipt_hash')):
+                raise ValueError('frozen Step3 request predecessor differs from active execution')
+            require_current_step3_predecessor(session=session, run=run, registered=latest)
         return saved
     payload = dict(saved or data['frozen_request'])
     if latest and saved:
@@ -76,13 +84,23 @@ def register_recovery_stage(*, session, settings, run, stage, action):
     return payload
 
 
-def request_resume_stage(*, session, settings, airflow_client, analysis_id, attempt, stage, idempotency_key, requested_by):
+def request_resume_stage(*, session, settings, airflow_client, analysis_id, attempt, stage, idempotency_key, requested_by,
+                         observed_identity: dict | None = None,
+                         expected_identity: tuple[int, str | None, str | None] | None = None):
     if stage not in STAGES or not idempotency_key or len(idempotency_key) > 128:
         raise ValueError('a canonical Step1–6 stage and idempotency key are required')
     run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
         .with_for_update().execution_options(populate_existing=True))
     if not run or run.pipeline_name != 'wgs' or run.attempt != attempt:
         raise ValueError('unknown current WGS attempt')
+    current_identity = (run.attempt, run.dag_run_id,
+                        (run.params_json or {}).get('resume_action_id'))
+    if str(run.status or '').lower() in STOPPED:
+        raise ValueError('WGS Resume is blocked by current control state')
+    if expected_identity is not None and current_identity != expected_identity:
+        raise ValueError('WGS Resume identity changed during predecessor ingestion')
+    if observed_identity is not None:
+        observed_identity['value'] = current_identity
     # Serialize with automatic reservations on the same AnalysisRun row. Do not
     # replace frozen requests or contact Airflow while their outcome is pending.
     handoff = interrupted_monitor_action(session=session,run=run,monitor=_latest(session,run,stage),
