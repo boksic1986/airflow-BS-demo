@@ -2,6 +2,21 @@
 
 ## W423-JR-01-05-AIRFLOW-20261001
 
+## GATK-R4-RULE-PHASES-20260929 — backend source candidate
+
+Owner: Backend; coordinator owns production review and any release.
+
+- [x] Verify the effective production GATK release is `gatk-scmc-v7.6.0@r4`
+  and its frozen `SCMC_GATK.smk` is byte-identical to r3 with the same 17 rules.
+- [x] Sync the already-deployed WGS phase overlay into source without changing
+  its mappings, then add only the exact r4 GATK phase release registration.
+- [x] Run isolated BS10610 focused red/green regression: 2 expected r4 failures
+  before registration, 6 passes afterward; retain raw logs under task evidence.
+- [ ] Coordinator reviews the exact production delta and decides on deployment
+  after the other requested tasks finish; no release in this source task.
+
+## P0-WGS-TRACKER-STEP5-20260929 — backend candidate
+
 - [x] Refresh exact remote main/production refs and verify clean own worktree;
   preserve accepted UE branch and all untracked evidence.
 - [x] Report necessary commits, semantic gaps and predicted conflicts to the

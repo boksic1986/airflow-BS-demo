@@ -2,6 +2,24 @@
 
 ## 2026-10-01 W423 joint release source integration in progress
 
+## 2026-09-29 GATK r4 Rules phase source candidate
+
+The production Rules page for the new GATK r4 analysis displayed `Unknown`
+phases because the loaded exact-release catalog stopped at r3. A read-only
+audit found that r4 `workflow/SCMC_GATK.smk` is byte-identical to r3
+(SHA-256 `ebee79067e17544774ff9607fc714d197189abb49cc5b82af297abbee8b03701`,
+Git blob `1cf9fe6f1672e919517bd1392bb2fd4496eab702`) and its 17 rules
+match the pinned phase inventory exactly. This source candidate registers only
+`gatk-scmc-v7.6.0@r4`; unknown releases/rules remain `Unknown`. It also syncs
+the tracked WGS phase module and policy to the byte-identical BS96 production
+overlay baseline, preserving the existing `441d5e7` verified rule additions.
+On BS10610 an isolated, network-disabled regression first failed only the two
+r4 cases, then passed all six focused cases after the mapping. No production
+module, service, run, database or workflow state was changed. Coordinator
+review and any later deployment remain separate.
+
+## 2026-09-29 WGS C Step5 Tracker stage candidate
+
 Fresh remote main and jiucheng/release/production both resolve to
 `ce497d61efaa725a4a45266e76dd996d7767fe74`. This owner's existing clean linked
 worktree now uses `jiucheng/airflow/W423-integration-20261001`; accepted UE06

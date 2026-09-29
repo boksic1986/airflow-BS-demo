@@ -2,6 +2,43 @@
 
 ## 2026-10-01 W423 Airflow integration source checkpoint
 
+## 2026-09-29 GATK r4 Rules phase source candidate
+
+Goal: classify Rules/phase summaries for the new frozen GATK r4 release.
+Read-only BS96 and BS10610 inventory confirmed r4 `SCMC_GATK.smk` SHA-256
+`ebee79067e17544774ff9607fc714d197189abb49cc5b82af297abbee8b03701`
+and Git blob `1cf9fe6f1672e919517bd1392bb2fd4496eab702`; r3 is byte-identical
+and all 17 rule names match `PINNED_GATK_PHASES`. The running production phase
+module/policy overlay was copied byte-for-byte into source first (commit
+`a85cfb6`) to preserve the existing WGS `441d5e7` phase additions. The GATK
+change adds only the exact `gatk-scmc-v7.6.0@r4` catalog identity plus focused
+test and API-contract wording. Unknown versions/rules still display `Unknown`.
+
+Modified source: `backend/app/workflow_phases.py`,
+`backend/app/policies/wgs_phases_cc9bde3.json`,
+`backend/tests/test_gatk_phase_revisions.py`, `docs/05_API_CONTRACT.md`,
+`CURRENT_STATE.md`, `TASKS.md` and this `HANDOFF.md`. The first two files' WGS
+content matches the existing production overlay, not a new GATK behavior.
+
+BS10610 `server10610` preflight confirmed its test control root/current release,
+backend mount and disabled intake/auto-dispatch gates. The focused command was
+`python -m pytest -q -p no:cacheprovider tests/test_gatk_phase_revisions.py`
+inside an isolated backend image with network disabled, read-only source and
+no runtime credentials. Before the r4 entry: 2 expected r4 failures, 4 passes;
+after: 6 passes. Raw logs:
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/gatk-r4-phases-20260929-e634ca4/red-pytest.log`
+and `.../green-pytest.log`. The full backend suite was not run because this
+task was explicitly scoped to the minimal phase regression; production review
+and live Rules acceptance are pending.
+
+No production deployment, database update, run status edit, upload or CCE action
+was performed. Risk: deploying a source module without its existing WGS policy
+overlay would regress WGS phase labels; keep both baseline files together.
+Rollback of a future approved GATK-only overlay removes the r4 catalog entry;
+retain the WGS baseline files and all runtime state.
+
+## 2026-09-29 — WGS C Step5 Tracker stage regression candidate
+
 User's direct coordinator message authorizes the original owners to coordinate
 WGS4.2.3 cloud release and Airflow/native upgrade. Scope follows JR01–05 and
 W42302–06; current production scope question is pending. Airflow is the sole

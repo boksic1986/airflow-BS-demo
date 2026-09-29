@@ -1170,6 +1170,10 @@ and GATK `gatk-scmc-v7.6.0@bd04f6d`. Unknown/missing releases and unlisted
 rules return `Unknown`; module prefixes alone are not evidence. Rules, filters,
 complete phase summaries, registry progress, observer and sample projections
 share this policy. Legacy coarse helper defaults are not used by run APIs.
+The separately audited GATK `r2`, `r3` and `r4` release identities use the
+same 17-rule phase inventory. The `r4` `SCMC_GATK.smk` has Git blob
+`1cf9fe6f1672e919517bd1392bb2fd4496eab702`, identical to `r3`;
+unregistered revisions and rules still return `Unknown`.
 Phase precedence: failure, active running, unresolved planned, terminal canceled,
 success (including success+skipped), all-skipped. Cancellation aliases include
 cancelled/terminated. An incomplete canceled+planned phase remains planned.
