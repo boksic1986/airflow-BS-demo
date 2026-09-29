@@ -1,5 +1,69 @@
 # Handoff
 
+## 2026-09-29 UE-02 platform selected-gate checkpoint (adapter blocked)
+
+Goal: wire trusted WGS/GATK Step1-Step6 gates to native `StageExecutor` after
+UE-01, without changing DAG/backend shared observation, deploying a wheel, or
+touching production. Worktree/branch:
+`C:\Users\11217\.codex\worktrees\gatk-prod-compat\airflow-demo`,
+`jiucheng/airflow/UE02-stage-executor-gates`, from UE-01 `eac84ea`.
+
+The native owner committed `StageExecutor` at `9272f2cc0fbf590c7820e0bc37f67ae35ab774ee`
+in the BS10610 cce-pipeline source. Its binding requires absolute request,
+dispatch and status paths in one directory, file mode 0600, and a distinct,
+resolvable previous generation status path with a terminal receipt and a
+quiescent old process group before submitting a successor. Unknown evidence
+keeps the successor unstarted. Native focused synthetic lifecycle evidence is
+recorded by its owner under
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue02-stage-execution-20260929-native/`.
+
+Platform source changes so far: `scripts/cce_paired_runtime.py` imports only the
+trusted selected pipeline gate; `scripts/tests/test_cce_paired_selected_adapter.py`
+covers WGS/GATK in package and standalone import modes; `docs/08_WORKFLOW_RUNTIME_INTEGRATION.md`,
+`CURRENT_STATE.md`, `TASKS.md` and this handoff record the checkpoint. The
+selected gate still checks the exact registered request identity before using
+the existing business handler. No WGS/GATK gate executor path was switched.
+
+BS10610 read-only preflight confirmed `server10610`, control root
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS`, current release
+`20260912-opt-4d3d24e6`, actual backend mount
+`20260926-p0-e358aad/backend`, and disabled intake/auto-dispatch gates. The
+synthetic test candidate is
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/ue02-stage-executor-gates-20260929`.
+The focused RED test on old selected-dispatch code failed as expected in two
+cases for importing the unselected gate (`selected-import-red2.log`, SHA-256
+`2e268d649617dded1a61e5fde23026f1a4782582af7311a4fca314eb364d7320`). After patching, the final focused GREEN command in that candidate
+was `python -m pytest -q scripts/tests/test_cce_paired_selected_adapter.py`,
+with `PYTHONPATH` set to the native source and the BS10610 nipttest Python;
+result 4 passed in 0.35s. Raw evidence is
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue02-stage-executor-gates-20260929/selected-import-green2.log`
+(SHA-256 `fd18a4da724fec169567e0bb4f48b9b6b70de87b21fe3e66c44b6d74cdeab98c`). The candidate module SHA-256 is
+`b22696d27dd2297fbd4d21ce14f76f13e181125ff5d7c1dc578e43062c3998f7`;
+test SHA-256 is `e9bf75bfd4fb2c18d170833336ff8c8465d885ef8a8a274c99e1a1b70b9f1014`.
+
+Blocker: current GATK gate overwrites a fixed per-stage `.status.json` and
+archives only the old request during recovery. WGS also writes a fixed status;
+its archived old status lives under `history/<stage>/generation-N/`, outside the
+native same-directory binding. Pointing two generations at the same status is
+rejected by native; inventing a status path or copying a DB projection would
+discard the terminal/worker-quiescence safety gate. The native owner and
+platform coordinator need to settle a narrow trusted historical receipt
+binding before adapter wiring. Preserve shared business status permissions;
+0600 applies to new executor control sidecars only.
+Also update the existing paired runtime `_inactive_dispatcher` fence when a
+native dispatch becomes selectable: it currently recognizes only the fixed
+GATK/WGS legacy worker sidecars. It must recognize the native dispatch/worker
+identity or explicitly fail closed before considering a prior writer inactive.
+
+No full suite, service/container test, cloud Job, node200, production check,
+batch submit, push, merge or deployment was run for this checkpoint. This
+selected-gate source checkpoint is committed in the isolated UE-02 branch;
+the overall UE-02 remains open pending the binding interface and coordinator
+closeout. Rollback is a scoped source revert; no runtime state changed. The
+next owner should resolve the binding contract, connect
+thin adapters while preserving WGS `run_stage` and GATK `_execute_stage`, then
+run only focused UE-02 acceptance and record exact evidence.
+
 ## 2026-09-29 UE-01 stage-execution contract source closeout
 
 Goal: finish only UE-01's platform request marker, pathless identity/snapshot

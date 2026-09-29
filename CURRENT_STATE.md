@@ -1,5 +1,18 @@
 # Current state
 
+## 2026-09-29 UE-02 platform gate checkpoint (source only; adapter pending)
+
+The isolated platform branch `jiucheng/airflow/UE02-stage-executor-gates` now
+selects only the registered pipeline's gate in `run_registered_stage`. Its
+single focused BS10610 synthetic test failed on the previous dual import and
+passed 4/4 after the change, covering package and standalone script imports.
+Native `StageExecutor` is committed at `9272f2c`, but the WGS/GATK fixed
+status-sidecar layouts cannot yet provide its distinct old/new generation
+status bindings under its same-directory constraint. No executor gate switch,
+wheel install, node200 or production operation has occurred. The coordinator
+must resolve the narrow receipt/binding interface before the remaining UE-02
+thin wiring. The selected-gate checkpoint is source-only in the isolated branch.
+
 ## 2026-09-29 UE-01 stage-execution contract (source complete; not deployed)
 
 Platform changes freeze `stage_execution: {"protocol":"cce.stage-execution.v1"}`

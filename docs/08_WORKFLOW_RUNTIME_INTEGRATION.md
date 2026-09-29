@@ -1,5 +1,26 @@
 # Workflow runtime integration
 
+## UE-02 platform gate wiring checkpoint (2026-09-29; source only)
+
+The registered downstream child now imports only the trusted gate selected by
+the already validated `wgs` or `gatk` pipeline key. It still checks the exact
+registered request identity before calling the existing business handler. This
+change does not start the new native executor or change stage receipts.
+
+Native `StageExecutor` source commit `9272f2c` requires a previous generation's
+separate terminal status path before launching a successor. Current WGS writes a
+fixed stage status then archives it under `history/<stage>/generation-N`; GATK
+overwrites a fixed stage status and currently archives only the request during
+recovery. The native binding also requires its request, dispatch and status
+paths to share one directory. A gate must not invent a generation-specific
+status path or treat a database projection as a native terminal receipt. The
+remaining UE-02 adapter wiring awaits a narrow, trusted previous-generation
+receipt/binding contract; unknown evidence must leave the new worker unstarted.
+The executor does not write `status_path`; the trusted handler must publish its
+terminal receipt there and the reader must validate its exact execution ref.
+The existing paired `_inactive_dispatcher` check reads legacy worker sidecars,
+so native dispatch also needs a trusted quiescence check before re-entry.
+
 ## Unified stage execution v1: UE-01 contract (2026-09-28)
 
 New WGS and GATK Step1–Step6 stage requests freeze the top-level extension

@@ -254,11 +254,16 @@ def run_registered_stage(arguments):
             or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', analysis_id)
             or not attempt.isdigit() or int(attempt) < 1 or not generation.isdigit() or int(generation) < 1):
         raise RuntimeError('invalid registered downstream identity')
-    if __package__:
-        from . import wgs_runtime_gate, gatk_runtime_gate
+    if pipeline == 'wgs':
+        if __package__:
+            from . import wgs_runtime_gate as gate
+        else:
+            import wgs_runtime_gate as gate
     else:
-        import wgs_runtime_gate, gatk_runtime_gate
-    gate = wgs_runtime_gate if pipeline == 'wgs' else gatk_runtime_gate
+        if __package__:
+            from . import gatk_runtime_gate as gate
+        else:
+            import gatk_runtime_gate as gate
     path = gate._request_path(analysis_id, int(attempt), stage)
     payload = json.loads(_read_registered(path))
     expected = dict(analysis_id=analysis_id, attempt=int(attempt), stage=stage,

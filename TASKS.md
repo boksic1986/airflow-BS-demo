@@ -1,5 +1,22 @@
 # Active test-branch tasks
 
+## UE-02-STAGE-EXECUTOR-GATES-20260929 (platform checkpoint; blocked on binding contract)
+
+- [x] Confirm native `StageExecutor` source commit `9272f2c` and its trusted
+  resolver, per-generation terminal receipt, process-quiescence and file-mode
+  requirements. No wheel install or production gate change.
+- [x] Make registered downstream dispatch import only the validated WGS or
+  GATK gate. The focused BS10610 synthetic test is RED before the change and
+  GREEN 4/4 afterward for package and standalone imports.
+- [x] Audit existing WGS and GATK request/status history against native
+  old/new generation bindings. Current fixed `.status.json` layouts cannot
+  safely supply distinct durable terminal receipt paths.
+- [ ] Agree a narrow native/platform previous-generation binding contract;
+  then wire both thin gate adapters and complete UE-02 acceptance. Keep unknown
+  evidence fail-closed and retain GATK/WGS business handlers.
+- [ ] Coordinator review and one UE-02 source closeout. No UE-03–06, DAG,
+  backend shared observation, node200, wheel install or production in this task.
+
 ## UE-01-STAGE-EXECUTION-CONTRACT-20260928 (source complete; awaiting review)
 
 - [x] Freeze the approved `cce.stage-execution.v1` request marker and pathless
@@ -12,7 +29,7 @@
   at 1 passed in 0.07s, with both raw logs retained.
 - [x] Review and commit only UE-01 platform files, docs/08 and own handoff.
   No node200 or production change is included.
-- [ ] Coordinator review and UE-02 release gate; no UE-02 implementation here.
+- [x] Coordinator reviewed UE-01 and released UE-02 source development.
 
 ## GATK-PROD-COMPAT-20260928 (complete; no patch)
 
