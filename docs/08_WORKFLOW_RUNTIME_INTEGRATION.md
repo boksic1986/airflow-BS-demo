@@ -1,14 +1,14 @@
 # Workflow runtime integration
 
-## GATK terminal Master TTL and downstream stages (2026-09-29 candidate)
+## GATK terminal Master TTL and downstream stages (2026-09-29 scoped production repair)
 
 WES/GATK `20260927B` (`GATK_20260929_024231_F246CD`, attempt 1) completed
 Step3; Step4 then reported `Step4 requires a successful Master Job`. The
 frozen Master has a 100-second terminal TTL and was absent at inspection.
 An earlier run-scoped reader found the original UID's successful native
 `RUN_COMPLETE.json` on SFS; the deletion event itself was not observed.
-The local mirror still lacks the terminal record, so Airflow Step3 success or
-Job absence alone must not authorize publish.
+Before the repair, the local mirror lacked the terminal record. Airflow Step3
+success or Job absence alone cannot authorize publish.
 
 For an unregistered legacy GATK run, Step4/5 may use a restricted fallback
 only after the gate recomputes the canonical request hash and checks the exact
@@ -22,8 +22,25 @@ precedence; active/invalid writer policy, query uncertainty or contradictory
 evidence never falls back. No Master replacement, analysis rerun, TTL change
 or new API/schema is introduced. BS10610 passed 45 synthetic tests for the
 original gate candidate and 21 TTL-specific tests after current-main
-integration. The real native terminal acceptance and production rollout are
-pending.
+integration. A subsequent complete-response bytes regression was 2 RED and
+then 5 GREEN (17 deselected) after the parsing fix.
+
+Production node200 `t640` now runs only the private gate/helper update: its
+old private gate received the focused patch from `4870e2b` + `eb1b8aa`,
+while the helper matches current-main candidate `5945f26` + `22e5535`.
+BS96 backend and worker containers/mounts did not
+change. On the original attempt-1 DagRun, the Airflow 2.9.3 API dry-run
+selected 10 Step4-and-downstream task instances and the exact clear returned
+HTTP 200, excluding Step1–3. The constrained reader verified the original
+Master UID `faecf4ae-562d-42f9-a449-18bf50b90c9c`: native `RUN_COMPLETE`
+is `SUCCEEDED`, `preflight`/`analysis`/`final_dryrun` exits are 0,
+`START_CONFIRMED` has the same UID, `workflow-completion` is present, and
+`RUN_FAILED` is absent. Its temporary Job/Pod were gone after the read.
+Step4 generation 2 and `wait_step4_publish` succeeded; Step5 awaited the
+result transfer slot and Step6 had not started at this checkpoint. This older run has no
+`publish_deadline`, and the generic GATK resume capability is disabled in
+production; its recovery used only the exact original DagRun task clear.
+See the [release evidence](releases/2026-09-29-gatk-ttl-downstream-bs96.md).
 
 ## WGS PREPARE recovery projection (2026-09-28 candidate)
 

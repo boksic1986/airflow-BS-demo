@@ -1,5 +1,81 @@
 # Handoff
 
+## 2026-09-29 — GATK TTL downstream node release and original-run Step4 recovery
+
+### Goal and completed scope
+
+Restore WES/GATK `20260927B`, analysis `GATK_20260929_024231_F246CD`
+attempt 1, after its successful Master Job disappeared before Step4. Source
+is the current-main candidate `5945f26` + `22e5535`; the prior node200 gate
+candidate was `4870e2b` + `eb1b8aa`. This release changed only the node200
+private GATK gate and adjacent helper. No Master/Worker, workflow, TTL, DAG,
+API, DB, backend/worker container or mount changed; no service restarted.
+
+BS10610 `server10610` test evidence: the old gate's two synthetic files
+passed 45 cases; the main-integrated TTL subset passed 21. The latest
+complete-kubectl-response bytes case produced 2 expected RED failures before
+the fix and 5 GREEN cases (17 deselected) afterward. These are test results
+reported by the release coordinator, not commands rerun by this docs agent.
+
+### Production identity and bounded continuation
+
+`ssh BS96` targets `server96`, control root `/data/airflow-WGS`; the private
+node200 host is `t640` under `ctapa`. The actual server96 control was
+`/data/airflow-WGS/downstream-stage-20260929-control/compose.json` with
+backend `7ac6a8e6b412` and observer `80f6d137f9ef`; those services and
+their mounts were retained. This note does not treat the stale `current`
+symlink or an older 2026-09-28 overlay as the effective deployment.
+No new server96 release path or service switch was made. The node gate is
+`/home/ctapa/.config/airflow-gatk/gatk_runtime_gate.py`; its prior SHA-256
+began `b3230de8` and its exact backup is
+`/home/ctapa/.config/airflow-gatk/gatk_runtime_gate.py.pre-ttl-downstream-20260929`
+(mode 0700). The installed gate SHA-256 is
+`cb0903e262b3b80a2b56f43a883906bf95ce0ca4e4c9b463ef63d261a81edd9c`;
+the adjacent `gatk_ttl_downstream.py` SHA-256 is
+`cfe0a5266342ca5275f46aa62cd9a33a73aea294687f8eef625780a7f51f96a4`.
+Both installed files are mode 0700. No directory permission or container
+mount change was reported. Scanner and auto-dispatch settings were not touched;
+their last documented 2026-09-28 state was enabled/disabled respectively,
+not a fresh observation by this docs agent.
+
+The original Master UID is `faecf4ae-562d-42f9-a449-18bf50b90c9c`.
+Its frozen manifest has terminal TTL 100 seconds, and the exact Job and Pod
+were absent; the actual deletion event was not observed. Both run-label
+Job/Pod inventories were empty and the batch lock still belonged to this run.
+The old run lacks `publish_deadline` and generic GATK resume capability remains
+disabled in production. Airflow 2.9.3 API dry-run on the exact original
+DagRun selected 10 Step4-and-downstream task instances; the exact clear
+returned HTTP 200 and excluded Step1–3. It did not create a new analysis,
+attempt or Master.
+
+The constrained read-only reader accepted native `RUN_COMPLETE` state
+`SUCCEEDED` for the original UID, three exit codes 0, matching
+`START_CONFIRMED`, present `workflow-completion`, and absent `RUN_FAILED`.
+The reader's temporary Job/Pod were absent after use. Step4 generation 2
+succeeded at 2026-09-29T14:39:35Z with receipt hash
+`c72a693c827bc66a51eb01998acd2cb3e69148b65d71dca08c712482fd4ea5a3`;
+`wait_step4_publish` also succeeded. At this checkpoint Step5 awaited the
+result transfer slot; Step6 had not started. No final delivery or whole-batch
+success is claimed.
+
+### Docs verification, limits and rollback
+
+Updated `CURRENT_STATE.md`, `TASKS.md`, `HANDOFF.md`,
+`docs/08_WORKFLOW_RUNTIME_INTEGRATION.md` and
+`docs/releases/2026-09-29-gatk-ttl-downstream-bs96.md`.
+`git diff --check`, release-note links, task ID and receipt references passed
+the documentation check. No runtime suite was repeated for documentation
+alone; the BS10610 tests and production runtime checks are recorded above.
+
+Next, inspect exact original DagRun Step5, Step6, final receipt and delivered
+artifacts before closing `GATK-TTL-DOWNSTREAM-20260929`. If recovery fails,
+retain the original UID/binding and collect stage-specific evidence; do not
+rerun Step1–3 or use generic resume. Rollback requires a fresh active-stage
+check, restores only the backed-up private node gate and removes only this
+new adjacent helper. It does not alter tasks, output, local project data,
+SFS, OBS or cloud workloads. The private backup is the available gate
+recovery copy; no wider data snapshot is asserted.
+
 ## 2026-09-29 — GATK terminal-Master Step4/5 code checkpoint
 
 Goal: repair only WES/GATK `20260927B` Publish results after its successful

@@ -1,6 +1,6 @@
 # Active test-branch tasks
 
-## GATK-TTL-DOWNSTREAM-20260929 — candidate validated, production pending
+## GATK-TTL-DOWNSTREAM-20260929 — Step4 recovered; Step5/6 pending
 
 Owner: workflow/runtime + QA. Scope: GATK Step4/5 only after the original
 successful Master Job disappears; preserve frozen attempt and existing stage
@@ -11,10 +11,19 @@ functions. No DAG/API/DB/TTL, Master/Worker or analysis change.
 - [x] Add bounded gate helper and focused RED/GREEN tests; BS10610 isolated
   container result: 45 passed, no biological submission.
 - [x] Integrate into a current-main candidate while preserving paired stage
-  precedence; 21 TTL-specific BS10610 tests passed.
-- [ ] Record production active-run/mount/path/rollback preflight and obtain
-  exact rollout approval.
-- [ ] If released, resume only the same attempt's Step4 and verify Step4–6.
+  precedence; 21 TTL-specific BS10610 tests passed. Complete-response bytes
+  regression was 2 RED before `22e5535`, then 5 GREEN (17 deselected).
+- [x] Record the scoped production preflight and rollback: node200 `t640`,
+  private gate/helper only, both mode 0700, original gate backed up; BS96
+  backend/worker containers and mounts unchanged, no service restart.
+- [x] Use the original attempt-1 DagRun, dry-run and clear exactly 10 Step4+
+  downstream tasks (HTTP 200), with Step1–3 excluded. Verify Step4 generation
+  2 receipt and successful `wait_step4_publish`.
+- [ ] Observe Step5, Step6 and final delivery/whole-run terminal status before
+  closing this task. At this checkpoint Step5 awaits the result transfer slot
+  and Step6 has not started; do not
+  infer completion from Step4. General GATK resume remains disabled, and this
+  historical run has no `publish_deadline`.
 
 The helper may delete only its own verified-UID temporary reader. It must not
 delete original analysis resources, SFS, OBS, local data or evidence. Unknown

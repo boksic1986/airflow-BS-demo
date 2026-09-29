@@ -1,23 +1,33 @@
 # Current state
 
-## 2026-09-29 WES/GATK 20260927B Step4 terminal-Master repair candidate
+## 2026-09-29 WES/GATK 20260927B Step4 restored; Step5/6 pending
 
 `GATK_20260929_024231_F246CD` attempt 1 completed Step3, then Step4 failed
 because its frozen runtime required a live successful Master Job. The exact
-Master manifest has `ttlSecondsAfterFinished: 100`; Job and Pod were absent.
-An earlier read-only reader found native SFS `RUN_COMPLETE.json` for the
-original UID. The local mirror still lacks that file, so the real frozen
-validator has not yet accepted success. No analysis rerun is warranted.
+Master manifest has `ttlSecondsAfterFinished: 100`; original Master UID
+`faecf4ae-562d-42f9-a449-18bf50b90c9c` and its Job/Pod were absent at
+inspection. The deletion event itself was not observed. BS10610 evidence is
+45 passed against the old gate, 21 TTL-specific passed after current-main
+integration, and focused 2 RED then 5 GREEN for complete kubectl JSON bytes.
 
-An isolated Step4/5 gate candidate uses the original frozen writer decision,
-request hash, UID-bound handoff, both run-label inventories, a constrained
-read-only reader and the original native success verifier. BS10610 ran the two
-affected synthetic test files against the original node gate: 45 passed.
-After current-main integration, the 21 TTL-specific tests passed, including
-paired-route precedence; seven unrelated old gate tests failed in the partial
-isolation candidate and are recorded in HANDOFF. Production release and
-same-attempt downstream recovery remain pending; BS96 code and run state are
-unchanged.
+Only node200 `t640` received the private GATK gate/helper correction. BS96's
+actual control remained `/data/airflow-WGS/downstream-stage-20260929-control/compose.json`
+with the backend/observer services and mounts left as inspected. The
+installed gate is the old private-gate patch from `4870e2b` + `eb1b8aa`;
+its helper matches current-main candidate `5945f26` + `22e5535`. BS96
+backend/worker containers and mounts were
+unchanged, with no service restart. The exact original Airflow 2.9.3 DagRun
+had 10 Step4-and-downstream task instances selected by dry-run and cleared
+(HTTP 200), excluding Step1–3. Step4 generation 2 succeeded with receipt hash
+`c72a693c827bc66a51eb01998acd2cb3e69148b65d71dca08c712482fd4ea5a3`
+at 2026-09-29T14:39:35Z; `wait_step4_publish` then succeeded. The native
+terminal check bound `RUN_COMPLETE`/`START_CONFIRMED` to the original UID,
+found all three exit codes 0 and workflow completion, and found no `RUN_FAILED`.
+The temporary reader left no Job/Pod. Step5 was waiting for the result transfer
+slot, and Step6 had not started at this checkpoint; neither delivery nor whole-batch completion is
+claimed. This historical run has no `publish_deadline`; general GATK resume
+capability remains disabled in production. See the
+[scoped release record](docs/releases/2026-09-29-gatk-ttl-downstream-bs96.md).
 
 ## 2026-09-28 BS96 WGS Tracker and GATK wait display release
 
