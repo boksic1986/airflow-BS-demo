@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
@@ -93,6 +94,12 @@ def test_registration_marker_follows_exact_frozen_request(tmp_path: Path) -> Non
     row.request_hash = _canonical_hash(body)
     path.write_text(json.dumps({**body, "request_hash": row.request_hash}))
     assert "stage_execution" not in _registration_payload(row, settings)
+
+    body["stage_execution"] = {"protocol": "cce.stage-execution.v0"}
+    row.request_hash = _canonical_hash(body)
+    path.write_text(json.dumps({**body, "request_hash": row.request_hash}))
+    with pytest.raises(ValueError, match="unsupported frozen"):
+        _registration_payload(row, settings)
 
 
 def test_failed_stage_projects_terminal_run_state(tmp_path: Path) -> None:
