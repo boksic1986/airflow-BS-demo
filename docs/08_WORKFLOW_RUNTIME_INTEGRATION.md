@@ -1,5 +1,41 @@
 # Workflow runtime integration
 
+## GATK terminal Master TTL and downstream stages (2026-09-29, pending)
+
+Production WES/GATK `20260927B` (`GATK_20260929_024231_F246CD`, attempt 1)
+finished Step3, then Step4 reported `Step4 requires a successful Master Job`.
+The frozen Master manifest has `ttlSecondsAfterFinished: 100`; the exact Job
+and Pod were absent at inspection. A run-scoped read-only reader found native
+`RUN_COMPLETE.json` with `SUCCEEDED`, zero preflight/analysis/final-dry-run exits
+and the original Master UID. This is consistent with TTL collection after
+successful analysis; the deletion event itself was not observed. Neither a
+missing Job nor a successful Airflow Step3 projection alone authorizes publish.
+
+The bounded source change routes only GATK Step4 publish and Step5 download
+through the existing restricted gate when their original frozen Master Job is
+absent. The ordinary frozen stage path remains in use while the original Job
+is present. For an absent Job, the gate must validate the immutable request,
+attempt/generation/request hash, frozen bundle and handoff, exact Master UID,
+batch-lock owner and absence of active same-run workloads under both existing
+run labels. It may use the existing reader with only a read-only SFS mount and
+temporary scratch volume to refresh native evidence; reader creation is tied
+to the same request identity, and its exact UID is used for cleanup. The
+frozen runtime's
+UID-bound terminal verifier must then prove START_CONFIRMED/RUN_COMPLETE,
+successful native exits and hash-checked mirror/workflow completion before the
+existing frozen Step4/Step5 functions run. An API query error, identity drift,
+incomplete evidence or real Master failure fails closed. No replacement Master,
+analysis rerun, frozen-bundle edit, TTL change, new API/schema or broader retry
+policy is part of this fix.
+
+The gate also recomputes the request body's canonical SHA-256 and defers to the
+frozen CLI's original writer activation decision; an active paired writer is
+not bypassed. BS10610's two affected test files passed 45 synthetic cases.
+The original local mirror still lacks `RUN_COMPLETE.json`, so the real frozen
+terminal validator cannot pass until the SFS reader has refreshed the mirror.
+Exact production commit/release approval and any same-attempt `resume-stage`
+remain pending. The incident run has not been advanced by this entry.
+
 ## WGS analysis preparation diagnostics and recovery (2026-09-18)
 
 The private runner retains native analysis preparation stdout/stderr under the

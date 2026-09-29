@@ -639,6 +639,35 @@ def test_step4_does_not_retry_an_unrelated_failure(monkeypatch) -> None:
         )
 
 
+def test_step4_and_step5_commands_use_uid_fenced_downstream_helper(tmp_path: Path) -> None:
+    gate = load_gate()
+    analysis_id = "GATK_20260908_120000_A1B2C3"
+    bundle = tmp_path / "run" / "cce"
+    bundle.mkdir(parents=True)
+    for script in (
+        "Step3_status.sh",
+        "Step4_publish_results.sh",
+        "Step5_download_verify.sh",
+    ):
+        (bundle / script).write_text("#!/bin/sh\n", encoding="utf-8")
+    payload = {
+        "analysis_id": analysis_id,
+        "attempt": 1,
+        "generation": 2,
+        "request_hash": "a" * 64,
+        "runtime_workdir": str(bundle.parent),
+    }
+
+    for stage in ("step4_publish", "step5_download"):
+        command = gate._step(payload, stage)
+        assert Path(command[1]).name == "gatk_ttl_downstream.py"
+        assert command[-5:] == [analysis_id, "1", stage, "2", "a" * 64]
+
+    assert gate._step(payload, "step3_monitor") == [
+        "bash", str(bundle / "Step3_status.sh")
+    ]
+
+
 def test_step6_materializes_to_approved_gatk_result_root(
     tmp_path: Path, monkeypatch
 ) -> None:

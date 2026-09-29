@@ -1,5 +1,25 @@
 # CURRENT_STATE.md
 
+## 2026-09-29 GATK 20260927B Step4 blocked after Master disappearance
+
+Production `GATK_20260929_024231_F246CD` attempt 1 completed Step3, but
+`wait_step4_publish` failed because frozen Step4 required a live successful
+Master Job. Its manifest sets `ttlSecondsAfterFinished: 100`; exact Job/Pod
+were absent. A read-only run-scoped reader verified native `RUN_COMPLETE.json`
+as successful and bound to the original UID. TTL collection is the likely
+sequence, not a proven deletion event. Step5/6 remain unstarted. No analysis
+rerun or direct task-state/database modification is justified by this finding.
+
+An isolated source branch now contains a restricted-gate Step4/5 fallback to
+the frozen runtime's UID-bound terminal evidence when the original Job is gone.
+BS10610 ran the two affected test files once: 45 passed in an isolated,
+network-disabled container. The test uses synthetic Kubernetes responses; the
+actual frozen verifier still rejects the current local mirror because it lacks
+`RUN_COMPLETE.json`. Source integration, an exact BS96 release approval,
+and same-attempt Step4/5 recovery are pending. Production code and this run
+remain unchanged at this checkpoint. See TASKS.md and
+docs/08_WORKFLOW_RUNTIME_INTEGRATION.md.
+
 ## 2026-09-18 same-batch / Step2 fixes deployed to BS96
 
 User explicitly authorized main/production promotion and BS96 publication.

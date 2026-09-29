@@ -1,5 +1,86 @@
 # HANDOFF.md
 
+## 2026-09-29 GATK terminal-Master Step4/5 repair — BS10610 code checkpoint
+
+Goal: restore only WES/GATK `20260927B` publish/download after original
+Master TTL removal, without rerunning analysis or bypassing the frozen native
+success verifier. The isolated branch adds `scripts/gatk_ttl_downstream.py`,
+routes only Step4/5 through it in `scripts/gatk_runtime_gate.py`, and adds
+focused tests in the two matching `scripts/tests/` files. The helper checks
+the canonical request hash, exact handoff/UID and legacy writer activation,
+both run-label inventories, batch-lock owner and SFS terminal evidence. Its
+temporary reader has a read-only SFS mount, no OBS mount or service-account
+token, a deterministic same-request name, and verified-UID cleanup.
+
+Commands/results: BS10610 `server10610` isolated candidate
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/gatk-ttl-downstream-20260929`
+used existing backend image `8491604ee01d`, `--network none`, read-only source
+mount; `python -m pytest -q -p no:cacheprovider
+scripts/tests/test_gatk_runtime_gate.py scripts/tests/test_gatk_ttl_downstream.py`
+returned **45 passed in 0.68s**. The earlier focused RED reproduced five
+safety gaps; a separate request-body-hash RED reproduced one more before the
+fix. Local static `git diff --check` and Python compile checks passed. No
+biological analysis was submitted or test/production service restarted.
+
+Real frozen module read-only probe on node200 `t640` used its configured
+`nipttest` Python: `writer_for_bundle(...) is None` and handoff/binding fields
+match. `_recovery_native_success` currently rejects because the local mirror
+does not yet contain `RUN_COMPLETE.json`; a prior short-lived reader found the
+original UID's successful terminal in SFS. This is expected but does not
+constitute native acceptance. The next production action must first refresh
+through the constrained reader and then pass the original verifier. No BS96
+code, DB, task state, frozen bundle or cloud resource has been changed.
+
+Remaining: integrate the exact code onto current main without overriding its
+`cce_paired_runtime.stage_command` early-return; review pinned commit, active
+tasks, actual mounts, exact node200 gate/rollback paths and service restart
+list. Obtain production approval per `docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md`
+before release; then only same-attempt Step4 resume and Step5/6 downstream
+verification. Rollback restores prior node gate and removes only the new
+helper; preserve all run data, original workloads and evidence. No full-suite
+test, production deployment or WES recovery has occurred at this checkpoint.
+
+## 2026-09-29 GATK terminal-Master Step4/5 repair — documentation checkpoint
+
+Goal: repair WES/GATK `20260927B` publish failure without rerunning its
+successful analysis. User requested the fix. Source is isolated on
+`jiucheng/fix/gatk-ttl-downstream-20260929`, based on `9b381eb`; only the
+documentation contract is recorded here. Application implementation and tests
+are in progress and must not be treated as accepted or released yet.
+
+Prior read-only incident evidence: production BS96 is `server96`; the execution
+node200 is `t640`. Analysis `GATK_20260929_024231_F246CD` attempt 1 had
+Step3 success, then `wait_step4_publish` failed with `Step4 requires a
+successful Master Job`; downstream Step5/6 did not run. Frozen Master
+`cce-master-f0db57be1ca1a60a6628` UID
+`faecf4ae-562d-42f9-a449-18bf50b90c9c` has a 100-second terminal TTL
+and was absent with its Pod at inspection. An existing run-scoped read-only
+reader found UID-matched native `RUN_COMPLETE.json` state `SUCCEEDED` and zero
+preflight/analysis/final-dry-run exits. That reader Job was normally removed;
+no biological analysis was submitted. The deletion event was not observed.
+
+Changed in this documentation checkpoint: `docs/08_WORKFLOW_RUNTIME_INTEGRATION.md`,
+`CURRENT_STATE.md`, `TASKS.md`, and `HANDOFF.md`. Commands: read AGENTS,
+environment boundary, project/ownership docs, relevant runtime docs and recent
+handoff; inspect Git status and incident-related source references; check
+documentation paths, task identity and acceptance scope. No runtime test was
+run by the docs owner because code is not complete; BS10610 isolated targeted
+tests are required before a success claim. No remote command, service change,
+database write, stage resume, deletion or production rollout was made by this
+documentation checkpoint.
+
+Next: finish the restricted-gate Step4/5 source and focused BS10610 tests. The
+fallback must require immutable request/bundle identity, original Master UID,
+native completion and hash-checked evidence, exact batch-lock ownership and
+inactive same-run workloads; API uncertainty fails closed. Before production,
+record exact commit, actual BS96 container mounts and current/rollback release,
+execution gate, active-run check and service restart list, then obtain separate
+rollout approval. Do not infer the active version from `current`. Recover only
+the exact attempt via the existing action after the deployed helper is verified.
+Rollback restores the prior gate/source; it must not alter frozen bundle,
+analysis outputs, OBS/SFS, pending or historical records. No directory ACL or
+mount change is in scope; production permission/mount checks remain pending.
+
 ## 2026-09-18 same-batch / Step2 production publication authorized
 
 User explicitly requested merging main and production and deploying BS96.

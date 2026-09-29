@@ -1,5 +1,34 @@
 # TASKS.md
 
+## GATK-TTL-DOWNSTREAM-20260929
+
+Owner: workflow/runtime + QA; production release requires separate approval.
+Status: in progress (source candidate; no BS96 rollout or run recovery yet).
+Scope: Step4 publish and Step5 download only for the original successful
+GATK Master after its terminal Job has disappeared. Preserve the frozen bundle,
+attempt, UID, request/generation fences and existing stage functions.
+
+- [x] Identify exact WES/GATK run and Step4 failure; verify UID-bound native
+  success with a short-lived read-only reader. TTL deletion is plausible, not
+  independently proven by a controller event.
+- [x] Add targeted RED/GREEN tests and bounded restricted-gate Step4/5 routing.
+- [x] BS10610 isolated test of missing/live Job, evidence and identity fences;
+  do not submit a biological run.
+- [ ] Review and integrate the exact source commit without replacing unrelated
+  node200 gate behavior.
+- [ ] Obtain exact production rollout approval; check active tasks, mounts,
+  service pins and rollback release before changing BS96/node200.
+- [ ] If safely deployed, use the existing same-attempt `resume-stage` action
+  for Step4, then confirm Step4-6 receipts and downloaded result evidence.
+
+Out of scope: Step1-3, new Master/Worker submission, frozen-bundle edits, TTL
+configuration, GATK/WGS DAG or API redesign, direct database writes, cleanup of
+the original analysis Job/Pod or unrelated batches. The temporary read-only
+reader Job is deleted with its verified UID after evidence capture. On uncertain
+Kubernetes state or UID mismatch, stop without retrying publish or analysis.
+Rollback: restore the prior node gate/source release; preserve run records,
+frozen inputs, evidence, OBS/SFS and result data.
+
 ## SAMPLEINFO-SAME-BATCH-20260918
 
 - [x] User approved same-batch import only when the target analysis directory is absent.
