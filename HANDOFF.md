@@ -63,6 +63,11 @@ global ownership. WGS/GATK callback and cleanup producers read the existing
 stage-status/native observe paths. Worker probe follow-ups contain only their
 nonce-bound Worker proof. No new route, table or recovery engine was added.
 
+Source checkpoint commit: `8617dfa26b53d8371567fd1000a6a598ab87deff`
+(`UE05 bind native recovery and cleanup evidence (source only)`). Commit touched
+only the 22 paths below. After commit, Git reported no tracked changes and only
+the preserved untracked `.codex-artifacts/`. Nothing was pushed or merged.
+
 Changed files are the 19 paths listed in
 `.codex-artifacts/ue05-continue/source-delta-files.txt`, plus
 `CURRENT_STATE.md`, `TASKS.md`, `HANDOFF.md`: eight backend app modules,

@@ -8,7 +8,8 @@
   source baseline. Read-only scope checks caused no source rollback.
 - [x] Complete the retained R2 action/DagRun/frozen/native proof and R4
   six-stage callback/cleanup source checkpoint, document exact changed files
-  and validation limits. Source/static completion is not runtime acceptance.
+  and validation limits. Source checkpoint is `8617dfa`; source/static
+  completion is not runtime acceptance.
 - [ ] Coordinator's single scoped source audit of this checkpoint.
 - [x] Record backend RED separately from Airflow interpreter environment
   errors. A later gateway reset prevents GREEN and final import.

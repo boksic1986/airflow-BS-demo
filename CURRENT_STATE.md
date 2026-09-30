@@ -8,7 +8,8 @@ current task remains UE-05. The UE-04 instruction was historical context
 misread after compaction. UE-04 `a6c31d1`/`7976f25` remains the accepted source
 prerequisite. Continue the existing R2/R4 drafts on
 `jiucheng/airflow/UE05-native-recovery-consumers`, worktree `gatk-prod-compat`,
-HEAD `06bf30a`; no source was reverted during the read-only task check.
+starting HEAD `06bf30a`; no source was reverted during the read-only task check.
+The source-only review checkpoint is now committed as `8617dfa`.
 
 Current deliverable is the exact action/DagRun/frozen-Step3/native-terminal
 binding, shared six-stage failure/cleanup fences, existing authenticated
