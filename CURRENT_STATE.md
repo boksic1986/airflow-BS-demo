@@ -1,8 +1,9 @@
 # Current state
 
-## 2026-09-30 UE-05 corrections have bounded GREEN; coordinator closeout pending
+## 2026-09-30 UE-05 AF source delivery accepted; final pairing pending
 
 Both Important findings from the single review of `8617dfa` are corrected.
+Correction source commit: `03bab6c768a2c84537ee4e4a6189072256841b63`.
 Manual Step1/2 metadata retains the recovery entry, while compute settlement
 binds the action-authorized actual Step3 execution and frozen/native terminal.
 The initial source-monitor permit persists on its exact reservation/caller;
@@ -21,9 +22,15 @@ R4 repair. Raw inputs/logs/JUnit and matching SHA256 are retained in
 `.codex-artifacts/ue05-review/`; details are in the latest HANDOFF.
 
 This is source plus isolated synthetic evidence, not installed or production
-behavior. Coordinator correction/evidence closeout remains pending. Accepted
-UE01-04/F7/final-release evidence was reused; UE06, merge and deployment remain
-closed. Entries below are historical checkpoints, including earlier SSH failures.
+behavior. The coordinator accepted the AF source delivery and closed both
+Important findings after checking fourteen unique passing cases, two DAG file
+imports, eighteen evidence-manifest entries and eleven tested inputs against
+`03bab6c`. No additional AF review, test or source work is requested.
+Overall UE05 final pairing still awaits the native owner's single narrow static
+confirmation of this final AF commit; the coordinator owns that follow-up.
+Accepted UE01-04/F7/final-release evidence was reused. UE06, merge and deployment
+remain closed. Entries below are historical checkpoints, including earlier SSH
+failures and pending-acceptance states.
 
 ## 2026-09-30 UE-05 source checkpoint ready; acceptance pending
 

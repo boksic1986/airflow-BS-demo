@@ -1,6 +1,20 @@
 # Handoff
 
-## 2026-09-30 UE-05 two corrections and bounded GREEN ready for closeout
+## 2026-09-30 UE-05 AF source delivery accepted; final pairing pending
+
+**Coordinator decision.** The coordinator separately accepted source delivery
+`03bab6c768a2c84537ee4e4a6189072256841b63`, closed both Important findings and
+confirmed current AF R2/R4/shared-SSH source and its bounded isolated validation.
+It checked fourteen unique passing behavior cases, two DagBag file imports,
+eighteen evidence-manifest entries and eleven tested inputs against that commit.
+The first R4 audit-counting fixture failure is preserved separately; rerunning
+only the repaired node was accepted. No further AF source work, review or test
+is requested. This final update changes only CURRENT_STATE/TASKS/HANDOFF.
+
+Overall UE05 final pairing awaits the native owner's one narrow static check of
+the final AF commit. The coordinator has sent that request and owns closeout;
+the AF owner need not wait or add tests/frameworks. W423-01 is unrelated.
+UE06, production, merge and deployment remain unauthorized.
 
 **Task and authority.** The user requested another message to `airflow-cloud-demo`.
 The coordinator explicitly reconfirmed UE05, the same worktree/branch and these
@@ -9,7 +23,10 @@ Do not repeat old RED or accepted UE01-04/F7/final-release tests. No second full
 review, UE06, production, merge or deployment is authorized. Checkout remains
 `C:/Users/11217/.codex/worktrees/gatk-prod-compat/airflow-demo`, branch
 `jiucheng/airflow/UE05-native-recovery-consumers`; reviewed source `8617dfa`,
-state baseline `a9a326d`. No rollback of accepted UE04 was performed.
+state baseline `a9a326d`. Correction commit is
+`03bab6c768a2c84537ee4e4a6189072256841b63` (nine scoped paths).
+After that commit, tracked Git state was clean and only `.codex-artifacts/`
+was untracked. No rollback of accepted UE04 was performed.
 
 **Corrections.** `bound_compute_terminal` preserves manual Step1/2 entry metadata
 and resolves the actual same-action Step3 row, predecessor lineage, current/latest
@@ -113,13 +130,14 @@ and poll `dd67aa1f4ab4e0cd71c14cc739841fe7adc37fc83a83077f44b926dc3949ef73`.
 
 **Files and next step.** Exact correction paths: backend app budget/poll,
 backend tests recovery poll/cleanup fence, docs05/08, CURRENT_STATE/TASKS/HANDOFF.
-`git diff --check` passed. Commit this precise correction delta, send its identity
-and raw evidence to the coordinator for the agreed two-finding/evidence closeout.
+`git diff --check` passed. The precise correction commit and raw evidence were
+sent to the coordinator for the agreed two-finding/evidence closeout.
 No broad second review is needed. Manual Step1 and GATK Step1/2 entries were not
 added as runtime matrix cases; the chosen real WGS Step2 path proves the changed
 shared consumer boundary. Native internals and installed/production behavior are
 not covered. Rollback: leave isolated commits unmerged; deployed state/data are
-unchanged. UE05 acceptance is pending coordinator decision; UE06 remains gated.
+unchanged. AF source delivery is accepted; only overall UE05 final native/AF
+pairing remains with the coordinator. UE06 remains gated.
 
 ## 2026-09-30 UE-05 reviewed corrections authorized
 

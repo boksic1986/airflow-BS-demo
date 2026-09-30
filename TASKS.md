@@ -14,8 +14,12 @@
   existing RED as coordinator instructed; do not repeat accepted scopes.
 - [x] Preserve input/log/JUnit hashes and record fourteen unique passing behavior
   cases plus two DAG file imports, including the R4 fixture repair/failure log.
-- [ ] Submit the precise correction commit for coordinator correction/evidence
-  closeout. UE-05 acceptance, UE-06, merge and deployment remain closed.
+- [x] Submit correction commit `03bab6c` and raw evidence to the coordinator.
+- [x] Coordinator accepted AF source `03bab6c` and closed the two Important
+  findings after correction/evidence closeout; no repeated test/review required.
+- [ ] Overall UE05 final pairing: coordinator awaits native owner's one narrow
+  static confirmation of the final AF commit. AF source delivery is complete;
+  this is not another AF test/source task. UE06, merge and deployment stay closed.
 
 ## UE-05-CURRENT-SOURCE-CHECKPOINT-20260930
 
