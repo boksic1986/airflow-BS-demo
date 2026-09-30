@@ -361,6 +361,7 @@ def test_unknown_stage_cannot_fail_or_release(store, tmp_path):
     from datetime import datetime, timedelta, timezone
     from app.cce_recovery_service import reserve_monitored_recovery
     from app.cce_recovery_poll import poll_compute_recovery
+    recovery_actions = select(RunAction).where(RunAction.action == 'cce_compute_recovery')
     now = datetime(2026, 9, 30, tzinfo=timezone.utc)
     deadline = (now + timedelta(hours=1)).isoformat()
     with store() as session:
@@ -387,7 +388,7 @@ def test_unknown_stage_cannot_fail_or_release(store, tmp_path):
             pipeline='wgs', dag_run_id='replacement', resume_action_id=None, now=now,
             native_stage_observation=snapshots['step3_monitor'])
         assert result['status'] == 'needs_attention'
-        assert not session.scalars(select(RunAction)).all()
+        assert not session.scalars(recovery_actions).all()
         assert session.scalar(select(AnalysisRun)).params_json['cce_recovery_budget']['count'] == 0
     # A stale UI reconnect phase cannot overrule an exact current native terminal.
     with store.begin() as session:
@@ -401,7 +402,7 @@ def test_unknown_stage_cannot_fail_or_release(store, tmp_path):
             pipeline='wgs', dag_run_id='replacement', resume_action_id=None, now=now,
             native_stage_observation=snapshots['step3_monitor'])
         assert result['status'] == 'needs_attention'
-        assert not session.scalars(select(RunAction)).all()
+        assert not session.scalars(recovery_actions).all()
     with store.begin() as session:
         session.scalar(select(WgsStageExecution).where(
             WgsStageExecution.stage_code == 'step3_monitor')).status = 'canceled'
@@ -412,10 +413,13 @@ def test_unknown_stage_cannot_fail_or_release(store, tmp_path):
             pipeline='wgs', dag_run_id='replacement', resume_action_id=None, now=now,
             native_stage_observation=canceled)
         assert result['status'] == 'not_eligible'
-        assert not session.scalars(select(RunAction)).all()
+        assert not session.scalars(recovery_actions).all()
     with store.begin() as session:
-        session.scalar(select(WgsStageExecution).where(
-            WgsStageExecution.stage_code == 'step3_monitor')).status = 'failed'
+        monitor = session.scalar(select(WgsStageExecution).where(
+            WgsStageExecution.stage_code == 'step3_monitor'))
+        monitor.status = 'failed'
+        monitor.terminal_payload_json = dict(monitor.terminal_payload_json,
+                                             cce_recovery_evidence=proof)
     settings.wgs_contract_v2_enabled = True
     with store() as session:
         result = poll_compute_recovery(session=session, settings=settings,
@@ -423,14 +427,53 @@ def test_unknown_stage_cannot_fail_or_release(store, tmp_path):
             pipeline='wgs', dag_run_id='replacement', resume_action_id=None, now=now,
             native_stage_observation=failed)
         assert result['status'] == 'waiting'
-        assert len(session.scalars(select(RunAction)).all()) == 1
+        challenge = result['worker_probe']
+        wait_deadline = result['worker_wait_deadline']
+        assert len(session.scalars(recovery_actions).all()) == 1
         assert session.scalar(select(AnalysisRun)).params_json['cce_recovery_budget']['count'] == 1
     with store.begin() as session:
-        for action in session.scalars(select(RunAction)).all():
+        session.scalar(select(WgsStageExecution).where(
+            WgsStageExecution.stage_code == 'step3_monitor')).generation = 2
+    with store() as session:
+        stale = poll_compute_recovery(session=session, settings=settings,
+            airflow_client=SimpleNamespace(), analysis_id=AID, attempt=1,
+            pipeline='wgs', dag_run_id='replacement', resume_action_id=None,
+            now=now + timedelta(seconds=1),
+            worker_observation=dict(challenge, cce_recovery_evidence=quiet))
+        assert stale['status'] == 'needs_attention'
+        action = session.scalar(recovery_actions)
+        assert action.payload_json['worker_wait']['state'] == 'waiting'
+        assert session.scalar(select(AnalysisRun)).params_json['cce_recovery_budget']['count'] == 1
+    with store.begin() as session:
+        session.scalar(select(WgsStageExecution).where(
+            WgsStageExecution.stage_code == 'step3_monitor')).generation = 1
+    # The real second POST contains the independent Worker nonce proof only.
+    # Native permission belongs to this reservation, not the next HTTP request.
+    with store() as session:
+        followup = poll_compute_recovery(session=session, settings=settings,
+            airflow_client=SimpleNamespace(), analysis_id=AID, attempt=1,
+            pipeline='wgs', dag_run_id='replacement', resume_action_id=None,
+            now=now + timedelta(seconds=1),
+            worker_observation=dict(challenge, cce_recovery_evidence=quiet))
+        assert followup['status'] == 'waiting'  # Original retry_at has not arrived.
+        actions = session.scalars(recovery_actions).all()
+        assert len(actions) == 1
+        wait = actions[0].payload_json['worker_wait']
+        assert wait['state'] == 'ready' and wait['last_nonce'] == challenge['nonce']
+        assert wait['deadline'] == wait_deadline
+        assert actions[0].payload_json['original_deadline'] == deadline
+        assert actions[0].payload_json['source_monitor_terminal_binding']['execution_id'] == challenge['execution_id']
+        assert session.scalar(select(AnalysisRun)).params_json['cce_recovery_budget']['count'] == 1
+    with store.begin() as session:
+        for action in session.scalars(recovery_actions).all():
             session.delete(action)
         run = session.scalar(select(AnalysisRun))
         run.params_json = dict(run.params_json, cce_recovery_budget=dict(
             run.params_json['cce_recovery_budget'], count=0))
+        monitor = session.scalar(select(WgsStageExecution).where(
+            WgsStageExecution.stage_code == 'step3_monitor'))
+        monitor.terminal_payload_json = dict(monitor.terminal_payload_json,
+                                             cce_recovery_evidence=quiet)
     assert main.internal_wgs_observer_deactivate(
         AID, observer_request)['lifecycle_status'] == 'draining'
     released = release(store, 'wgs', 'release_leases', dag_run_id='replacement',

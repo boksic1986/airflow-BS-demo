@@ -8,8 +8,18 @@ wrapper keeps its existing contract. R2 uses a complete current native Step3
 snapshot, the frozen version-correct request and business receipt to bind the
 queued action's compute terminal. Its action/DagRun/attempt/execution identity
 is retained for budget arbitration without removing downstream authorization.
+Manual Resume Step1/2 retains its entry stage in action metadata; the actual
+compute terminal binds the current Step3 registration and frozen/native identity
+authorized by that same action. The entry stage is not rewritten to Step3.
 Fresh polling still requires the latest monitor execution; old durable bindings
 can settle their original historical action but cannot settle a replacement.
+
+The first exact native `failed` terminal for the source monitor persists a permit
+bound to that reservation, monitor and original caller. It allows the same
+caller to reach Worker waiting despite stale UI `query_unconfirmed`. An active
+wait becomes ready only after a later POST with an independently validated nonce
+Worker probe. Worker quiet, the original wait deadline and recovery budget remain
+separate checks. The permit does not settle a replacement monitor.
 
 R4 failure and cleanup consume the same full native snapshot through the existing
 authenticated internal request channel. The backend chooses the protected stage
@@ -18,8 +28,7 @@ missing or stale observations preserve state and ownership. A fresh matching
 failed receipt can project the real failure despite an old UI-only reconnect
 diagnostic. Cleanup retains transfer receipts, lease ownership and Worker quiet
 requirements; a failed monitor process is not proof that Workers stopped, and
-a successful Step2 handoff is not a completed analysis. Worker nonce probes and
-the original recovery budget/deadline remain independent.
+a successful Step2 handoff is not a completed analysis.
 
 ## UE-05 Airflow SSH transport boundary (2026-09-30; source only)
 

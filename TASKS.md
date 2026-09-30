@@ -1,5 +1,22 @@
 # Active test-branch tasks
 
+## UE-05-REVIEW-CORRECTIONS-20260930
+
+- [x] Read the coordinator's single review and trace both findings to current
+  producers and consumers; preserve entry identity and independent Worker proof.
+- [x] Resolve the action-authorized real Step3 frozen registration after a
+  Step1/2 entry; add one Step2-entry scenario to the existing R2 node.
+- [x] Persist the first verified source-monitor permit on the existing
+  reservation, reuse it only for matching current continuation, and complete
+  a real backend Worker follow-up within the existing R4 node.
+- [x] Fresh BS10610 boundary/interpreter preflight following external access
+  recovery, then remaining unique GREEN nodes and two-file DAG import. Reuse
+  existing RED as coordinator instructed; do not repeat accepted scopes.
+- [x] Preserve input/log/JUnit hashes and record fourteen unique passing behavior
+  cases plus two DAG file imports, including the R4 fixture repair/failure log.
+- [ ] Submit the precise correction commit for coordinator correction/evidence
+  closeout. UE-05 acceptance, UE-06, merge and deployment remain closed.
+
 ## UE-05-CURRENT-SOURCE-CHECKPOINT-20260930
 
 - [x] Reconfirm the current task with `airflow-cloud-demo` after the user
@@ -10,7 +27,8 @@
   six-stage callback/cleanup source checkpoint, document exact changed files
   and validation limits. Source checkpoint is `8617dfa`; source/static
   completion is not runtime acceptance.
-- [ ] Coordinator's single scoped source audit of this checkpoint.
+- [x] Coordinator's single scoped source audit of this checkpoint; its two
+  Important findings are addressed in UE-05-REVIEW-CORRECTIONS-20260930 above.
 - [x] Record backend RED separately from Airflow interpreter environment
   errors. A later gateway reset prevents GREEN and final import.
 - [ ] After external SSH recovery evidence, revalidate BS10610 and execute

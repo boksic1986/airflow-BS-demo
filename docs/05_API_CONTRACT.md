@@ -16,11 +16,23 @@ projection, compute replacement or cleanup. A matching failed terminal remains
 visible even when the older UI reconnect diagnostic is unconfirmed. Airflow
 failure alone cannot replace a native succeeded stage with business failure.
 
-For queued manual/automatic Step3 actions, the backend persists only a minimal
-compute-terminal binding, including its action and DagRun identity; the queued
-action still authorizes its existing downstream scope. Poll and budget arbitration
-share that binding without changing the original deadline or recovery count.
-Current polling cannot reuse an older monitor row's proof for a newer execution.
+Manual Resume actions entering at Step1 or Step2 retain that entry stage in their
+action metadata. Their compute terminal binds the current Step3 registration and
+version-correct frozen/native identity authorized by the same action; automatic
+Step3 actions use that same terminal check. The backend persists a minimal
+compute-terminal binding with action and DagRun identity, while the queued action
+continues to authorize its downstream scope. Poll and budget arbitration share
+the binding without changing the original deadline or recovery count; an older
+monitor row cannot settle a newer execution.
+
+The first verified source-monitor native `failed` terminal is persisted only for
+that reservation, monitor and caller identity. It lets the same caller reach the
+existing Worker wait despite stale UI `query_unconfirmed`. An active wait becomes
+ready only after a later POST with separately validated nonce-bound
+`worker_observation`.
+The permit does not prove Worker quiet or alter the original Worker wait and
+recovery budget deadlines.
+
 Native terminal is not Worker or transfer quiescence: observer drain after failed
 Step3 additionally requires existing complete bound quiet evidence, and transfer
 leases retain their existing receipt/ownership guards. A Step2 Master handoff

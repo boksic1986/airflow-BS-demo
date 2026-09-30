@@ -2,6 +2,7 @@
 from sqlalchemy import select
 from copy import deepcopy
 from datetime import timedelta
+import re
 from uuid import uuid4
 
 from app.models import AnalysisRun, RunAction
@@ -69,9 +70,14 @@ def poll_compute_recovery(*, session, settings, airflow_client, analysis_id, att
         and initial_native[1].request_hash == monitor.request_hash
         and initial_native[1].receipt_hash == monitor.receipt_hash
         and monitor.status in {'failed', 'canceled'})
+    source_terminal = _source_monitor_terminal_permit(
+        run=run, action=action, monitor=monitor, dag_run_id=dag_run_id,
+        resume_action_id=resume_action_id,
+    )
     # The old Step3 reconnect snapshot is UI-only. A fresh exact native terminal
     # can resolve it, while a missing/unknown native observation cannot.
-    if monitor and query_unconfirmed(monitor) and terminal is None and not initial_native_exact:
+    if (monitor and query_unconfirmed(monitor) and terminal is None
+            and not initial_native_exact and not source_terminal):
         session.commit()
         return dict(status='needs_attention' if monitor.status=='failed' else 'not_eligible')
     if (current_action and monitor and monitor.status in {'success', 'failed'}
@@ -80,7 +86,7 @@ def poll_compute_recovery(*, session, settings, airflow_client, analysis_id, att
         return dict(status='needs_attention')
     if current_action and monitor and dag_run_id==run.dag_run_id:
         data = current_action.payload_json
-        if (terminal and monitor.generation==data.get('generation')
+        if (terminal and monitor.generation==terminal['binding']['generation']
                 and monitor.execution_id == terminal['binding']['execution_id']
                 and data.get('dag_run_id')==dag_run_id and current_action.result_status=='queued'):
             # The same action still authorizes downstream after successful
@@ -132,6 +138,20 @@ def poll_compute_recovery(*, session, settings, airflow_client, analysis_id, att
         if 'original_dag_run_id' not in action.payload_json:
             action.payload_json = dict(action.payload_json,original_dag_run_id=dag_run_id,
                 original_resume_action_id=resume_action_id)
+        if initial_native_exact and monitor.status == 'failed':
+            data = action.payload_json
+            action.payload_json = dict(data, source_monitor_terminal_binding=dict(
+                execution_id=monitor.execution_id, generation=monitor.generation,
+                request_hash=monitor.request_hash, receipt_hash=monitor.receipt_hash,
+                registration_sha256=native_stage_observation['execution_ref']['registration_sha256'],
+                state='failed', action_id=data['action_id'],
+                original_dag_run_id=data['original_dag_run_id'],
+                original_resume_action_id=data.get('original_resume_action_id'),
+                source_execution_id=data['source_execution_id'],
+                source_master_uid=data['source_master_uid'],
+                evidence_binding=deepcopy(data['evidence_binding']),
+            ))
+            session.flush()
         wait = _worker_wait(session=session,run=run,action=action,monitor=monitor,
             observation=worker_observation,now=now)
         session.commit()  # Sensor reschedule/process restart sees exactly this action.
@@ -151,6 +171,43 @@ def poll_compute_recovery(*, session, settings, airflow_client, analysis_id, att
                 action.message='Automatic recovery requires manual review'
         session.commit()
         return dict(status='needs_attention')
+
+
+def _source_monitor_terminal_permit(*, run, action, monitor, dag_run_id,
+                                    resume_action_id):
+    """Reuse only the native permission already sealed on this reservation.
+
+    Worker nonce validation remains in _worker_wait. This permit cannot settle
+    computation or authorize a replacement monitor; it only lets the same
+    source reservation continue through the obsolete UI observation fence.
+    """
+    if (action is None or monitor is None or run.status in STOPPED
+            or run.current_stage != 'step3_monitor' or monitor.status != 'failed'
+            or action.result_status not in {'reserved', 'uncertain'}
+            or dag_run_id != run.dag_run_id):
+        return False
+    data = action.payload_json or {}
+    evidence = data.get('evidence_binding')
+    saved = data.get('source_monitor_terminal_binding')
+    if (not isinstance(saved, dict) or not isinstance(evidence, dict)
+            or data.get('attempt') != run.attempt or data.get('pipeline') != run.pipeline_name
+            or data.get('workdir') != run.workdir
+            or data.get('original_dag_run_id') != dag_run_id
+            or data.get('original_resume_action_id') != resume_action_id
+            or (run.params_json or {}).get('resume_action_id') != resume_action_id
+            or evidence.get('monitor_execution_id') != monitor.execution_id
+            or evidence.get('monitor_generation') != monitor.generation
+            or evidence.get('monitor_request_hash') != monitor.request_hash):
+        return False
+    expected = dict(execution_id=monitor.execution_id, generation=monitor.generation,
+        request_hash=monitor.request_hash, receipt_hash=monitor.receipt_hash,
+        registration_sha256=saved.get('registration_sha256'), state='failed',
+        action_id=data.get('action_id'), original_dag_run_id=dag_run_id,
+        original_resume_action_id=resume_action_id,
+        source_execution_id=data.get('source_execution_id'),
+        source_master_uid=data.get('source_master_uid'), evidence_binding=evidence)
+    return (saved == expected and isinstance(saved.get('registration_sha256'), str)
+            and re.fullmatch(r'[a-f0-9]{64}', saved['registration_sha256']) is not None)
 
 
 def _worker_wait(*, session, run, action, monitor, observation, now):

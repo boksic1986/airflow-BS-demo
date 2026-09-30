@@ -186,11 +186,57 @@ def test_second_terminal_master_consumes_only_remaining_slot_and_old_history_doe
 def test_manual_terminal_allows_one_budgeted_recovery(automatic):
     from test_cce_manual_monitor_reconnect import interrupted, resume
     fixture, model, aid, first = automatic
-    factory, _, airflow, _, _ = fixture
+    factory, settings, airflow, path, initial_request = fixture
     assert poll(automatic, 10)['status'] == 'waiting'
     assert poll(automatic, 60)['status'] == 'delegated'
     interrupted(automatic)
-    manual = resume(automatic, 'manual-after-observer-loss')
+    step2_entry = aid.startswith('WGS_')
+    if step2_entry:
+        # Register a real Step2 entry followed by Step3 under the same action.
+        from app.models import WgsStageExecution
+        from app.wgs_resume_service import request_resume_stage, register_recovery_stage
+        with factory.begin() as session:
+            run = session.scalar(select(AnalysisRun))
+            auto = session.scalar(select(RunAction).where(
+                RunAction.action == 'cce_compute_recovery'))
+            auto.result_status = 'failed'
+            run.status = 'failed'
+            run.current_stage = 'step2_master'
+            prior_step2 = session.scalar(select(model).where(
+                model.stage_code == 'step2_master', model.generation == 1))
+            prior_step2.status = 'failed'
+            session.add(WgsStageExecution(execution_id='old-step1', analysis_id=aid,
+                attempt=1, stage_code='step1_upload', generation=1, status='success',
+                request_hash='a' * 64, release_id=prior_step2.release_id,
+                receipt_hash='b' * 64))
+        step2_request = deepcopy(initial_request)
+        step2_request.update(stage='step2_master', execution_id='old-step2',
+            generation=1, request_hash='a' * 64)
+        path.with_name('step2_master.json').write_text(json.dumps(step2_request), encoding='utf-8')
+        with factory() as session:
+            manual = request_resume_stage(session=session, settings=settings,
+                airflow_client=airflow, analysis_id=aid, attempt=1,
+                stage='step2_master', idempotency_key='manual-after-step2',
+                requested_by='operator')
+        with factory.begin() as session:
+            run = session.scalar(select(AnalysisRun))
+            action = session.scalar(select(RunAction).where(
+                RunAction.action == 'resume_stage'))
+            source = session.scalar(select(model).where(
+                model.stage_code == 'step2_master',
+                model.generation == manual['generation']))
+            source.status = 'success'
+            source.receipt_hash = 'd' * 64
+            registered = register_recovery_stage(session=session, settings=settings,
+                run=run, stage='step3_monitor', action=action)
+            step3_generation = registered['generation']
+            assert step3_generation != manual['generation']
+            assert action.payload_json['stage'] == 'step2_master'
+            assert action.payload_json['generation'] == manual['generation']
+            assert registered['resume_action_id'] == manual['action_id']
+    else:
+        manual = resume(automatic, 'manual-after-observer-loss')
+        step3_generation = manual['generation']
     assert manual['status'] == 'queued'
     manual_dag = airflow.posts[-1][1]
     with factory.begin() as session:
@@ -198,26 +244,35 @@ def test_manual_terminal_allows_one_budgeted_recovery(automatic):
         prior = session.scalar(select(model).where(model.stage_code == 'step3_monitor',
             model.generation == 1))
         row = session.scalar(select(model).where(model.stage_code == 'step3_monitor',
-            model.generation == manual['generation']))
+            model.generation == step3_generation))
         payload = deepcopy(prior.terminal_payload_json)
         binding = payload['cce_master_binding']
-        binding['platform_execution'].update(stage='step3_monitor',execution_id=row.execution_id,
-            generation=row.generation,request_hash=row.request_hash)
+        if step2_entry:
+            source = session.scalar(select(model).where(model.stage_code == 'step2_master',
+                model.generation == manual['generation']))
+            binding['platform_execution'].update(stage='step2_master',
+                execution_id=source.execution_id, generation=source.generation,
+                request_hash=source.request_hash)
+            source.terminal_payload_json = dict(cce_master_binding=binding)
+        else:
+            source = row
+            binding['platform_execution'].update(stage='step3_monitor',execution_id=row.execution_id,
+                generation=row.generation,request_hash=row.request_hash)
         binding['native'].update(execution_generation=5,job_uid='manual-master',pod_uid='manual-pod')
         proof = payload['cce_recovery_evidence']
         proof['binding'] = binding
         for value in (proof['candidate'],proof['terminal']):
             value.update(generation=5,master_job_uid='manual-master',master_pod_uid='manual-pod')
         proof['terminal']['plugin_failure_sha256'] = digest(proof['candidate'])
-        payload['cce_master_submit_execution_id'] = row.execution_id
+        payload['cce_master_submit_execution_id'] = source.execution_id
         row.status = 'failed'
         row.receipt_hash = 'c' * 64
         row.terminal_payload_json = payload
         run.current_stage = 'step3_monitor'
-    observation = native_terminal(automatic, manual['generation'], 'failed')
+    observation = native_terminal(automatic, step3_generation, 'failed')
     with factory.begin() as session:
         row = session.scalar(select(model).where(model.stage_code == 'step3_monitor',
-            model.generation == manual['generation']))
+            model.generation == step3_generation))
         valid_payload = deepcopy(row.terminal_payload_json)
         row.terminal_payload_json = dict(valid_payload, cce_recovery_evidence=None)
     assert poll(automatic, 70, manual_dag, manual['action_id'],
@@ -227,15 +282,17 @@ def test_manual_terminal_allows_one_budgeted_recovery(automatic):
         assert len(session.scalars(select(RunAction)).all()) == 2
     with factory.begin() as session:
         row = session.scalar(select(model).where(model.stage_code == 'step3_monitor',
-            model.generation == manual['generation']))
+            model.generation == step3_generation))
         row.terminal_payload_json = valid_payload
     assert poll(automatic, 70, manual_dag, manual['action_id'])['status'] == 'needs_attention'
     # A Worker probe payload is not a native Step3 terminal snapshot.
     assert poll(automatic, 70, manual_dag, manual['action_id'],
         worker_observation=observation)['status'] == 'needs_attention'
-    for changed in ('generation', 'evidence', 'unknown'):
+    for changed in ('execution', 'generation', 'evidence', 'unknown'):
         bad = deepcopy(observation)
-        if changed == 'generation':
+        if changed == 'execution':
+            bad['execution_ref']['execution_id'] = 'foreign-step3'
+        elif changed == 'generation':
             bad['execution_ref']['stage_generation'] += 1
         elif changed == 'evidence':
             bad['evidence_ref'] = 'f' * 64
@@ -274,6 +331,7 @@ def test_manual_terminal_allows_one_budgeted_recovery(automatic):
     with factory() as session:
         run = session.scalar(select(AnalysisRun))
         actions = session.scalars(select(RunAction).order_by(RunAction.id)).all()
+        assert compute_finished(actions[1], session=session, run=run)
         assert run.params_json['cce_recovery_budget']['count'] == 2
         assert actions[1].result_status == 'queued'  # The manual action still authorizes later stages.
         assert actions[1].payload_json['compute_terminal']=='failed'

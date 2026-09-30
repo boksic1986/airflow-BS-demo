@@ -1,5 +1,30 @@
 # Current state
 
+## 2026-09-30 UE-05 corrections have bounded GREEN; coordinator closeout pending
+
+Both Important findings from the single review of `8617dfa` are corrected.
+Manual Step1/2 metadata retains the recovery entry, while compute settlement
+binds the action-authorized actual Step3 execution and frozen/native terminal.
+The initial source-monitor permit persists on its exact reservation/caller;
+the independent nonce Worker follow-up can cross the obsolete UI observation
+fence without changing quiet proof, budget or original deadline.
+
+BS10610 fresh boundary checks found `server10610`, Compose project `airflow-wgs`,
+the existing pinned images, and intake/automatic dispatch disabled. The existing
+Airflow Worker identity `50000:0` loads Airflow 2.9.3; no dependency or permission
+change was needed. In isolated network-none/read-only containers, R2's two
+parameterized cases passed, R4's existing node passed after correcting its audit
+record counting, SSH's nine methods and both thin callback methods passed, and
+only `bio_wgs.py`/`bio_gatk.py` imported with no DagBag errors. Fourteen unique
+behavior cases and two file imports passed; R2 was not rerun after fixture-only
+R4 repair. Raw inputs/logs/JUnit and matching SHA256 are retained in
+`.codex-artifacts/ue05-review/`; details are in the latest HANDOFF.
+
+This is source plus isolated synthetic evidence, not installed or production
+behavior. Coordinator correction/evidence closeout remains pending. Accepted
+UE01-04/F7/final-release evidence was reused; UE06, merge and deployment remain
+closed. Entries below are historical checkpoints, including earlier SSH failures.
+
 ## 2026-09-30 UE-05 source checkpoint ready; acceptance pending
 
 The user asked airflow-agent to reconfirm its task with `airflow-cloud-demo`.

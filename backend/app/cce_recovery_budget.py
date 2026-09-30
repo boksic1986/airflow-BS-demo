@@ -41,22 +41,27 @@ def bound_compute_terminal(*, session, run, action, settings=None,
     action continues to authorize its downstream stages.
     """
     data = action.payload_json if action is not None else None
+    entry_stage = data.get('stage') if isinstance(data, dict) else None
     if (action is None or action.action not in {ACTION, 'resume_stage'}
             or action.result_status != 'queued'
             or not isinstance(data, dict) or data.get('attempt') != run.attempt
-            or data.get('stage') != 'step3_monitor' or data.get('dispatch_state') != 'confirmed'
+            or entry_stage not in ('step1_upload', 'step2_master', 'step3_monitor')
+            or (action.action == ACTION and entry_stage != 'step3_monitor')
+            or data.get('dispatch_state') != 'confirmed'
             or type(data.get('generation')) is not int or data['generation'] < 1
             or not isinstance(data.get('action_id'), str) or not data['action_id']
             or not isinstance(data.get('dag_run_id'), str) or not data['dag_run_id']
             or not isinstance(data.get('resume_stages'), list)
+            or entry_stage not in data['resume_stages']
             or 'step3_monitor' not in data['resume_stages']):
         return None
     conf = data.get('conf')
     if (not isinstance(conf, dict) or conf.get('analysis_id') != run.analysis_id
             or conf.get('attempt') != run.attempt or conf.get('pipeline') != run.pipeline_name
             or conf.get('execution_mode') != 'cce' or conf.get('workdir') != run.workdir
-            or conf.get('resume_stage') != 'step3_monitor'
-            or conf.get('resume_action_id') != data['action_id']):
+            or conf.get('resume_stage') != entry_stage
+            or conf.get('resume_action_id') != data['action_id']
+            or conf.get('resume_stages') != data['resume_stages']):
         return None
     params = run.params_json
     if not isinstance(params, dict):
@@ -71,17 +76,54 @@ def bound_compute_terminal(*, session, run, action, settings=None,
     if not isinstance(release, str) or not release:
         return None
     model = WgsStageExecution if run.pipeline_name == 'wgs' else PipelineStageExecution
-    conditions = [model.analysis_id == run.analysis_id, model.attempt == run.attempt,
-                  model.stage_code == 'step3_monitor', model.generation == data['generation']]
+    scope = [model.analysis_id == run.analysis_id, model.attempt == run.attempt]
     if model is PipelineStageExecution:
-        conditions.append(model.pipeline_name == run.pipeline_name)
-    row = session.scalar(select(model).where(*conditions))
+        scope.append(model.pipeline_name == run.pipeline_name)
+    entry = session.scalar(select(model).where(*scope,
+        model.stage_code == entry_stage, model.generation == data['generation']))
+    if (entry is None or entry.release_id != release
+            or not isinstance(entry.request_hash, str)
+            or re.fullmatch(r'[a-f0-9]{64}', entry.request_hash) is None
+            or (entry_stage != 'step3_monitor' and
+                (entry.status != 'success' or not isinstance(entry.receipt_hash, str)
+                 or re.fullmatch(r'[a-f0-9]{64}', entry.receipt_hash) is None))):
+        return None
+    saved = data.get('compute_terminal_binding')
+    if isinstance(saved, dict):
+        generation = saved.get('generation')
+        if type(generation) is not int or generation < 1:
+            return None
+        row = session.scalar(select(model).where(*scope,
+            model.stage_code == 'step3_monitor', model.generation == generation))
+    else:
+        row = session.scalar(select(model).where(*scope,
+            model.stage_code == 'step3_monitor').order_by(model.generation.desc()).limit(1))
     if (row is None or row.status not in {'success', 'failed'} or row.release_id != release
             or not isinstance(row.request_hash, str)
             or re.fullmatch(r'[a-f0-9]{64}', row.request_hash) is None
             or not isinstance(row.receipt_hash, str)
             or re.fullmatch(r'[a-f0-9]{64}', row.receipt_hash) is None):
         return None
+    if entry_stage == 'step3_monitor':
+        if row.execution_id != entry.execution_id:
+            return None
+    else:
+        predecessor = entry
+        if entry_stage == 'step1_upload':
+            predecessor = session.scalar(select(model).where(*scope,
+                model.stage_code == 'step2_master',
+                model.execution_id == row.predecessor_execution_id))
+            if (predecessor is None or predecessor.status != 'success'
+                    or predecessor.release_id != release
+                    or predecessor.predecessor_execution_id != entry.execution_id
+                    or predecessor.predecessor_generation != entry.generation
+                    or predecessor.predecessor_receipt_hash != entry.receipt_hash):
+                return None
+        if (predecessor.status != 'success'
+                or row.predecessor_execution_id != predecessor.execution_id
+                or row.predecessor_generation != predecessor.generation
+                or row.predecessor_receipt_hash != predecessor.receipt_hash):
+            return None
     if row.status == 'failed':
         payload = row.terminal_payload_json
         if not isinstance(payload, dict):
@@ -112,12 +154,14 @@ def bound_compute_terminal(*, session, run, action, settings=None,
         except ValueError:
             return None
     state = 'succeeded' if row.status == 'success' else 'failed'
-    saved = data.get('compute_terminal_binding')
     if data.get('compute_terminal') == row.status and isinstance(saved, dict):
         expected_saved = dict(execution_id=row.execution_id, generation=row.generation,
             request_hash=row.request_hash, receipt_hash=row.receipt_hash,
             registration_sha256=saved.get('registration_sha256'), state=state,
-            action_id=data['action_id'], dag_run_id=data['dag_run_id'])
+            action_id=data['action_id'], dag_run_id=data['dag_run_id'],
+            entry_stage=entry_stage, entry_execution_id=entry.execution_id,
+            entry_generation=entry.generation, entry_request_hash=entry.request_hash,
+            entry_receipt_hash=entry.receipt_hash)
         if (saved == expected_saved and isinstance(saved['registration_sha256'], str)
                 and re.fullmatch(r'[a-f0-9]{64}', saved['registration_sha256'])):
             return dict(state=row.status, binding=saved)
@@ -126,38 +170,43 @@ def bound_compute_terminal(*, session, run, action, settings=None,
             or run.dag_run_id != data['dag_run_id']
             or params.get('resume_action_id') != data['action_id']):
         return None
-    latest_conditions = [model.analysis_id == run.analysis_id, model.attempt == run.attempt,
-                         model.stage_code == 'step3_monitor']
-    if model is PipelineStageExecution:
-        latest_conditions.append(model.pipeline_name == run.pipeline_name)
-    latest = session.scalar(select(model).where(*latest_conditions)
-        .order_by(model.generation.desc()).limit(1))
-    if latest is None or latest.execution_id != row.execution_id:
+    latest_entry = session.scalar(select(model).where(*scope,
+        model.stage_code == entry_stage).order_by(model.generation.desc()).limit(1))
+    latest_step3 = session.scalar(select(model).where(*scope,
+        model.stage_code == 'step3_monitor').order_by(model.generation.desc()).limit(1))
+    if (latest_entry is None or latest_entry.execution_id != entry.execution_id
+            or latest_step3 is None or latest_step3.execution_id != row.execution_id):
         return None
     try:
-        if run.pipeline_name == 'wgs':
-            from app.wgs_stage_execution_service import require_frozen_request_digest
-            path = (Path(settings.wgs_runtime_request_root) / run.analysis_id /
-                    f'attempt-{run.attempt}' / 'step3_monitor.json')
+        def require_action_frozen(stage, execution):
+            if run.pipeline_name == 'wgs':
+                from app.wgs_stage_execution_service import require_frozen_request_digest
+                path = (Path(settings.wgs_runtime_request_root) / run.analysis_id /
+                        f'attempt-{run.attempt}' / f'{stage}.json')
+            else:
+                from app.gatk_runtime_service import _request_path, _validate_recovery_request
+                path = _request_path(settings, run.analysis_id, run.attempt, stage)
             if not path.is_file() or path.is_symlink():
-                return None
+                raise ValueError('frozen recovery request is unavailable')
             frozen = json.loads(path.read_text(encoding='utf-8'))
             if not isinstance(frozen, dict):
-                return None
-            require_frozen_request_digest(frozen, row)
-        else:
-            from app.gatk_runtime_service import _request_path, _validate_recovery_request
-            path = _request_path(settings, run.analysis_id, run.attempt, 'step3_monitor')
-            if not path.is_file() or path.is_symlink():
-                return None
-            frozen = json.loads(path.read_text(encoding='utf-8'))
-            if not isinstance(frozen, dict):
-                return None
-            _validate_recovery_request(run, row, frozen)
-        from app.stage_execution_contract import STAGE_EXECUTION_EXTENSION, require_native_stage_terminal
-        if (frozen.get('stage_execution') != STAGE_EXECUTION_EXTENSION
-                or frozen.get('resume_action_id') != data['action_id']):
-            return None
+                raise ValueError('frozen recovery request is invalid')
+            if run.pipeline_name == 'wgs':
+                require_frozen_request_digest(frozen, execution)
+            else:
+                _validate_recovery_request(run, execution, frozen)
+            from app.stage_execution_contract import STAGE_EXECUTION_EXTENSION
+            if (frozen.get('stage_execution') != STAGE_EXECUTION_EXTENSION
+                    or frozen.get('resume_action_id') != data['action_id']):
+                raise ValueError('frozen recovery request belongs to another action')
+            return frozen
+
+        require_action_frozen(entry_stage, entry)
+        if entry_stage == 'step1_upload':
+            require_action_frozen('step2_master', predecessor)
+        if entry_stage != 'step3_monitor':
+            require_action_frozen('step3_monitor', row)
+        from app.stage_execution_contract import require_native_stage_terminal
         validated = require_native_stage_terminal(native_stage_observation,
             pipeline=run.pipeline_name, analysis_id=run.analysis_id, attempt=run.attempt,
             stage='step3_monitor', execution_id=row.execution_id, generation=row.generation,
@@ -168,7 +217,10 @@ def bound_compute_terminal(*, session, run, action, settings=None,
     proof = dict(execution_id=row.execution_id, generation=row.generation,
         request_hash=row.request_hash, receipt_hash=row.receipt_hash,
         registration_sha256=validated['execution_ref']['registration_sha256'], state=state,
-        action_id=data['action_id'], dag_run_id=data['dag_run_id'])
+        action_id=data['action_id'], dag_run_id=data['dag_run_id'],
+        entry_stage=entry_stage, entry_execution_id=entry.execution_id,
+        entry_generation=entry.generation, entry_request_hash=entry.request_hash,
+        entry_receipt_hash=entry.receipt_hash)
     return dict(state=row.status, binding=proof)
 
 
