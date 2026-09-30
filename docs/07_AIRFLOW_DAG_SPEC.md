@@ -1,5 +1,27 @@
 # Airflow DAG specification
 
+## UE-05 native callback and cleanup bridge (2026-09-30, source only)
+
+Current WGS/GATK failure callbacks and transfer/global cleanup use the shared
+native callback reader. The graph's latest started stage selects an existing
+stage-status GET; that response supplies the current registration for a fixed
+read-only native observe. The full snapshot is validated before it is passed as
+`native_stage_observation` on the existing authenticated POST. Task state and
+submit XCom never substitute for native terminal evidence. The backend checks
+its own current/latest row again under the run lock, so a stale callback cannot
+select an older successful execution to release current ownership.
+
+Input/result slot cleanup reads Step1/Step5 respectively; global cleanup reads
+the graph's current native stage. WGS observer drain uses a separate exact Step3
+observation, including after later stages finish. Observation transport failure
+does not send a fabricated terminal or release request. Unknown remains unknown
+and is rejected by the backend permit fence.
+
+Step3 recovery polling receives this invocation's exact native snapshot before
+settling the current queued action. If a Worker challenge follows, its second
+POST carries only the separate nonce-bound `worker_observation`, preserving the
+existing Worker deadline and persisted stage-terminal binding.
+
 ## UE-05 shared SSH connection layer (2026-09-30; source only)
 
 The current WGS/GATK Step1-6 restricted node200 commands and P0 Step4

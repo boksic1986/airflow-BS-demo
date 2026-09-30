@@ -1,5 +1,199 @@
 # Handoff
 
+## 2026-09-30 UE-05 task reconfirmed; static completion only
+
+**Task confirmation.** The latest user asked airflow-agent to speak with
+`airflow-cloud-demo` and confirm its task. The coordinator checked the actual
+message timeline: the current task is UE-05; the earlier UE-04 instruction
+was historical and had been misread after compaction. Its reply explicitly
+keeps UE-04 `a6c31d1`/`7976f25` as the accepted prerequisite and retains the
+UE-05 drafts. The scope-check turn performed only read-only Git/document
+operations; no source was reverted, no SSH/test/commit occurred in that check.
+Current worktree is `C:/Users/11217/.codex/worktrees/gatk-prod-compat/airflow-demo`,
+branch `jiucheng/airflow/UE05-native-recovery-consumers`, baseline `06bf30a`.
+
+**Current scope.** Finish R2 current action/DagRun/frozen Step3/native terminal
+binding, R4 six-stage failure/cleanup protection and existing DAG snapshot
+producers. Preserve the independent Worker nonce, Worker quiet proof, original
+policy/budget/deadline, genuine business failures and all `.codex-artifacts/`.
+Formal spec/plan remain in the coordinator's `wgs422-p0-integration-20260926`
+worktree. No new stage, production, real batch, installation, dependency,
+service/database mutation, deletion, merge or deployment is authorized.
+
+**Network and validation boundary.** After the earlier successful read-only
+BS10610 fingerprint, backend RED logs were produced in
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue05-native-consumers-20260930-continue/`:
+`r2-red.log`/`r2-red.xml` report two failures in 1.35 seconds at the missing
+action/DagRun binding rejection; `r4-red.log`/`r4-red.xml` report one failure
+in 1.19 seconds because the baseline callback rejected the new optional
+argument. The latter is interface RED, not behavioral GREEN. `ssh-red.log`
+reports missing pytest in the image's default snakemake Python environment;
+this is an interpreter environment ERROR, not application RED. Subsequent
+explicit-interpreter attempts could not import Airflow. Tests now use existing
+standard-library unittest without adding a dependency, but have not run.
+
+The next isolated interpreter/identity check failed before SSH opened:
+exit 1, `kex_exchange_identification: read: Connection reset`,
+`Connection reset by 172.17.61.18 port 22`,
+`Connection closed by UNKNOWN port 65535`. No command in that session,
+including the proposed task-directory permission adjustment, is known to have
+run. The likely failing component is the gateway/session path; the exact
+cause is unconfirmed. No further SSH attempts followed. Remote raw logs remain
+at the exact paths above, but their file hashes have not been fetched.
+
+**Remaining work and rollback.** Complete only static source/docs, record an
+exact reviewable source checkpoint and unverified delta commands, then request
+the coordinator's scoped source audit. No fixed-source GREEN or final two-DAG
+import exists. External connectivity recovery is required before BS10610
+preflight and runtime validation; local or production tests cannot replace it.
+Rollback is to leave the isolated source unmerged. Deployed services and data
+were unchanged by this task.
+
+**Source checkpoint delivered for review.** R2 persists a minimal compute-only
+permit bound to the action ID, DagRun, exact frozen Step3 tuple, business receipt
+and native terminal. Current polling also compares that permit to the latest
+monitor; historical actions cannot settle a replacement execution. Before the
+first action exists, marked native unknown/missing evidence blocks reservation,
+while fresh matching failure can resolve an obsolete UI reconnect phase. This
+does not remove queued downstream authorization or change the budget/deadline.
+R4 uses the shared terminal validator and trusted current run/cleanup-route stage,
+not the snapshot-selected stage. Failed Step3 cleanup still requires existing
+complete schema2 Master/Worker quiet evidence; Step2 handoff alone cannot release
+global ownership. WGS/GATK callback and cleanup producers read the existing
+stage-status/native observe paths. Worker probe follow-ups contain only their
+nonce-bound Worker proof. No new route, table or recovery engine was added.
+
+Changed files are the 19 paths listed in
+`.codex-artifacts/ue05-continue/source-delta-files.txt`, plus
+`CURRENT_STATE.md`, `TASKS.md`, `HANDOFF.md`: eight backend app modules,
+two backend test files, four DAG modules/helpers, two DAG test files and
+docs05/07/08. The shared SSH implementation remains in baseline commit
+`06bf30a`; its delta test is now standard-library unittest. `git diff --check`
+exited 0 after integration. No local runtime test, Python compile or DAG import
+was run. The checkpoint is SOURCE ONLY, unaccepted until source audit and
+BS10610 fixed-source GREEN; no merge or deployment follows this commit.
+
+**Preserved evidence and SHA256.** All files below are local untracked artifacts
+in `.codex-artifacts/ue05-continue/`, preserved without uploading or deleting
+anything after the gateway reset. `source-final.tar` contains tracked backend,
+DAG, config and script inputs plus the new thin callback test; it is a final
+source input, not executed evidence. The earlier RED checkpoint is retained
+separately and differs from the final source.
+
+| File | SHA256 |
+| --- | --- |
+| `baseline.tar` | `0eecf948ff0816d6226cec3c7e988d28715100ba9935111690ba701d2f42832b` |
+| `checkpoint.tar` (earlier RED input) | `959f7c0614372a281e71101875fac4d98bde6d8b072329ae1e081c60a4470ea5` |
+| `ssh-before.tar` | `9fe002bc89ce7e0069db22a193518f5aade5f16fa2f68723aab5ee8b25862f41` |
+| `source-final.tar` | `737ca9035231749caadd62468a597a8aa5ecd02f51339d207ac7e771ccdc2ecf` |
+| `source-delta.sha256` (19 individual input hashes) | `d720176fb858835b5ca77125b2195603d6bc6bb7f81c47fdb90b6d8f4a9b2461` |
+| `captured-red-output.log` | `dbca03d13b23d77ac8b99db255ba89aeb3579e29920a7344d13008344b33ceea` |
+| `captured-red.json` (exact command and result) | `fcc947a23e2cc63e671d215250e4369ad33309b5c68406c7baeca4ffbd170122` |
+| `captured-gateway-reset-output.log` | `6a7df1d387672173138a66e19eca461b33f7805b7094a454a2184e0c037fb55d` |
+| `captured-gateway-reset.json` (exact failed command) | `37a3659e9cbde950e539c62fcda15470ea7d6386ef013869cc6f432061a7e12e` |
+
+The captured command records are exported verbatim from current-thread tools
+`exec-b11ad1d7-47f4-46eb-9bbb-da75771e7fbf` (2026-09-30 04:23 UTC) and
+`exec-388de163-0127-462b-934a-d39bc51963ab` (04:33 UTC). The RED output is the
+captured log tail, not the complete remote log; complete remote `.log`/`.xml`
+hashes remain unavailable. The RED wrapper exited 0 to report individual test
+exit codes, all 1; it did not pass the tests. The reset command exited 1 before
+its streamed Bash script ran. Its proposed UID50000/package-path check and
+task-directory chmod are unexecuted ideas, not verified environment changes.
+
+**Unique pending delta commands.** Run only after external SSH recovery and
+fresh BS10610 boundary verification, against this final source in isolated
+network-disabled containers using the existing pinned images. Backend uses its
+existing pytest environment; DAG tests use the existing `/usr/local/bin/python`
+and Airflow module path. The effective Airflow identity/package visibility must
+be resolved read-only first; do not install dependencies. These commands have
+NOT run against the final source:
+
+```text
+python -m pytest backend/tests/test_cce_recovery_poll.py::test_manual_terminal_allows_one_budgeted_recovery backend/tests/test_cce_recovery_cleanup_fence.py::test_unknown_stage_cannot_fail_or_release -q --tb=short -p no:cacheprovider --basetemp=/evidence/final-backend-tmp --junitxml=/evidence/final-backend.xml
+/usr/local/bin/python -m unittest discover -s dags/tests -p test_ssh_transport.py -v
+/usr/local/bin/python -m unittest discover -s dags/tests -p test_native_callback_observation.py -v
+```
+
+Also import only `bio_wgs.py` and `bio_gatk.py` with the existing isolated
+two-file DagBag check; do not run the full DAG folder or metadata-backed CLI.
+Backend count is two parametrized R2 cases and one R4 node; SSH has nine methods,
+and the thin bridge has one method per deployed adapter. No flow-by-six-stage
+matrix, full suite, accepted UE01-04/F7/final-release rerun or real batch.
+
+## 2026-09-30 UE-05 resumed after SSH recovery (development in progress)
+
+Direct user instruction: SSH should now be connected; continue development.
+The pause is lifted. Continue the existing UE-05 branch/worktree from HEAD
+`06bf30a`, preserving the R2/R4 drafts and `.codex-artifacts/`. Formal spec/plan
+remain in the coordinator's `wgs422-p0-integration-20260926` worktree. This
+checkpoint covers only R2 exact action/compute terminal binding, R4 failure and
+cleanup fences, the existing authenticated native snapshot channel and DAG
+producers, plus docs05/07/08. No production, real batch, new dependency,
+installation, deployment, data cleanup or UE-06 operation is authorized.
+
+One bounded SSH hostname preflight exited 0 in 1.3 seconds, returning
+`server10610`; the read-only environment fingerprint then completed.
+Identity: `chenjc` UID6708, `bioinfo` GID520, docker group998. Control root:
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS`; current resolves to
+`releases/20260912-opt-4d3d24e6`, SOURCE_COMMIT
+`4d3d24e6c0308b682a92e2b09824026b7a888818`. Actual backend source remains
+`releases/20260926-p0-e358aad/backend`; WGS DAG source is pinned to that release,
+GATK/common to `20260915-main-359df11`, discovery DAGs to
+`20260927-dag-discovery-4fe71cb`. Backend image is
+`sha256:8491604ee01d9b3a84d74e7edf233a9d5dd20ddbf14f8a646c25c05f8729efed`;
+Airflow image is
+`sha256:58195672af685cfa6551cfc44b37b6218bd2039c44b717163a6e8072f78dfd2b`.
+Scanner/auto dispatch are false; execution gates true are existing test state,
+not changed here. The evidence root is `chenjc:bioinfo` mode0755.
+
+All new runtime validation will use task-specific
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue05-native-consumers-20260930-continue/`
+source/evidence, existing pinned images, network-disabled disposable containers,
+and synthetic files/SQLite. No application service or live database is used.
+Required delta nodes are `dags/tests/test_ssh_transport.py`,
+`backend/tests/test_cce_recovery_poll.py::test_manual_terminal_allows_one_budgeted_recovery`,
+`backend/tests/test_cce_recovery_cleanup_fence.py::test_unknown_stage_cannot_fail_or_release`,
+the thin `dags/tests/test_native_callback_observation.py` bridge, and two-DAG import.
+UE-01-04, F7 and final-release accepted evidence is referenced without rerunning.
+No new GREEN has yet been produced by this resumption.
+
+## 2026-09-30 UE-05 paused while SSH is unavailable
+
+The user directed the airflow agent to finish its current checkpoint and then
+pause until SSH recovers. The isolated branch is
+`jiucheng/airflow/UE05-native-recovery-consumers`; HEAD `06bf30a` is the
+independent shared-SSH **source** commit. It has no BS10610 GREEN. The one
+necessary BS10610 preflight in this turn failed before a session opened with
+`Connection timed out during banner exchange` (exit 1); no retry or remote
+command followed. Do not poll SSH, start another development phase, deploy,
+install, clean data, or treat this source as released while paused.
+
+The current R2/R4 checkpoint is **uncommitted and incomplete**. R2 edited only
+`backend/app/cce_recovery_budget.py`, `backend/app/cce_recovery_poll.py`, and
+`backend/tests/test_cce_recovery_poll.py`: it drafted a frozen Step3 request,
+latest business row/receipt, and exact native terminal binding persisted on the
+action; it kept the Worker nonce separate and drafted synthetic positive and
+negative cases. The draft tests were not run. Additional source edits are in
+`backend/app/stage_execution_contract.py`, `backend/app/main.py`,
+`backend/app/diagnostics_service.py`, `backend/app/gatk_airflow_sync.py`,
+`backend/app/gatk_runtime_service.py`, `backend/app/wgs_submission_service.py`,
+`dags/bio_wgs.py`, `dags/bio_gatk.py`, and `dags/cce_worker_wait.py`.
+`main.py` and service callers now pass optional native snapshots and settings,
+but the R4 backend failure/cleanup fence signatures and DAG callback/cleanup
+snapshot producers are still missing. The combined dirty source is therefore
+not an integrated or validated change. The existing `.codex-artifacts/` remains
+untracked and must be preserved.
+
+Static command: `git diff --check` exited 0. No runtime tests or DAG imports
+were run after the failed preflight; local runtime tests do not substitute for
+the required BS10610 isolated synthetic validation. On authorized resumption
+after SSH recovery, finish the R4 fence/producers and source review, then
+revalidate BS10610 hostname, control root, release, mounts and execution gates
+before the narrow synthetic nodes. Preserve the original recovery budget and
+Worker nonce boundary. Rollback is to leave this isolated branch unmerged;
+deployed state and data were not changed by this checkpoint.
+
 ## 2026-09-30 UE-05 approved continuation and transient network boundary
 
 User-approved scope: shared OpenSSH transport for current WGS/GATK Step1-6 and

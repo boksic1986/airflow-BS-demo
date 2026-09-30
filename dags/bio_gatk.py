@@ -21,6 +21,8 @@ from common.stage_execution import (
     DispatchUncertain,
     execution_ref_from_registration,
     observe_stage,
+    latest_started_stage,
+    native_callback_observation,
     submit_stage,
 )
 from common.ssh_transport import run_ssh
@@ -103,6 +105,7 @@ def stage_should_run(stage: str, conf: dict[str, Any]) -> bool:
 
 def register_stage(
     stage: str, *, worker_observation: dict[str, Any] | None = None,
+    native_stage_observation: dict[str, Any] | None = None,
     **context: Any,
 ) -> dict[str, Any]:
     conf = dict(context["dag_run"].conf or {})
@@ -117,6 +120,8 @@ def register_stage(
         if stage != "finalize_run":
             raise AirflowFailException("native GATK final observation has the wrong stage")
         payload["worker_observation"] = worker_observation
+    if native_stage_observation is not None:
+        payload["native_stage_observation"] = native_stage_observation
     return _backend_json(
         f"/api/internal/gatk/runs/{conf['analysis_id']}/stages/{stage}",
         method="POST",
@@ -197,6 +202,16 @@ _NATIVE_SUBMIT_TASK = {
     "step5_download": "start_step5_download",
     "step6_materialize": "materialize_step6_results",
 }
+
+
+def _callback_stage(dag_run) -> str | None:
+    return latest_started_stage(dag_run, task_stages={
+        task_id.split(".")[-1]: stage for stage, task_id in _NATIVE_SUBMIT_TASK.items()})
+
+
+def _callback_observation(conf: dict, stage: str | None) -> dict | None:
+    return native_callback_observation(pipeline="gatk", conf=conf, stage=stage,
+        backend_json=_backend_json, native_observe=_native_observe_stage)
 
 
 def _native_ssh_command(*arguments: str) -> list[str]:
@@ -322,15 +337,32 @@ def stage_ready(stage: str, **context: Any) -> bool:
         f"/api/internal/gatk/runs/{conf['analysis_id']}/stage-status?{query}"
     )
     policy = dict(dict(conf.get('params') or {}).get('cce_recovery_policy') or {})
+    recovery_policy_enabled = policy.get('enabled') is True and policy.get('attempt') == conf['attempt']
     if stage == 'step4_publish' and policy.get('enabled') is True and policy.get('attempt') == conf['attempt']:
         from cce_publish_dispatch import poll_publish
         recovery = poll_publish(_backend_json,pipeline='gatk',conf=conf,dag_run_id=context['dag_run'].run_id)
         if recovery.get('status') != 'success':
             return False
-    if stage == 'step3_monitor' and policy.get('enabled') is True and policy.get('attempt') == conf['attempt']:
+    preobserved = None
+    if stage == 'step3_monitor' and recovery_policy_enabled:
+        marker = value.get('stage_execution')
+        if marker is not None:
+            if marker != {'protocol': 'cce.stage-execution.v1'}:
+                raise AirflowFailException('GATK stage execution marker is invalid')
+            try:
+                preobserved = _native_observe_stage(conf, stage, value)
+            except AirflowException as error:
+                if isinstance(error, AirflowFailException):
+                    raise
+                return False
+            ref = execution_ref_from_registration(
+                preobserved, value, pipeline='gatk', stage=stage,
+            )
+            preobserved = observe_stage(execution_ref=ref, observe=lambda _exact: preobserved)
         from cce_worker_wait import poll_recovery
         recovery = poll_recovery(_backend_json,pipeline='gatk',conf=conf,
-            dag_run_id=context['dag_run'].run_id)
+            dag_run_id=context['dag_run'].run_id,
+            native_stage_observation=preobserved)
         if recovery.get('status') in {'waiting', 'uncertain'}:
             return False
         if recovery.get('status') in {'delegated', 'superseded'}:
@@ -342,26 +374,38 @@ def stage_ready(stage: str, **context: Any) -> bool:
             raise AirflowFailException("GATK native registration marker disappeared")
     elif marker != {"protocol": "cce.stage-execution.v1"} or stage == "prepare":
         raise AirflowFailException("GATK stage execution marker is invalid")
-    if value.get("failed"):
-        # A terminal runtime receipt is not a transient polling failure.
-        raise AirflowFailException(str(value.get("message") or f"GATK stage failed: {stage}"))
     if marker is None:
+        if value.get("failed"):
+            raise AirflowFailException(str(value.get("message") or f"GATK stage failed: {stage}"))
         return bool(value.get("ready"))  # Existing unmarked stage retains its legacy sensor.
     if submitted is None:
         # A same-attempt recovery may reuse the registered stage without a
         # submit XCom. Observe the latest backend tuple before advancing.
-        current = _native_observe_stage(conf, stage, value)
+        try:
+            current = preobserved or _native_observe_stage(conf, stage, value)
+        except AirflowException as error:
+            if isinstance(error, AirflowFailException):
+                raise
+            return False
         execution_ref_from_registration(current, value, pipeline="gatk", stage=stage)
     else:
         ref = execution_ref_from_registration(
             submitted, value, pipeline="gatk", stage=stage
         )
-        current = observe_stage(
-            execution_ref=ref,
-            observe=lambda exact: _native_observe_stage(conf, stage, exact),
-        )
+        try:
+            current = observe_stage(
+                execution_ref=ref,
+                observe=lambda exact: (preobserved if preobserved is not None
+                                       else _native_observe_stage(conf, stage, exact)),
+            )
+        except AirflowException as error:
+            if isinstance(error, AirflowFailException):
+                raise
+            return False
     if current["state"] in {"failed", "canceled"}:
         raise AirflowFailException(f"registered GATK stage {stage} ended {current['state']}")
+    if value.get("failed") and current["state"] == "succeeded":
+        raise AirflowFailException("GATK business failure conflicts with native success")
     return current["state"] == "succeeded" and value.get("ready") is True
 
 
@@ -372,7 +416,17 @@ def acquire_transfer_slot(kind: str, **context: Any) -> bool:
 
 def release_stage(stage: str, **context: Any) -> dict[str, Any]:
     observation = _step6_final_observation(**context) if stage == "finalize_run" else None
-    result = register_stage(stage, worker_observation=observation, **context)
+    native = None
+    conf = dict(context["dag_run"].conf or {})
+    if stage_should_run(stage, conf):
+        target = {"release_input_transfer_slot": "step1_upload",
+                  "release_result_transfer_slot": "step5_download"}.get(stage)
+        if stage == "release_leases":
+            target = _callback_stage(context["dag_run"])
+        if target:
+            native = _callback_observation(conf, target)
+    result = register_stage(stage, worker_observation=observation,
+                            native_stage_observation=native, **context)
     if stage in {"release_input_transfer_slot", "release_result_transfer_slot", "release_leases"} and result.get("retained"):
         raise RuntimeError("GATK transfer lease was not released: " + str(result.get("reason") or "unknown"))
     return result
@@ -429,6 +483,7 @@ def report_dag_failure(context: dict[str, Any]) -> None:
         failed_task_ids.remove("release_leases")
 
     try:
+        observation = _callback_observation(conf, _callback_stage(dag_run))
         _backend_json(
             f"/api/internal/gatk/runs/{analysis_id}/dag-terminal",
             method="POST",
@@ -437,6 +492,7 @@ def report_dag_failure(context: dict[str, Any]) -> None:
                 "status": "failed",
                 "failed_task_ids": failed_task_ids,
                 "dag_run_id": dag_run.run_id,
+                "native_stage_observation": observation,
             },
         )
     except Exception:

@@ -397,6 +397,7 @@ class WgsRuntimeStageRequest(BaseModel):
     resume_action_id: str | None = Field(default=None, max_length=128)
     dag_run_id: str | None = Field(default=None, min_length=1, max_length=250)
     worker_observation: dict[str, Any] | None = None
+    native_stage_observation: dict[str, Any] | None = None
     publish_operation: str | None = Field(default=None, pattern='^(begin|finish|poll|check)$')
     publish_execution_id: str | None = Field(default=None, max_length=128)
     publish_sequence: int | None = Field(default=None, ge=0, le=2)
@@ -410,6 +411,7 @@ class GatkRuntimeStageRequest(BaseModel):
     dag_run_id: str | None = Field(default=None, min_length=1, max_length=250)
     resume_action_id: str | None = Field(default=None, min_length=1, max_length=128)
     worker_observation: dict[str, Any] | None = None
+    native_stage_observation: dict[str, Any] | None = None
     publish_operation: str | None = Field(default=None, pattern='^(begin|finish|poll|check)$')
     publish_execution_id: str | None = Field(default=None, max_length=128)
     publish_sequence: int | None = Field(default=None, ge=0, le=2)
@@ -422,12 +424,14 @@ class GatkDagTerminalRequest(BaseModel):
     status: str = Field(pattern="^failed$")
     failed_task_ids: list[str] = Field(default_factory=list, max_length=64)
     dag_run_id: str | None = Field(default=None, min_length=1, max_length=250)
+    native_stage_observation: dict[str, Any] | None = None
 
 
 class WgsObserverLifecycleRequest(BaseModel):
     attempt: int = Field(ge=1)
     dag_run_id: str | None = Field(default=None, min_length=1, max_length=250)
     resume_action_id: str | None = Field(default=None, max_length=128)
+    native_stage_observation: dict[str, Any] | None = None
 
 
 class WgsDagTerminalRequest(BaseModel):
@@ -437,6 +441,7 @@ class WgsDagTerminalRequest(BaseModel):
     failed_task_ids: list[str] = Field(default_factory=list, max_length=64)
     dag_run_id: str | None = None
     resume_action_id: str | None = None
+    native_stage_observation: dict[str, Any] | None = None
 
 
 class WgsResumeStageRequest(BaseModel):
@@ -2257,12 +2262,15 @@ def _internal_wgs_runtime_stage_once(
                     airflow_client=get_airflow_client(), analysis_id=analysis_id, attempt=request.attempt,
                     pipeline='wgs', dag_run_id=request.dag_run_id,
                     resume_action_id=request.resume_action_id, now=datetime.now(timezone.utc),
-                    worker_observation=request.worker_observation)
+                    worker_observation=request.worker_observation,
+                    native_stage_observation=request.native_stage_observation)
             if stage_name in {"release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
                 from app.cce_recovery_budget import require_current_dag_cleanup
                 run = require_current_dag_cleanup(session=session, analysis_id=analysis_id,
                     attempt=request.attempt, pipeline='wgs', dag_run_id=request.dag_run_id,
-                    resume_action_id=request.resume_action_id)
+                    resume_action_id=request.resume_action_id,
+                    native_stage_observation=request.native_stage_observation,
+                    settings=get_settings(), cleanup_stage=stage_name)
             else:
                 run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs")
                     .with_for_update().execution_options(populate_existing=True))
@@ -2381,7 +2389,9 @@ def _internal_wgs_runtime_stage_once(
                         # before projecting retained-slot state onto the run.
                         run = require_current_dag_cleanup(session=session, analysis_id=analysis_id,
                             attempt=request.attempt, pipeline='wgs', dag_run_id=request.dag_run_id,
-                            resume_action_id=request.resume_action_id)
+                            resume_action_id=request.resume_action_id,
+                            native_stage_observation=request.native_stage_observation,
+                            settings=get_settings(), cleanup_stage=stage_name)
                     mark_execution_needs_recovery(
                         session=session,
                         analysis_id=analysis_id,
@@ -2942,7 +2952,8 @@ def internal_gatk_runtime_stage(
                     airflow_client=get_airflow_client(), analysis_id=analysis_id, attempt=request.attempt,
                     pipeline='gatk', dag_run_id=request.dag_run_id,
                     resume_action_id=request.resume_action_id, now=datetime.now(timezone.utc),
-                    worker_observation=request.worker_observation)
+                    worker_observation=request.worker_observation,
+                    native_stage_observation=request.native_stage_observation)
             def authorize():
                 from app.cce_resume_dispatch import authorize_recovery_stage
                 run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
@@ -2985,7 +2996,9 @@ def internal_gatk_runtime_stage(
                 from app.cce_recovery_budget import require_current_dag_cleanup
                 require_current_dag_cleanup(session=session, analysis_id=analysis_id,
                     attempt=request.attempt, pipeline='gatk', dag_run_id=request.dag_run_id,
-                    resume_action_id=request.resume_action_id)
+                    resume_action_id=request.resume_action_id,
+                    native_stage_observation=request.native_stage_observation,
+                    settings=settings, cleanup_stage=stage_name)
                 transfer_kind = None
                 if stage_name == "release_input_transfer_slot":
                     transfer_kind = "input"
@@ -3069,6 +3082,8 @@ def internal_gatk_dag_terminal(
                 attempt=request.attempt,
                 failed_task_ids=request.failed_task_ids,
                 dag_run_id=request.dag_run_id,
+                native_stage_observation=request.native_stage_observation,
+                settings=get_settings(),
             )
     except ValueError as exc:
         raise HTTPException(
@@ -3114,7 +3129,9 @@ def internal_wgs_observer_deactivate(
             from app.cce_recovery_budget import require_current_dag_cleanup
             require_current_dag_cleanup(session=session, analysis_id=analysis_id,
                 attempt=request.attempt, pipeline='wgs', dag_run_id=request.dag_run_id,
-                resume_action_id=request.resume_action_id)
+                resume_action_id=request.resume_action_id,
+                native_stage_observation=request.native_stage_observation,
+                settings=get_settings(), cleanup_stage='observer_deactivate')
             state = request_observer_drain(
                 session, analysis_id=analysis_id, attempt=request.attempt
             )
@@ -3327,6 +3344,8 @@ def internal_wgs_dag_terminal(
                 failed_task_ids=request.failed_task_ids,
                 dag_run_id=request.dag_run_id,
                 resume_action_id=request.resume_action_id,
+                native_stage_observation=request.native_stage_observation,
+                settings=get_settings(),
             )
     except ValueError as exc:
         raise HTTPException(

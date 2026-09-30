@@ -5,7 +5,7 @@ from datetime import timedelta
 from uuid import uuid4
 
 from app.models import AnalysisRun, RunAction
-from app.cce_recovery_budget import ACTION, FINISHED_ACTIONS, STOPPED, _date, reserve_compute_recovery
+from app.cce_recovery_budget import ACTION, FINISHED_ACTIONS, STOPPED, _date, bound_compute_terminal, reserve_compute_recovery
 from app.cce_recovery_evidence import validate_schema2_recovery_evidence
 from app.cce_recovery_service import reserve_monitored_recovery
 from app.cce_compute_dispatch import dispatch_due_recovery
@@ -13,7 +13,8 @@ from app.cce_monitor_observation import query_unconfirmed
 
 
 def poll_compute_recovery(*, session, settings, airflow_client, analysis_id, attempt,
-                          pipeline, dag_run_id, resume_action_id, now, worker_observation=None):
+                          pipeline, dag_run_id, resume_action_id, now,
+                          worker_observation=None, native_stage_observation=None):
     run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id==analysis_id)
         .with_for_update().execution_options(populate_existing=True))
     if (not run or run.attempt!=attempt or run.pipeline_name!=pipeline
@@ -41,21 +42,60 @@ def poll_compute_recovery(*, session, settings, airflow_client, analysis_id, att
     else:
         from app.gatk_runtime_service import _latest_gatk as latest
     monitor = latest(session,run,'step3_monitor')
-    if monitor and query_unconfirmed(monitor):
-        # A failed observer is not a terminal computation. Keep the original
-        # action/slot fenced until an explicit, identity-bound manual handoff.
+    current_action = next((a for a in actions if a.payload_json.get('action_id')==resume_action_id),None)
+    if current_action is None and resume_action_id and dag_run_id == run.dag_run_id:
+        manual = session.scalar(select(RunAction).where(RunAction.analysis_id == analysis_id,
+            RunAction.action == 'resume_stage').order_by(RunAction.id.desc()).limit(1)
+            .with_for_update().execution_options(populate_existing=True))
+        if manual and (manual.payload_json or {}).get('action_id') == resume_action_id:
+            current_action = manual
+    terminal = (bound_compute_terminal(session=session, run=run, action=current_action,
+        settings=settings, native_stage_observation=native_stage_observation)
+        if (current_action and dag_run_id == run.dag_run_id
+            and current_action.payload_json.get('dag_run_id') == dag_run_id) else None)
+    if terminal and (monitor is None or any(
+            getattr(monitor, key) != terminal['binding'][key]
+            for key in ('execution_id', 'generation', 'request_hash', 'receipt_hash'))):
+        terminal = None  # A historical permit cannot settle the current monitor.
+    initial_native = None
+    if (current_action is None and resume_action_id is None
+            and dag_run_id == run.dag_run_id and monitor is not None):
+        from app.cce_recovery_budget import _marked_native_terminal
+        initial_native = _marked_native_terminal(session=session, run=run,
+            settings=settings, native_stage_observation=native_stage_observation)
+    initial_native_exact = bool(initial_native and initial_native[0]
+        and initial_native[1].execution_id == monitor.execution_id
+        and initial_native[1].generation == monitor.generation
+        and initial_native[1].request_hash == monitor.request_hash
+        and initial_native[1].receipt_hash == monitor.receipt_hash
+        and monitor.status in {'failed', 'canceled'})
+    # The old Step3 reconnect snapshot is UI-only. A fresh exact native terminal
+    # can resolve it, while a missing/unknown native observation cannot.
+    if monitor and query_unconfirmed(monitor) and terminal is None and not initial_native_exact:
         session.commit()
         return dict(status='needs_attention' if monitor.status=='failed' else 'not_eligible')
-    current_action = next((a for a in actions if a.payload_json.get('action_id')==resume_action_id),None)
+    if (current_action and monitor and monitor.status in {'success', 'failed'}
+            and dag_run_id == run.dag_run_id and terminal is None):
+        session.commit()
+        return dict(status='needs_attention')
     if current_action and monitor and dag_run_id==run.dag_run_id:
         data = current_action.payload_json
-        if (monitor.status in {'success','failed'} and monitor.generation==data.get('generation')
+        if (terminal and monitor.generation==data.get('generation')
+                and monitor.execution_id == terminal['binding']['execution_id']
                 and data.get('dag_run_id')==dag_run_id and current_action.result_status=='queued'):
             # The same action still authorizes downstream after successful
             # compute; only the automatic budget/manual fence considers it done.
-            current_action.payload_json = dict(data,compute_terminal=monitor.status)
-            session.flush()
+            if data.get('compute_terminal') not in {None, terminal['state']}:
+                return dict(status='needs_attention')
+            if (data.get('compute_terminal') is None
+                    or data.get('compute_terminal_binding') is None):
+                current_action.payload_json = dict(data,
+                    compute_terminal=terminal['state'],
+                    compute_terminal_binding=terminal['binding'])
+                session.flush()
     if monitor and monitor.status=='success' and dag_run_id==run.dag_run_id:
+        if resume_action_id and (terminal is None or terminal['state'] != 'success'):
+            return dict(status='needs_attention')
         session.commit()
         return dict(status='complete')
     policy = (run.params_json or {}).get('cce_recovery_policy')
@@ -69,6 +109,20 @@ def poll_compute_recovery(*, session, settings, airflow_client, analysis_id, att
             if (run.status in STOPPED or run.current_stage!='step3_monitor'
                     or not monitor or monitor.status!='failed' or dag_run_id!=run.dag_run_id):
                 return dict(status='not_eligible')
+            if current_action is None and resume_action_id is not None:
+                raise ValueError('current recovery action is missing')
+            if terminal is None:
+                # Initial marked monitors have no queued action to bind yet.
+                # They still need the same native terminal before reserving.
+                native = initial_native
+                if native is None:
+                    from app.cce_recovery_budget import _marked_native_terminal
+                    native = _marked_native_terminal(session=session, run=run,
+                        settings=settings, native_stage_observation=native_stage_observation)
+                if native is not None and (not native[0]
+                        or native[1].execution_id != monitor.execution_id
+                        or native[1].status != 'failed'):
+                    raise ValueError('current native compute terminal is unconfirmed')
             receipt = reserve_monitored_recovery(session=session,analysis_id=analysis_id,attempt=attempt,
                 monitor_execution_id=monitor.execution_id,evidence_root=None,now=now)
             action = session.scalar(select(RunAction).where(RunAction.analysis_id==analysis_id,

@@ -1,5 +1,26 @@
 # Workflow runtime integration
 
+## UE-05 bound terminal consumers (2026-09-30, source only)
+
+The shared UE-04 native terminal validator now accepts an explicitly expected
+failed/canceled terminal as well as succeeded; the success-only finalization
+wrapper keeps its existing contract. R2 uses a complete current native Step3
+snapshot, the frozen version-correct request and business receipt to bind the
+queued action's compute terminal. Its action/DagRun/attempt/execution identity
+is retained for budget arbitration without removing downstream authorization.
+Fresh polling still requires the latest monitor execution; old durable bindings
+can settle their original historical action but cannot settle a replacement.
+
+R4 failure and cleanup consume the same full native snapshot through the existing
+authenticated internal request channel. The backend chooses the protected stage
+from trusted run/route state, not from the supplied snapshot's stage. Unknown,
+missing or stale observations preserve state and ownership. A fresh matching
+failed receipt can project the real failure despite an old UI-only reconnect
+diagnostic. Cleanup retains transfer receipts, lease ownership and Worker quiet
+requirements; a failed monitor process is not proof that Workers stopped, and
+a successful Step2 handoff is not a completed analysis. Worker nonce probes and
+the original recovery budget/deadline remain independent.
+
 ## UE-05 Airflow SSH transport boundary (2026-09-30; source only)
 
 Airflow's WGS/GATK current Step1-6 and P0 dispatch/observe callers share one

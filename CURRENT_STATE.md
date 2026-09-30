@@ -1,8 +1,54 @@
 # Current state
 
+## 2026-09-30 UE-05 source checkpoint ready; acceptance pending
+
+The user asked airflow-agent to reconfirm its task with `airflow-cloud-demo`.
+The coordinator checked the actual message timeline and confirmed that the
+current task remains UE-05. The UE-04 instruction was historical context
+misread after compaction. UE-04 `a6c31d1`/`7976f25` remains the accepted source
+prerequisite. Continue the existing R2/R4 drafts on
+`jiucheng/airflow/UE05-native-recovery-consumers`, worktree `gatk-prod-compat`,
+HEAD `06bf30a`; no source was reverted during the read-only task check.
+
+Current deliverable is the exact action/DagRun/frozen-Step3/native-terminal
+binding, shared six-stage failure/cleanup fences, existing authenticated
+snapshot producers, and a source checkpoint for review. BS10610 hostname and
+environment preflight briefly succeeded and the backend RED nodes ran, but
+the later session was reset by gateway `172.17.61.18:22` before opening.
+Stop further SSH attempts until external recovery evidence is supplied.
+No GREEN, final DAG import, UE-05 acceptance or runtime activation is claimed.
+The retained source integration and static checks are complete for review;
+the old pause and
+continuation entries below are historical checkpoints. UE-06 remains gated.
+
+R2 now binds the queued action's action ID, DagRun, exact frozen Step3 and native
+terminal, and cannot settle a newer monitor with an older proof. Initial marked
+monitors also require native terminal before reservation; fresh genuine failure
+can resolve an obsolete UI reconnect diagnostic. R4 chooses the protected stage
+from current run/route state and preserves the independent transfer/Worker quiet
+guards. Both DAGs produce the snapshot on existing authenticated calls; the
+Worker challenge follow-up retains its separate nonce contract. The changed
+source has 19 files plus the three state documents. `git diff --check` passed;
+source input hashes and captured raw command outputs are preserved under
+`.codex-artifacts/ue05-continue/`. All final-source delta tests remain unverified.
+
+## 2026-09-30 UE-05 paused pending SSH recovery
+
+The user requested a pause after the airflow agent's current checkpoint.
+Current branch HEAD is `06bf30a`, an isolated shared-SSH source commit without
+remote GREEN. R2/R4 source and a synthetic R2 test draft remain uncommitted.
+They are incomplete: optional native snapshots are partly plumbed, while R4
+failure/cleanup fences and DAG callback snapshot producers are not finished.
+The dirty worktree must not be treated as integrated or released. `git diff
+--check` passed; no tests or remote commands followed the single failed
+BS10610 SSH preflight. No further SSH retries or development are scheduled
+until the user confirms connectivity has recovered. Deployed state and data
+were not changed.
+
 ## 2026-09-30 UE-05 authorized continuation (source only)
 
-Current source HEAD is `1e84714` on the isolated UE-05 branch. UE-04 is the
+The source baseline for this continuation was `1e84714` on the isolated UE-05
+branch; the shared-SSH source is now committed at `06bf30a`. UE-04 is the
 accepted source checkpoint (`a6c31d1`/`7976f25`); the old Step1 discussion is
 historical. The user approved one shared SSH connection implementation for
 current WGS/GATK Step1-6 and P0 dispatch/observe, followed by optional exact
@@ -17,7 +63,7 @@ banner exchange timeout to UNKNOWN port 65535). BS10610 hostname, release,
 mount and gate identity could not be revalidated, so remote synthetic tests
 remain unverified. Do not blindly retry or use local runtime substitution.
 
-The shared SSH source and one synthetic delta fixture are now drafted and
+The shared SSH source and one synthetic delta fixture were committed and
 statically reviewed. Current Step1-6 WGS/GATK and P0 dispatch/probe sites use
 one `dags/common/ssh_transport.py`; a cumulative budget cannot spawn after
 three known pre-session failures. Native dispatch timeout remains an uncertain

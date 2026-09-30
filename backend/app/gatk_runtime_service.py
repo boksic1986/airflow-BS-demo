@@ -742,6 +742,8 @@ def mark_gatk_dag_failed(
     failed_task_ids: list[str],
     dag_run_id: str | None = None,
     timestamp: datetime | None = None,
+    native_stage_observation: dict | None = None,
+    settings=None,
 ) -> dict[str, Any]:
     """Close GATK projections when Airflow reaches a terminal failure."""
     run = session.scalar(
@@ -756,7 +758,10 @@ def mark_gatk_dag_failed(
     if run is None or run.attempt != attempt:
         raise ValueError("unknown active GATK attempt")
 
-    reason = dag_failure_fence_reason(session=session, run=run, dag_run_id=dag_run_id)
+    reason = dag_failure_fence_reason(
+        session=session, run=run, dag_run_id=dag_run_id,
+        native_stage_observation=native_stage_observation, settings=settings,
+    )
     if reason:
         return {'analysis_id': analysis_id, 'attempt': attempt, 'status': run.status,
                 'ignored': True, 'reason': reason}

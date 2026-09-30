@@ -61,7 +61,9 @@ def sync_gatk_airflow_status(*, session, airflow_client, analysis_id, settings):
         return _run_payload(run)
     if state == 'failed':
         from app.cce_recovery_budget import dag_failure_fence_reason
-        if dag_failure_fence_reason(session=session, run=run, dag_run_id=run.dag_run_id):
+        if dag_failure_fence_reason(
+            session=session, run=run, dag_run_id=run.dag_run_id, settings=settings,
+        ):
             return _run_payload(run)
 
     executions = session.scalars(select(PipelineStageExecution).where(

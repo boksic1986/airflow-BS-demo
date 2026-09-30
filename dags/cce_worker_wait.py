@@ -7,10 +7,17 @@ import subprocess
 from common.ssh_transport import run_ssh
 
 
-def poll_recovery(backend, *, pipeline, conf, dag_run_id):
+def poll_recovery(backend, *, pipeline, conf, dag_run_id,
+                  native_stage_observation=None):
     path = f"/api/internal/{pipeline}/runs/{conf['analysis_id']}/stages/compute_recovery"
     payload = dict(attempt=conf['attempt'],adapter=pipeline+'-runtime-200',
         dag_run_id=dag_run_id,resume_action_id=conf.get('resume_action_id'))
+    if native_stage_observation is not None:
+        if (not isinstance(native_stage_observation, dict)
+                or native_stage_observation.get('schema') != 'cce.stage-execution.snapshot.v1'
+                or 'nonce' in native_stage_observation):
+            raise ValueError('invalid native stage observation')
+        payload['native_stage_observation'] = native_stage_observation
     answer = backend(path,method='POST',payload=payload)
     if not answer or answer.get('status') != 'waiting' or not answer.get('worker_probe'):
         return answer or dict(status='waiting')
@@ -47,4 +54,7 @@ def poll_recovery(backend, *, pipeline, conf, dag_run_id):
     except (OSError,subprocess.SubprocessError,ValueError,TypeError,KeyError):
         # No local retry. The persisted deadline/action survives sensor reschedule.
         return answer
-    return backend(path,method='POST',payload=dict(payload,worker_observation=observation)) or answer
+    followup_payload = dict(payload)
+    followup_payload.pop('native_stage_observation', None)
+    followup_payload['worker_observation'] = observation
+    return backend(path,method='POST',payload=followup_payload) or answer

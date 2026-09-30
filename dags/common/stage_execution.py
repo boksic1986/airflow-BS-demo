@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 import time
 from typing import Callable
+from urllib.parse import urlencode
 
 
 _REF_KEYS = frozenset({
@@ -24,6 +25,8 @@ _STATES = frozenset({"accepted", "running", "succeeded", "failed", "canceled", "
 _TERMINAL = frozenset({"succeeded", "failed", "canceled"})
 _TOKEN = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}\Z")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_STAGE_ORDER = ("step1_upload", "step2_master", "step3_monitor",
+                "step4_publish", "step5_download", "step6_materialize")
 
 
 class DispatchUncertain(RuntimeError):
@@ -119,6 +122,57 @@ def observe_stage(*, execution_ref: dict, observe: Callable[[dict], dict]) -> di
     """Observe once; uncertainty remains a distinct, nonterminal snapshot."""
     ref = _ref(execution_ref)
     return require_snapshot(observe(ref), execution_ref=ref)
+
+
+def latest_started_stage(dag_run, *, task_stages: dict[str, str]) -> str | None:
+    """Select a callback query target from this graph, never terminal evidence."""
+    task_stages = {
+        "wait_step1_upload": "step1_upload", "wait_step2_master": "step2_master",
+        "wait_step3_analysis": "step3_monitor", "wait_step4_publish": "step4_publish",
+        "wait_step5_download": "step5_download", "wait_step6_materialize": "step6_materialize",
+        "finalize_run": "step6_materialize", **task_stages,
+    }
+    stages = set()
+    for task in dag_run.get_task_instances():
+        state = getattr(task, "state", None)
+        state = str(getattr(state, "value", state) or "").lower()
+        if state not in {"running", "success", "failed", "up_for_retry",
+                         "up_for_reschedule", "deferred"}:
+            continue
+        stage = task_stages.get(str(getattr(task, "task_id", "")).split(".")[-1])
+        if stage in _STAGE_ORDER:
+            stages.add(stage)
+    return next((stage for stage in reversed(_STAGE_ORDER) if stage in stages), None)
+
+
+def native_callback_observation(*, pipeline: str, conf: dict, stage: str | None,
+                                backend_json: Callable, native_observe: Callable) -> dict | None:
+    """Read current registration and native state for an existing callback.
+
+    The backend rechecks its own current stage and row under the run lock. Task
+    state selects this read only; it cannot authorize failure or cleanup.
+    """
+    if stage is None:
+        return None
+    if stage not in _STAGE_ORDER:
+        raise ValueError("unsupported native callback stage")
+    query = urlencode({"attempt": conf["attempt"], "stage": stage})
+    registration = backend_json(
+        f"/api/internal/{pipeline}/runs/{conf['analysis_id']}/stage-status?{query}")
+    if registration is None:
+        raise RuntimeError("native callback registration is unavailable")
+    marker = registration.get("stage_execution")
+    if marker is None:
+        return None
+    if marker != {"protocol": "cce.stage-execution.v1"}:
+        raise ValueError("native callback stage execution marker is invalid")
+    identity = {"analysis_id": conf["analysis_id"], "attempt": conf["attempt"],
+                "stage": stage, "execution_id": registration.get("execution_id"),
+                "stage_generation": registration.get("generation"),
+                "request_hash": registration.get("request_hash")}
+    snapshot = native_observe(conf, stage, identity)
+    ref = execution_ref_from_registration(snapshot, registration, pipeline=pipeline, stage=stage)
+    return require_snapshot(snapshot, execution_ref=ref)
 
 
 def submit_stage(*, execution_ref: dict, dispatch: Callable[[dict], dict],

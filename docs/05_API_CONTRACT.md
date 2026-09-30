@@ -1,5 +1,31 @@
 # API contract
 
+## UE-05 exact native recovery evidence (2026-09-30, source only)
+
+The existing authenticated internal WGS/GATK stage, compute-recovery and
+dag-terminal requests, and WGS observer-deactivate request, accept optional
+`native_stage_observation`: a complete `cce.stage-execution.snapshot.v1`.
+It is separate from the existing `worker_observation` nonce/probe evidence and
+the UE-04 Step6 finalization carrier. No route, table or public request was added.
+
+The run lock protects current attempt, DagRun and recovery-action checks. The
+latest registered stage, release, version-correct frozen request digest and
+business receipt determine the expected native ref, terminal state and
+`evidence_ref`. Missing, unknown or mismatched evidence grants no new failure
+projection, compute replacement or cleanup. A matching failed terminal remains
+visible even when the older UI reconnect diagnostic is unconfirmed. Airflow
+failure alone cannot replace a native succeeded stage with business failure.
+
+For queued manual/automatic Step3 actions, the backend persists only a minimal
+compute-terminal binding, including its action and DagRun identity; the queued
+action still authorizes its existing downstream scope. Poll and budget arbitration
+share that binding without changing the original deadline or recovery count.
+Current polling cannot reuse an older monitor row's proof for a newer execution.
+Native terminal is not Worker or transfer quiescence: observer drain after failed
+Step3 additionally requires existing complete bound quiet evidence, and transfer
+leases retain their existing receipt/ownership guards. A Step2 Master handoff
+alone cannot authorize global cleanup.
+
 ## UE-05 Step4 frozen request validation (2026-09-30; source only)
 
 The existing authenticated internal Step4 publish-control request uses the

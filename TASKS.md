@@ -1,11 +1,38 @@
 # Active test-branch tasks
 
+## UE-05-CURRENT-SOURCE-CHECKPOINT-20260930
+
+- [x] Reconfirm the current task with `airflow-cloud-demo` after the user
+  identified task drift: continue UE-05; preserve accepted UE-04 and all drafts.
+- [x] Keep the existing `gatk-prod-compat` worktree, UE05 branch and `06bf30a`
+  source baseline. Read-only scope checks caused no source rollback.
+- [x] Complete the retained R2 action/DagRun/frozen/native proof and R4
+  six-stage callback/cleanup source checkpoint, document exact changed files
+  and validation limits. Source/static completion is not runtime acceptance.
+- [ ] Coordinator's single scoped source audit of this checkpoint.
+- [x] Record backend RED separately from Airflow interpreter environment
+  errors. A later gateway reset prevents GREEN and final import.
+- [ ] After external SSH recovery evidence, revalidate BS10610 and execute
+  only the unique planned delta nodes. No SSH retry, local/production runtime
+  substitute, dependency installation, UE-06, merge or deployment beforehand.
+
+## UE-05-PAUSED-SSH-20260930
+
+- [x] Save shared SSH source as isolated commit `06bf30a`; BS10610 validation
+  remains unverified because the one gateway preflight timed out.
+- [ ] R2/R4 exact native snapshot integration is paused as an uncommitted,
+  incomplete source checkpoint. R2 fixture is a draft and has not run; R4
+  failure/cleanup fence signatures and DAG callback producers remain to do.
+- [ ] After the user confirms SSH recovery, complete static integration,
+  revalidate the BS10610 boundary, then run only the narrow isolated synthetic
+  nodes and update the evidence and handoff. Do not retry SSH while paused.
+
 ## UE-05-AUTHORIZED-CONTINUATION-20260930
 
-- [ ] From HEAD `1e84714`, commit shared SSH transport and current WGS/GATK/P0
+- [x] From baseline `1e84714`, commit shared SSH transport and current WGS/GATK/P0
   consumption as one independent source slice; keep one call budget, the
   approved pre-session retry predicate and existing uncertain dispatch observe.
-  Source and focused fixture are drafted and statically reviewed; BS10610
+  Source and focused fixture are committed at `06bf30a`; BS10610
   synthetic execution is unverified after the single gateway timeout.
 - [ ] Repair the retained three-file R2 draft using the approved optional exact
   native snapshot on existing authenticated requests; bind frozen Step3 identity
