@@ -1,5 +1,189 @@
 # Handoff
 
+## 2026-09-30 UE-06 AF/platform isolated installation closeout
+
+**Task and authority.** Current task is `UE-06-TEST-PAIR-20260930`. Coordinator
+`airflow-cloud-demo` (`019fa8d1-0d81-7e92-abee-8154dd1cf0a7`) verified the direct
+user instruction `检查如果没问题 进行下一步`, confirmed UE05 final pairing,
+and authorized original owners' BS10610 isolated installation/loading. After
+the user's request to resend, it explicitly reconfirmed this owner's AF/platform
+scope, accepted both owners' real loader evidence and instructed final raw-log
+and state closeout without another approval or test round. This is the latest
+scope; old Step1, UE04 and batch-cleanup checkpoints below are historical.
+
+**Source and ownership.** Worktree is
+`C:/Users/11217/.codex/worktrees/gatk-prod-compat/airflow-demo`, branch
+`jiucheng/airflow/UE06-paired-installation`, starting state commit `a0666e5`.
+AF product source is unchanged at
+`03bab6c768a2c84537ee4e4a6189072256841b63`. Tracked changes are only
+CURRENT_STATE.md, TASKS.md, HANDOFF.md and SERVER_INFO.md; scripts/raw outputs
+stay in untracked local artifacts. Native owner alone built source
+`7172573223308f1ca89616a5f81d14fec995a659`/wheel0.8.9 and its isolated install.
+No native directory was written by this owner.
+
+**Exact candidate and evidence.**
+
+- AF candidate: `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/ue06-platform-03bab6c-20260930`.
+- AF product extraction: candidate `source/`; AF bootstrap:
+  `source/scripts/cce-paired-deployment-v1.json`; AF policy:
+  `policy/cce-paired-writers-v2.json`.
+- AF raw evidence: `/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue06-platform-03bab6c-20260930`.
+- AF local scripts/logs/manifests: worktree `.codex-artifacts/ue06-platform/`.
+- Native root: `/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue06-native-089-20260930`;
+  wheel `wheel/cce_pipeline-0.8.9-py3-none-any.whl`, isolated `install/site`.
+- Native local raw evidence: `D:/pipeline/WGS-noncoding-model/.codex-artifacts/ue06-native-089-20260930/`.
+
+Fresh preflight verified target absence and canonical parents. New candidate,
+evidence, source/scripts, source/dags and policy directories are chenjc:bioinfo
+`0755`, files `0644`, without additional write ACL. Extraction used umask022
+and `tar --no-same-owner --no-same-permissions`; existing modes were untouched.
+The AF `git archive` contains backend/dags/scripts/config/airflow_image from03,
+not .env, clinical data or shared artifacts. Twelve source/dependency input
+hashes match the archive in `platform-inputs.sha256`. No dependency was installed.
+
+| Pinned input | SHA256 |
+| --- | --- |
+| AF source archive, 4,546,560 bytes | `4f66ebfeefce33d4f11011a78e4e5b707257a78f186e61c89ccaa8a7f42b7090` |
+| AF scripts/cce_paired_runtime.py | `fdc23a33f0d805bd923b6a31d5f70a381164f5b2a523160c621167aaf3d285ab` |
+| Native0.8.9 wheel, 153,323 bytes | `bda21dd22fd5fbcea23c40ae5ed9e3fc324b41ff2f56bf31c59022acacd8f6d4` |
+| Native installed assets/cce_batch_runtime.py | `c2988621e4552f4240f3f8c2254d99be315ad1633ed51b8f712bf310acced7c7` |
+| Native installed assets/cce_writer_guard.py | `e99378dcb1a0f71d3561c6705f4b5fe2f9886bc9e0307b5dc7c1b822de6e6d0f` |
+| Native installed cce_pipeline/stage_execution.py | `21b505da319cc752c5694f2b42e4082dd02dc47e3c7ddad895fdb87b08581bd2` |
+| Native package_build_id | `b94b66a0d391a662416154d515a1ac495fc2efeeeb334da2b068e97ca2916dd4` |
+| Both identical bootstraps | `8e47ad3f5d456a31b617d183f0b5421525e0169f835c145c9f25d30b6d495706` |
+| AF schema2 policy | `458472513c5ee071b6f7fa755911df3229c84504581149beb872bb4c3eee674e` |
+
+Native console CLI is `install/site/bin/cce-pipeline`; policy `writers.cli`
+pins the installed runtime asset, not that console script. Bootstrap has exactly
+five top keys: schema_version, policy, writers, runtime_guard, operator_python.
+Maintainers are UID6708/GID520 and each root/path is exact. Approved Python is
+`/sg2/33.chenjiucheng/software/miniforge3/envs/nipttest/bin/python`, canonical
+`bin/python3.9`, version3.9.23; PyYAML6.0.2 unchanged. Policy namespace is
+`ue06-install-only`, `bindings=[]`; no invented journal/PVC/storage setting.
+Native owner wrote its bootstrap; AF copied identical bytes to its own source
+directory and wrote the sole AF policy. Actual loaders passed without mocks,
+constant replacement, environment/request trust overrides or relaxed validation.
+
+**Commands and actual results.** Literal task scripts were copied or piped with
+CR stripping through `ssh -o BatchMode=yes -o ConnectionAttempts=1 -o ConnectTimeout=10 BS10610`.
+Successful `preflight.sh`, `prepare.sh`, `stage.sh`, `read-native-inputs.sh` and
+`pair-policy.sh` returned0; their raw logs retain boundary, creation, archive,
+installed input and policy/bootstrap results. Preflight DB transactions were
+explicitly read-only and rolled back: business analysis/transfer and Airflow
+queued/running DagRun/TaskInstance counts were all0. No DB write occurred.
+
+Actual installation checks used:
+
+```text
+bash /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue06-platform-03bab6c-20260930/run-loaders.sh       # exit1; retained first diagnostic
+bash /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue06-platform-03bab6c-20260930/run-loaders-v2.sh    # exit0; platform0 + Airflow0
+```
+
+The scripts specify PYTHONDONTWRITEBYTECODE=1/PYTHONNOUSERSITE=1, approved
+nipttest Python and exact candidate/native PYTHONPATH. The Airflow portion uses
+existing pinned image `sha256:58195672af685cfa6551cfc44b37b6218bd2039c44b717163a6e8072f78dfd2b`,
+actual Worker identity50000:0, `docker run --rm --pull never --network none --read-only`,
+CPU1/memory1g, tmpfs scratch/tmp and only candidate/evidence readonly mounts.
+It does not mount SSH keys/live data or initialize a service database. The
+kernel swap-limit warning is retained; the command still returned0.
+
+1. Real `paired.selected_runtime()`/`load_runtime()` selected the exact native
+   asset, guard, engine, wheel and code-anchored trust configuration above.
+2. Actual native `_recovery_native_success` and `_bound_downstream_master`
+   origins are the selected asset. Step4/5 guard wrapper origins match the
+   selected guard; unwrapped business origins match the selected asset.
+   `inspect.unwrap` is used only for provenance, never called or rebound.
+3. Actual WGS `_step_command` and GATK `_step` read task-only synthetic
+   binding/bundle inputs and constructed pinned canonical-Python/asset
+   `step3-status` argv. Those commands were not executed.
+4. Actual P0 `downstream_registered` entered the real paired/native loader,
+   then refused the task-only synthetic request's missing frozen registration
+   before bundle/writer/stage/cloud effects. This proves installed wiring and
+   fail-closed entry; it is not a successful business-stage execution.
+5. Real candidate imports of common.ssh_transport, common.stage_execution,
+   bio_wgs, bio_gatk, cce_worker_wait and cce_publish_dispatch matched03 paths
+   and hashes. All four callers reference the same real shared `run_ssh` object.
+6. Native owner's independent installed trust/policy/CLI/module checks passed
+   and were accepted by the coordinator. Its raw native-loader-pass.json and
+   final HANDOFF are retained at the native local/remote paths above.
+
+No pytest/unittest, two-DagBag replay, six-stage replay, cloud Job or actual
+batch was run in UE06. Prior UE01-05/14-case/two-DAG evidence was reused.
+Stage/cloud calls, run/attempt/SGE/CCE identities:0/N/A for these checks.
+
+**First failure and repair.** First command exit1 at loader-candidate.py:50:
+`assert Path(inspect.getsourcefile(function)).resolve() == ASSET` on step4.
+Pinned inputs and native downstream functions already matched. Read-only
+inspect-wrappers.sh confirmed existing `@protected_stage` wrapper code is in
+the trusted guard, while `inspect.unwrap` identifies the asset business function.
+Only loader-candidate-v2.py corrected this artifact assumption to assert both
+precise pinned origins, retaining identity protection and original failed log.
+Synthetic v2 inputs use a new task child; no failed input/output was deleted.
+No product, wheel, source, policy/schema or security behavior changed.
+
+| Raw AF evidence | SHA256 |
+| --- | --- |
+| preflight.log | `cf964f280478081c3f600143d53edfa7de28e5db2c19797b113166b907991d69` |
+| stage.log | `092f6e9d1ac7d2df30cc6f896d62339353fe27227c2bd47874474c3ce125edc3` |
+| pair-policy.log | `8e2dc5dc59511edb5068aa0c4586ece9b9ea2036d2cba1c6ca621acff47e5ad3` |
+| platform-loader.log, first exit1 | `c0384f8433d842e0da72d58877c965f5fcbd7df0969fab501b9c022c05681db6` |
+| platform-loader-v2.log, exit0 | `fc2663557ace419167304ddec1427cf5e5003177598450a661ae3cf8f1e4ce49` |
+| airflow-loader.log, exit0 | `d4f0aa94ce3ecd2d154ac1ee9fc5744fd1f584d5ac9f2f4f0a38d246eb5fd7d2` |
+| loader-v2-inputs.sha256 | `b1d02fd1024e96dbdde26c6d34fde925631d75be77806d01274e07435ea3544e` |
+| loader-v2-results.sha256 | `9fa92addf52c6c78b0db1f8b1482e8c56b630359c52d10158c23117420c2a16c` |
+| retained-state-comparison.log, local static artifact review | `9e2a190d3fe2671b7fa91a93454fbbd4ee02107e9553a4abfc042523493c8c9b` |
+
+The three original loader logs and remote results manifest were downloaded by
+exact filenames; local hashes match all three remote entries. Inputs manifest
+pins loader-candidate-v2.py857bbcff, airflow-load.py5ad3ffca and
+run-loaders-v2.shbcb2deac. Full hashes, complete commands and the first scripts
+remain in the artifact directory; these are evidence, not a request to rerun.
+Native raw native-loader-pass.json SHA is
+`ffa9626e72166e3ece2ecce5add09c760502e7b85012dc72b9a96f5f2b293b3f`;
+native final HANDOFF SHA is
+`6b0899e2429db24077c01c72f69c74f97b1619419789ffc931f964702d4181ed`.
+Local final-evidence.sha256 indexes 28 exact AF archive/input/script/raw-log
+files, SHA `65079407accc11536b6f50d7c6794172561fd74ada059bc56adf3beeffc79b74`.
+`git diff --check` returned0, and `git diff 03bab6c --name-only` lists only the
+four state documents above. No product source/dependency difference exists.
+
+**Retained state and rollback.** Static comparison of existing AF preflight
+and native post-install environment-final.log matched all ten service IDs,
+backend/WGS e358aad and GATK/common359df11 mounted sources, current link
+`releases/20260912-opt-4d3d24e6`/SOURCE_COMMIT4d3d24e6, scan=false/dispatch=false.
+Backend image remains8491604e, Airflow58195672; no service was recreated or
+mounted to the candidate. No extra remote environment/test round was added.
+Native shared-before/after JSONs are byte-identical SHA
+`0d3541a45b15764e55693c946293214d0b37c029664a6db3143bbe9bc7cc1aab`;
+shared-runtime-before/after JSONs match SHA
+`78059919fedec016265909e2cb380138752808a9940884418aaf647c3652f791`.
+They retain shared0.8.8/source417de59, dependency versions and old bootstrap.
+
+Accurate readable rollback wheel is
+`/mnt/biodevrwbi/33.chenjiucheng/wgs_test/cce-runtime-info-088-20260927/wheel-417de59/cce_pipeline-0.8.8-py3-none-any.whl`,
+SHA `45c99c0c8fb2d39442088d5c5ee7ad6c7be004d2c30495d80d96a4e8a20672c8`,
+matching installed shared files. Existing private600 p0 control compose.json
+and discovery rollback.json match SHAbe192cef; discovery compose SHA89571729.
+They and old mounted source files were only stat/readability/hash checked,
+retained in place; private Compose contents were not copied to artifacts/Git.
+
+Current rollback is to keep existing services/shared package/pins and not
+select this isolated candidate; no reinstallation is needed. The old shared
+bootstrap points to `/home/ctapa/.config/airflow-wgs-test/paired-writers-v2.json`.
+`/home/ctapa` is absent on BS10610 (ENOENT, not permission denial). Old paired
+policy loading and complete activation rollback have not been verified.
+Before any actual switch, the original environment owner must confirm the
+active old configuration on the real execution host. No directory was created,
+permission widened, pointer fixed or node200/BS96 accessed for this gap.
+
+**Limits and next step.** Candidate bindings are empty; no operational
+storage/PVC/business run or production behavior is accepted here. Protected
+shared dependencies, production0.8.8, active configs, source/result/FASTQ/sample
+and existing evidence remain unchanged. No deletes, push, merge, image rebuild,
+deployment or production database action occurred. Coordinator accepted the
+technical loading evidence; this final four-document commit completes this
+owner's closeout. Any later activation or broader task requires its own scope.
+
 ## 2026-09-30 UE-05 AF source delivery accepted; final pairing pending
 
 **Coordinator decision.** The coordinator separately accepted source delivery

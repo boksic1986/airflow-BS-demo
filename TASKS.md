@@ -1,5 +1,28 @@
 # Active test-branch tasks
 
+## UE-06-TEST-PAIR-20260930 — AF/platform owner
+
+- [x] Read current coordinator UE06 authority and accepted source baseline;
+  preserve the existing worktree and start the isolated UE06 branch.
+- [x] Fresh BS10610 control/current/mount/gate/active-use and permission checks;
+  hostname server10610, test scanner/dispatch false, active DB counts zero.
+- [x] Report exact platform candidate/evidence/source/dependency inputs and
+  distinct native ownership; receive native wheel/install/module hashes.
+- [x] Stage only approved source03bab6c and exact paired policy/bootstrap,
+  preserving shared0.8.8, services/current and readable rollback assets.
+- [x] Check actual ordinary/P0-downstream/shared-SSH loader inputs without
+  mocking the checked entries or repeating accepted behavior suites.
+- [x] Coordinator accepted real platform/native loading and shared SSH origins;
+  preserve first wrapper-origin assertion failure and artifact-only v2 repair.
+- [x] Download existing raw loader logs and verify their three remote hashes;
+  compare retained service/current/mount/gate and shared before/after evidence.
+- [x] Record exact source/pins/commands/rollback and old policy ENOENT limitation
+  in final HANDOFF; closeout is four state docs only, with no product changes.
+
+This section is current. The checkpoints below preserve earlier work and
+diagnostics; their old pending/paused checkboxes do not reopen those tasks.
+No test replay, push, merge, deployment, Step1 or batch cleanup is authorized.
+
 ## UE-05-REVIEW-CORRECTIONS-20260930
 
 - [x] Read the coordinator's single review and trace both findings to current
@@ -17,9 +40,9 @@
 - [x] Submit correction commit `03bab6c` and raw evidence to the coordinator.
 - [x] Coordinator accepted AF source `03bab6c` and closed the two Important
   findings after correction/evidence closeout; no repeated test/review required.
-- [ ] Overall UE05 final pairing: coordinator awaits native owner's one narrow
-  static confirmation of the final AF commit. AF source delivery is complete;
-  this is not another AF test/source task. UE06, merge and deployment stay closed.
+- [x] Overall UE05 final native7172573/AF03bab6c pairing was subsequently
+  confirmed by the coordinator. UE06 was explicitly authorized as recorded
+  above; merge and deployment remain closed.
 
 ## UE-05-CURRENT-SOURCE-CHECKPOINT-20260930
 

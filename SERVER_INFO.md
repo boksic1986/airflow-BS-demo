@@ -1,5 +1,31 @@
 # SERVER_INFO.md
 
+## 2026-09-30 UE-06 BS10610 isolated pairing, no activation
+
+Host server10610, chenjc6708:520, Compose airflow-wgs. Current remains
+releases/20260912-opt-4d3d24e6; backend/WGS mounts e358aad, GATK/common359df11,
+auxiliary DAGs4fe71cb. Existing backend2fd88c26761b and Worker5d7a7d8ba65c,
+schedulerdb2d15475746, API01fe4509273d and all other service IDs are retained in
+AF preflight/native post-install evidence. Scan/auto-dispatch remain false.
+Images remain backend8491604e and Airflow58195672; Worker identity50000:0.
+
+AF source03bab6c isolated candidate:
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/ue06-platform-03bab6c-20260930`.
+Native7172573/0.8.9 isolated install:
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue06-native-089-20260930/install/site`.
+No service points to these candidates. Approved nipttest Python3.9.23 remains
+`/sg2/33.chenjiucheng/software/miniforge3/envs/nipttest/bin/python` -> python3.9;
+shared0.8.8/source417de59, dependencies and old bootstrap are byte-identical
+before/after installation. Candidate policy45847251 has bindings[] and both
+code-adjacent bootstraps8e47ad3f select the same exact roots/pins.
+
+Real ordinary/P0/shared-SSH loading evidence accepted by coordinator; stage/cloud
+calls0. AF raw logs live under WGS_test/cce-evidence/ue06-platform-03bab6c-20260930.
+Current rollback preserves existing services/shared pins. Accurate old wheel
+45c99c0c remains readable. Old shared policy points under /home/ctapa, absent
+on BS10610 (ENOENT); old paired loading/actual switch rollback is unverified.
+See latest HANDOFF for exact hashes, commands, first inspection failure and limits.
+
 ## 2026-09-27 paired request validator deployment
 
 BS96 services unchanged. Node200/t640 ctapa private airflow-wgs paired module

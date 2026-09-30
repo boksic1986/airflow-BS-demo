@@ -1,6 +1,42 @@
 # Current state
 
-## 2026-09-30 UE-05 AF source delivery accepted; final pairing pending
+## 2026-09-30 UE-06 isolated platform/native loading accepted
+
+The coordinator reconfirmed current task `UE-06-TEST-PAIR-20260930` after the
+user requested another message. This owner alone handles AF/platform; native
+owner handles wheel0.8.9/source7172573. UE05 final pairing is complete.
+AF product source remains `03bab6c768a2c84537ee4e4a6189072256841b63`; branch is
+`jiucheng/airflow/UE06-paired-installation`, starting at state commit `a0666e5`.
+This closeout changes only CURRENT_STATE/TASKS/HANDOFF/SERVER_INFO.
+
+On BS10610/server10610, the isolated platform candidate is
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/ue06-platform-03bab6c-20260930`.
+Native0.8.9 is installed separately under its UE06 evidence root, with exact
+wheel/runtime/guard/module pins. Both code-adjacent bootstraps have identical
+bytes and select the same installation-only policy (`bindings=[]`). Real paired
+and native trust loaders, ordinary WGS/GATK command builders, P0 loading/refusal
+of an unregistered synthetic request and four callers' shared SSH imports passed.
+The coordinator accepted these installation/loading results and the native
+final handoff. No stage, cloud Job, real batch or active service used the candidate.
+
+Raw failed and passing logs, scripts and SHA256 manifests remain in
+`.codex-artifacts/ue06-platform/` and the matching remote evidence directory.
+The first Step4 origin assertion confused its guard wrapper with the underlying
+runtime function; only the inspection artifact was corrected to verify both
+existing pinned origins. Product code and trust checks were not changed.
+
+Existing AF preflight and native post-install evidence retain all ten service
+IDs, current link, source mounts and disabled scan/auto-dispatch. Shared0.8.8
+package/dependency/bootstrap inventories and runtime identity are byte-identical
+before/after installation. Exact rollback assets are readable and retained.
+The old shared bootstrap points to `/home/ctapa/.config/airflow-wgs-test/`, but
+`/home/ctapa` is absent on BS10610 (ENOENT): old paired configuration loading
+and actual activation rollback are unverified. An actual switch needs the
+original environment owner's confirmation; this task preserves existing pins.
+Existing UE01-05 behavior evidence is reused. No additional test, push, merge,
+deployment, production action or old Step1/batch cleanup is part of this closeout.
+
+## 2026-09-30 UE-05 AF source delivery and final pairing accepted
 
 Both Important findings from the single review of `8617dfa` are corrected.
 Correction source commit: `03bab6c768a2c84537ee4e4a6189072256841b63`.
@@ -26,11 +62,10 @@ behavior. The coordinator accepted the AF source delivery and closed both
 Important findings after checking fourteen unique passing cases, two DAG file
 imports, eighteen evidence-manifest entries and eleven tested inputs against
 `03bab6c`. No additional AF review, test or source work is requested.
-Overall UE05 final pairing still awaits the native owner's single narrow static
-confirmation of this final AF commit; the coordinator owns that follow-up.
-Accepted UE01-04/F7/final-release evidence was reused. UE06, merge and deployment
-remain closed. Entries below are historical checkpoints, including earlier SSH
-failures and pending-acceptance states.
+The coordinator subsequently confirmed native7172573/AF03bab6c final pairing
+and authorized UE06 as recorded above. Accepted UE01-04/F7/final-release
+evidence was reused. Merge and deployment remain closed. Entries below are
+historical checkpoints, including earlier SSH failures and pending states.
 
 ## 2026-09-30 UE-05 source checkpoint ready; acceptance pending
 
