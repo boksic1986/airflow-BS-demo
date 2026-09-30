@@ -1,13 +1,42 @@
 # Airflow DAG specification
 
+## UE-05 shared SSH connection layer (2026-09-30; source only)
+
+The current WGS/GATK Step1-6 restricted node200 commands and P0 Step4
+dispatch/read probe and Step3 Worker read probe use one OpenSSH transport
+implementation. It preserves each caller's fixed command, SSH config, exact
+registered execution/generation/hash, original deadline and backend permit.
+OpenSSH has a 30-second connection/handshake setting and
+`ConnectionAttempts=1`; the transport permits at most three pre-session
+connection attempts with 5/10-second backoff inside one caller budget. The
+existing WGS request-visibility business retry may make a separate connection
+after a connected response, while retaining that failure count and deadline.
+Short dispatch is capped at
+120 seconds. Existing Step4 read probe remains capped at 30 seconds, Step3
+Worker probe at 150 seconds, and either is further capped by its original
+persisted deadline. No stage lifetime is invented where no absolute deadline
+was frozen.
+
+Only exit 255 with empty stdout and wholly recognized pre-session diagnostics
+may reconnect. Authentication/host-key failure, mixed/unknown output, command
+timeout and post-session ambiguity are never replayed as SSH writes. An
+uncertain marked dispatch uses the UE-04 exact native observation; `unknown`
+cannot authorize a resend, later stage or cleanup. The transport cannot
+register a new execution, consume a recovery budget or grant P0 redispatch.
+The WGS request-visibility loop shares the connection-failure count and total
+budget across its invocations. DAG task retry counts, pools and leases remain
+unchanged. The node97 local path, Step7 and maintenance DAGs are outside this
+connection change.
+
 ## SSH banner timeout trailer (2026-09-27)
 
-WGS pre-execution reconnect accepts the OpenSSH companion line
+The earlier WGS pre-execution reconnect accepted the OpenSSH companion line
 `Connection to <host> port <port> timed out` only alongside a recognized
 pre-session error. The trailer alone remains insufficient. Exit255, empty
 stdout and fully recognized stderr are still required; remote/business or
 ambiguous post-execution output is never automatically replayed. Existing
-three-invocation limit,5s/10s delays and original registration/generation remain.
+three-invocation limit,5s/10s delays and original registration/generation remain
+under the shared connection layer above.
 
 ## UE-04 unified stage client (2026-09-30, source only)
 
@@ -15,7 +44,8 @@ Newly marked WGS/GATK Step1–Step6 registrations return the exact frozen
 execution ID, generation, request hash and `stage_execution` marker. The DAGs
 obtain the full native ref by the fixed read-only `--native-observe` command,
 compare it with that registration, and use the fixed `--native-submit` command
-with the same ref. A marked submit sends one SSH request per task invocation;
+with the same ref. A marked submit makes one logical SSH dispatch per task
+invocation, with only proven pre-session connection retries inside that call;
 an uncertain response is reconciled by observing that ref. Airflow task retries
 reuse the same registration and rely on the native launch fence to attach to
 an existing dispatch or start a first dispatch that never happened. A native

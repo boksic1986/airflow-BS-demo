@@ -132,7 +132,7 @@ class StageExecutionWaitTests(unittest.TestCase):
 
         completed = SimpleNamespace(
             returncode=255, stdout="",
-            stderr="ssh: connect to host synthetic port 22: Connection timed out",
+            stderr="client_loop: send disconnect: Broken pipe",
         )
         conf = {"analysis_id": REF["analysis_id"], "attempt": 1}
         with patch.object(bio_wgs.subprocess, "run", return_value=completed) as runner, \

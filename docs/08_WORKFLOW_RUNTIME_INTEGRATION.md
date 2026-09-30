@@ -1,5 +1,28 @@
 # Workflow runtime integration
 
+## UE-05 Airflow SSH transport boundary (2026-09-30; source only)
+
+Airflow's WGS/GATK current Step1-6 and P0 dispatch/observe callers share one
+OpenSSH connection layer. It keeps the registered command and restricted
+identity fixed, uses a 30-second handshake with OpenSSH internal attempts
+disabled, and allows at most three pre-session connection attempts with
+5/10-second backoff within the original single call budget. A separate WGS
+request-visibility business retry retains that same failure count and deadline.
+Only fully recognized
+pre-session exit-255 failures with empty stdout can be reconnected. A mixed,
+authenticated, post-session or timed-out command does not qualify for write
+replay. The P0 Step4 120-second dispatch, 30-second read probe and Step3
+150-second Worker probe limits retain any earlier frozen deadline. One
+logical probe may reconnect its SSH session, but its nonce, backend decision
+and Worker quiescence budget are unchanged.
+
+Transport outcomes are not native stage terminals. Ambiguous marked submits
+are reconciled through the UE-04 exact `execution_ref` observation; an unknown
+snapshot cannot permit a second launch, downstream transition or release.
+The connection layer cannot create an attempt/generation, run biological work
+for the duration of a stage, spend a recovery budget or grant P0 redispatch.
+No native SSH retry engine or production runtime installation is included.
+
 ## UE-05 final writer query window (2026-09-30; source pairing in progress)
 
 The registered Step6 final writer now creates one local monotonic 120-second

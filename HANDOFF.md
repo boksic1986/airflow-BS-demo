@@ -1,5 +1,48 @@
 # Handoff
 
+## 2026-09-30 UE-05 approved continuation and transient network boundary
+
+User-approved scope: shared OpenSSH transport for current WGS/GATK Step1-6 and
+P0 dispatch/observe, followed by R2/R4 optional exact native snapshots through
+existing authenticated poll/callback/cleanup requests. Worker nonce observation
+remains a separate contract. UE-04 source is complete; Step1 historical handling
+is not part of this task. Source baseline is HEAD `1e84714`; preserve the three
+uncommitted R2 draft files and existing `.codex-artifacts/`. SSH is to be an
+independent commit before R2/R4. Current work is isolated source and BS10610
+synthetic validation only; no BS96, node200, real batch, wheel, service,
+database, cleanup, deployment or release. This continuation adds only the
+shared SSH source/test and docs 07/08 plus this state record before the separate
+R2/R4 work. The coordinator reports a recent
+BS10610 gateway connection timeout; current-turn network access remains
+unverified. The one necessary read-only preflight command was
+`ssh -o BatchMode=yes -o ConnectionAttempts=1 -o ConnectTimeout=10 BS10610 hostname`.
+It exited 1 after 10.2 seconds, stderr:
+`Connection timed out during banner exchange` and
+`Connection to UNKNOWN port 65535 timed out`. The SSH gateway did not establish
+a session, so hostname/control root/current release/mounts/gates and remote
+synthetic nodes could not be checked. No retry, code execution, data change or
+local runtime-test substitution followed. Likely cause is the currently
+unreachable gateway or pre-session SSH path; the exact network component is
+unconfirmed. Continue source and static review; rerun the full test preflight
+only after external connectivity changes. Rollback is to leave this isolated
+branch unmerged; existing deployed services and data are untouched.
+
+SSH source files: `dags/common/ssh_transport.py`, `dags/bio_wgs.py`,
+`dags/bio_gatk.py`, `dags/cce_publish_dispatch.py`, `dags/cce_worker_wait.py`;
+focused fixture `dags/tests/test_ssh_transport.py` and one corrected ambiguous
+disconnect in `dags/tests/test_stage_execution_wait.py`. `docs/07` and `docs/08`
+describe the new boundary. Shared helper enforces `ConnectTimeout=30`,
+`ConnectionAttempts=1`, strict existing pre-session allowlist, cumulative
+three-failure cap, 5/10-second backoff and one monotonic deadline. The original
+WGS request-visibility business retries, P0 check/finish sequence, 30-second
+Step4 read probe and 150-second Worker nonce probe retain their semantics.
+Marked dispatch timeout goes to same-ref observe. Independent static review
+found and corrected one exhausted-budget reentry that could have spawned a
+fourth connection. `git diff --check` passed. Tests not run: BS10610 targeted
+synthetic nodes and DAG import, because the single SSH preflight above failed;
+local runtime tests are outside this repository's acceptance boundary. The
+gateway must recover before remote validation and any later UE-06 gate.
+
 ## 2026-09-30 UE-05 work started (source only)
 
 **Goal and boundary.** Continue after committed UE-04 on branch

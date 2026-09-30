@@ -27,6 +27,7 @@ from common.stage_execution import (
     submit_and_await,
     submit_stage,
 )
+from common.ssh_transport import SSHCallBudget, pre_session_failure, run_ssh
 
 
 ANALYSIS_ID_RE = re.compile(r"^WGS_[0-9]{8}_[0-9]{6}_[A-F0-9]{6}$")
@@ -67,31 +68,6 @@ STAGE_GENERATION_VISIBILITY_TIMEOUT_SECONDS = 120.0
 STAGE_PREDECESSOR_VISIBILITY_ATTEMPTS = 5
 STAGE_PREDECESSOR_VISIBILITY_DELAY_SECONDS = 5.0
 FAILED_STAGE_SYNC_TIMEOUT_SECONDS = 30.0
-SSH_RECONNECT_DELAYS_SECONDS = (5.0, 10.0)
-
-
-def _ssh_failed_before_execution(completed: subprocess.CompletedProcess[str]) -> bool:
-    """Fail closed: only known pre-session OpenSSH diagnostics permit replay."""
-    if completed.returncode != 255 or (completed.stdout or "").strip():
-        return False
-    lines = [line.strip() for line in (completed.stderr or "").splitlines() if line.strip()]
-    primary = (
-        r"Connection timed out during banner exchange",
-        r"ssh: connect to host \S+ port \d+: (?:Connection timed out|Connection refused|No route to host)",
-        r"(?:kex_exchange_identification|ssh_exchange_identification): (?:read: Connection reset(?: by peer)?|Connection closed by remote host)",
-    )
-    trailer = (
-        r"(?:Connection (?:closed|reset) by \S+ port \d+|"
-        r"Connection to \S+ port \d+ timed out)"
-    )
-    return bool(lines) and any(
-        re.fullmatch(pattern, line) for line in lines for pattern in primary
-    ) and all(
-        any(re.fullmatch(pattern, line) for pattern in (*primary, trailer))
-        for line in lines
-    )
-
-
 def _runner_request_not_yet_visible(completed: subprocess.CompletedProcess[str]) -> bool:
     if completed.returncode == 0:
         return False
@@ -339,21 +315,38 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
         str(conf["attempt"]),
         runner_stage,
     ]
+    # The current Step1–6 path shares one connection and wall-time allowance
+    # across the separate request-visibility invocations below. Historical
+    # prepare/Step7 retain their existing runner behavior.
+    ssh_budget = SSHCallBudget.start(120) if runner_stage in RECOVERY_STAGES else None
     connection_failures = 0
     invocation = 1
     while True:
-        completed = subprocess.run(
-            command,
-            check=False,
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-        )
-        if _ssh_failed_before_execution(completed):
-            if connection_failures >= len(SSH_RECONNECT_DELAYS_SECONDS):
+        try:
+            if ssh_budget is None:
+                completed = subprocess.run(
+                    command, check=False, stdin=subprocess.DEVNULL,
+                    capture_output=True, text=True,
+                )
+            else:
+                completed = run_ssh(command, timeout_seconds=120, budget=ssh_budget)
+        except (OSError, subprocess.SubprocessError) as error:
+            if ssh_budget is None:
+                raise
+            _wait_for_terminal_stage_projection(
+                analysis_id=str(conf["analysis_id"]), attempt=int(conf["attempt"]),
+                stage=runner_stage,
+                expected_retry_no=(
+                    int(registered["generation"]) - 1
+                    if isinstance(registered.get("generation"), int) else None
+                ),
+            )
+            raise RuntimeError("restricted node200 WGS stage SSH outcome is uncertain") from error
+        if ssh_budget is None and pre_session_failure(completed):
+            if connection_failures >= 2:
                 LOG.warning("WGS SSH pre-execution connection attempts exhausted (3/3)")
                 break
-            delay = SSH_RECONNECT_DELAYS_SECONDS[connection_failures]
+            delay = (5.0, 10.0)[connection_failures]
             connection_failures += 1
             LOG.warning(
                 "WGS SSH pre-execution connection failure; reconnecting (%s/3) in %ss",
@@ -365,6 +358,8 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
             break
         if invocation == RUNNER_REQUEST_VISIBILITY_ATTEMPTS:
             break
+        if ssh_budget is not None and ssh_budget.remaining() <= RUNNER_REQUEST_VISIBILITY_DELAY_SECONDS:
+            break
         LOG.warning(
             "registered WGS runtime request is not visible on node200 yet; "
             "retrying restricted runner invocation (%s/%s)",
@@ -374,7 +369,7 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
         time.sleep(RUNNER_REQUEST_VISIBILITY_DELAY_SECONDS)
         invocation += 1
     if completed.returncode != 0:
-        if completed.returncode == 255 and not _ssh_failed_before_execution(completed):
+        if completed.returncode == 255 and not pre_session_failure(completed):
             LOG.warning(
                 "WGS SSH failure is not proven pre-execution; command will not be "
                 "replayed. Checking the registered generation's terminal evidence."
@@ -529,15 +524,18 @@ def _native_observe_stage(conf: dict, stage: str, identity: dict) -> dict:
         "--native-observe", str(conf["analysis_id"]), str(conf["attempt"]), stage,
         str(identity.get("execution_id")), str(generation), str(identity.get("request_hash")),
     )
+    ssh_budget = SSHCallBudget.start(120)
     for attempt in range(1, RUNNER_REQUEST_VISIBILITY_ATTEMPTS + 1):
-        completed = subprocess.run(
-            command, check=False, stdin=subprocess.DEVNULL,
-            capture_output=True, text=True,
-        )
+        try:
+            completed = run_ssh(command, timeout_seconds=120, budget=ssh_budget)
+        except (OSError, subprocess.SubprocessError) as error:
+            raise BackendTransportUnavailable("native WGS observation transport unavailable") from error
         if completed.returncode == 0:
             return _runner_reply(completed.stdout)
         if not _runner_request_not_yet_visible(completed) or attempt == RUNNER_REQUEST_VISIBILITY_ATTEMPTS:
             break
+        if ssh_budget.remaining() <= RUNNER_REQUEST_VISIBILITY_DELAY_SECONDS:
+            raise BackendTransportUnavailable("native WGS observation time budget exhausted")
         time.sleep(RUNNER_REQUEST_VISIBILITY_DELAY_SECONDS)
     if completed.returncode == 255:
         raise BackendTransportUnavailable("native WGS observation transport unavailable")
@@ -554,10 +552,10 @@ def _native_dispatch_stage(conf: dict, stage: str, identity: dict) -> dict:
         str(identity["execution_id"]), str(identity["stage_generation"]),
         str(identity["request_hash"]),
     )
-    completed = subprocess.run(
-        command, check=False, stdin=subprocess.DEVNULL,
-        capture_output=True, text=True,
-    )
+    try:
+        completed = run_ssh(command, timeout_seconds=120)
+    except (OSError, subprocess.SubprocessError) as error:
+        raise DispatchUncertain("native WGS dispatch outcome requires exact observation") from error
     if completed.returncode:
         raise DispatchUncertain("native WGS dispatch outcome requires exact observation")
     result = _runner_reply(completed.stdout)

@@ -4,6 +4,7 @@ import json
 import os
 import re
 import subprocess
+from common.ssh_transport import run_ssh
 
 
 def poll_recovery(backend, *, pipeline, conf, dag_run_id):
@@ -30,13 +31,12 @@ def poll_recovery(backend, *, pipeline, conf, dag_run_id):
         if remaining <= 0:
             return answer
         prefix = pipeline.upper()
-        command = ['ssh','-tt','-o','BatchMode=yes','-o','ConnectTimeout=10',
+        command = ['ssh','-tt','-o','BatchMode=yes',
             '-F',os.getenv(prefix+'_SSH_CONFIG_PATH','/opt/airflow/ssh/config'),
             os.getenv(prefix+'_RUNNER_200_ALIAS',pipeline+'-node200'),
             os.getenv(prefix+'_RUNNER_200_COMMAND','/home/ctapa/.config/airflow-'+pipeline+'/forced-command.sh'),
             '--recovery-probe',aid,str(attempt),str(generation),probe['request_hash'],probe['nonce']]
-        result = subprocess.run(command,stdin=subprocess.DEVNULL,capture_output=True,text=True,
-            check=False,timeout=min(150,remaining))
+        result = run_ssh(command,timeout_seconds=150,deadline_epoch=deadline.timestamp())
         if datetime.now(timezone.utc) >= deadline:
             return answer
         if result.returncode or len(result.stdout) > 2*1024*1024:

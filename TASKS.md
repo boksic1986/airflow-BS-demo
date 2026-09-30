@@ -1,5 +1,21 @@
 # Active test-branch tasks
 
+## UE-05-AUTHORIZED-CONTINUATION-20260930
+
+- [ ] From HEAD `1e84714`, commit shared SSH transport and current WGS/GATK/P0
+  consumption as one independent source slice; keep one call budget, the
+  approved pre-session retry predicate and existing uncertain dispatch observe.
+  Source and focused fixture are drafted and statically reviewed; BS10610
+  synthetic execution is unverified after the single gateway timeout.
+- [ ] Repair the retained three-file R2 draft using the approved optional exact
+  native snapshot on existing authenticated requests; bind frozen Step3 identity
+  and terminal evidence before compute-terminal permission.
+- [ ] Complete R4 six-stage failure/cleanup fences with the same exact snapshot;
+  do not mix it with the Worker nonce probe or blanket-hide verified failures.
+- [ ] Use only BS10610 isolated synthetic delta nodes. Coordinator reported a
+  recent gateway timeout; record a repeated first preflight failure and do not
+  blindly retry or run local runtime tests. No UE-06 or production action.
+
 ## UE-05-RECOVERY-CONSUMERS-20260930 (source in progress; not deployed)
 
 - [ ] R2: share one exact bound compute-terminal permit between manual/automatic

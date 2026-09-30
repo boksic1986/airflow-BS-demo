@@ -1,5 +1,29 @@
 # Current state
 
+## 2026-09-30 UE-05 authorized continuation (source only)
+
+Current source HEAD is `1e84714` on the isolated UE-05 branch. UE-04 is the
+accepted source checkpoint (`a6c31d1`/`7976f25`); the old Step1 discussion is
+historical. The user approved one shared SSH connection implementation for
+current WGS/GATK Step1-6 and P0 dispatch/observe, followed by optional exact
+native snapshots on the existing authenticated R2/R4 poll, callback and cleanup
+requests. Keep the Worker nonce probe separate. First commit SSH independently,
+then complete R2/R4; retain the three uncommitted R2 draft files and existing
+`.codex-artifacts/`. Scope remains isolated source and BS10610 synthetic delta;
+no production, node200, real-batch, wheel, service, database or release action.
+The coordinator reported a BS10610 gateway timeout. This turn's one necessary
+read-only SSH hostname preflight also failed before a session opened (exit 1,
+banner exchange timeout to UNKNOWN port 65535). BS10610 hostname, release,
+mount and gate identity could not be revalidated, so remote synthetic tests
+remain unverified. Do not blindly retry or use local runtime substitution.
+
+The shared SSH source and one synthetic delta fixture are now drafted and
+statically reviewed. Current Step1-6 WGS/GATK and P0 dispatch/probe sites use
+one `dags/common/ssh_transport.py`; a cumulative budget cannot spawn after
+three known pre-session failures. Native dispatch timeout remains an uncertain
+outcome reconciled by exact observe. The source has no BS10610 GREEN because
+of the gateway failure; no installed or production behavior is claimed.
+
 ## 2026-09-30 UE-05 recovery consumers (source in progress; not deployed)
 
 UE-04 source is committed. The current isolated branch is

@@ -23,6 +23,7 @@ from common.stage_execution import (
     observe_stage,
     submit_stage,
 )
+from common.ssh_transport import run_ssh
 
 
 LOG = logging.getLogger(__name__)
@@ -166,13 +167,16 @@ def run_stage(stage: str, **context: Any) -> dict[str, Any]:
         stage,
         str(registered["generation"]),
     ]
-    completed = subprocess.run(
-        command,
-        check=False,
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-        text=True,
-    )
+    if stage == "prepare":
+        completed = subprocess.run(
+            command, check=False, stdin=subprocess.DEVNULL,
+            capture_output=True, text=True,
+        )
+    else:
+        try:
+            completed = run_ssh(command, timeout_seconds=120)
+        except (OSError, subprocess.SubprocessError) as error:
+            raise RuntimeError("restricted node200 GATK stage SSH outcome is uncertain") from error
     if completed.returncode:
         error = " | ".join(
             item.strip()
@@ -226,10 +230,10 @@ def _native_observe_stage(conf: dict, stage: str, identity: dict) -> dict:
         "--native-observe", str(conf["analysis_id"]), str(conf["attempt"]), stage,
         str(identity.get("execution_id")), str(generation), str(identity.get("request_hash")),
     )
-    completed = subprocess.run(
-        command, check=False, stdin=subprocess.DEVNULL,
-        capture_output=True, text=True,
-    )
+    try:
+        completed = run_ssh(command, timeout_seconds=120)
+    except (OSError, subprocess.SubprocessError) as error:
+        raise AirflowException("native GATK observation transport unavailable") from error
     if completed.returncode == 255:
         raise AirflowException("native GATK observation transport unavailable")
     if completed.returncode:
@@ -247,10 +251,10 @@ def _native_dispatch_stage(conf: dict, stage: str, identity: dict) -> dict:
         str(identity["execution_id"]), str(identity["stage_generation"]),
         str(identity["request_hash"]),
     )
-    completed = subprocess.run(
-        command, check=False, stdin=subprocess.DEVNULL,
-        capture_output=True, text=True,
-    )
+    try:
+        completed = run_ssh(command, timeout_seconds=120)
+    except (OSError, subprocess.SubprocessError) as error:
+        raise DispatchUncertain("native GATK dispatch outcome requires exact observation") from error
     if completed.returncode:
         raise DispatchUncertain("native GATK dispatch outcome requires exact observation")
     result = _native_reply(completed.stdout)
