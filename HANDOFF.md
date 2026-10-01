@@ -15,6 +15,15 @@ Local unattached main/production refs were advanced with ancestor checks and
 compare-and-swap. The final closure commit changes only documentation and is
 also synchronized to both branches; deployed product source remains fd855934.
 
+Closure incident: the first docs commit `50f87751ef2a1bfb60553adc5033e777fc6eaf19`
+pushed successfully to both remote branches. The local `git update-ref --stdin`
+transaction printed start/prepare/commit ok, then rejected extra whitespace;
+the PowerShell wrapper exited1. Subsequent read-only local/remote ref checks
+confirmed all four target refs and HEAD at50f87751. The committed transaction
+was not replayed. Pipeline trailing-input origin is unconfirmed. This note is
+a documentation-only follow-up; direct argument-based CAS avoids stdin for
+its local ref advancement. No runtime or production apply was repeated.
+
 TEST packet `b87597374ff13a5228a45b9781901c778cb230f8f26b1e6118192f832c66a24f`
 passed check/apply/accept at 2026-10-01T17:32:10Z. Backend is `8f223cea…`,
 frontend `49bbc707…`; eight other service IDs are unchanged. PROD packet
