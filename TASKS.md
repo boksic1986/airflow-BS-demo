@@ -1,5 +1,16 @@
 # Active test-branch tasks
 
+## WGS-PANEL-20261002 — published-release configuration COMPLETE
+
+- [x] c727e8c Git/fd855934 mounted baseline and genuine pipeline-only receipt.
+- [x] Committed source snapshot, original native profile and both private bindings.
+- [x] Exact phase JSON and backend/observer delta; historical entries preserved.
+- [x] TEST/PROD authenticated catalog registration/CAS/panel and gateway readback.
+- [x] Concise state/handoff and normal main/production synchronization.
+
+No full tests, clinical batch, new options activation or data action. Configuration
+handoff receipt `cb6aca32…` is not a new joint/native execution acceptance.
+
 ## STEP7-PERF-20261002 — implementation and release COMPLETE
 
 - [x] Step7 common marker scope; BS10610 RED30/GREEN37 and synthetic recovery.

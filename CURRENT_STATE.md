@@ -1,5 +1,20 @@
 # Current state
 
+## 2026-10-02 WGS-PANEL configuration COMPLETE
+
+TEST and PROD now select `wgs-4.2.3-3f98682`, source commit
+`3f986821172e5fbd5f5abd1213baea64c6b976f9`, original wgs-4.2.3/r1 profile
+raw SHA `f0150c60…`, pipeline build `051371a9…`. Native changed only the
+profile build field; AF added exact roots/private prepare mappings and the
+verified unchanged rule inventory. AF source `fd0a01b` changes only phase JSON.
+Both catalog registration/CAS and authenticated panel GETs passed; formal
+health/index200 and unauthenticated401. Original options/gates/watermark and
+historical entries/requests/bundles remain unchanged. PROD backend0c9914ab and
+observer2dac00a9 load the exact policy file; ten other service IDs and fd855934
+product code mounts are preserved. No full tests, analysis or cleanup ran.
+Only normal branch synchronization and concise docs close this task. See
+[release record](docs/releases/2026-10-02-wgs-dnascope-panel.md).
+
 ## 2026-10-02 STEP7-PERF fix and BS96 release COMPLETE
 
 User-authorized Step7 function and webpage loading fixes are released from

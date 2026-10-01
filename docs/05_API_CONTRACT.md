@@ -1,5 +1,14 @@
 # API contract
 
+## WGS published configuration selection (2026-10-02)
+
+Current TEST/PROD selection is `wgs-4.2.3-3f98682` with original profile r1,
+new build/profile hashes and immutable prepare source. Existing register/CAS/GET
+routes and response shape are unchanged; options remain closed and native defaults
+apply. Receipt cb6aca32 records AF configuration correspondence from pipeline-only
+and profile evidence, not joint execution acceptance. Historical entries remain.
+See [release record](releases/2026-10-02-wgs-dnascope-panel.md).
+
 ## Run-page read efficiency (2026-10-02 deployed)
 
 `GET /api/runs` aggregates WGS QC status from the controlled batch QCstat's

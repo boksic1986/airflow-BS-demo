@@ -1,5 +1,61 @@
 # Handoff
 
+## 2026-10-02 — WGS-PANEL minimal configuration COMPLETE
+
+Human task relayed by airflow-cloud-demo: native updates original profile to the
+latest published WGS commit; AF updates panel/catalog with matching source and
+build identity. User limits checks to correspondence/connectivity, without full
+tests, clinical batches or repeating accepted checks. Root alone writes AF
+source/catalog and any limited BS96 service deployment; native owns profile.
+Keep options gate closed, original gates/data and frozen historical run versions.
+No Step7/perf overlay replacement. Task branch
+`jiucheng/backend/WGS-PANEL-20261002-release-config` begins atc727e8c.
+
+Owner commit3f986821/pipeline-only release20261002.1-wgs423-dnascope, build
+051371a9… and receipt filedb81f3b1… are confirmed. Exact BS10610/BS96 identity
+read plus catalog/current release/health GETs returned200 and verified all110
+accepted fd855934 backend hashes. Current remainswgs-4.2.3-bafd27c; options
+closed, WGS/GATK executiontrue, PROD scantrue/effective autofalse and watermark
+unchanged. Raw bounded results/scripts live in
+`.codex-artifacts/wgs-panel-release-20261002`. Owner immutable source manifest
+530aedd6… and unchanged rule-tree proof supplied the exact phase mapping;
+policy commit `fd0a01b591280963e03380ac06df4c991a591d5c` adds30 JSON lines only.
+Native original-profile raw hash isf0150c60… (canonical039d7def…); AF added new
+root/private prepare pins to both WGS runtime.envs, preserving old maps and all
+other fields. Actual node200 connection viaNGS/ctapa key to172.17.61.200 passed.
+One PROD activity GET found22 WGS runs terminal and no active old prepare.
+
+TEST/PROD registered and CAS-activatedwgs-4.2.3-3f98682 with configuration receipt
+`cb6aca329a923296f06b823c779561cf03c75c61af5fccdac7d9b58f0d411352`.
+It combines real pipeline-only/immutable-source/native-profile evidence under
+the existing API schema; it is not a new joint or clinical execution acceptance.
+Catalog/panel GET fields passed; oldbafd entry is identical, options/gates and
+watermark unchanged. Formal health/index200 and unauthenticated401 passed.
+Only backend/observer refreshed with a new exact readonly policy mount: PROD
+IDs0c9914ab/2dac00a9, TESTa3e0add6/b67c860d. Ten PROD/eight TEST other IDs,
+all original code mounts/images/Env values remain unchanged; Env order changed.
+No frontend build, Airflow change, tests, analysis, retry or data deletion ran.
+
+Bounded failures/fixes: node200 alias was not resolvable onNGS(exit255), corrected
+to the documented exact IP/key; systempython3 lackedyaml(exit1), reused configured
+WGS_PYTHON; first env edit hit duplicate-key last-value shadowing(KeyError/exit1)
+after TEST write, corrected from the retained original backup by changing final
+effective assignments; first TEST deploy checker compared Env order(AssertionError/
+exit1) after successful recreation, corrected by readonly full key/value identity
+acceptance without replaying deployment. Detailed commands remain in task scripts.
+Native backups are private runtime.env siblings inwgs-panel-20261002-backup;
+an unreferenced first prepare staging file remains protected and unused.
+
+Changed files: phase JSON, CURRENT_STATE/TASKS/HANDOFF/SERVER_INFO, API note and
+[concise release record](docs/releases/2026-10-02-wgs-dnascope-panel.md).
+Normal main/production synchronization closes this task. Exact old Compose
+copies live in eachwgs-panel-20261002-3f98682-control root; rollback must verify
+this deployment's IDs, then coordinate native profile/pipeline restoration and
+reverse catalog CAS, rather than selecting old metadata alone. No rollback ran.
+Prepared batches use their own frozen bundle. Old unprepared requests continue
+strict path/hash checks; no active old prepare existed and no compatibility bypass
+was added. No further runtime checks or tests are required for this small task.
+
 ## 2026-10-02 — STEP7-PERF fix, branch synchronization and release COMPLETE
 
 ### Authorization and result

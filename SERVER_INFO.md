@@ -1,5 +1,19 @@
 # SERVER_INFO.md
 
+## 2026-10-02 WGS DNAscope panel configuration release
+
+TEST/BS96 catalog select `wgs-4.2.3-3f98682`, source `3f986821…`.
+Original profile `wgs-4.2.3@r1` raw SHA `f0150c60…`, build SHA `051371a9…`.
+AF policy source `fd0a01b591280963e03380ac06df4c991a591d5c`, policy SHA `b5707e9e…`.
+PROD `/data/airflow-WGS/wgs-panel-20261002-3f98682-control/wgs_phases_cc9bde3.json`
+is bound read-only at `/app/app/policies/wgs_phases_cc9bde3.json` in both consumers.
+Backend `0c9914ab…`/observer `2dac00a9…` refreshed; ten other service IDs unchanged.
+Original fd855934 backend and inherited observer code mounts remain; nginx/Airflow unchanged.
+Options stay disabled; execution, scanner, effective-auto and watermark remain unchanged.
+Catalog/release and formal health/index GETs200, unauthenticated API401.
+Native bindings reached node200/t640 and retain old mappings; no analysis or data action.
+Pipeline-only PASS is AF configuration-handoff evidence, not joint execution acceptance.
+Exact TEST paths, hashes, receipts and rollback: [release record](docs/releases/2026-10-02-wgs-dnascope-panel.md).
 ## 2026-10-02 STEP7-PERF completed TEST and BS96 release
 
 Product source `fd8559347dc71ddd015e8c3c757d1805d33260f7` was synchronized
