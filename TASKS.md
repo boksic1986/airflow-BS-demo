@@ -17,7 +17,8 @@
 - [x] Stage gateway v2 actual effective-parent merges and exact rollback;
   config checks pass, no runtime selection. Stage existing Heavy entry/core
   wiring, exact backups/PID/starttime; launchers and active processes unchanged.
-- [ ] Submit one concrete candidate and old/new/rollback inventory to coordinator.
+- [x] Submit one concrete final candidate and old/new/rollback inventory to
+  airflow-cloud-demo; final packetf9cf2671/archivecf8fef55 verified, review pending.
 - [ ] After coordinator window release: fresh idle, short admission closure,
   native-only package/bootstrap install, AF pairing, focused validation,
   TEST complete producer/client/backend/Group minimum joint acceptance first,
