@@ -715,6 +715,13 @@ operation origin_batch as source analysis provenance.
 
 ## CCE 0.8.5 managed WGS release API (2026-09-15, inactive)
 
+W423 phase projection source update (2026-10-01): exact WGS
+`wgs-4.2.3-bafd27c` uses the owner-proven14-module inventory,12 inherited422
+names/aliases and six QC/SNV additions. Exact `gatk-scmc-v7.6.0@r5` uses the
+unchanged17-rule workflow. Unregistered releases/rules retain Unknown.
+API/schema are unchanged; this does not register/activate a runtime catalog
+or establish biological equivalence.
+
 `POST /api/wgs/releases` accepts only `cce-release.v1`: a complete managed
 `release`, its verified `assets` record (`status=PASS`, `state_verified=true`),
 and `receipt_sha256`, the SHA-256 of canonical JSON without that digest field.

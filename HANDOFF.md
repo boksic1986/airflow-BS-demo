@@ -1,5 +1,52 @@
 # Handoff
 
+## 2026-10-01 — exact WGS423/GATKr5 phase source handoff
+
+Coordinator approved the existing policy mechanism after owner provenance
+arrived. Parent7ad370b4f4dcb66fc5bcd8323c3afbeef3697b01 preserves R1 product5415
+and Group baselineb3. Read phase-source-audit.json, blobs TSV, declaration
+delta, entrypoints and GATK report; verified all5 support-file hashes, old
+policy SHA50642463 and14 current441d/published/frozenbafd module identities.
+No rule declaration deletion or module/include/alias change;6 modules changed
+against441d. QC adds limsQC/auto_qc, SNV adds varid_txt2vcf and matching aliases.
+GATK evidence is the frozen host workflow blob1cf9/fileebee7906/17 rules plus
+existing pipeline/profile binding; no fresh SFS read or biological equivalence.
+
+Product: exact bafd identity/full source,18 rule additions (all12 inherited422
+concatSpecialSNV names/aliases plus six new ones), seven overrides against cc9
+including inherited SMA; exact GATK@r5 shares its audited workflow blob.
+Base sources/rules and every older release entry remain unchanged; resulting
+policy matches all14 frozen module blobs. Existing phase/API fixtures verify
+this lookup/projection, not final423 catalog/package/deployment binding.
+
+Fresh BS10610/server10610/6708:520 fingerprint matched current4d3d24e6,
+actual P0 image8491604/app and Airflow mounts, scanner/auto=false. New candidate/
+task/scratch paths were absent/canonical and created mode700. Verified baseline
+source7ad archive SHAa6973e5a before extraction. Literal stdin Bash run.sh
+red/green used cached image, --network none/--read-only, task scratch and no
+dependency installation. Two affected fixture files selected only
+`bafd27c or r5 or r6 or wgs_423`: RED exit1,4failed/3passed/13deselected in1.58s;
+GREEN exit0,7passed/13deselected in1.64s. Failures were missing exact identities
+and their Unknown phase projection. Unknown controls stayed Unknown. All4
+product/test hashes match GREEN-mounted files; local diff-check passed.
+
+Evidence/scripts: `.codex-artifacts/w423-phase-20261001`; remote
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/w423-phase-7ad370b-20261001`.
+Candidate uses control/candidates/w423-phase-7ad370b-20261001/source only.
+Changed: workflow_phases.py, existing WGS policy, two existing phase tests,
+current state/tasks/handoff, API contract and Group audit. No R1/Group/UE
+retest, clinical/Snakemake/CCE job, independent review, install, API/DB/service/
+profile/old-batch/production action. Dependency/kernel warnings were non-fatal;
+initial rg found no prior phase script, and one doc patch context check rejected
+an abbreviated line before any file changed; actual context was then read.
+
+Remaining: installation choice, canonical/native/private-config/platform
+pairing, TEST acceptance and rollback. Owner reports QC output rules themselves
+do not post HTTP, but blank LIMS password does not disable generated downstream
+callbacks; actual existing TEST callback policy remains required. Redaction
+does not prove silent delivery. No callback ran. Source rollback is reverting
+these exact phase entries; no deployment was made by this task.
+
 ## 2026-10-01 — disabled-options static chain and selected TEST entry
 
 Coordinator selected the ordinary catalog/no-merge path for this round.

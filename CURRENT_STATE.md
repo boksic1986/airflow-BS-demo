@@ -1,5 +1,19 @@
 # Current state
 
+## 2026-10-01 W423 exact phase identities verified as source
+
+Owner provenance was checked:14 fixed modules, unchanged entrypoints/aliases,
+no declaration removal and three new rules. Existing policy now registers
+only `wgs-4.2.3-bafd27c` with18 additions (12 inherited422 plus six new names/
+aliases) and seven overrides against cc9 base. GATK r5 uses the same audited
+1cf9 workflow blob/17 rules. Older maps remain unchanged; unregistered rules
+and identities still return Unknown. BS10610 isolated RED4/controls3 then
+focused GREEN7 in1.64s; R1 GREEN26 and Group/UE evidence were not repeated.
+
+Actual installation/canonical/private-config/platform pairing and TEST
+acceptance remain pending. Owner reports blank LIMS password does not disable
+generated downstream callbacks; the final TEST callback policy remains open.
+
 ## 2026-10-01 W423-R1 exact 4.2.3 compatibility source verified
 
 After the user's resend request, coordinator `airflow-cloud-demo` reconfirmed

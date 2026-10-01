@@ -33,8 +33,9 @@ This latest human scope supersedes the earlier broad W42303/04 checklists below.
   private prefix; no installation decision is inferred from source approval.
 - [x] Read coordinator-approved WGS publication and external GATK r5 profile
   receipts; retain raw profile hashes separately from canonical revision pins.
-- [ ] Receive final423/r5 rule/module evidence; coordinate exact missing phase
-  identity registration and finish canonical profile/runtime bindings.
+- [x] Verify final423/r5 source evidence; register exact phase identities,
+  retain422 additions/old maps and pass BS10610 focused phase GREEN7.
+- [ ] Finish canonical/runtime/private-config/platform and TEST callback policy bindings.
   Native installs approved full089 once, then Airflow pairs TEST consumers,
   console/import environment, bootstrap/policy/catalog and platform mounts.
 - [ ] Validate only the new deployed TEST pairing and actual Group consumer
