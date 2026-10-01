@@ -1064,6 +1064,17 @@ integration remains Task3 work; no production/default CLI activation.
 
 ## P0-2 Task3 compatible readers (2026-09-23, development only)
 
+2026-10-02 source correction: the registered initial Step2 CREATE wrapper must
+read native `_master_create_intent(selected, contract)` and inherit its validated
+deadline for the platform journal/handoff. Missing or mismatched intent rejects
+before CREATE; a second clock-derived deadline is forbidden. Strict native
+identity/deadline guards and unknown-outcome single-CREATE semantics stay intact.
+This source fix is not a deployed release or recovery authorization for an old
+created/unconfirmed Master that is absent. That state still needs separately
+reviewed initial-submission reconciliation; no fabricated START/native FINAL,
+historical deadline rewrite, intent deletion or manual lock release is permitted.
+See [A468E9 incident and bounded design](reviews/2026-10-02-wgs-a468e9-step2-deadline.md).
+
 Resume may use `_recovery_query(config, *arguments)` from compatible runtime:
 successful exact-name empty GET means absent; failed GET raises a privacy-safe
 classification; incomplete lists never mean empty. Frozen bundles stay intact.

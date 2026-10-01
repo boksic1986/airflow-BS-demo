@@ -7,12 +7,18 @@
 - [x] Create the unique ACTIVE hourly heartbeat wgs-test1 for thread 01a0e728-4c99-71d0-87e9-987b311022c9; saved TOML readback matches, no prior matching monitor.
 - [x] Accept actual A468E9/a1 CCE Step1 dispatch/upload: Progress API 200/running, 0.4%, 2,125,820,066/522,508,028,738 bytes, 10 files.
 - [x] 2026-10-02 06:21–06:24 Asia/Shanghai hourly check: Step1 running84.2%,7/10files; same request/execution/gen1 identity on backend/node, fresh native status, unchanged runtime/gates. No recovery required; terminal receipt/full flow still pending.
+- [x] 07:20 hourly check: accept actual Step1success10/10,100%; diagnose Step2gen1 failed from private traceback and differing persisted deadlines; Job/Pod absent, initial lock remains OWNED, no START/native FINAL proof in selected evidence.
+- [x] Prepare minimum platform deadline fix and real-native BS10610 RED/GREEN:19passed/1intentional skip,4negative cases passed; preserve strict guards and old files. Source candidate, not merged/deployed.
+- [ ] Coordinator review and human decision on separately scoped initial-submit reconciliation: ordinary resume-stage cannot recover this absent, unconfirmed Master. No gen2/POST/lock mutation until supported recovery is authorized and verified.
 - [ ] Monitor only the current A468E9 attempt hourly; communicate issues and apply minimum scoped repair/recovery until workflow completion.
 - [ ] Require Step1–6 final receipts, delivered results and consistent Airflow/platform success before completing this card and removing the monitor.
 
 Unchanged state stays quiet; notify on issues, meaningful progress and completion.
 Full batch execution is not complete. No Step7, repeated deletion/creation,
 prepare/profile change or reopening of earlier completed recovery scopes.
+This incident is current monitoring/operational recovery; it does not authorize
+UE, GATK old-batch work or deferred product modules. Exact evidence, rollout and
+rollback boundaries: docs/reviews/2026-10-02-wgs-a468e9-step2-deadline.md.
 
 ## W423-PREPARE-6C78D5-20261002 — scoped recovery COMPLETE
 

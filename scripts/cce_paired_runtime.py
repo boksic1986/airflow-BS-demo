@@ -636,7 +636,10 @@ def submit_registered(payload, *, binding, gate, pipeline):
         def submit(config_arg, manifest):
             if journal or Path(manifest) != selected/'master-job.yaml' or _read_registered(path) != raw:
                 raise RuntimeError('initial CREATE is already transmitted or request changed')
-            journal.update(identity=identity,state='submitting',deadline_epoch=runtime.time.time()+600)
+            intent = runtime._master_create_intent(selected, contract)
+            if intent is None:
+                raise RuntimeError('initial CREATE requires a persisted native intent')
+            journal.update(identity=identity,state='submitting',deadline_epoch=intent['deadline_epoch'])
             save()
             try:
                 job = create(config_arg,manifest)

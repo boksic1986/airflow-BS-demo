@@ -296,7 +296,7 @@ def handoff(tmp_path):
 
 @pytest.mark.parametrize('view_inputs',[{'pipeline':'wgs','analysis_id':'WGS_20260924_000000_AAAAAA'},
     {'pipeline':'gatk','analysis_id':'GATK_20260924_000000_AAAAAA'}],indirect=True)
-@pytest.mark.parametrize('outcome',['normal','lost_response','unknown','recover','bound_crash','reattach','interrupted','reattach_worker','reconnect'])
+@pytest.mark.parametrize('outcome',['normal','advancing_clock','missing_create_intent','tampered_create_intent','lost_response','unknown','recover','bound_crash','reattach','interrupted','reattach_worker','reconnect'])
 def test_registered_initial_submission_selects_its_view(registered,monkeypatch,outcome):
     state,launch,gate,payload,request,policy,old_bundle,h=registered
     pipeline='wgs' if gate is wgs_runtime_gate else 'gatk'
@@ -311,18 +311,18 @@ def test_registered_initial_submission_selects_its_view(registered,monkeypatch,o
     request_root.mkdir(parents=True,exist_ok=True)
     request=gate._request_path(payload['analysis_id'],1,'step2_master')
     request.parent.mkdir(parents=True,exist_ok=True)
-    if pipeline=='wgs':payload['control_workdir']=str(request.parent)
+    if pipeline=='wgs':
+        monkeypatch.setattr(gate,'RUNTIME_RUN_ROOT',request_root)
+        payload['control_workdir']=str(request.parent)
     binding=json.loads((old_bundle.parent/'batch-binding.json').read_bytes())
     binding['cce_bundle']=str(bundle)
     (bundle.parent/'batch-binding.json').write_text(json.dumps(binding))
     monkeypatch.setattr(gate,'_load_binding',lambda p:binding)
     payload.pop('resume_action_id');payload.update(runtime_workdir=str(bundle.parent))
     if pipeline=='gatk':payload['cce_bundle']=str(bundle)
-    excluded={'request_hash'} if pipeline=='gatk' else {'execution_id','generation','request_hash',
-        'predecessor_execution_id','predecessor_generation','predecessor_receipt_hash'}
     def save(p,path):
-        p['request_hash']=hashlib.sha256(json.dumps({k:v for k,v in p.items() if k not in excluded},
-            sort_keys=True,separators=(',',':')).encode()).hexdigest();path.write_text(json.dumps(p))
+        p['request_hash']=paired._request_digest(p,pipeline)
+        path.write_text(json.dumps(p))
     save(payload,request)
     value=json.loads(policy.read_bytes());registration=value['bindings'][0]
     registration.update(bundle=str(bundle),files_sha256=runtime._handoff_binding(bundle,h.contract)['files_sha256'])
@@ -332,6 +332,33 @@ def test_registered_initial_submission_selects_its_view(registered,monkeypatch,o
     state.lose=outcome in ('lost_response','unknown');state.hide=outcome=='unknown'
     monkeypatch.setenv('WGS_EXECUTION_ENABLED','true');monkeypatch.setenv('WGS_RUNTIME_ADAPTER_ENABLED','true')
     before={str(p.relative_to(bundle)):p.read_bytes() for p in bundle.rglob('*') if p.is_file()}
+    if outcome=='advancing_clock':
+        persist=runtime._persist_master_create_intent
+        def persist_then_advance(*args,**kwargs):
+            intent=persist(*args,**kwargs)
+            h.now+=0.0202558
+            return intent
+        monkeypatch.setattr(runtime,'_persist_master_create_intent',persist_then_advance)
+    if outcome in {'missing_create_intent','tampered_create_intent'}:
+        persist=runtime._persist_master_create_intent
+        def invalidate_intent(selected,contract):
+            intent=persist(selected,contract)
+            path=runtime._master_create_intent_path(selected,contract)
+            if outcome=='missing_create_intent':
+                path.unlink()
+            else:
+                invalid=copy.deepcopy(intent)
+                invalid['binding']['config_sha256']='f'*64
+                path.write_text(json.dumps(invalid))
+            return intent
+        monkeypatch.setattr(runtime,'_persist_master_create_intent',invalidate_intent)
+        message='persisted native intent' if outcome=='missing_create_intent' else 'CREATE intent'
+        with pytest.raises(RuntimeError,match=message):
+            paired.submit_registered(payload,binding=binding,gate=gate,pipeline=pipeline)
+        assert (state.creates,state.starts)==(0,0)
+        assert not (request.parent/('submission-'+payload['execution_id']+'.json')).exists()
+        assert before=={name:(bundle/name).read_bytes() for name in before}
+        return
     if outcome=='interrupted':
         finish=runtime._finish_master_handoff
         def interrupted(*a,**kw):raise TimeoutError('synthetic handoff disconnect')
@@ -371,6 +398,14 @@ def test_registered_initial_submission_selects_its_view(registered,monkeypatch,o
         return
     receipt=json.loads(request.with_suffix('.status.json').read_bytes())
     assert receipt['cce_master_binding']['native']['execution_generation']==1
+    if outcome=='advancing_clock':
+        journal_path=request.parent/('submission-'+payload['execution_id']+'.json')
+        journal=json.loads(journal_path.read_bytes())
+        selected=Path(journal['identity']['selected_bundle'])
+        intent=runtime._master_create_intent(selected,h.contract)
+        handoff=runtime._read_master_handoff(selected,h.contract)
+        assert journal['deadline_epoch']==intent['deadline_epoch']==handoff['deadline_epoch']
+        assert (state.creates,state.starts)==(1,1)
     current={k:v for k,v in payload.items() if not k.startswith('_')}
     current.update(stage='step3_monitor',execution_id=payload['analysis_id']+'-a1-step3_monitor-g1',generation=1,
         predecessor_execution_id=payload['execution_id'],predecessor_receipt_hash=

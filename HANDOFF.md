@@ -1,5 +1,75 @@
 # Handoff
 
+## 2026-10-02 07:20 hourly incident — A468E9/a1 Step1 successful, Step2 failed
+
+Goal/authority: follow only W423-A468E9-HOURLY-20261002 under direct human
+hourly diagnosis/minimum platform repair authorization. Airflow remains the
+unique production writer. Coordinator explicitly requested reviewable platform
+fix and BS10610 delta validation; new native reconciliation is design only and
+requires a separate human decision. Old deletion/prepare/profile tasks stay done.
+
+Live evidence: server96/control root/backend a70599bd/observer e5c018a5/worker
+e483a853 mounts/gates unchanged. Step1 success10/10,522508028738bytes, ended
+06:48:47Shanghai; native receipt SHA ed0959d70f4d8c81ac1f8871285b5b22d7f929c59e82949c02a8061b6d476088.
+Step2 a1/wse_1fd307e0dd889fecc284a93a/gen1/request c0bc4e60 failed06:52:32;
+native failed receipt228a420e. Private worker log2374bytes SHA3edcaa1b shows
+native guarded step2:2659 -> _write_master_handoff:1299; native c2988621 and
+platform fdc23a33 match deployed exact sources. Initial journal created UID
+88dcdfa3-bbcb-4e91-aa64-f51299f3275a; native intent deadline1790895698.794229
+versus wrapper journal/handoff1790895698.8144848. JOB_CREATED/noPodUID; no local
+START_INTENT/START_CONFIRMED/RUN_FAILED/RUN_COMPLETE; exact and frozen run-label
+Job/Pod inventories empty, no local analysis process. Directory lock CM
+cce-batch-lock-v2-1cd228d7a6f6ba224175a003cd45bef2 remains OWNED, action
+initial-c1e8a352e4e4a23ad54e5c3e4b021d6e/gen1/MasterUIDempty. No lock was edited.
+
+Airflow submit_step2_master failed on registered stage terminal; release_leases
+later HTTP400 before lease primitive. Original raw400 body is not retained in
+Airflow/backend logs. Exact deployed cleanup guard dry read, using fresh API run
+projection and in-memory session only, deterministically rejects Step2-only
+cleanup with `DagRun cleanup rejected: native_stage_unconfirmed`. This is a
+reproduced reason, not a newly captured POST response. Input slot-release TI was
+already success; current OBS slot holder was not queried via direct SQL or
+claimed verified. Step3–6 upstream_failed. Native compute finality is not proven
+by business Step2 failed status; do not clear a lock/lease on that assumption.
+
+Changed: scripts/cce_paired_runtime.py reads validated persisted native CREATE
+intent before journal/CREATE, preserving its deadline. Only4replacement lines;
+strict native guard/unknown-outcome single CREATE/old journals unchanged.
+scripts/tests/test_p02_selected_monitor.py adds advancing-clock and actual-file
+missing/tampered intent cases; aligns existing synthetic WGS digest/control root.
+Docs CURRENT_STATE/TASKS/HANDOFF/runtime integration/review note updated.
+Independent read-only review accepted the platform scope; coordinator review
+pending. No production script/bootstrap/container/config/profile deployment.
+
+Validation: fresh BS10610 preflight verified test mounts/gates. Network-none
+non-root cached exact WGS Master image8ba8858e/Python3.11.9 ran real native
+c2988621 and only synthetic Kubernetes/OBS transports. RED2failed with same
+deadline error; GREEN19passed/1intentional GATK reattach-worker skip,34deselected;
+additional real-file intent guards4passed,54deselected. Full suite not run.
+Earlier collection failures: Python3.9 plugin `typing.Self`, fixture platform
+mount naming/StopIteration, then stale WGS fixture digest; corrected isolated
+test wiring/data without changing production contracts, preserved all logs.
+Read-only node probe initially assumed empty pods object was dict; corrected
+explicit successful list GET confirmed[]; no mutating retry. Guessed Windows
+source searches exited1/2; directory/function lookup resolved them.
+
+Evidence: local private untracked .codex-artifacts/wgs-6c78d5-prepare-20261002/
+heartbeat-20261002-0719-{bs96,step2-native,step2-ownership-corrected,
+step2-private-index,step2-native-traceback,airflow-errors,backend-cleanup,
+cleanup-guard,test-preflight}.jsonl and step2-deadline-{red-final,green,
+green-intent-final}.jsonl. Private raw Airflow logs0600 in0700 BS96
+/data/airflow-WGS/wgs-permissions-20261002-3f98682-control/heartbeat-20261002-0719/.
+Remote synthetic evidence: /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/
+wgs-step2-deadline-20261002-0719/. Review note gives hashes/commands.
+
+Outstanding: current a1 still failed; ordinary resume-stage rejects created,
+unconfirmed, absent Job and has no native final proof. Present bounded new
+initial-abort evidence/CAS recovery design to coordinator for human decision;
+do not implement native scope or POST yet. Newgen2 would be registered normally
+only after approved supported recovery, preserving analysis/attempt/Step1/all
+inputs. Monitor ACTIVE; this snapshot does not complete the workflow. Rollback
+is retaining deployed bytes; source candidate revert only. No data cleanup.
+
 ## 2026-10-02 — W423-A468E9-HOURLY-20261002 ACTIVE, only follow-up
 
 Hourly check2026-10-02 06:21–06:24 Asia/Shanghai (live read): only A468E9/a1.

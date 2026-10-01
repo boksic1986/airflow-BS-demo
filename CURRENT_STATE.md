@@ -8,14 +8,27 @@ hourly monitor now reports substantive changes/completion/blockers to both.
 This changes reporting only; original scope, cadence and runtime remain unchanged.
 
 Only active follow-up: WGS_20261001_210659_A468E9, current attempt 1,
-20260927D-test1. Normal execution is approved; actual CCE Step1 upload is running.
-Hourly snapshot 2026-10-02 06:21–06:24 Asia/Shanghai: Uploading FASTQ/running,
-84.2%, 440,041,249,820 of 522,508,028,738 bytes, 7/10 files complete. Airflow and
-native remain running on the same attempt1/gen1 execution wse_ec58be0b95c3e84d357d60e5,
-request hash f0486b75; request bytes match backend/node. Source/profile/gates/mounts
-are unchanged. No repair, rerun or data action. Step1 terminal receipt is not yet
-available; backend local marker is absent while native status/progress are fresh.
-The full batch is not complete; retain the hourly monitor.
+20260927D-test1. Hourly live read 2026-10-02 07:20 Asia/Shanghai found Step1
+SUCCESS: 10/10 files, 522,508,028,738/522,508,028,738 bytes, native receipt
+ed0959d7 matching wse_ec58be/gen1/hash f0486b75. Upload ended06:48:47.
+Step2 wse_1fd307e0dd889fecc284a93a/gen1/hash c0bc4e60 failed06:52:32:
+`Master original handoff deadline changed`. Platform/DagRun failed; Step3–6
+have not started. Exact Job/Pod and frozen run-label Job/Pod inventories are empty;
+initial journal remains created, handoff JOB_CREATED, directory lock OWNED with
+initial action/gen1 and empty Master UID. No START intent/confirmation or native
+RUN_COMPLETE/RUN_FAILED final proof exists in the selected local evidence view.
+
+Confirmed platform wrapper root cause: native CREATE intent froze1790895698.794229,
+wrapper journal/handoff independently froze1790895698.8144848,20.2558ms later.
+Minimum platform fix inherits the validated native intent deadline; BS10610
+real-native RED reproduced both WGS/GATK, GREEN19passed/1intentional skip plus
+4negative guard cases passed. Source candidate only, NOT merged/deployed; native
+core/old evidence/locks are unchanged. Ordinary same-attempt Step2 resume refuses
+the absent unconfirmed Master. A separate bounded initial-submission reconciliation
+design is ready for coordinator/human decision; do not POST or invent final proof.
+See docs/reviews/2026-10-02-wgs-a468e9-step2-deadline.md. The full batch is not
+complete; retain the monitor and follow this current a1, avoiding repeated probes
+or implementation while the required new native scope remains undecided.
 
 Directly verified human message 01a0f953-fa91-7ef0-9e4a-4b956784104c requests
 hourly monitoring, communication on issues, minimum scoped repair and recovery
