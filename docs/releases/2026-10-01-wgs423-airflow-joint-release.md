@@ -1,5 +1,16 @@
 # WGS 4.2.3 / Airflow / cce-pipeline 0.8.9 联合发布协调单
 
+## Latest scope: Group TEST release only
+
+The later direct human instruction defers prepare/FQ synthesis, QC2 and new
+delivery/CRAM work described by this earlier broad joint plan. Current Airflow
+source/verification, actual native consumer impact and pending installation/
+TEST pairing gates are recorded in
+[W423 Group TEST audit](2026-10-01-w423-group-test-consumer-audit.md).
+Both final Masters have been pushed; package installation and TEST activation
+remain pending. Production/shared dependency exposure cannot be inferred safe
+from frozen assets or unchanged console names.
+
 状态：2026-10-01 已向三位原 owner 派发；基线收口中，未宣布安装、验收或上线。
 
 ## 1. 授权与发布范围

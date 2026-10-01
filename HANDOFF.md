@@ -1,5 +1,66 @@
 # Handoff
 
+## 2026-10-01 — W423 Group source and bounded native impact handoff
+
+Goal: latest human requested the already merged WGS4.2.3/native089/two-Master
+TEST release and Group member states. Prepare/FQ synthesis and broader W423
+QC/delivery work are deferred. Coordinator reconfirmed this scope after the
+user requested that task confirmation be resent. Original product/deployment
+owners remain exclusive; this agent stops before installation/switch gates.
+
+Completed source: branch `jiucheng/airflow/W423-test-group-release-20261001`,
+base827dc56004ddf7857644499c85835ded8ae93a85. Added Group column and explicit
+waiting-for-member-start text to the existing Rules table; no inventory rows,
+new state system, backend schema or event protocol. New frontend case and two
+synthetic WGS/GATK persistence/API cases cover actual member evidence. Sole
+earlier prepare test preserved on deferred branch08e4cbc, not run/uploaded.
+Changed files: frontend RunWorkflowTab/component test, new backend
+test_group_rule_release.py, docs06, current state/tasks/handoff/server record,
+joint-release scope banner and the new Group consumer audit release record.
+
+Verification: BS10610 server10610/6708:520, actual P0 backend image8491604;
+isolated, network-disabled tests reused cached dependencies. Group case actual
+RED missing column then GREEN1; API2 passed; affected UI file9 passed; tsc
+noEmit exit0; application/browser harness Vite builds passed. Browser checked
+WGS/GATK waiting/running/terminal with two actual rows, independent timestamp/
+status/failure and zero console errors. This is synthetic ingest/API/component
+evidence. Accepted producer reports reused; complete real Snakemake JSONL was
+not available and downloaded canary event files were Kubernetes EventLists.
+Do not label this real producer-to-deployed-UI acceptance. No UE/P0/Worker
+suite or CCE canary rerun. Temporary browser harness/tunnel stopped afterward.
+
+Actual native impact: node200=t640/ctapa6801:520. Production WGS declared
+private088 import/console and selected private088-step3 runtime/guard are
+independent of changed shared assets, although paired interpreter is nipttest.
+Production GATK frozen runtime/guard remain copied, but actual frozen
+cce_delivery.py:24 prioritizes shared cce_pipeline.shared_permissions, importing
+changed __init__ metadata on a later process. Permissions itself is unchanged;
+failure is not inferred. Its latest prepare instead uses separate WGSenv088
+console/source095f1e93. TEST WGS paired runtime/guard/console and GATK prepare
+are shared consumers. Old TEST writer hashes and WGS catalog/profile digest
+already drift, so restoring those bytes is not asserted a working rollback.
+
+Commands/errors: remote pytest2, vitest affected-file9, tsc noEmit and vite
+builds above; raw logs under `.codex-artifacts/w423-integration-20261001`
+and approved remote WGS_test/cce-evidence/w423-platform-827dc56-20261001.
+Harness-only failures (environment/cache path/shell positional/index mount,
+SQLite UTC assertion, remote Python3.6 encoding/subprocess API and first
+PowerShell-interpolated temporary-server stop) were corrected from diagnosed
+causes. First stop did not reach Docker remotely; literal stdin Bash stopped
+only the named task harness. Details, exact paths/SHAs and results are in
+[W423 Group audit](docs/releases/2026-10-01-w423-group-test-consumer-audit.md).
+
+Remaining gates: user chooses shared installation vs proposed TEST private
+complete089 prefix; coordinator review; WGS owner's new profiles/resources and
+release/rule inventory; final package/import/console/bootstrap/policy/catalog
+hash pairing and refresh of active-use/rollback. Native uniquely installs;
+Airflow uniquely pairs TEST afterward. Final native source1f5/wheelf843 and
+both pushed Master digests are fixed. No pip, production migration, TEST gate/
+service switch, old profile rewrite, batch resume/delete or BS96 action here.
+Rollback proposal: capture exact TEST configuration bytes/mounts, restore only
+those selectors after a private installation, preserve shared088 and all
+artifacts, then verify pairing. Installation and rollback are not yet executed.
+
 ## 2026-10-01 W423 Airflow integration source checkpoint
 
 ## 2026-09-29 — WGS C Step5 Tracker stage regression candidate

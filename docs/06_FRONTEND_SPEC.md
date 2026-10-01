@@ -557,8 +557,8 @@ The product label is `NGS Huawei Cloud` with the subtitle `Online analysis platf
 
 ## OPT20260912 monitoring review corrections
 
-Workflow groups expand the recorded member rule names and job IDs, not only
-an opaque group ID; historical missing inventory explicitly says unavailable.
+Workflow groups use recorded member rule names and job IDs. The current Rules
+table displays each real rule instance; group inventory never creates rows.
 Unknown release phases and rules remain Unknown. Complete and canceled phases
 are shown as canceled, while active or unresolved members retain precedence.
 QC status source text is separate from its judgment badge: only judgment.status
@@ -570,3 +570,14 @@ Terminal stage estimates say `Estimate frozen — execution ended`, never
 Rule names are plain table text, with no per-rule expansion. Keep existing columns
 and Open log. Native detail and tracker use the existing RunProgressBar percentage
 with measured completed/total from the same execution log. No extra progress UI.
+
+## W423 Group rule association (2026-10-01 TEST candidate)
+
+Rules adds a Group column from the existing `execution_group` API field. Show
+the group suffix in the cell and the complete origin identity as its title.
+Each row keeps its own recorded status/start/end and failure message. A
+planned/accepted group-only member without actual start says `Awaiting rule
+start`; no group timestamp is substituted. This does not expand the member
+inventory into additional rules. Existing filters, paging and log links remain.
+Synthetic ingest/API/component/browser verification is distinct from producer
+acceptance and from TEST deployment; see the W423 Group release audit.

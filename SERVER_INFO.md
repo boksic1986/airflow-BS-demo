@@ -1,5 +1,23 @@
 # SERVER_INFO.md
 
+## 2026-10-01 W423 Group TEST preflight and consumer audit
+
+Fresh checks supersede the source-only observation below. BS10610 is
+server10610/chenjc6708:520, current20260912-opt-4d3d24e6 but actual backend/
+Airflow mounts use P0/current discovery overlays; test run/transfer/DagRun/
+TaskInstance active counts0, scanner/auto false. Isolated tests and a temporary
+synthetic browser harness used approved task roots; existing services untouched.
+
+Actual node200 route: NGS jump plus ctapa key to172.17.61.200, hostname t640,
+ctapa6801:520. Production WGS traced import/paired assets are private088;
+GATK frozen delivery has a shared package metadata import through unchanged
+permissions, while its latest prepare uses separate WGSenv088. TEST consumers
+still select shared code; old writer pins and WGS profile/catalog digest drift.
+User choice of proposed TEST private prefix vs requested shared install is
+pending. No package install, selector/service switch or BS96 access occurred.
+Exact observed paths, hashes and pending pairing/rollback:
+[W423 Group audit](docs/releases/2026-10-01-w423-group-test-consumer-audit.md).
+
 ## 2026-10-01 W423 source integration only
 
 Fresh remote main and jiucheng/release/production both ce497d61; no runtime

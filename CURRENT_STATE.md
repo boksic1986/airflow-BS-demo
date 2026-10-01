@@ -1,5 +1,24 @@
 # Current state
 
+## 2026-10-01 W423 Group TEST candidate; no activation
+
+Latest human scope defers prepare/FQ synthesis and QC2. The isolated release
+branch `jiucheng/airflow/W423-test-group-release-20261001` starts at integrated
+`827dc56`; the only earlier prepare test is retained separately at `08e4cbc`.
+Group UI now displays existing group association and independent rule states/
+actual times. BS10610: synthetic WGS/GATK ingest/API2 passed, affected UI9
+passed, TypeScript/build passed; browser6 synthetic states checked. Accepted
+CCE producer reports are reused, not claimed as real event replay.
+
+Actual node200 production GATK frozen delivery imports shared package metadata
+through unchanged `shared_permissions`; therefore shared088 overwrite is not
+proven isolated. Production WGS traced paths select private088; TEST consumers
+need complete new pairing and existing TEST pins/profile bindings have drift.
+Coordinator is obtaining the user's choice of shared installation versus TEST
+private prefix. Native1f5/f843 and both pushed Master digests are frozen; no pip,
+TEST selector/service switch, old profile edit or BS96 action has occurred.
+See [candidate, audit and stop gates](docs/releases/2026-10-01-w423-group-test-consumer-audit.md).
+
 ## 2026-10-01 W423 joint release source integration in progress
 
 ## 2026-09-29 WGS C Step5 Tracker stage candidate

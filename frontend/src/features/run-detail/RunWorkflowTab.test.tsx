@@ -2,7 +2,25 @@ import "@testing-library/jest-dom/vitest";
 import {fireEvent, render, screen, within} from "@testing-library/react";
 import {expect, it, vi} from "vitest";
 import type {RulePage, RunProgressResponse} from "../../api";
-import {RunWorkflowTab} from "./RunWorkflowTab";
+import {RuleInstanceTable, RunWorkflowTab} from "./RunWorkflowTab";
+
+it("shows group association beside real member states without expanding the inventory", () => {
+  render(<RuleInstanceTable rules={[
+    {rule:"first-rule", status:"running", execution_group:"worker:opaque:group-01",
+      execution_group_members:[{rule:"inventory-only-rule"}], timing_provenance:"individual",
+      started_at:"2026-10-01T01:00:00Z"},
+    {rule:"second-rule", status:"planned", execution_group:"worker:opaque:group-01",
+      execution_group_members:[{rule:"inventory-only-rule"}], timing_provenance:"group_only"},
+  ]} />);
+  const table=screen.getByRole("table",{name:"Pipeline rule instances"});
+  expect(within(table).getByRole("columnheader",{name:"Group"})).toBeInTheDocument();
+  expect(within(table).getAllByText("group-01")).toHaveLength(2);
+  expect(within(table).getByText("Not started")).toBeInTheDocument();
+  expect(within(table).getByText("Awaiting rule start")).toBeInTheDocument();
+  expect(within(table).getAllByRole("row")).toHaveLength(3);
+  expect(within(table).queryByText("inventory-only-rule")).toBeNull();
+  expect(within(table).getByText("first-rule").closest("tr")).toHaveTextContent("running");
+});
 
 it("defaults to running rules, twenty per page, without expanding execution-group inventory", () => {
   const rules=Array.from({length:21},(_,i)=>({rule:`active-${i}`,status:"running",execution_group:"group-a",origin:"master:opaque",execution_group_members:[{rule:"not-started-member"}]}));

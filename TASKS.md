@@ -1,5 +1,29 @@
 # Active test-branch tasks
 
+## W423-GROUP-TEST-AIRFLOW-20261001
+
+This latest human scope supersedes the earlier broad W42303/04 checklists below.
+
+- [x] Preserve main TTL and accepted UE/phase/receipt fences at source827dc56;
+  isolate the sole unrun prepare test on deferred branch08e4cbc.
+- [x] Display existing group association and each recorded rule's own status/
+  timestamps without synthetic inventory rows or group-time substitution.
+- [x] BS10610 minimal evidence: synthetic API2, affected UI9, TypeScript/build;
+  browser6 synthetic states; reuse accepted producer reports without canaries.
+- [x] Trace actual production WGS/GATK and TEST native imports; report GATK
+  shared metadata exposure and TEST pin/profile drift to coordinator/native.
+- [ ] Coordinator reviews exact committed candidate and receives required user
+  choice of shared nipttest installation versus TEST private prefix.
+- [ ] WGS owner provides new profiles/resources/release identity/rule inventory;
+  native installs approved full089 once, then Airflow pairs TEST consumers,
+  console/import environment, bootstrap/policy/catalog and platform mounts.
+- [ ] Validate only the new deployed TEST pairing and actual Group consumer
+  boundary; capture exact rollback. No installation/switch is authorized yet.
+
+Prepare/FQ synthesis, QC2, new delivery/CRAM behavior, prior batch actions and
+BS96 release remain outside this round. Details:
+[W423 Group candidate](docs/releases/2026-10-01-w423-group-test-consumer-audit.md).
+
 ## W423-JR-01-05-AIRFLOW-20261001
 
 ## P0-WGS-TRACKER-STEP5-20260929 — backend candidate
