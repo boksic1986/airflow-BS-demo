@@ -2,6 +2,35 @@
 
 ## 2026-10-02 — W423-A468E9-HOURLY-20261002 ACTIVE, only follow-up
 
+Hourly check2026-10-02 06:21–06:24 Asia/Shanghai (live read): only A468E9/a1.
+BS96 server96/6708:520/control root and actual backend a70599bd/observer e5c018a5/
+worker e483a853 mounts unchanged; original current symlink remains historical.
+Auth/WGS admission/options/watermark preserved, effective auto remains false.
+Run and DagRun running,5selected/ready,approved. Upload now84.2%,
+440041249820/522508028738bytes,7/10files,99,656,661B/s at progress snapshot.
+Airflow start TI success; upload wait active, downstream not started. Node t640/
+ctapa6801:520 request/status match current wse_ec58be0b95c3e84d357d60e5/gen1/hash
+f0486b753e23f7a523e728a4d5df989589b6d84e9ed6c1aaae62ba573e0ef8be.
+Backend/node request rawSHA b3db57e807f8f24cbf1ac66217b94843a0438db29bc113ea9f411b1dfa742120.
+Native status running/fresh22:23:53Z; profile raw26b6fb15 unchanged. Backend local
+status marker is not yet present, so internal stage-status is pending; public
+progress/native running are observed separately, no success receipt is inferred.
+No repair/rerun/POST/deletion or other batch inspection; monitor stays ACTIVE.
+
+Commands/results: BS96 environment+run/progress/transfers/DagRun/current-stage GET
+PASS200; bounded NGS-proxy node request/status/profile read PASS. First read-only
+native glob('step1_upload*.json') probe exited1, KeyError analysis_id: it included
+the stage-execution.dispatch sidecar, whose schema is execution_ref/runtime_identity.
+Corrected the helper to validate only exact request/status filenames; corrected
+readback PASS. This was a probe error, not a pipeline failure; no mutating replay.
+A guessed local source-file search exited2; function lookup/read of wgs_observer
+resolved it. No product tests: no implementation changed. Evidence safe JSONLs:
+.codex-artifacts/wgs-6c78d5-prepare-20261002/heartbeat-20261002-0619-{bs96,native,
+native-corrected,marker-readback}.jsonl. Modified only CURRENT_STATE/TASKS/HANDOFF.
+Next: normal hourly check of current actual stage; require Step1 terminal identity/
+receipt before claiming completion, then naturally follow Step2–6. No runtime
+rollback needed; documentation snapshot can be reverted independently.
+
 Status-summary coordination update: directly verified human message
 01a0f95c-893f-70b2-aca8-25e8fecb0aaf authorizes docs/priority owner
 01a0b254-07b5-7352-99aa-871b117459ad and continuing status communication.

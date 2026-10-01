@@ -9,8 +9,13 @@ This changes reporting only; original scope, cadence and runtime remain unchange
 
 Only active follow-up: WGS_20261001_210659_A468E9, current attempt 1,
 20260927D-test1. Normal execution is approved; actual CCE Step1 upload is running.
-Progress API returned 200: Uploading FASTQ, 0.4%, 2,125,820,066 of
-522,508,028,738 bytes across 10 files. The full batch is not complete.
+Hourly snapshot 2026-10-02 06:21–06:24 Asia/Shanghai: Uploading FASTQ/running,
+84.2%, 440,041,249,820 of 522,508,028,738 bytes, 7/10 files complete. Airflow and
+native remain running on the same attempt1/gen1 execution wse_ec58be0b95c3e84d357d60e5,
+request hash f0486b75; request bytes match backend/node. Source/profile/gates/mounts
+are unchanged. No repair, rerun or data action. Step1 terminal receipt is not yet
+available; backend local marker is absent while native status/progress are fresh.
+The full batch is not complete; retain the hourly monitor.
 
 Directly verified human message 01a0f953-fa91-7ef0-9e4a-4b956784104c requests
 hourly monitoring, communication on issues, minimum scoped repair and recovery

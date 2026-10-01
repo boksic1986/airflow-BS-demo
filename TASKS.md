@@ -6,6 +6,7 @@
 - [x] Verify direct human hourly-monitor/recover-to-completion instruction, message 01a0f953-fa91-7ef0-9e4a-4b956784104c.
 - [x] Create the unique ACTIVE hourly heartbeat wgs-test1 for thread 01a0e728-4c99-71d0-87e9-987b311022c9; saved TOML readback matches, no prior matching monitor.
 - [x] Accept actual A468E9/a1 CCE Step1 dispatch/upload: Progress API 200/running, 0.4%, 2,125,820,066/522,508,028,738 bytes, 10 files.
+- [x] 2026-10-02 06:21–06:24 Asia/Shanghai hourly check: Step1 running84.2%,7/10files; same request/execution/gen1 identity on backend/node, fresh native status, unchanged runtime/gates. No recovery required; terminal receipt/full flow still pending.
 - [ ] Monitor only the current A468E9 attempt hourly; communicate issues and apply minimum scoped repair/recovery until workflow completion.
 - [ ] Require Step1–6 final receipts, delivered results and consistent Airflow/platform success before completing this card and removing the monitor.
 
