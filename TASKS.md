@@ -2,6 +2,19 @@
 
 ## W423-R1-UNIFIED089 — candidate preparation, window closed
 
+Latest status: first gate released and old-code admission closure COMPLETE;
+native independent GO already issued. Product/source pairing is not yet selected.
+
+- [x] Fresh host/effective original source/config/hash/platform/DAG/transfer/
+  namespace checks; Mounts order-only discrepancy canonicalized with all fields.
+- [x] Human excluded four cross-UID processes; no further investigation or signals.
+- [x] Apply only exact backend.v3.freeze on PROD/TEST; health/loaded gates pass,
+  original source/image/mounts/scan/watermark and other services preserved.
+- [x] Send mechanical closure time/targets/evidence directly to native and coordinator.
+- [x] Prepare bounded installed TEST command checklist, not executed; no repeated tests.
+- [ ] Receive native installed receipt; next AF pairing GO and TEST acceptance.
+- [ ] PROD catalog CAS and v2.paired LAST after accepted TEST evidence.
+
 - [x] Reconfirm current card with airflow-cloud-demo after the user's resend.
 - [x] Preserve accepted UE04/05/06; final AF80abdfc(parent0afd) retains two
   reviewed deployed safeguards, controls GREEN17 and real PG GREEN2.
@@ -19,7 +32,7 @@
   wiring, exact backups/PID/starttime; launchers and active processes unchanged.
 - [x] Submit one concrete final candidate and old/new/rollback inventory to
   airflow-cloud-demo; final packetf9cf2671/archivecf8fef55 verified, review pending.
-- [ ] After coordinator window release: fresh idle, short admission closure,
+- [ ] Remaining after first-gate closure: native installed receipt,
   native-only package/bootstrap install, AF pairing, focused validation,
   TEST complete producer/client/backend/Group minimum joint acceptance first,
   then production final423 new-request selection and exact gate restoration.

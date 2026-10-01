@@ -1,8 +1,10 @@
 # W423-R1-UNIFIED089 final candidate
 
-Status: **STAGED, NOT SELECTED; maintenance window CLOSED**. Shared installation,
-catalog registration/activation, active environment/wrapper selection and service
-or collector restart have not occurred. TEST installed-consumer acceptance is
+Latest status: **FIRST-GATE ADMISSION FROZEN, candidate source NOT SELECTED**.
+Only two backends were recreated with v3 old-code configuration at13:17/13:18Z.
+Native independent install GO has been handed off; AF has not installed native.
+Catalog registration/activation, active node environment/wrapper/source selection
+and collector restart have not occurred. TEST installed-consumer acceptance is
 pending and precedes production new-request selection. The user cancelled the
 422-native089 transition; its preserved drafts are marked OBSOLETE/NOT SELECTED.
 
@@ -137,19 +139,26 @@ Before a window, refresh actual workload and PID/starttime/lock identities.
 
 ## Window, acceptance and rollback
 
-1. Coordinator reviews this fixed current/target/rollback packet and explicitly
-   releases a window. Refresh host/control/current/effective IDs/mounts and
-   bounded active runs/DAGs/transfers; prior idle snapshots alone are insufficient.
-2. Freeze approved admission before shared installation. Native owner installs
-   f843 and pairs bootstrap, recording real import/source/console/dependency hashes.
-   AF selects common source and the complete TEST producer/client/backend/Group
-   combination. This is required for the final candidate, not a separate UE task.
-3. Reuse accepted UE/Group/phase evidence; perform only approved minimal joint
-   TEST and affected CLI/import/gate/new-binding/mount checks. After approved
-   Heavy replacement require actual loaded SHA and fresh snapshot, no full suite.
-4. After TEST acceptance, apply reviewed PROD dependencies, register/activate423
-   with CAS, validate pairing and restore exact original gates/watermark.
-   No clinical canary, analysis rerun, FQ/delivery/LIMS or new recovery work.
+1. First-gate GO now permits fresh host/control/current/effective IDs/mounts,
+   old-hash and complete related run/DAG/transfer/node-writer preflight. True drift
+   or unresolved related writers stop before mutation. Mount entries are compared
+   as complete sorted records, preserving all Mode/RW/Propagation and other fields.
+2. If idle and unchanged, apply only backend.v3.freeze.json: old source/mounts,
+   PROD two execution flags+auto false, TEST two execution flags false. Preserve
+   scan and actual original watermark literal2026-09-17T09:34:19.655673+00:00.
+   The coordinator corrected its equivalent +08 display to this literal. STOP
+   and report effective gates/IDs/mounts/health/rollback. This closure is complete;
+   native's separate GO already granted after direct human scope decision.
+3. Native owner alone installs/pairs f843 package/bootstrap under its independent
+   GO and records actual import/source/console/dependency evidence. AF pairing GO
+   selects common/private consumers and complete TEST producer/client/backend/
+   Group with v2.paired-frozen or paired-management, retaining closed gates.
+4. Perform approved minimum TEST acceptance, reusing UE/Group/phase/17+2 results.
+   Actual mounts/imports/pairing and approved Heavy loadedSHA/freshsnapshot only;
+   no clinical/new analysis, FQ/delivery/LIMS, framework or full-suite rerun.
+5. After TEST acceptance and applicable GO: PROD genuine receipt registration/
+   catalog CAS plus bounded actual pairing checks. **v2.paired is LAST**, restoring
+   each exact original gate/watermark only after all acceptance. Never open earlier.
 
 Before any new marked089 attempt, native owner may restore its exact088
 distribution/entry/bootstrap inventory; AF restores original wrappers/env/Compose/
@@ -159,7 +168,9 @@ reinstallation instruction. Rollback wheel SHA
 `45c99c0c8fb2d39442088d5c5ee7ad6c7be004d2c30495d80d96a4e8a20672c8`.
 Complete distribution rollback stays with native owner's exact inventory.
 
-After a marked089 attempt exists, retain089; shared global downgrade is invalid.
+After a marked089 attempt exists, retain089; shared global downgrade and automatic
+rollback to old backend/DAG producer/client are invalid. Keep an089-compatible
+stack with gates closed for repair; do not let old code silently ignore089 markers.
 Preserve frozen088/history. TEST old drift is restorable evidence, not validated
 health. Historical manual resume is not newly attested. Collector rollback needs
 approved process replacement and restores PROD's original single entry/absent

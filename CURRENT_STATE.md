@@ -1,5 +1,29 @@
 # Current state
 
+## 2026-10-01 UNIFIED089 first-gate admission closure COMPLETE
+
+Direct human excluded four cross-UID keyword PIDs as unrelated and authorized
+installation. Coordinator released v3 old-code closure and native's independent
+installation GO. Two exact backends only were recreated with --no-deps --pull never.
+PROD closure at13:17:25Z (21:17:25 Asia/Shanghai): WGS/GATK execution and WGS auto
+false; scan true and watermark literal2026-09-17T09:34:19.655673+00:00 unchanged.
+TEST closure at13:18:07Z (21:18:07): both execution false, scan/auto false unchanged.
+Both API health and loaded gates pass. Original109 source files/image/complete
+mount fields/other env stay unchanged; other service IDs/configurations stay intact.
+
+New backend IDs: PROD2d117abbc899714c428251a469cda26f2c3c666cb887fdbad62aac74869c0486;
+TEST4a0a528cc9b0b5a1369ada69e68e36fafd34f27bc745886af40dba14f5108b2f.
+Exact closure receipts and original rollback are recorded in HANDOFF. Mechanical
+gate/time/target evidence sent to native and coordinator; native may install under
+its already granted GO. AF did not pip/select source/env/wrappers/collector/catalog.
+Native installed result and subsequent TEST pairing/acceptance remain pending.
+
+Next order: native install/pair -> v2.paired-frozen/management -> TEST acceptance
+-> PROD catalog CAS -> v2.paired LAST. Once any marked089 attempt exists, both
+global package downgrade and automatic old backend/DAG rollback are invalid.
+Retain089-compatible stack/gates closed for repair. Frozen packet remains the
+approved historical candidate; gate1 actual evidence is a separate append-only index.
+
 ## 2026-10-01 W423-R1-UNIFIED089 candidate preparation
 
 Final candidate source is `80abdfceea0d604e6524375e2b1a2aa32022ee65`, sole

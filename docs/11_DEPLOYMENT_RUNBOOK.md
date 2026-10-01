@@ -19,6 +19,14 @@ private consumers; complete TEST producer/client/backend/Group acceptance preced
 PROD new-request selection. Preserve scanner/watermark and restore original gates.
 Reuse accepted tests; supplement only approved affected pairing/import/mount checks.
 
+First-gate GO authorizes fresh preflight then admission-only v3.freeze using old
+code/mounts. Preserve actual original watermark literal+00:00; coordinator's +08
+display wording was corrected. Report closure before native independent install GO.
+Strict sequence: v3.freeze -> native install/pair -> v2.paired-frozen or
+paired-management -> TEST acceptance -> PROD catalog CAS -> v2.paired LAST.
+After any marked089 attempt, old backend/DAG automatic rollback is invalid as
+well as package downgrade; retain089-compatible stack with gates closed for repair.
+
 Heavy standalone wiring uses existing `scripts/heavy_global_snapshot.py` entry
 and same-directory `heavy_snapshot_core.py` from `backend/app/heavy_global_snapshot.py`.
 Retain launchers/config/evidence/Python/flock/log. Backend-only binds cannot update

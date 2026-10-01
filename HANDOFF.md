@@ -1,5 +1,88 @@
 # Handoff
 
+## 2026-10-01 — UNIFIED089 first-gate closure complete, native evidence handed off
+
+### Executed closure and exact targets
+
+PROD v3.freeze command began13:17:06Z/completed13:17:25Z; TEST began13:18:01Z/
+completed13:18:07Z (Asia/Shanghai21:17/21:18). Only exact backend with original
+project/directory and --no-deps --pull never, both exit0. New backend IDs:
+PROD2d117abbc899714c428251a469cda26f2c3c666cb887fdbad62aac74869c0486;
+TEST4a0a528cc9b0b5a1369ada69e68e36fafd34f27bc745886af40dba14f5108b2f.
+Both running and /api/health ok; no Docker healthcheck is defined (null), so
+do not claim Docker healthy. Loaded gate functions/settings confirm PROD two
+execution flags+auto false, TEST both execution false. PROD scan true and exact
+original watermark+00 literal retained; TEST scan/auto false and empty watermark
+retained. Original image, all109 source file hashes, complete Mounts fields and
+other env match original; other11 PROD/9 TEST services ID/image/env/mount unchanged.
+
+Actual public receipts in each private control/gate1-freeze-result.json, local
+gate1-BS96-freeze-result.json SHAae75e0539ce594fb018b3da4e7fb09491a701944e0ea8a3ac33fc2883d6b6c4d;
+gate1-BS10610-freeze-result.json SHA01cd6801662990e621206235e728df509efd1cc322ef4c6edf7c3eaf587b4598.
+PROD freeze SHA1f5767e09b5bff5b8df740cfb3840a4082a49f6d346b73c835397b5dddc14016;
+TEST freeze7eeb07e0b5a91d596e9e9035800073af3e9af36a112b64a236fa003cf792b33b.
+Original exact rollback backend.v2.rollback.json remains in each final control,
+PROD SHA551a89ad49ffc83758c9cdb2c33c2165153fd03cb1f9e0e75c9dd398f1bf4e9e,
+TEST ec24c515d0409e5ef6d7d7061678ccfcaab20ca23109a7aa6166fcb2259289b9.
+Do not select rollback automatically after any marked089 attempt; retain compatible
+stack closed for repair. No protected data deletion, package install or new source/
+nodeenv/wrapper/collector/catalog selection was performed by AF.
+
+Mechanical effective gate/time/target/evidence handoff sent to native thread
+019f9d79-be3f-7701-af33-3595d72bbfac and coordinator, both tool calls returned
+target IDs. Native independently authorized install is no longer waiting for
+another approval; its installed receipt and subsequent AF pairing remain pending.
+Compact instructions-only window-test-checklist.md SHA3600fe2847d24efbb6ce1cb656d486ccad714e3d88cc1cf2d4d90ab8d98b6ccb:
+actual version/source/module/console/bootstrap/policy/profile and backend/DAG/Group
+read-only consumer checks. No repeat17+2/UE/Group/full suite or clinical/new analysis.
+
+### Preflight failures and scope decision
+
+Initial full Mounts list compare exit3: only array order changed. Complete record
+canonical sorting preserves every Mode/RW/Propagation/etc field and duplicate/
+member count; all12 PROD service mounts equal. Old raw diff preserved. Watermark
+approval had equivalent+08 text but snapshot/v3/actual env were+00; coordinator
+explicitly corrected GO, preserved original bytes without watermark mutation.
+Fresh PROD27 runs/50 transfers and TEST7/5 allterminal; seven related DAGs all
+DagRuns/TIs active0. No direct DB connection or analysis mutation.
+
+First node SSH ConnectTimeout10 banner failed255 before remote script. NGS
+hostname node005 and TCP22/banner from node005 to node200 then passed; one
+diagnosed ConnectTimeout30 retry exit0/stderr empty. t640/6801:520,66 files/
+backups/candidates SHA/mode/owner match; native088/417de59; old Heavy field22
+identities match,12 known collector/flock processes; all six shared nipttest
+occupants are Heavy/BSS collectors. Namespace snakemake-ns Job1 terminal/Pod0,
+complete metadata query. Wide /proc scan808/0 failures found four other-UID
+keyword matches. Exactly one bounded classification:23166 nginx;39557 cp_fastq.sh
+and child56176 cp;264659 SSH command. No full cmdline/env/patient paths exported,
+no sudo/kill or other-project scan. Limited metadata could not establish relation;
+direct human then explicitly excluded them from this release. Stop investigation;
+do not misrepresent that human scope decision as proof of whole-node idleness.
+
+Subsequent direct human instruction relayed by coordinator: "直接放行安装，和本次
+发布没有关系". Four cross-UID keyword-matched PIDs are excluded from this release
+by that human decision; stop investigation and do not touch them. Reuse completed
+fresh platform/DAG/transfer/namespace/config evidence. Coordinator sent native's
+independent installation GO conditional on mechanical two-backend closure evidence.
+First AF mutation remains only old-code v3.freeze on two exact backends.
+
+Coordinator airflow-cloud-demo recorded approval of finalf9cf2671 packet/44-member
+cf8fef55 archive (43 hashes/sizes match, independent review no static blockers).
+Its explicit first-gate GO permits fresh host/effective config/old hash and
+active-run/DAG/transfer/node-writer checks. Only if unchanged and idle: apply
+exact final-manifest backend.v3.freeze.json on BS96 and BS10610, --no-deps
+--pull never, retaining original source/mounts. PROD closes two execution flags
+plus auto-dispatch; TEST closes two execution flags. Preserve scan and literal
+original watermark2026-09-17T09:34:19.655673+00:00. Coordinator corrected its
+equivalent +08 display wording to this actual reviewed literal. No pip, new source, wrapper,
+collector or catalog selection; native installation requires a separate GO.
+
+Required later ordering: v3.freeze -> native install/pair -> v2.paired-frozen/
+paired-management -> TEST minimum acceptance -> PROD catalog CAS -> v2.paired
+LAST. Opening admission early is not authorized. After any marked089 attempt,
+automatic old backend/DAG rollback is also invalid; retain the089-compatible
+stack with gates closed while repairing. Protected data remain untouched.
+
 ## 2026-10-01 — final UNIFIED089 review packet, maintenance window CLOSED
 
 Submitted the single final packet to airflow-cloud-demo using the user's

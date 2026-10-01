@@ -1,5 +1,19 @@
 # SERVER_INFO.md
 
+## 2026-10-01 UNIFIED089 first-gate effective backend state
+
+Only backend admission closure applied, original code/image/mounts retained.
+PROD backend2d117abbc899714c428251a469cda26f2c3c666cb887fdbad62aac74869c0486
+running/health ok at13:17:25Z; executionWGS/GATK/auto=false, scan=true,
+watermark original literal2026-09-17T09:34:19.655673+00:00.
+TEST backend4a0a528cc9b0b5a1369ada69e68e36fafd34f27bc745886af40dba14f5108b2f
+running/health ok at13:18:07Z; executionWGS/GATK=false, scan/auto=false.
+Original109 app files and full mount fields compare equal; other service IDs
+unchanged. Effective Compose for each backend is its final private control/
+backend.v3.freeze.json, with original project name/directory. Its exact old
+rollback remains backend.v2.rollback.json. Native independent install GO issued;
+AF source/node consumers/catalog/collector not selected by this closure.
+
 ## 2026-10-01 UNIFIED089 final snapshots and inactive candidates
 
 User selected shared nipttest089, separate TEST/PROD credentials/control roots,
