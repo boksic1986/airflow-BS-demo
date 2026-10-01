@@ -1,13 +1,122 @@
 # W423-R1-UNIFIED089 final candidate
 
-Latest status: **TEST MINIMUM ACCEPTANCE COMPLETE; PROD NEXT GO PENDING**.
-Admission remains closed. Shared089 and all four private node envs/five wrappers
-are selected, including PROD node selectors. TEST gateway, catalog and Heavy are
-selected and accepted at the stated minimum. PROD gateway source/catalog/Heavy
-remain prior; production is not finally released. The user cancelled the
-422-native089 transition; its preserved drafts remain OBSOLETE/NOT SELECTED.
+Latest status: **UNIFIED089/WGS423 ACTUAL PROD RELEASE AND ORIGINAL GATE
+RESTORATION ACCEPTED**. Shared089, four private node envs/five wrappers, TEST
+and PROD Heavy pairs, six gateway services on each host, and genuine WGS423
+catalog selection are accepted at the stated bounded minimum. TEST and PROD
+original backend execution gates are restored. PROD effective scan is true,
+while effective auto remains false under its inherited policy. No new analysis
+or producer replay is claimed. Phase evidence archive, HANDOFF and coordinator
+reporting remain separate closeout work. Historical WGS422 is frozen for
+rollback only; the cancelled 422-native089 drafts remain OBSOLETE/NOT SELECTED.
 
-## Gate2 selected state and bounded TEST acceptance (2026-10-01)
+## Gate4 final release and original-gate readback (2026-10-01)
+
+PROD genuine receipt registration and catalog CAS completed at 14:52:31Z,
+changing current from `wgs-4.2.2-441d5e7` to `wgs-4.2.3-bafd27c`.
+`gate3-prod-catalog-result.json` SHA256
+`0856802d8308b4002e002a5061ac5553785ee67b5837bd8faa3d125c53fc3c34`
+records registration and CAS. Catalog SHA256 changed from
+`cb33a15f67a9baa5f7b27503b5be0f6c61d72d102a0b2ca36bba476ffc80d976`
+to `35c53a2e396009357fd85cc39ce8b7ce6f9d3347b1aae2fe472eb4564912433c`.
+This transaction retained closed admission until final gate restoration.
+
+Six PROD gateway selections passed actual installed minimum acceptance:
+`gate3-prod-gateway-apply-result.json` SHA256
+`cf052e6693e73575d9ffa07ba26e7be37517eacf42b518644174dafebd522892`,
+`gate3-prod-gateway-accept-result.json` SHA256
+`bef51b0ca014a2de14a91a50f56bf89241f57f9b77ed20ba14fd5ad9e8aea6b3`,
+`gate3-prod-mount-contract-result.json` SHA256
+`c9d26e8824eb9201b674d40f6332a87dcc0dc99087c98297a8735b060930d32f`,
+and `gate3-prod-http-readback-result.json` SHA256
+`7b80cb64422b1ac79ae0b8eb931d054fd76e9a465604b7eae8c2a4818d603689`.
+All 60 service mounts matched their source/destination/RW contract with no
+duplicate destinations; 18 required Airflow imports passed with zero errors;
+four external HTTP checks returned 200. Historical Rules GETs returned WGS
+total400/page20 with 12 associated group rows and GATK total562/page20 with
+zero associated group rows. These are read-model checks, **not** a new089
+producer replay, new analysis or clinical canary.
+
+Gate4 TEST restore completed at 14:56:34Z (`gate4-BS10610-backend-restore-result.json`
+SHA256 `1d7ef5d1d6366d4b327741b15574940b647ae8b638f04324cbe02cb4c8ec823e`).
+PROD backend restore completed at 14:57:18Z. The initial invoker's
+`gate4-BS96-backend-restore-result.json` SHA256
+`1e9cd6c7124741d3d0ae1ae8486cb694681defc567df3d14b4014fba1e3688cb`
+retains exit5/`GATE4_RESTORE_NEEDS_REVIEW`: it incorrectly expected effective
+auto dispatch to equal restored env `WGS_AUTO_DISPATCH_ENABLED=true`.
+The original read-only policy at `/af05-config/intake.json`, mounted from
+`/data/airflow-WGS/auto-intake-20260917-config/intake.json`, has
+`auto_dispatch_enabled=false`, so **effective auto remains false**. The observed
+policy SHA256 is
+`7df771bcae6257893d098d6f29cd4a697f1cec0aa9cd7bb802bb465dbc08194b`;
+project YAML SHA256 is
+`20cb6f432a6fa9a74b130ae0a230ff34310e6119344d647138cfad44926096d8`.
+Inherited source config.py SHA256
+`ac14bd31c147abe29c54e9edf4f35ea8fc880cccb8d3e1dec564003e661715f6`
+and wgs_project_catalog.py SHA256
+`574a61dbfc7a227d07b19d3e86f9668411e62b100b29a65d0f933970ef585714`
+remain original. No historical byte snapshot of the original policy files was
+captured, so the observed policy hashes are not a before/after byte proof;
+the final read-only mount/source and coordinator-confirmed original effective
+auto state support the preserved policy conclusion. No policy change, duplicate
+catalog POST, or gate apply replay was made to fix the checker.
+
+Final **read-only** closure accepted both hosts: TEST at 15:04:56Z,
+`gate4-BS10610-final-readback-result.json` SHA256
+`d7093fad978a7d93f88c7172eaf10a111f962217d85722c8d0ad7d64be921898`,
+and PROD at 15:05:16Z, `gate4-BS96-final-readback-result.json` SHA256
+`18ff3d914f5f2f319f8d9489f05f728050fdb4c225ee27e7295a0e3c31ca9f6f`.
+WGS/GATK execution is true on both. TEST scan/auto are false and watermark
+empty. PROD effective scan is true with the exact original watermark literal
+`2026-09-17T09:34:19.655673+00:00`; effective auto is false, auth true and
+current423. Both external gateway `/api/health` reads returned 200. Original
+env/image/mounts and unrelated service IDs remained unchanged after restore.
+There was no nginx restart, dist rebuild, new analysis/canary, UE04/05/06 or
+17+2 rerun, or full-suite test. Four env/five wrappers/native were already
+accepted and were not reselected or reinstalled during final closure.
+
+## Gate3 PROD selection and still-closed acceptance (prior checkpoint, 2026-10-01)
+
+Coordinator accepted TEST and granted complete PROD GO. The initial read-only
+runs page-size-200 request timed out, while health/page1 passed. The bounded
+small-page retry then covered six pages/27 runs, 50 transfers and related
+DAG/TI state with nonterminal counts zero, complete coverage and no mutation:
+`gate3-prod-activity-v2-result.json` SHA256
+`674720db7330e03d211cd186cff52ab1af3ddb3d09ae8db52d50d5c9004ddeaf`.
+This is the activity preflight result; it does not attest the selected services.
+
+PROD Heavy selected entry SHA256
+`dc5c1d34cea68b7d99b84f1a63df5185dec9714ceb2123448706c60ada0a4fcc`,
+core `554f3edc1c8f3fe656600a2417532087f9f96ec0b1df07b894c63a0823e4cd87`
+and original launcher
+`5f2a8190c785819cbb2d31d4dc1f93a2c380ebe792842ea5723a7d11e19f071e`,
+all mode0644. New flock PID190070/starttime3077813668 and Python
+PID190480/starttime3077813775 were observed. Two complete payloads at
+14:42:24.369308Z and 14:43:30.797281Z each had one actual Lease GET returning
+25 exact names, held/used/waiting0, limit25 and idle. Read-only acceptance
+`gate3-heavy-accept-result.json` SHA256
+`51b871640e54603d2917015357f35e875d7cd541edb341f8438f1e12514db46f`;
+21-file actual index SHA256
+`2c3e826c9c3a951a505fb5a19c2d4e32670ae594da2608e24d72e8c471da232c`.
+
+The exact stop sent one TERM to the old Python only; flock exited naturally.
+The finish invoker exited1 during its final new-process check after core/entry
+installation and one original-launcher call. A just-starting flock is a
+possible cause, not a proven root cause: fail-moment rows were not recorded.
+A later read-only check found the correct new pair and accepted both payloads.
+No further signal, launcher call or finish replay was made; no ad hoc product
+patch was required.
+
+PROD selected six reviewed gateway services from 14:46:19 to 14:46:52Z:
+backend `dfca6fe5...`, WGS observer `c21e8c41...`, Airflow API `5339e3f9...`,
+scheduler `a66f8604...`, worker `e483a853...`, frontend `4df1c67c...`.
+Infra's installed minimum checks continue. PROD catalog has not been POSTed;
+execution/auto gates are still closed, and `v2.paired` final admission
+restoration has not occurred. Do not call this a final production release or
+claim a new analysis. Accepted UE04/05/06 and 17+2 evidence is reused without
+full-suite repetition. The Gate2 section below is a prior checkpoint.
+
+## Gate2 selected state and bounded TEST acceptance (prior checkpoint)
 
 Native independently installed shared nipttest0.8.9/source1f5/wheelf843 and
 bootstrap; accepted receipt SHA256
@@ -52,7 +161,8 @@ TEST Heavy alone uses new core SHA256
 `554f3edc1c8f3fe656600a2417532087f9f96ec0b1df07b894c63a0823e4cd87`,
 original entry `dc5c1d...` and launcher `65991c5...`; new flock/Python PIDs
 113056/113067. Two fresh complete snapshots at 13:55:05.298335Z and
-13:56:24.895783Z each showed 25 exact Lease GETs, held/used/waiting0,
+13:56:24.895783Z each used one Lease GET returning25 exact names,
+held/used/waiting0,
 limit25 and idle. The first read-only acceptance timed out because it compared
 SFS mtime with node launch wall time. The corrected payload timestamp/hash
 check passed; raw mtime remains 599/604 seconds behind payload timestamps.
@@ -63,9 +173,14 @@ ended only the old TEST process pair before core selection. No ad hoc product
 patch was made. See ignored `gate2-heavy-final-audit.md` for the commands,
 rollback and read-only acceptance limits. PROD Heavy was untouched.
 
-Next: coordinator PROD GO, fresh bounded PROD gateway/catalog/Heavy pairing and
-acceptance, then `v2.paired` **LAST** for approved admission restoration. Neither
-PROD catalog CAS nor a new analysis/attempt or full regression is claimed. Once
+The coordinator accepted TEST and granted the complete PROD gate GO. The first
+read-only PROD runs page-size-200 request timed out; health and page 1 passed.
+Infra is completing a smaller-page full active-use refresh. Page 1 does not
+establish global idleness, so PROD gateway source/catalog/Heavy are still prior
+with no mutation in this phase. Next: finish exact preflight, bounded PROD
+gateway/catalog/Heavy pairing and acceptance, then `v2.paired` **LAST** for
+approved admission restoration. Neither PROD catalog CAS nor a new
+analysis/attempt or full regression is claimed. Once
 any marked089 attempt exists, global native downgrade and automatic old
 backend/DAG rollback remain invalid; retain compatible code with gates closed.
 

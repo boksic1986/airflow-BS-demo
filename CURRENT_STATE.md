@@ -1,6 +1,73 @@
 # Current state
 
-## 2026-10-01 UNIFIED089 Gate2 TEST minimum acceptance COMPLETE; PROD held
+## 2026-10-01 UNIFIED089 actual release and gate restoration COMPLETE
+
+Coordinator-authorized PROD selection and bounded acceptance completed. The
+genuine WGS423 receipt was registered and PROD current release CAS changed from
+`wgs-4.2.2-441d5e7` to `wgs-4.2.3-bafd27c` at 14:52:31Z; catalog SHA256 changed
+from `cb33a15f...` to `35c53a2e...` (transaction receipt `gate3-prod-catalog-result.json`,
+SHA256 `0856802d...`). The six selected services passed exact installed checks:
+60 service mounts, 18 Airflow imports with zero errors, loaded gates and four
+external HTTP 200 readbacks. Apply/accept/mount/HTTP receipt SHA256 prefixes are
+`cf052e66`, `bef51b0c`, `c9d26e88`, `7b80cb64`. Historical Rules GETs returned
+WGS total400/page20 with 12 execution group association rows and GATK
+total562/page20 with zero association rows; these were read-model checks, not
+a new089 producer replay.
+
+Gate4 restored original backend admission at 14:56:34Z on TEST and 14:57:18Z
+on PROD. Final read-only closure at 15:04:56Z/15:05:16Z accepted both hosts
+(`gate4-BS10610-final-readback-result.json` SHA256 `d7093fad...`;
+`gate4-BS96-final-readback-result.json` SHA256 `18ff3d91...`). WGS/GATK execution
+is true on both. TEST scan/auto remain false; PROD scan is effectively true
+with original watermark literal `2026-09-17T09:34:19.655673+00:00`.
+PROD's restored env has `WGS_AUTO_DISPATCH_ENABLED=true`, while its inherited
+read-only intake policy has `auto_dispatch_enabled=false`, so **effective auto
+dispatch remains false** as before. The first PROD restore checker exited5
+because it incorrectly equated effective auto with the env value; the final
+read-only policy check resolved this without replaying apply/POST or modifying
+policy. Both external `/api/health` checks returned 200; auth and current423
+were confirmed. The original env/image/mounts and unrelated service IDs were
+preserved. No new analysis, canary, UE04/05/06, 17+2 or full-suite rerun is
+claimed. Historical WGS422 is frozen for rollback only. Coordinator accepted
+the minimum release closure. Final public index `gate3-prod-evidence-final-index.json`
+SHA256 `eda75ed0...` and local archive SHA256 `9468056b...` retain109 members
+(108 evidence files plus index), verified by size/SHA. The final archive is
+local only; no further remote runtime sampling/copy was required. HANDOFF records
+the accepted state, original failures and read-only closures. Only the six state
+documents are staged; untracked evidence and product source are excluded.
+
+## 2026-10-01 UNIFIED089 PROD Heavy accepted and six services selected; gates closed (prior Gate3 checkpoint)
+
+Coordinator's PROD GO is active. The bounded small-page activity refresh
+completed after the initial page-size-200 timeout: six pages covered 27 runs,
+50 transfers and related DAG/TI state, with no nonterminal work; receipt
+`gate3-prod-activity-v2-result.json` SHA256 `674720db...` records complete
+coverage, exit0 and no mutation. This is the preselection activity gate, not
+whole-release acceptance.
+
+PROD Heavy selected the reviewed entry `dc5c1d...`, core `554f3edc...` and
+original launcher `5f2a8190...` (each mode0644). The new flock/Python pair is
+190070/190480, starttime fields 3077813668/3077813775. Two complete payloads
+at 14:42:24.369308Z and 14:43:30.797281Z each used one actual Lease GET
+returning25 names, held/used/waiting0, limit25, idle. Read-only acceptance
+receipt SHA256 `51b87164...` and 21-file actual index SHA256 `2c3e826c...`
+preserve the evidence. The old Python alone received one TERM; flock exited
+naturally. The finish invoker exited1 during its final new-process check after
+entry/core installation and one original-launcher call. The newly starting
+flock window is a possible explanation, but no fail-moment rows were captured;
+the cause remains unproven. A later read-only check found the correct pair and
+accepted it, with no further signal, launcher or finish replay.
+
+PROD then selected six reviewed gateway services during 14:46:19–14:46:52Z:
+backend `dfca6fe5...`, WGS observer `c21e8c41...`, Airflow API `5339e3f9...`,
+scheduler `a66f8604...`, worker `e483a853...`, frontend `4df1c67c...`.
+Infra's installed minimum checks continue. **PROD catalog has not been POSTed,
+execution/auto admission remains closed, and `v2.paired` final gate restoration
+has not occurred.** This is not final production release. No new analysis,
+UE04/05/06 or 17+2 repeat, or full-suite rerun is claimed. The historical
+Gate2 checkpoint below predates these PROD source/Heavy selections.
+
+## 2026-10-01 UNIFIED089 TEST accepted; PROD GO granted (prior Gate2 checkpoint)
 
 The native owner installed shared nipttest0.8.9/source1f5/wheelf843 and its
 bootstrap under the separate GO (receipt SHA256 `1727e1f4...`). AF then selected
@@ -37,10 +104,14 @@ the 599/604-second mtime offset as a clock-source observation, not stale data.
 Earlier Heavy apply invoker failures and exact rollback evidence remain in the
 Gate2 audit; they caused no ad hoc product patch or clinical analysis.
 
-TEST minimum acceptance is complete. Coordinator PROD next GO, PROD gateway/
-catalog/Heavy acceptance and **v2.paired LAST** remain pending; production is
-not finally released. Keep gates closed and do not submit a new analysis or
-repeat full/UE tests. Exact Gate2 receipts and limits are in the
+TEST minimum acceptance is complete and the coordinator granted the complete
+PROD gate GO. Production preflight is still in progress: the first read-only
+runs request at page size 200 timed out; health and page 1 succeeded, and Infra
+is refreshing the full set with smaller pages. Page 1 does not prove global
+idleness. No PROD gateway source/catalog/Heavy selection has occurred in this
+phase, and **v2.paired LAST** admission restoration remains pending. Production
+is not finally released. Keep gates closed; do not submit a new analysis or
+repeat full/UE/17+2 tests. Exact Gate2 receipts and limits are in the
 [candidate record](docs/releases/2026-10-01-unified-native089-candidate.md).
 
 ## 2026-10-01 UNIFIED089 first-gate admission closure COMPLETE

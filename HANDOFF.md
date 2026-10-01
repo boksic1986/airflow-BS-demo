@@ -1,5 +1,139 @@
 # Handoff
 
+## 2026-10-01 — W423-R1-UNIFIED089 PROD release accepted; original gates restored
+
+Coordinator read both final Gate4 readbacks and accepted the minimum release
+closure. AF product source is80abdfc(parent0afd253), native0.8.9/source1f5/wheelf843,
+WGS4.2.3/bafd27c/Mastere481/r1 and GATK7.6.0/Mastera4f/r5. UE04/05/06 and accepted
+controls17/realPG2 were reused, without repeated tests or new clinical requests.
+Historical422 remains frozen/rollback-only. Native alone installed nipttest;
+this phase did not reinstall it or reselect the accepted four envs/five wrappers.
+
+### Actual production selections and final state
+
+- Bounded activity-v2 completed14:36:54Z:6 pages cover27 runs, all50 transfers
+  and75 DagRuns across the seven related DAGs; all nonterminal/active counts0,
+  complete coverage. Receipt674720db7330e03d211cd186cff52ab1af3ddb3d09ae8db52d50d5c9004ddeaf.
+  Initial page200 GET timed out at15s; page5 closure did not skip any row.
+- Exact six PROD services selected14:46:19–14:46:52Z, original images/projects/
+  merged overlays, --no-deps --pull never, backend paired-frozen. Apply receipt
+  cf052e6693e73575d9ffa07ba26e7be37517eacf42b518644174dafebd522892.
+  Minimum accept bef51b0ca014a2de14a91a50f56bf89241f57f9b77ed20ba14fd5ad9e8aea6b3:
+  actual backend13/observer8 selected files, parent110/common8, 18 real Airflow
+  module imports and import-errors total0. Complete60 mounts matched all fields
+  (c9d26e88...), external health/index/JS/CSS4x200/dist hashes matched(7b80cb64...).
+  Existing PROD Rules WGS400/GATK562 total,20 returned each,12/0 Group associations;
+  this is an existing-view check, not a new089 producer replay or clinical canary.
+- PROD Heavy stopped original Python58165 once with exact UID/start/argv/exe/PPID
+  fences; original flock58159 exited naturally. Entrydd4->dc5/coreABSENT->554,
+  mode0644/UID6801:GID520; launcher5f2a/config/evidence/lock retained. New flock
+  190070/field22=3077813668, Python190480/3077813775. Finish exited1 after installing
+  files and invoking the original launcher, during its first process-set check.
+  Failed-moment rows were not captured, so an incomplete startup window is an
+  inference. Subsequent exact readback found the correct pair; only
+  the acceptance tail followed, with no repeated signal/finish/launcher. Actual
+  snapshots14:42:24.369308Z and14:43:30.797281Z were complete; each Lease GET returned
+  exactly25 names/held0=used0/limit25/waiting0/idle. Raw SFS mtimes were retained.
+  Accept SHA51b871640e54603d2917015357f35e875d7cd541edb341f8438f1e12514db46f;
+  21-file raw evidence index2c3e826c9c3a951a505fb5a19c2d4e32670ae594da2608e24d72e8c471da232c.
+- Normal authenticated genuine receipt16f131a4 registration and CAS441d5e7->423
+  succeeded14:52:31Z while closed; no repeated POST. Catalogcb33->
+  35c53a2e396009357fd85cc39ce8b7ce6f9d3347b1aae2fe472eb4564912433c.
+  Transaction receipt0856802d8308b4002e002a5061ac5553785ee67b5837bd8faa3d125c53fc3c34.
+  API profile is publisher raw436a, distinct from installed canonical2155.
+- Backend.v2.paired LAST restored TEST14:56:34Z to15de9be0bf16a5d9597425a7f5eee68eeb3e4647e674f6a6361f2489a749edff;
+  PROD14:57:18Z to7aadaf930ef6fca564e345c21caf56d81f7584dc564762ea8f2e74decb8458bb.
+  Images/full mounts/exact original Env and other9TEST/11PROD service IDs were
+  unchanged. Both WGS/GATK execution functions are true, AUTH/management true,
+  current423 via container-internal authenticated GET. PROD effective scantrue/
+  autofalse; TEST scan/auto false. PROD literal watermark remains
+  `2026-09-17T09:34:19.655673+00:00`, TEST watermark empty.
+
+### Preserved checker failures and read-only closure
+
+Gateway check first mistook original control SGID2700 for unsafe700, then mistook
+Docker HostIp0.0.0.0 for formal access IP172.17.61.96. Actual canonical owner,
+original/live/pinned Ports matched. Only checker guards changed; no chmod,
+network binding, source or candidate Compose changes occurred. Failed logs and
+earlier script copies remain; actual check-v3 passed before six-service apply.
+
+PROD Gate4 apply returned exit5 after the successful restoration, solely because
+its final checker incorrectly equated effective auto with Envtrue. Original
+config.py ac14bd31 and policy parser574a61db were inherited unchanged. Effective
+auto is effective_scan AND Envauto AND intake-policy auto; current selected
+`/af05-config/intake.json` has scheduledtrue/autofalse, so effectiveautofalse is
+the original business protection, as coordinator confirmed. No policy or product
+code was changed and Gate4 was not replayed. Original failed result1e9cd6c7 and
+exit5 remain. Separate read-only closure verifies policy metadata/SHA, original
+read-only host source, source hashes, unchanged containers and actual formula.
+No historical policy byte snapshot was captured; historical byte identity is
+not claimed. Current intake SHA7df771bc and project catalog20cb6f43 are recorded
+without configuration contents or patient information.
+
+Final PROD closure15:05:16Z SHA18ff3d914f5f2f319f8d9489f05f728050fdb4c225ee27e7295a0e3c31ca9f6f;
+TEST15:04:56Z SHAd7093fad978a7d93f88c7172eaf10a111f962217d85722c8d0ad7d64be921898.
+Each original gateway external `/api/health` returned200/ok after backend restore;
+no nginx reload/restart was needed. These are host-local timestamps, not a shared
+clock ordering assertion. Original failure records are separate from closure.
+
+### Scope, recovery and final documentation
+
+Modified only the six release-state documents; phase evidence is untracked under
+`.codex-artifacts/w423-unified089-20261001`. Product code remains80abdfc. This
+release made no new analysis/canary/attempt request, repeated UE/Group/profile
+test, DB connection, package reinstall, unrelated PID investigation, data/lock/
+Lease deletion or FQ/QC2/LIMS change. Public final evidence index/archive provenance follows below;
+no private Env/Compose/inspect or actual configuration contents are exported.
+Recovery must preserve the compatible089 stack and existing data; first close
+admission with the same paired-frozen stack if needed and repair forward. Do not
+automatically select old backend/DAG/catalog or globally downgrade the package
+after marked089 work. Exact original backups remain in the private controls;
+PROD Heavy originally had no core. No currently open release blocker remains.
+
+Final public index `gate3-prod-evidence-final-index.json` SHA256
+eda75ed0e386bcd8439df2f280c66f1de0cba04add32a9fc1819c7510135304a;
+archive `gate3-prod-evidence-final.tar` SHA256
+9468056b9661ccb18d234f3b6a0fbb9ad7e69db768641cf2cd7e5a1448a35312.
+It has109 unique regular members:108 curated public evidence files plus index.
+Archive builder verified names/types/no escape/size/SHA; root independently
+verified all108 index references. Finalpacketf9cf2671 and Gate2 index24b901d0
+remain unchanged. The new archive is LOCAL ONLY: coordinator's final acceptance
+limited closeout to existing evidence and docs; no further remote copy or
+runtime sampling occurred. Existing private gateway result files remain on their
+original hosts. No private Env/Compose/inspect, config contents or clinical data
+entered the archive or Git. Final six-doc `git diff --check` passed; explicit
+staging excludes all untracked evidence. The final docs commit is reported to
+airflow-cloud-demo separately after creation.
+
+## 2026-10-01 — UNIFIED089 PROD next GO, execution in progress
+
+Coordinator accepted TEST Gate2 index24b901d0/all38 referenced hashes and issued
+the existing production release next GO. Scope: bounded BS96 actual frozen-state/
+related activity refresh; six exact PROD services with backend paired-frozen and
+others paired; exact PROD Heavy old PID/starttime fences, entrydd4->dc5/coreABSENT
+->554 at0644/6801:520 with original launcher/config/evidence/lock; genuine receipt
+registration and expected-current441d5e7 CAS to423 while closed. Only after actual
+source/import/DAG/health/dist/complete mounts/catalog/Heavy checks: backend.v2.paired
+LAST restores PROD and TEST exact saved original gates. PROD scan/original literal
+watermark and TEST scan/auto false/empty remain. No additional normal-step approval
+is required. Stop only on real drift/conflict/partial failure, retaining the089
+compatible stack closed. No new analysis/canary/tests, package reinstall/reselection,
+data/lock deletion, direct DB, unrelated PID investigation or FQ/QC2/LIMS changes.
+
+Root reviewed prepared PROD gateway/Heavy scripts. The existing Python lacks
+pidfd; only immediately re-fenced exact PID TERM is used, with stat/status exit
+wait. Heavy stop and remaining finish are separate, so partial state is read
+before continuing and signals are not replayed. Payload timestamps from the
+collector node, two snapshots and natural Lease holders provide freshness;
+raw SFS mtime stays recorded. Actual results will be appended after execution.
+
+First bounded PROD activity refresh exited1 before any mutation. The first
+GET `/api/runs?pipeline=all&limit=200&offset=0` timed out waiting for the HTTP
+status line after15s; transfers and related DAG/TI calls had not started.
+Original stdout/stderr and script remain as `gate3-prod-activity.*` artifacts.
+Infra is diagnosing only health, a small run page and the relevant DAG API.
+No production service, catalog or Heavy selection has occurred in this phase.
+
 ## 2026-10-01 — UNIFIED089 TEST pairing and minimum acceptance complete
 
 AF product source remains80abdfc; only phase evidence and state documents changed.

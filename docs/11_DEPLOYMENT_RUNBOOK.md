@@ -1,6 +1,67 @@
 # Deployment runbook
 
-## 2026-10-01 Gate2 TEST accepted; PROD next GO pending
+## 2026-10-01 UNIFIED089 actual release and original gates restored
+
+The coordinator-authorized PROD gate completed. Genuine WGS423 registration
+and CAS selected `wgs-4.2.3-bafd27c` from `wgs-4.2.2-441d5e7` at 14:52:31Z;
+`gate3-prod-catalog-result.json` SHA256 `0856802d...` records the transaction
+and catalog-after SHA256 `35c53a2e...`. Six PROD gateway services passed the
+minimum installed check: 60 exact mounts, 18 Airflow imports/errors0, loaded
+gates, four external HTTP 200 checks. Receipt SHA256 prefixes: gateway apply
+`cf052e66`, acceptance `bef51b0c`, full mount `c9d26e88`, HTTP `7b80cb64`.
+Historical WGS/GATK Rules GETs returned 200 and existing rows; they did not
+replay a new089 producer or create an analysis.
+
+Gate4 restored the original backend env at 14:56:34Z on TEST and 14:57:18Z on
+PROD. Final read-only receipts at 15:04:56Z/15:05:16Z are
+`gate4-BS10610-final-readback-result.json` SHA256 `d7093fad...` and
+`gate4-BS96-final-readback-result.json` SHA256 `18ff3d91...`. WGS/GATK
+execution is true on both. TEST scan/auto are false; PROD effective scan is true
+and the original watermark literal remains
+`2026-09-17T09:34:19.655673+00:00`. PROD env auto is true but the inherited
+read-only intake policy's `auto_dispatch_enabled=false` makes **effective auto
+false**. Preserve this original business protection. The first PROD restore
+checker exited5 by assuming effective auto must equal env auto; retain its
+receipt, then use the accepted final read-only policy closure. Do not replay
+apply/POST or alter policy to satisfy that checker. Both external gateway
+`/api/health` reads were 200; original env/image/mounts and unrelated service
+identities remained unchanged. No nginx restart, dist rebuild, new analysis,
+canary, UE04/05/06, 17+2 or full test rerun was part of this gate.
+
+Original policy bytes were not independently archived before restoration;
+the final read-only mount SHA and unchanged inherited parser establish the
+observed state, not a historical byte comparison. Historical WGS422 is
+frozen for rollback only; if a marked089 attempt exists, retain the compatible
+stack during repair. Exact receipts and limits are in the
+[candidate release record](releases/2026-10-01-unified-native089-candidate.md).
+
+## 2026-10-01 PROD selected components; minimum checks in progress (prior Gate3 checkpoint)
+
+The coordinator's complete PROD GO was granted after TEST minimum acceptance.
+The initial read-only page-size-200 runs query timed out; the bounded five-run
+page refresh subsequently covered all 27 runs, 50 transfers and related DAG/TI
+state with nonterminal counts zero (`gate3-prod-activity-v2-result.json`, SHA256
+`674720db...`). This clears the recorded activity preflight, not installed
+gateway/catalog acceptance.
+
+PROD Heavy entrydc5/core554/original launcher5f2 and its new flock/Python pair
+190070/190480 were selected. Two fresh complete payloads and one actual Lease
+GET returning25 names per payload passed with held/used/waiting0, limit25,
+idle (`gate3-heavy-accept-result.json`, SHA256 `51b87164...`; actual 21-file
+index SHA256 `2c3e826c...`). The stop sent TERM once to the old Python only;
+flock exited naturally. The finish invoker exited1 in the final new-process
+check after entry/core installation and one original-launcher call. The cause
+is unproven because fail-moment rows were not recorded. Read-only acceptance
+then found the correct pair; no signal, launcher or finish replay followed.
+
+Six reviewed PROD gateway services were selected at 14:46:19–14:46:52Z.
+Infra is completing the installed minimum checks. **No PROD catalog POST has
+occurred; execution/auto gates remain closed, and `v2.paired` LAST has not been
+selected.** Continue only after the exact installed checks and catalog receipt
+are recorded. This is an in-progress release, not final production acceptance.
+Do not rerun UE04/05/06, 17+2 or the full suite for this checkpoint.
+
+## 2026-10-01 Gate2 TEST accepted; PROD GO granted (prior checkpoint)
 
 Shared nipttest0.8.9 and the four private node envs/five wrappers are now
 selected, including PROD WGS/GATK selectors. This is a real production node
@@ -21,8 +82,11 @@ node launch wall time and timed out; payload timestamps and independent Lease
 GETs passed, while the raw 599/604-second mtime offset remains recorded. These
 were checker/invoker issues, without an ad hoc product patch or full test rerun.
 
-Before a PROD gateway/catalog/Heavy operation, obtain the coordinator's next
-GO and recheck the actual host, current configs, gates and exact rollback.
+The coordinator has granted the complete PROD gate GO. The first read-only
+runs request with page size 200 timed out; health/page 1 passed, and Infra is
+completing a smaller-page full active-use refresh. Page 1 is insufficient to
+establish idleness. Before PROD gateway/catalog/Heavy mutation, finish that
+preflight and recheck actual host, current configs, gates and exact rollback.
 Preserve the closed gates through bounded PROD acceptance; select `v2.paired`
 LAST only after all approved checks. Do not infer a final production release
 from shared089 or PROD node selector selection. After a marked089 attempt,

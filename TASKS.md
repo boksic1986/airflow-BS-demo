@@ -1,11 +1,18 @@
 # Active test-branch tasks
 
-## W423-R1-UNIFIED089 — Gate2 TEST minimum accepted; PROD held
+## W423-R1-UNIFIED089 — actual release and gate restoration COMPLETE
 
-Latest status: TEST minimum acceptance COMPLETE with gates closed; coordinator
-PROD next GO remains pending. Shared089 and all four private node envs/five
-wrappers, including PROD selectors, have changed. PROD gateway source/catalog/
-Heavy remain prior, and v3 execution/auto gates remain closed.
+Latest status: coordinator-authorized TEST/PROD bounded acceptance, genuine
+WGS423 catalog registration/CAS and original gate restoration are complete.
+PROD WGS/GATK execution and scan are effective true; its restored auto env is
+true but inherited policy leaves **effective auto false**. TEST WGS/GATK
+execution is true while scan/auto remain false. Final read-only closure receipts
+are `gate4-BS96-final-readback-result.json` SHA256 `18ff3d91...` and
+`gate4-BS10610-final-readback-result.json` SHA256 `d7093fad...`. No new analysis,
+canary or repeat of accepted UE04/05/06, 17+2 or full-suite tests occurred.
+Coordinator has accepted the minimum closure. Final public evidence index and
+local archive contain108 evidence files plus index; HANDOFF records the full
+closure and limitations. No further remote runtime checks or copy are required.
 
 - [x] Fresh host/effective original source/config/hash/platform/DAG/transfer/
   namespace checks; Mounts order-only discrepancy canonicalized with all fields.
@@ -26,10 +33,38 @@ Heavy remain prior, and v3 execution/auto gates remain closed.
   confirms `wgs-4.2.3-bafd27c`, catalog SHA `342d4e07...`, no duplicate POST.
   Initial script exit1 was a raw-vs-canonical SHA assertion error after success.
 - [x] TEST Heavy core554/new process pair113056/113067 and two fresh complete
-  snapshots, each25 Lease GETs/held0/used0/limit25/waiting0/idle. Preserve
+  snapshots, each with one Lease GET returning25 names, held0/used0/limit25/
+  waiting0/idle. Preserve
   launcher/entry; first mtime-based checker timeout was clock-source mismatch.
-- [ ] Coordinator PROD next GO, bounded PROD gateway/catalog/Heavy pairing and
-  acceptance, then `v2.paired` LAST and exact approved gate restoration.
+- [x] Coordinator accepted TEST minimum evidence and granted complete PROD gate GO.
+- [x] Complete bounded PROD activity refresh with five-run pages: 6 pages,
+  27 runs/50 transfers, no nonterminal DAG/TI work; receipt `674720db...`.
+  Initial page-size-200 timeout and successful health/page1 are retained.
+- [x] Select PROD Heavy entrydc5/core554/original launcher5f2, new pair
+  190070/190480; two complete actual Lease snapshots, held/used/waiting0 and
+  limit25. Acceptance `51b87164...`; finish invoker exit1 at final process
+  check has an unproven cause, followed by read-only correct-pair acceptance.
+  No second signal, launcher call or finish replay.
+- [x] Select PROD six reviewed gateway services at 14:46:19–14:46:52Z;
+  backend/observer/Airflow API/scheduler/worker/frontend IDs are in the
+  release record. Selection alone does not close installed minimum acceptance.
+- [x] Finish bounded PROD gateway minimum checks: 60 exact service mounts,
+  18 Airflow imports/errors0, loaded gates and four external HTTP 200 checks.
+  Actual apply/accept/mount/HTTP receipts have SHA256 `cf052e66...`,
+  `bef51b0c...`, `c9d26e88...`, `7b80cb64...`; historical Rules GETs are
+  read-model checks, not a new089 producer replay.
+- [x] PROD genuine WGS423 receipt POST and catalog CAS at 14:52:31Z from
+  `wgs-4.2.2-441d5e7` to `wgs-4.2.3-bafd27c`; transaction receipt SHA256
+  `0856802d...`, catalog after SHA256 `35c53a2e...`.
+- [x] Select `v2.paired` LAST and restore original TEST/PROD admission gates.
+  TEST final closure SHA256 `d7093fad...`, PROD `18ff3d91...`; preserve PROD
+  original scan watermark and inherited effective-auto policy. Initial PROD
+  restore checker exit5 compared auto env directly with effective policy;
+  final read-only closure passed without replaying mutation.
+- [x] Generate final public phase index/archive (109 members), verify108
+  referenced sizes/hashes, update HANDOFF and obtain coordinator acceptance.
+  Index SHA256 `eda75ed0...`, local-only archive SHA256 `9468056b...`; AF owner
+  submits the six documentation files and reports their final commit pointer.
 
 - [x] Reconfirm current card with airflow-cloud-demo after the user's resend.
 - [x] Preserve accepted UE04/05/06; final AF80abdfc(parent0afd) retains two
@@ -52,9 +87,9 @@ Heavy remain prior, and v3 execution/auto gates remain closed.
 No old Step1 incidents, FQ, clinical canary, analysis rerun, schema extension,
 private native fork, unrelated full upgrade or new UE/collector/recovery work.
 Required final423 producer/DAG/backend/UI dependencies belong to this packet;
-accepted source tests are reused. TEST installed minimum acceptance is complete;
-PROD final selection and release remain pending. Earlier source-only Group
-checkpoints below are retained as history and do not describe current Gate2.
+accepted source tests are reused. TEST and PROD installed minimum acceptance,
+PROD catalog CAS and gate restoration are complete; phase archive/HANDOFF remain
+for closeout. Earlier source-only Group checkpoints below are historical.
 
 ## W423-R1-GROUP-FIRST-20261001 / AF-V423-BINDING — source complete
 

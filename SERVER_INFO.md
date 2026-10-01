@@ -1,6 +1,80 @@
 # SERVER_INFO.md
 
-## 2026-10-01 UNIFIED089 Gate2 effective selection; TEST accepted, PROD held
+## 2026-10-01 UNIFIED089 final selected state and gate restoration
+
+BS96 `server96`: PROD current release is `wgs-4.2.3-bafd27c` after the genuine
+14:52:31Z receipt registration and CAS from `wgs-4.2.2-441d5e7`. Catalog
+transaction receipt `gate3-prod-catalog-result.json` SHA256
+`0856802d8308b4002e002a5061ac5553785ee67b5837bd8faa3d125c53fc3c34`;
+catalog-after SHA256
+`35c53a2e396009357fd85cc39ce8b7ce6f9d3347b1aae2fe472eb4564912433c`.
+Six selected services passed 60 exact mounts, 18 Airflow imports with zero
+errors, loaded gates and four external HTTP 200 checks. PROD mount/HTTP receipts
+SHA256 are `c9d26e8824eb9201b674d40f6332a87dcc0dc99087c98297a8735b060930d32f`
+and `7b80cb64422b1ac79ae0b8eb931d054fd76e9a465604b7eae8c2a4818d603689`.
+
+BS96 original backend gates were restored at 14:57:18Z. The final read-only
+closure at 15:05:16Z (`gate4-BS96-final-readback-result.json`, SHA256
+`18ff3d914f5f2f319f8d9489f05f728050fdb4c225ee27e7295a0e3c31ca9f6f`)
+confirmed WGS/GATK execution true, effective scan true, auth true, current423,
+and the original watermark literal `2026-09-17T09:34:19.655673+00:00`. Restored
+env `WGS_AUTO_DISPATCH_ENABLED=true` is constrained by inherited
+`/af05-config/intake.json` policy `auto_dispatch_enabled=false`, so **effective
+auto remains false**. That read-only source is mounted from
+`/data/airflow-WGS/auto-intake-20260917-config/intake.json`, observed SHA256
+`7df771bcae6257893d098d6f29cd4a697f1cec0aa9cd7bb802bb465dbc08194b`;
+project YAML SHA256 is `20cb6f432a6fa9a74b130ae0a230ff34310e6119344d647138cfad44926096d8`.
+Original policy historical bytes were not archived, so this observed hash is
+not a before/after byte comparison. Original source config/policy parser hashes
+were retained; no policy modification, duplicate POST, gate apply replay or
+new analysis was performed. The initial restore checker exited5 because it
+equated env auto and effective auto; the final policy readback accepted the
+original protection without rerunning mutation.
+
+BS10610 `server10610`: TEST original WGS/GATK execution gates restored true at
+14:56:34Z, scan/auto false and watermark empty. Final read-only closure at
+15:04:56Z (`gate4-BS10610-final-readback-result.json`, SHA256
+`d7093fad978a7d93f88c7172eaf10a111f962217d85722c8d0ad7d64be921898`)
+confirmed health200, unchanged service identities and no apply replay/POST.
+Both external gateway `/api/health` checks returned 200. Shared native089,
+four private envs/five wrappers and selected Heavy pairs remain accepted;
+historical WGS422 is frozen for rollback only.
+
+## 2026-10-01 UNIFIED089 PROD selected components; acceptance ongoing (prior Gate3 checkpoint)
+
+BS96 `server96`: the coordinator granted complete PROD GO. The initial
+read-only runs page-size-200 request timed out; a bounded five-run-page refresh
+then covered six pages, 27 runs, 50 transfers and related DAG/TI state with
+nonterminal counts zero. `gate3-prod-activity-v2-result.json` SHA256
+`674720db7330e03d211cd186cff52ab1af3ddb3d09ae8db52d50d5c9004ddeaf`
+records complete coverage, exit0, mutation=false. This was an activity gate,
+not installed gateway acceptance.
+
+Node200 `t640` PROD Heavy has entry SHA `dc5c1d34...`, core
+`554f3edc...`, launcher `5f2a8190...`, all mode0644. New flock PID190070/
+starttime3077813668 and Python PID190480/starttime3077813775 were accepted.
+Payloads at 14:42:24.369308Z and 14:43:30.797281Z were complete; each had
+one actual Lease GET returning25 names, held/used/waiting0, limit25 and idle.
+`gate3-heavy-accept-result.json` SHA256
+`51b871640e54603d2917015357f35e875d7cd541edb341f8438f1e12514db46f`;
+21-file actual index SHA256
+`2c3e826c9c3a951a505fb5a19c2d4e32670ae594da2608e24d72e8c471da232c`.
+Only the old Python received one TERM; flock exited naturally. The finish
+invoker exit1 occurred in the final new-pair check after entry/core selection
+and one original-launcher call. Initial flock establishment is a possible
+cause, but fail-moment rows were not captured. Subsequent read-only matching
+pair/snapshot acceptance passed; no further signal or launcher replay.
+
+PROD gateway selected six reviewed services from 14:46:19 to 14:46:52Z:
+backend `dfca6fe5...`, wgs-run-observer `c21e8c41...`, airflow-api-server
+`5339e3f9...`, airflow-scheduler `a66f8604...`, airflow-worker `e483a853...`,
+frontend-nginx `4df1c67c...`. Infra minimum installed checks remain in
+progress. PROD catalog has not been POSTed; execution/auto gates remain closed
+and final `v2.paired` restoration is pending. The earlier shared089/private
+env/wrapper selection remains in effect. No final release or new analysis is
+claimed. See the [candidate phase record](docs/releases/2026-10-01-unified-native089-candidate.md).
+
+## 2026-10-01 UNIFIED089 TEST accepted; PROD GO granted (prior Gate2 checkpoint)
 
 Native owner installed shared nipttest0.8.9/source1f5/wheelf843 and bootstrap
 on node200 `t640` under its independent GO (installed receipt SHA256
@@ -31,16 +105,21 @@ remain closed.
 TEST Heavy only: core SHA256 `554f3edc1c8f3fe656600a2417532087f9f96ec0b1df07b894c63a0823e4cd87`,
 entry `dc5c1d...` and launcher `65991c5...` retained; new flock/Python PIDs
 113056/113067. Complete snapshots at 13:55:05.298335Z and 13:56:24.895783Z
-each returned 25 exact Lease GETs, held/used/waiting0, limit25 and idle. The
+each used one Lease GET returning25 exact names, held/used/waiting0, limit25
+and idle. The
 first mtime-based checker timed out on a 599/604-second SFS/node clock-source
 offset; payload timestamp and exact hash/Lease checks passed. No PROD Heavy
 process was replaced.
 
 BS96 `server96`: backend remains on old-source `v3.freeze` with execution/auto
 closed, scan true and original watermark literal unchanged. PROD gateway source,
-catalog and Heavy remain prior. Coordinator PROD next GO and final bounded
-acceptance are pending; `v2.paired` gate restoration is LAST. Neither PROD
-release completion nor a new analysis is claimed. See the
+catalog and Heavy remain prior. Coordinator granted the complete PROD gate GO,
+but active-use preflight has not finished: a read-only page-size-200 runs request
+timed out, health/page 1 passed, and Infra is using smaller pages for the full
+refresh. Page 1 is not an idle certificate. No PROD source/catalog/Heavy
+mutation is claimed. Final bounded acceptance and `v2.paired` gate restoration
+LAST remain pending; neither PROD release completion nor a new analysis is
+claimed. See the
 [Gate2 phase record](docs/releases/2026-10-01-unified-native089-candidate.md).
 
 ## 2026-10-01 UNIFIED089 first-gate effective backend state
