@@ -30,11 +30,15 @@ were confirmed. The original env/image/mounts and unrelated service IDs were
 preserved. No new analysis, canary, UE04/05/06, 17+2 or full-suite rerun is
 claimed. Historical WGS422 is frozen for rollback only. Coordinator accepted
 the minimum release closure. Final public index `gate3-prod-evidence-final-index.json`
-SHA256 `eda75ed0...` and local archive SHA256 `9468056b...` retain109 members
+SHA256 `6603fdf8...` and local archive SHA256 `25690074...` retain109 members
 (108 evidence files plus index), verified by size/SHA. The final archive is
 local only; no further remote runtime sampling/copy was required. HANDOFF records
 the accepted state, original failures and read-only closures. Only the six state
 documents are staged; untracked evidence and product source are excluded.
+The final index now explicitly records `ORIGINAL_GATES_RESTORED`. Its Heavy
+startup explanation is marked as an inference because failure-moment rows were
+not captured. Only these two metadata fields and generation time changed;
+all108 evidence entries and original receipts remain unchanged.
 
 ## 2026-10-01 UNIFIED089 PROD Heavy accepted and six services selected; gates closed (prior Gate3 checkpoint)
 

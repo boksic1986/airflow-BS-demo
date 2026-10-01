@@ -63,8 +63,11 @@ closure and limitations. No further remote runtime checks or copy are required.
   final read-only closure passed without replaying mutation.
 - [x] Generate final public phase index/archive (109 members), verify108
   referenced sizes/hashes, update HANDOFF and obtain coordinator acceptance.
-  Index SHA256 `eda75ed0...`, local-only archive SHA256 `9468056b...`; AF owner
+  Index SHA256 `6603fdf8...`, local-only archive SHA256 `25690074...`; AF owner
   submits the six documentation files and reports their final commit pointer.
+- [x] Correct final index metadata to `ORIGINAL_GATES_RESTORED` and qualify the
+  Heavy startup explanation as inference; rebuild the local archive while
+  retaining all108 evidence entries and original receipts unchanged.
 
 - [x] Reconfirm current card with airflow-cloud-demo after the user's resend.
 - [x] Preserve accepted UE04/05/06; final AF80abdfc(parent0afd) retains two

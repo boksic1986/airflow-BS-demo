@@ -1,5 +1,30 @@
 # Handoff
 
+## 2026-10-01 — UNIFIED089 final index metadata correction
+
+Coordinator accepted the actual release and requested two local index corrections:
+overall status now reads `PROD_FINAL423_GATE3_GATE4_MINIMUM_ACCEPTED_ORIGINAL_GATES_RESTORED`;
+limits[0] states that the Heavy verifier failed during startup, a later exact
+pair was confirmed, and a partial-startup explanation is an inference. The
+failure-moment process rows were not captured. Historical phase receipts still
+retain their accurate closed-gate status and original failure evidence.
+
+Changed only the index generator's two strings, rebuilt the local index/archive,
+and updated SHA references in CURRENT_STATE/TASKS/HANDOFF. All108 evidence entries
+remain byte-for-byte identical, with109 archive members including the new index.
+The generation timestamp also advanced. New index SHA256
+6603fdf8a4de03d781aa8fcdfc56327f4325db9890d2e3d8d069e52196414d39;
+new archive SHA256
+25690074ff2c9def2ee54afb0ecfcef407e9fb0c54d0b485a525bfb707286b96.
+Previous index/archive remain as `gate3-prod-evidence-final-index.metadata-v1.json`
+and `gate3-prod-evidence-final.metadata-v1.tar`, retaining original SHA256
+eda75ed0.../9468056b.... Product source80abdfc and deployed state are unchanged.
+No remote call, runtime test, new sample or receipt collection, policy change,
+service switch or mutation replay occurred. The local builder checked archive
+member integrity; documentation whitespace and staging scope are checked before
+the separate docs commit. Recovery for this metadata edit uses the preserved
+local prior files; it requires no service or runtime change.
+
 ## 2026-10-01 — W423-R1-UNIFIED089 PROD release accepted; original gates restored
 
 Coordinator read both final Gate4 readbacks and accepted the minimum release
@@ -91,9 +116,9 @@ after marked089 work. Exact original backups remain in the private controls;
 PROD Heavy originally had no core. No currently open release blocker remains.
 
 Final public index `gate3-prod-evidence-final-index.json` SHA256
-eda75ed0e386bcd8439df2f280c66f1de0cba04add32a9fc1819c7510135304a;
+6603fdf8a4de03d781aa8fcdfc56327f4325db9890d2e3d8d069e52196414d39;
 archive `gate3-prod-evidence-final.tar` SHA256
-9468056b9661ccb18d234f3b6a0fbb9ad7e69db768641cf2cd7e5a1448a35312.
+25690074ff2c9def2ee54afb0ecfcef407e9fb0c54d0b485a525bfb707286b96.
 It has109 unique regular members:108 curated public evidence files plus index.
 Archive builder verified names/types/no escape/size/SHA; root independently
 verified all108 index references. Finalpacketf9cf2671 and Gate2 index24b901d0
