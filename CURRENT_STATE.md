@@ -21,6 +21,13 @@ pending with the Group task below; no package installation or environment
 selector/service switch occurred. The WGS publication receipt has since been
 supplied and read (assets PASS/state_verified, canonical SHA16f131a4); actual
 AF release registration and consumer pairing have not been performed.
+The external GATK r5 profile receipt is now also supplied and read: file
+SHA3c05056f, profile raw SHA17d2bb59, only revision/Master differ from old62265.
+Both raw profile digests are recorded; canonical revision/runtime digests,
+rule inventory and deployed consumer pairing remain pending.
+Static registry review confirms both new phase identities are absent:
+`wgs-4.2.3-bafd27c` and `gatk-scmc-v7.6.0@r5`. These concrete gaps were reported
+to the coordinator; no mapping is inferred from old421 fixtures or profiles.
 
 ## 2026-10-01 W423 Group TEST candidate; no activation
 

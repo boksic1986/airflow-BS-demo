@@ -1,5 +1,48 @@
 # Handoff
 
+## 2026-10-01 — owner profile receipts added to pending TEST pairing
+
+Goal: consume the coordinator's final GATK r5/WGS publication inputs after
+the completed R1 card; continue the existing pairing task. Product source
+remains `5415b13f6d699deb5809d925f99fd4706520bc47` over retained b3 baseline.
+
+Read only the supplied local `gatk-profile-candidate-receipt.json`; whole-file
+SHA matches the coordinator's `3c05056f16f1a50393ec726c2676bc20501dafba8d5ed0d15409ffd1c0d32af0`.
+It binds raw profile SHA17d2bb59 to the independent external r5 path and
+reports exactly revision r3-to-r5 and Master ee93-to-a4f. The old raw profile
+62265 remains the source baseline; separate accepted r4/P0 is not replaced.
+WGS/GATK raw file hashes are recorded independently from canonical revision
+digests, which remain uncomputed pending the actual consumer contract.
+This is receipt consumption, not another remote asset/TEST validation.
+
+Static final-field review: all13 owner catalog fields match receipt.release;
+all6 required shared asset fields match. Existing phase registration lacks
+`wgs-4.2.3-bafd27c` and `gatk-scmc-v7.6.0@r5`; the exact-release consumers
+therefore retain Unknown for those identities. The WGS base has262 mapped
+rules and14 module blobs; it is not proof of final423 inventory. Current AF
+source has no generic rule-inventory exporter, only the existing pinned
+source/rule registry. Reported both gaps and the existing registry paths to
+the coordinator before proposing any new source change; final owner module/
+inventory evidence is still required. Existing cc9-only config-option audit
+also remains closed for bafd. Static report: ignored
+`.codex-artifacts/w423-integration-20261001/static-final-pairing-gaps.json`.
+Initial rg searches named two nonexistent phase/management module paths;
+resolved actual paths via rg --files. These searches performed no mutation.
+
+Updated current state/tasks/this handoff and the current Group audit inventory;
+ignored TEST_PAIRING_DRAFT/config-reference-plan now carry actual frozen owner
+paths, source/hash provenance and the completed R1 product commit. No executable
+or test file changed. Only local JSON/file/hash and document checks ran; the
+already-recorded BS10610 GREEN26 remains the R1 evidence without repetition.
+
+Remaining: user installation choice,423/r5 source inventory and exact phase
+identity registration after evidence/coordination, exact consumer
+canonical/runtime/private-config bindings, actual TEST pairing/acceptance and
+rollback. Package/profile/config/selector/service state is still unchanged.
+There is no operational rollback for this documentation update; previous
+pairing draft/history and source b3/5415 remain retained. New docs commit is
+reported separately from the tested product commit.
+
 ## 2026-10-01 — W423-R1 version compatibility source handoff
 
 Goal/confirmation: user requested that task alignment be resent because the

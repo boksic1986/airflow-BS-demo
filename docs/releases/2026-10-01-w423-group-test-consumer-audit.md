@@ -262,3 +262,36 @@ profile436a6608/pipelinecf2b6bdf/resource7cd067fb. Canonical receipt SHA16f131a4
 differs from whole-file SHA006b405f by design. GATK profile/rule inventory and
 final platform consumer pins remain pending; asset publication is not TEST
 activation.
+
+## Latest owner profile inputs for TEST pairing
+
+R1 tested product source is `5415b13f6d699deb5809d925f99fd4706520bc47`;
+consumer baseline `b3f0174` is retained. Coordinator-reviewed owner receipts
+were read locally. No deployed consumer validation was repeated.
+
+| Profile | Frozen node200 path | Raw file SHA-256 | Canonical revision digest |
+| --- | --- | --- | --- |
+| WGS423 r1 | `/bi/biodevrwbi/33.chenjiucheng/project/cce-pipeline-profiles/wgs/releases/20261001.1-wgs423/wgs-4.2.3-r1.yaml` | `436a6608ed0b5d76739b8191589b4de435db15d7be720cc537c7e59f94566abc` | Pending actual consumer contract |
+| GATK r5 | `/bi/biodevrwbi/33.chenjiucheng/project/cce-pipeline-profiles/gatk/releases/20261001.1-group-status/gatk-scmc-v7.6.0-r5.yaml` | `17d2bb5911abf7ac15fdca63c0da7b8617411b159f62cf6cf7e2c541799d7e78` | Pending actual consumer contract |
+
+The BS10610 gateway paths use the corresponding `/mnt/biodevrwbi` root.
+GATK profile receipt whole-file SHA is
+`3c05056f16f1a50393ec726c2676bc20501dafba8d5ed0d15409ffd1c0d32af0`.
+Its semantic diff is only revision r3-to-r5 and Master ee93-to-a4f; original
+pipeline/resources/Worker/quota/algorithm bindings are reported unchanged.
+The separately accepted r4/P0 candidate remains distinct. The owner alone
+writes profile assets; Airflow will reference these frozen paths.
+
+Raw file digests do not replace canonical rendered revision digests. User
+installation choice, rule inventory and complete platform/runtime pairing
+remain open. Profile publication is not TEST selection or activation.
+
+Static owner-catalog comparison matched all13 declared fields against the
+receipt release and all6 shared asset fields; the existing release-management
+schema can represent these fields. Actual backend registration/validation was
+not executed. The source phase registries do not yet contain
+`wgs-4.2.3-bafd27c` or `gatk-scmc-v7.6.0@r5`; exact-release lookup retains
+Unknown for both. The old WGS mapping's262 rules/14 module blobs and GATK17
+rules are accepted prior provenance, not final423/r5 evidence. Owner final
+module/inventory identity is required before proposing those source additions.
+No current generic AF rule-inventory exporter or new parser was introduced.
