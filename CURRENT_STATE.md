@@ -30,6 +30,14 @@ See docs/reviews/2026-10-02-wgs-a468e9-step2-deadline.md. The full batch is not
 complete; retain the monitor and follow this current a1, avoiding repeated probes
 or implementation while the required new native scope remains undecided.
 
+Coordinator has accepted the retained RED/GREEN evidence for candidate 1c6b274
+and is completing a final read-only source review. It has already asked the
+human about the separate native reconciliation scope; reply is pending.
+Keep candidate unmerged/undeployed. Hourly checks remain read-only: if current
+a1/gen1 failure is unchanged, stay quiet and do not repeat native diagnosis,
+tests or retries. New human authorization or material evidence is required
+before advancing the recovery design.
+
 Directly verified human message 01a0f953-fa91-7ef0-9e4a-4b956784104c requests
 hourly monitoring, communication on issues, minimum scoped repair and recovery
 until the full workflow ends. Unique heartbeat automation wgs-test1 is ACTIVE,
