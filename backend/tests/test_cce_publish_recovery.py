@@ -181,3 +181,45 @@ def test_wgs_publish_control_accepts_initial_and_recovery_frozen_digests(publish
                 execution_id=execution_id)
             assert answer['dispatch'] is True
             assert answer['request_hash'] == digest
+
+
+@pytest.mark.parametrize('case', [
+    'superseded_failed_resume', 'no_failure', 'wrong_failure_dag',
+    'wrong_failure_attempt', 'reserved', 'uncertain', 'pause', 'stale_caller',
+])
+def test_publish_registration_distinguishes_retired_resume_from_active_control(run_store, case):
+    from app.cce_publish_recovery import authorize_publish_registration
+    with run_store.begin() as session:
+        run = session.scalar(select(AnalysisRun))
+        old = RunAction(analysis_id=run.analysis_id, action='resume_stage',
+            requested_by='synthetic', result_status='queued', payload_json={
+                'attempt': 1, 'action_id': 'old-resume', 'dag_run_id': 'old-dag',
+                'dispatch_state': 'confirmed', 'resume_stages': ['step4_publish']})
+        if case in {'reserved', 'uncertain'}:
+            old.result_status = case
+            old.payload_json = dict(old.payload_json, dispatch_state='post_intent')
+        if case == 'pause':
+            old.action = 'pause'
+        session.add(old); session.flush()
+        if case != 'no_failure':
+            session.add(RunAction(analysis_id=run.analysis_id, action='airflow_dag_failed',
+                requested_by='airflow', result_status='failed', payload_json={
+                    'attempt': 2 if case == 'wrong_failure_attempt' else 1,
+                    'dag_run_id': 'different-dag' if case == 'wrong_failure_dag' else 'old-dag'}))
+            session.flush()
+        current = RunAction(analysis_id=run.analysis_id, action='resume_stage',
+            requested_by='synthetic', result_status='queued', payload_json={
+                'attempt': 1, 'action_id': 'current-resume', 'dag_run_id': 'current-dag',
+                'dispatch_state': 'confirmed', 'resume_stages': ['step4_publish']})
+        session.add(current); session.flush()
+        run.dag_run_id = 'current-dag'
+        run.params_json = dict(run.params_json, resume_action_id='current-resume')
+        args = dict(session=session, run=run, dag_run_id=run.dag_run_id,
+            resume_action_id='old-resume' if case == 'stale_caller' else 'current-resume')
+        if case == 'superseded_failed_resume':
+            authorize_publish_registration(**args)
+            # Dispatch history is retained; no fake workload or action completion.
+            assert old.result_status == current.result_status == 'queued'
+        else:
+            with pytest.raises(ValueError):
+                authorize_publish_registration(**args)

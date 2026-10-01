@@ -1,5 +1,19 @@
 # Workflow runtime integration
 
+## 2026-10-01 final423 candidate preserves production safeguards
+
+Step4 registration retains the deployed exact exception for a confirmed queued
+resume audit row whose same-attempt failed DagRun precedes the validated current
+successor. The old row stays queued; this grants no remote termination evidence.
+Other active controls still block dispatch. The unified frozen-request digest
+checks remain in place for initial and recovery WGS requests.
+
+Forced WGS generation registration ingests existing runtime status before the
+AnalysisRun lock. It must not invoke that ingestion again while holding the run
+lock, because the observer opens its own session and locks the same row. Current
+attempt/recovery identity and orchestration-contract checks remain under the
+registration lock. These preserve deployed safeguards without API/DB migration.
+
 ## W423-R1 exact version compatibility (2026-10-01, source only)
 
 `V4.2.3` uses the existing `prepare_sampleinfo`/`prepare_analysis` generation-

@@ -42,16 +42,31 @@ def freeze_publish_request(*, run, request, latest, now, timeout_seconds):
 def _controls(session, run, resume_action_id):
     if (run.params_json or {}).get('resume_action_id') != resume_action_id:
         raise ValueError('Step4 recovery caller was superseded')
+    current = None
     if resume_action_id:
         from app.cce_resume_dispatch import authorize_recovery_stage
-        authorize_recovery_stage(session=session,run=run,action_id=resume_action_id,
+        current = authorize_recovery_stage(session=session,run=run,action_id=resume_action_id,
             dag_run_id=run.dag_run_id,stage='step4_publish')
-    for row in session.scalars(select(RunAction).where(RunAction.analysis_id==run.analysis_id)):
+    actions = session.scalars(select(RunAction).where(RunAction.analysis_id==run.analysis_id)).all()
+    for row in actions:
         data=row.payload_json or {}
         if data.get('attempt') not in {None,run.attempt}:continue
         if row.action in CONTROL_ACTIONS | {'cce_compute_recovery'} and row.result_status not in FINISHED_ACTIONS:
             if (row.action in {'resume_stage','cce_compute_recovery'}
                     and data.get('action_id')==resume_action_id and resume_action_id):continue
+            # queued records confirmed dispatch, not continued authority. An old
+            # failed DagRun is fenced by the validated successor above. Keep the
+            # audit row intact: this is not proof of remote compute termination.
+            if (current is not None and row.action == 'resume_stage'
+                    and row.result_status == 'queued' and data.get('dispatch_state') == 'confirmed'
+                    and data.get('attempt') == run.attempt and data.get('action_id')
+                    and data.get('dag_run_id') and data['dag_run_id'] != run.dag_run_id
+                    and any(item.action == 'airflow_dag_failed' and item.result_status == 'failed'
+                        and row.id < item.id < current.id
+                        and (item.payload_json or {}).get('attempt') == run.attempt
+                        and (item.payload_json or {}).get('dag_run_id') == data['dag_run_id']
+                        for item in actions)):
+                continue
             raise ValueError('active control or recovery action blocks Step4 dispatch')
     if any(row.status not in FINISHED_ACTIONS for row in session.scalars(select(WgsMaintenanceAction)
             .where(WgsMaintenanceAction.analysis_id==run.analysis_id,WgsMaintenanceAction.attempt==run.attempt))):
