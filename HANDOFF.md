@@ -2,6 +2,17 @@
 
 ## 2026-10-01 — final UNIFIED089 review packet, maintenance window CLOSED
 
+Final review correction before submission: v2 freeze accidentally included the
+merged new code. It remained inactive. Exact original-code admission-only freeze
+was prepared as backend.v3.freeze.json on both hosts and compares equal to
+rollback after reversing only approved flag keys. Config checks exit0; paired
+v2 source variants remain unchanged. Select only paths in final-gateway-candidate-
+final-manifest.json. Full final44-member evidence tar SHA
+`cf8fef5553abf9998f0e5b320aca0385f21af71f21de7b91793d452025ffe9fc`;
+packet SHA `f9cf26713bfe42ca7dfd7341b7898a79d7d59d8931c4aff773240cb493ce04df`.
+Final archive leaf is final-review-80abdfc-final; prior39-member archive/leaf
+remain preserved historical drafts. No new tests or active operations.
+
 ### Goal and authority
 
 Human requested coordinator recontact/resend; airflow-cloud-demo reconfirmed

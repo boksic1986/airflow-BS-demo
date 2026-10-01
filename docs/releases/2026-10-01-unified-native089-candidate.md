@@ -52,7 +52,7 @@ and definitions remain unchanged.
 
 Initial individual-file variants are preserved as v1 drafts. Static review
 identified new files beneath read-only parents as a runtime mount uncertainty.
-**Select only the v2 variants** in `final-gateway-candidate-v2-manifest.json`:
+**Select only variants recorded by `final-gateway-candidate-final-manifest.json`**:
 actual effective full `/app/app` copies for backend/observer and full DAG `common`
 copies per service, merged with only selected files. All unselected files and
 symlinks are preserved; Python bytecode caches are excluded. Only these parent
@@ -66,6 +66,11 @@ freeze, paired-frozen and paired-management variants. All candidate configs pass
 `docker compose config --quiet`; no up/run occurred. Later commands require
 `up -d --no-deps --pull never <exact-service>`. Runtime imports/mounts remain
 **PENDING_WINDOW**, not established by syntax validation.
+
+The final manifest supersedes the v2 freeze variant: `backend.v3.freeze.json`
+preserves original source/mounts and changes only admission flags. Paired variants
+use the merged target code. The discarded v2 freeze is retained as unselected
+history, not used as the initial window gate closure.
 
 Only three GATK environment keys change: console/profile/revision. Biological
 repository/runtime/pipeline paths are unchanged. PROD freeze closes only WGS/GATK
