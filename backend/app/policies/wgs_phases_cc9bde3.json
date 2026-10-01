@@ -2,6 +2,7 @@
   "source_commit": "cc9bde3",
   "release_id": "wgs-4.2.1-cc9bde3",
   "verified_equivalent_releases": {
+    "wgs-4.2.3-3f98682-perm2775": "3f986821172e5fbd5f5abd1213baea64c6b976f9",
     "wgs-4.2.3-3f98682": "3f986821172e5fbd5f5abd1213baea64c6b976f9",
     "wgs-4.2.1-34bfcbf": "34bfcbf82238af684d005314360c9c9739377351",
     "wgs-4.2.1-ebf1f4b": "ebf1f4bf2512feecdc3762e463145130192ca8bb",
@@ -9,6 +10,26 @@
     "wgs-4.2.3-bafd27c": "bafd27ce5f38e736aae516d5c00247e449872479"
   },
   "verified_rule_additions": {
+    "wgs-4.2.3-3f98682-perm2775": {
+      "concatSpecialSNV_fam_SNVannotation_strict_CS": "Carrier screening",
+      "CS_concatSpecialSNV_fam_SNVannotation_strict_CS": "Carrier screening",
+      "concatSpecialSNV_fam_SNVannotation_lenient_CS": "Carrier screening",
+      "CS_concatSpecialSNV_fam_SNVannotation_lenient_CS": "Carrier screening",
+      "concatSpecialSNV_fam_SNVannotation_strict": "SNV analysis",
+      "SNV_concatSpecialSNV_fam_SNVannotation_strict": "SNV analysis",
+      "concatSpecialSNV_fam_SNVannotation_lenient": "SNV analysis",
+      "SNV_concatSpecialSNV_fam_SNVannotation_lenient": "SNV analysis",
+      "concatSpecialSNV_solo_SNVannotation_strict": "SNV analysis",
+      "SNV_concatSpecialSNV_solo_SNVannotation_strict": "SNV analysis",
+      "concatSpecialSNV_solo_SNVannotation_lenient": "SNV analysis",
+      "SNV_concatSpecialSNV_solo_SNVannotation_lenient": "SNV analysis",
+      "limsQC": "QC",
+      "QC_limsQC": "QC",
+      "auto_qc": "QC",
+      "QC_auto_qc": "QC",
+      "varid_txt2vcf": "SNV analysis",
+      "SNV_varid_txt2vcf": "SNV analysis"
+    },
     "wgs-4.2.3-3f98682": {
       "concatSpecialSNV_fam_SNVannotation_strict_CS": "Carrier screening",
       "CS_concatSpecialSNV_fam_SNVannotation_strict_CS": "Carrier screening",
@@ -65,6 +86,15 @@
     }
   },
   "verified_source_overrides": {
+    "wgs-4.2.3-3f98682-perm2775": {
+      "rule/QC.smk": "7f3473263c8662abfd420667b89b6b23e354b1f7",
+      "rule/ROH.smk": "ceee94ac2b1ed73121ec18e3a182fde642b36acf",
+      "rule/SMA.smk": "2d91062ce0d468eb5bbaedc32258e575e15bf94a",
+      "rule/WGS_CS.smk": "98019846ea052f145c124eeb7f2da8544100b45a",
+      "rule/WGS_IPMCH.smk": "e488c08d13bdd65a18c71f26b02fd51542fadf6c",
+      "rule/WGS_MT.smk": "713c56540b010c2e804da0aceaa1d2cb39f3d2ff",
+      "rule/WGS_SNV.smk": "5010e11c0d730324469f6a76d8c4d30c758cb4e8"
+    },
     "wgs-4.2.3-3f98682": {
       "rule/QC.smk": "7f3473263c8662abfd420667b89b6b23e354b1f7",
       "rule/ROH.smk": "ceee94ac2b1ed73121ec18e3a182fde642b36acf",
