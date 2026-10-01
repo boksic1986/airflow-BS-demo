@@ -1,7 +1,10 @@
 """A lost Step4 reply must not spend compute budget or create another execution."""
 from copy import deepcopy
 from datetime import timedelta
+import hashlib
 import importlib
+import json
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import select
@@ -129,3 +132,52 @@ def test_success_is_not_rewritten_by_later_poll_deadline(publish_store):
     first=poll(publish_store)
     poll(publish_store,observation=reply(first,'success'))
     assert poll(publish_store,601)['status']=='success'
+
+
+@pytest.mark.parametrize('run_store', ['wgs'], indirect=True)
+def test_wgs_publish_control_accepts_initial_and_recovery_frozen_digests(publish_store, tmp_path):
+    """Initial v2 is appended after hashing; recovery hashes an already-v2 body."""
+    module = importlib.import_module('app.cce_publish_recovery')
+    analysis_id = 'SYNTHETIC_RECOVERY'
+    deadline = (NOW + timedelta(seconds=600)).isoformat()
+    request_dir = tmp_path / analysis_id / 'attempt-1'
+    request_dir.mkdir(parents=True)
+    settings = SimpleNamespace(wgs_runtime_request_root=str(tmp_path))
+    for generation, action_id in ((1, None), (2, 'synthetic-recovery')):
+        execution_id = f'publish-g{generation}'
+        body = dict(analysis_id=analysis_id, attempt=1, stage='step4_publish',
+            orchestration_contract_version=2,
+            stage_execution={'protocol': 'cce.stage-execution.v1'},
+            publish_dispatch_version=1, publish_deadline=deadline)
+        if action_id:
+            body['resume_action_id'] = action_id
+        producer_body = dict(body)
+        if action_id is None:
+            producer_body.pop('orchestration_contract_version')
+        digest = hashlib.sha256(json.dumps(producer_body, sort_keys=True,
+            separators=(',', ':')).encode()).hexdigest()
+        request = dict(body, execution_id=execution_id, generation=generation,
+            request_hash=digest)
+        (request_dir / 'step4_publish.json').write_text(json.dumps(request), encoding='utf-8')
+        with publish_store.begin() as session:
+            run = session.scalar(select(AnalysisRun))
+            run.params_json = dict(run.params_json or {}, cce_publish_deadline=deadline,
+                **({'resume_action_id': action_id} if action_id else {}))
+            run.dag_run_id = 'recovery-dag' if action_id else 'original-dag'
+            row = session.scalar(select(WgsStageExecution))
+            row.execution_id = execution_id
+            row.generation = generation
+            row.request_hash = digest
+            if action_id:
+                session.add(RunAction(analysis_id=analysis_id, action='resume_stage',
+                    requested_by='synthetic-operator', result_status='queued',
+                    payload_json=dict(action_id=action_id, attempt=1,
+                        dag_run_id=run.dag_run_id, resume_stages=['step4_publish'])))
+        with publish_store() as session:
+            answer = module.control_publish_dispatch(
+                session=session, settings=settings, pipeline='wgs',
+                analysis_id=analysis_id, attempt=1, dag_run_id=run.dag_run_id,
+                resume_action_id=action_id, operation='begin', now=NOW,
+                execution_id=execution_id)
+            assert answer['dispatch'] is True
+            assert answer['request_hash'] == digest

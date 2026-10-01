@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 from airflow.exceptions import AirflowFailException
+from common.ssh_transport import run_ssh
 
 
 def enabled(conf):
@@ -28,7 +29,7 @@ def _command(pipeline,conf,answer,probe=False):
             or not re.fullmatch('[0-9a-f]{64}',digest)):
         raise AirflowFailException('Invalid Step4 dispatch identity')
     prefix=pipeline.upper()
-    command=['ssh','-tt','-o','BatchMode=yes','-o','ConnectTimeout=10',
+    command=['ssh','-tt','-o','BatchMode=yes',
         '-F',os.getenv(prefix+'_SSH_CONFIG_PATH','/opt/airflow/ssh/config'),
         os.getenv(prefix+'_RUNNER_200_ALIAS',pipeline+'-node200'),
         os.getenv(prefix+'_RUNNER_200_COMMAND','/home/ctapa/.config/airflow-'+pipeline+'/forced-command.sh'),
@@ -41,18 +42,17 @@ def _command(pipeline,conf,answer,probe=False):
     if deadline.tzinfo is None:raise AirflowFailException('Invalid Step4 deadline')
     remaining=(deadline-datetime.now(timezone.utc)).total_seconds()
     if remaining<=0:raise AirflowFailException('Step4 original deadline exhausted; manual review required')
-    return command,min(30 if probe else 120,remaining)
+    return command,30 if probe else 120,deadline.timestamp()
 
 
 def _send(backend,*,pipeline,conf,dag_run_id,answer):
-    command,timeout=_command(pipeline,conf,answer)
+    command,timeout,deadline_epoch=_command(pipeline,conf,answer)
     identity=dict(publish_execution_id=answer['execution_id'],publish_sequence=answer['sequence'])
     _request(backend,pipeline,conf,dag_run_id,'check',**identity)
-    # No retry loop. subprocess.run waits for termination, including TimeoutExpired.
+    # Only proven pre-session SSH failures reconnect inside the shared budget.
     # Process death outside this catch leaves the committed intent unresolved.
     try:
-        subprocess.run(command,stdin=subprocess.DEVNULL,capture_output=True,text=True,
-            check=False,timeout=timeout)
+        run_ssh(command,timeout_seconds=timeout,deadline_epoch=deadline_epoch)
     except (OSError,subprocess.SubprocessError):
         pass
     _request(backend,pipeline,conf,dag_run_id,'finish',**identity)
@@ -69,10 +69,9 @@ def poll_publish(backend,*,pipeline,conf,dag_run_id):
     answer=_request(backend,pipeline,conf,dag_run_id,'poll')
     probe=answer.get('probe')
     if probe:
-        command,timeout=_command(pipeline,conf,answer,probe=True)
+        command,timeout,deadline_epoch=_command(pipeline,conf,answer,probe=True)
         try:
-            result=subprocess.run(command,stdin=subprocess.DEVNULL,capture_output=True,text=True,
-                check=False,timeout=timeout)
+            result=run_ssh(command,timeout_seconds=timeout,deadline_epoch=deadline_epoch)
             if result.returncode or len(result.stdout)>2*1024*1024:return answer
             observation=json.loads(result.stdout)
             if not isinstance(observation,dict) or any(observation.get(k)!=v for k,v in probe.items()):return answer

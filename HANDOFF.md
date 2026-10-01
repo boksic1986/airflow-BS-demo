@@ -1,5 +1,42 @@
 # Handoff
 
+## 2026-10-01 W423 Airflow integration source checkpoint
+
+User's direct coordinator message authorizes the original owners to coordinate
+WGS4.2.3 cloud release and Airflow/native upgrade. Scope follows JR01–05 and
+W42302–06; current production scope question is pending. Airflow is the sole
+platform source/test-entry/deployment owner, WGS owns native business/contracts
+and images/profile, native owns package/core/logger runner. No old task reopened.
+
+Fresh exact remote main and jiucheng/release/production both equal ce497d61;
+new branch is jiucheng/airflow/W423-integration-20261001 in the retained linked
+gatk-prod-compat worktree. Accepted UE3c094fc remains a separate branch parent.
+First fetch used nonexistent short ref production, exit128, then corrected to
+the exact refs successfully; no production SSH/service operation occurred.
+
+Merge-tree and actual merge found seven expected conflicts. Preserve distinct
+state history and API/runtime sections from both sides; main.py keeps the added
+UE force-new-generation/runtime artifact sync fence. GATK TTL helper fallback
+automerged and remains present. Only explicitly approved W423 plan/spec/release
+documents are copied from the coordinator; no dirty product code is imported.
+Audited candidate gaps were reported and approved for continuous integration:
+a85cfb6 WGS441d mapping,6d11712 GATKr4 mapping,e634ca4 later-stage projection fence.
+These will be integrated once, without unrelated parent branch contents.
+
+Current verification is static git/diff/semantic review only. No runtime test,
+package install, current/service/policy switch, image build, clinical run or
+BS96 access is claimed. Changed files are the UE merge closure and approved
+W423 documents; source-only commit is not final integration acceptance.
+The plan-owned ledger is .superpowers/sdd/2026-09-30-wgs423-upgrade-integration/progress.md.
+It records scope, exact refs, dependencies, commands/failure and rulings.
+
+Next: finish the merge/candidates; freeze the WGS prepare/QC contracts before
+new adapter/UI fields, preserve original prebinding ref through final bundle
+publication and default closed LIMS. Then BS10610 tests only for integration
+and new deltas, followed by a paired candidate/test cutover with exact rollback.
+Rollback for this source checkpoint is retaining the previous branch/parents;
+no deployed state or protected data has changed.
+
 ## 2026-09-29 — GATK TTL downstream node release and original-run Step4 recovery
 
 ### Goal and completed scope
@@ -483,6 +520,1355 @@ or create a new DagRun for this fix.
 If the hotfix must be rolled back, use the normal release rollback procedure
 to restore the recorded pre-hotfix backend source; do not mutate the run or
 workflow state as part of code rollback.
+
+## 2026-09-30 UE-06 AF/platform isolated installation closeout
+
+**Task and authority.** Current task is `UE-06-TEST-PAIR-20260930`. Coordinator
+`airflow-cloud-demo` (`019fa8d1-0d81-7e92-abee-8154dd1cf0a7`) verified the direct
+user instruction `检查如果没问题 进行下一步`, confirmed UE05 final pairing,
+and authorized original owners' BS10610 isolated installation/loading. After
+the user's request to resend, it explicitly reconfirmed this owner's AF/platform
+scope, accepted both owners' real loader evidence and instructed final raw-log
+and state closeout without another approval or test round. This is the latest
+scope; old Step1, UE04 and batch-cleanup checkpoints below are historical.
+
+**Source and ownership.** Worktree is
+`C:/Users/11217/.codex/worktrees/gatk-prod-compat/airflow-demo`, branch
+`jiucheng/airflow/UE06-paired-installation`, starting state commit `a0666e5`.
+AF product source is unchanged at
+`03bab6c768a2c84537ee4e4a6189072256841b63`. Tracked changes are only
+CURRENT_STATE.md, TASKS.md, HANDOFF.md and SERVER_INFO.md; scripts/raw outputs
+stay in untracked local artifacts. Native owner alone built source
+`7172573223308f1ca89616a5f81d14fec995a659`/wheel0.8.9 and its isolated install.
+No native directory was written by this owner.
+
+**Exact candidate and evidence.**
+
+- AF candidate: `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/ue06-platform-03bab6c-20260930`.
+- AF product extraction: candidate `source/`; AF bootstrap:
+  `source/scripts/cce-paired-deployment-v1.json`; AF policy:
+  `policy/cce-paired-writers-v2.json`.
+- AF raw evidence: `/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue06-platform-03bab6c-20260930`.
+- AF local scripts/logs/manifests: worktree `.codex-artifacts/ue06-platform/`.
+- Native root: `/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue06-native-089-20260930`;
+  wheel `wheel/cce_pipeline-0.8.9-py3-none-any.whl`, isolated `install/site`.
+- Native local raw evidence: `D:/pipeline/WGS-noncoding-model/.codex-artifacts/ue06-native-089-20260930/`.
+
+Fresh preflight verified target absence and canonical parents. New candidate,
+evidence, source/scripts, source/dags and policy directories are chenjc:bioinfo
+`0755`, files `0644`, without additional write ACL. Extraction used umask022
+and `tar --no-same-owner --no-same-permissions`; existing modes were untouched.
+The AF `git archive` contains backend/dags/scripts/config/airflow_image from03,
+not .env, clinical data or shared artifacts. Twelve source/dependency input
+hashes match the archive in `platform-inputs.sha256`. No dependency was installed.
+
+| Pinned input | SHA256 |
+| --- | --- |
+| AF source archive, 4,546,560 bytes | `4f66ebfeefce33d4f11011a78e4e5b707257a78f186e61c89ccaa8a7f42b7090` |
+| AF scripts/cce_paired_runtime.py | `fdc23a33f0d805bd923b6a31d5f70a381164f5b2a523160c621167aaf3d285ab` |
+| Native0.8.9 wheel, 153,323 bytes | `bda21dd22fd5fbcea23c40ae5ed9e3fc324b41ff2f56bf31c59022acacd8f6d4` |
+| Native installed assets/cce_batch_runtime.py | `c2988621e4552f4240f3f8c2254d99be315ad1633ed51b8f712bf310acced7c7` |
+| Native installed assets/cce_writer_guard.py | `e99378dcb1a0f71d3561c6705f4b5fe2f9886bc9e0307b5dc7c1b822de6e6d0f` |
+| Native installed cce_pipeline/stage_execution.py | `21b505da319cc752c5694f2b42e4082dd02dc47e3c7ddad895fdb87b08581bd2` |
+| Native package_build_id | `b94b66a0d391a662416154d515a1ac495fc2efeeeb334da2b068e97ca2916dd4` |
+| Both identical bootstraps | `8e47ad3f5d456a31b617d183f0b5421525e0169f835c145c9f25d30b6d495706` |
+| AF schema2 policy | `458472513c5ee071b6f7fa755911df3229c84504581149beb872bb4c3eee674e` |
+
+Native console CLI is `install/site/bin/cce-pipeline`; policy `writers.cli`
+pins the installed runtime asset, not that console script. Bootstrap has exactly
+five top keys: schema_version, policy, writers, runtime_guard, operator_python.
+Maintainers are UID6708/GID520 and each root/path is exact. Approved Python is
+`/sg2/33.chenjiucheng/software/miniforge3/envs/nipttest/bin/python`, canonical
+`bin/python3.9`, version3.9.23; PyYAML6.0.2 unchanged. Policy namespace is
+`ue06-install-only`, `bindings=[]`; no invented journal/PVC/storage setting.
+Native owner wrote its bootstrap; AF copied identical bytes to its own source
+directory and wrote the sole AF policy. Actual loaders passed without mocks,
+constant replacement, environment/request trust overrides or relaxed validation.
+
+**Commands and actual results.** Literal task scripts were copied or piped with
+CR stripping through `ssh -o BatchMode=yes -o ConnectionAttempts=1 -o ConnectTimeout=10 BS10610`.
+Successful `preflight.sh`, `prepare.sh`, `stage.sh`, `read-native-inputs.sh` and
+`pair-policy.sh` returned0; their raw logs retain boundary, creation, archive,
+installed input and policy/bootstrap results. Preflight DB transactions were
+explicitly read-only and rolled back: business analysis/transfer and Airflow
+queued/running DagRun/TaskInstance counts were all0. No DB write occurred.
+
+Actual installation checks used:
+
+```text
+bash /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue06-platform-03bab6c-20260930/run-loaders.sh       # exit1; retained first diagnostic
+bash /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue06-platform-03bab6c-20260930/run-loaders-v2.sh    # exit0; platform0 + Airflow0
+```
+
+The scripts specify PYTHONDONTWRITEBYTECODE=1/PYTHONNOUSERSITE=1, approved
+nipttest Python and exact candidate/native PYTHONPATH. The Airflow portion uses
+existing pinned image `sha256:58195672af685cfa6551cfc44b37b6218bd2039c44b717163a6e8072f78dfd2b`,
+actual Worker identity50000:0, `docker run --rm --pull never --network none --read-only`,
+CPU1/memory1g, tmpfs scratch/tmp and only candidate/evidence readonly mounts.
+It does not mount SSH keys/live data or initialize a service database. The
+kernel swap-limit warning is retained; the command still returned0.
+
+1. Real `paired.selected_runtime()`/`load_runtime()` selected the exact native
+   asset, guard, engine, wheel and code-anchored trust configuration above.
+2. Actual native `_recovery_native_success` and `_bound_downstream_master`
+   origins are the selected asset. Step4/5 guard wrapper origins match the
+   selected guard; unwrapped business origins match the selected asset.
+   `inspect.unwrap` is used only for provenance, never called or rebound.
+3. Actual WGS `_step_command` and GATK `_step` read task-only synthetic
+   binding/bundle inputs and constructed pinned canonical-Python/asset
+   `step3-status` argv. Those commands were not executed.
+4. Actual P0 `downstream_registered` entered the real paired/native loader,
+   then refused the task-only synthetic request's missing frozen registration
+   before bundle/writer/stage/cloud effects. This proves installed wiring and
+   fail-closed entry; it is not a successful business-stage execution.
+5. Real candidate imports of common.ssh_transport, common.stage_execution,
+   bio_wgs, bio_gatk, cce_worker_wait and cce_publish_dispatch matched03 paths
+   and hashes. All four callers reference the same real shared `run_ssh` object.
+6. Native owner's independent installed trust/policy/CLI/module checks passed
+   and were accepted by the coordinator. Its raw native-loader-pass.json and
+   final HANDOFF are retained at the native local/remote paths above.
+
+No pytest/unittest, two-DagBag replay, six-stage replay, cloud Job or actual
+batch was run in UE06. Prior UE01-05/14-case/two-DAG evidence was reused.
+Stage/cloud calls, run/attempt/SGE/CCE identities:0/N/A for these checks.
+
+**First failure and repair.** First command exit1 at loader-candidate.py:50:
+`assert Path(inspect.getsourcefile(function)).resolve() == ASSET` on step4.
+Pinned inputs and native downstream functions already matched. Read-only
+inspect-wrappers.sh confirmed existing `@protected_stage` wrapper code is in
+the trusted guard, while `inspect.unwrap` identifies the asset business function.
+Only loader-candidate-v2.py corrected this artifact assumption to assert both
+precise pinned origins, retaining identity protection and original failed log.
+Synthetic v2 inputs use a new task child; no failed input/output was deleted.
+No product, wheel, source, policy/schema or security behavior changed.
+
+| Raw AF evidence | SHA256 |
+| --- | --- |
+| preflight.log | `cf964f280478081c3f600143d53edfa7de28e5db2c19797b113166b907991d69` |
+| stage.log | `092f6e9d1ac7d2df30cc6f896d62339353fe27227c2bd47874474c3ce125edc3` |
+| pair-policy.log | `8e2dc5dc59511edb5068aa0c4586ece9b9ea2036d2cba1c6ca621acff47e5ad3` |
+| platform-loader.log, first exit1 | `c0384f8433d842e0da72d58877c965f5fcbd7df0969fab501b9c022c05681db6` |
+| platform-loader-v2.log, exit0 | `fc2663557ace419167304ddec1427cf5e5003177598450a661ae3cf8f1e4ce49` |
+| airflow-loader.log, exit0 | `d4f0aa94ce3ecd2d154ac1ee9fc5744fd1f584d5ac9f2f4f0a38d246eb5fd7d2` |
+| loader-v2-inputs.sha256 | `b1d02fd1024e96dbdde26c6d34fde925631d75be77806d01274e07435ea3544e` |
+| loader-v2-results.sha256 | `9fa92addf52c6c78b0db1f8b1482e8c56b630359c52d10158c23117420c2a16c` |
+| retained-state-comparison.log, local static artifact review | `9e2a190d3fe2671b7fa91a93454fbbd4ee02107e9553a4abfc042523493c8c9b` |
+
+The three original loader logs and remote results manifest were downloaded by
+exact filenames; local hashes match all three remote entries. Inputs manifest
+pins loader-candidate-v2.py857bbcff, airflow-load.py5ad3ffca and
+run-loaders-v2.shbcb2deac. Full hashes, complete commands and the first scripts
+remain in the artifact directory; these are evidence, not a request to rerun.
+Native raw native-loader-pass.json SHA is
+`ffa9626e72166e3ece2ecce5add09c760502e7b85012dc72b9a96f5f2b293b3f`;
+native final HANDOFF SHA is
+`6b0899e2429db24077c01c72f69c74f97b1619419789ffc931f964702d4181ed`.
+Local final-evidence.sha256 indexes 28 exact AF archive/input/script/raw-log
+files, SHA `65079407accc11536b6f50d7c6794172561fd74ada059bc56adf3beeffc79b74`.
+`git diff --check` returned0, and `git diff 03bab6c --name-only` lists only the
+four state documents above. No product source/dependency difference exists.
+
+**Retained state and rollback.** Static comparison of existing AF preflight
+and native post-install environment-final.log matched all ten service IDs,
+backend/WGS e358aad and GATK/common359df11 mounted sources, current link
+`releases/20260912-opt-4d3d24e6`/SOURCE_COMMIT4d3d24e6, scan=false/dispatch=false.
+Backend image remains8491604e, Airflow58195672; no service was recreated or
+mounted to the candidate. No extra remote environment/test round was added.
+Native shared-before/after JSONs are byte-identical SHA
+`0d3541a45b15764e55693c946293214d0b37c029664a6db3143bbe9bc7cc1aab`;
+shared-runtime-before/after JSONs match SHA
+`78059919fedec016265909e2cb380138752808a9940884418aaf647c3652f791`.
+They retain shared0.8.8/source417de59, dependency versions and old bootstrap.
+
+Accurate readable rollback wheel is
+`/mnt/biodevrwbi/33.chenjiucheng/wgs_test/cce-runtime-info-088-20260927/wheel-417de59/cce_pipeline-0.8.8-py3-none-any.whl`,
+SHA `45c99c0c8fb2d39442088d5c5ee7ad6c7be004d2c30495d80d96a4e8a20672c8`,
+matching installed shared files. Existing private600 p0 control compose.json
+and discovery rollback.json match SHAbe192cef; discovery compose SHA89571729.
+They and old mounted source files were only stat/readability/hash checked,
+retained in place; private Compose contents were not copied to artifacts/Git.
+
+Current rollback is to keep existing services/shared package/pins and not
+select this isolated candidate; no reinstallation is needed. The old shared
+bootstrap points to `/home/ctapa/.config/airflow-wgs-test/paired-writers-v2.json`.
+`/home/ctapa` is absent on BS10610 (ENOENT, not permission denial). Old paired
+policy loading and complete activation rollback have not been verified.
+Before any actual switch, the original environment owner must confirm the
+active old configuration on the real execution host. No directory was created,
+permission widened, pointer fixed or node200/BS96 accessed for this gap.
+
+**Limits and next step.** Candidate bindings are empty; no operational
+storage/PVC/business run or production behavior is accepted here. Protected
+shared dependencies, production0.8.8, active configs, source/result/FASTQ/sample
+and existing evidence remain unchanged. No deletes, push, merge, image rebuild,
+deployment or production database action occurred. Coordinator accepted the
+technical loading evidence; this final four-document commit completes this
+owner's closeout. Any later activation or broader task requires its own scope.
+
+## 2026-09-30 UE-05 AF source delivery accepted; final pairing pending
+
+**Coordinator decision.** The coordinator separately accepted source delivery
+`03bab6c768a2c84537ee4e4a6189072256841b63`, closed both Important findings and
+confirmed current AF R2/R4/shared-SSH source and its bounded isolated validation.
+It checked fourteen unique passing behavior cases, two DagBag file imports,
+eighteen evidence-manifest entries and eleven tested inputs against that commit.
+The first R4 audit-counting fixture failure is preserved separately; rerunning
+only the repaired node was accepted. No further AF source work, review or test
+is requested. This final update changes only CURRENT_STATE/TASKS/HANDOFF.
+
+Overall UE05 final pairing awaits the native owner's one narrow static check of
+the final AF commit. The coordinator has sent that request and owns closeout;
+the AF owner need not wait or add tests/frameworks. W423-01 is unrelated.
+UE06, production, merge and deployment remain unauthorized.
+
+**Task and authority.** The user requested another message to `airflow-cloud-demo`.
+The coordinator explicitly reconfirmed UE05, the same worktree/branch and these
+two corrections, and instructed direct completion of the remaining unique checks.
+Do not repeat old RED or accepted UE01-04/F7/final-release tests. No second full
+review, UE06, production, merge or deployment is authorized. Checkout remains
+`C:/Users/11217/.codex/worktrees/gatk-prod-compat/airflow-demo`, branch
+`jiucheng/airflow/UE05-native-recovery-consumers`; reviewed source `8617dfa`,
+state baseline `a9a326d`. Correction commit is
+`03bab6c768a2c84537ee4e4a6189072256841b63` (nine scoped paths).
+After that commit, tracked Git state was clean and only `.codex-artifacts/`
+was untracked. No rollback of accepted UE04 was performed.
+
+**Corrections.** `bound_compute_terminal` preserves manual Step1/2 entry metadata
+and resolves the actual same-action Step3 row, predecessor lineage, current/latest
+registration and version-correct frozen requests/native terminal. The durable
+compute-only binding records both identities; historical action settlement uses
+its own saved Step3 and cannot settle a newer monitor. The existing WGS R2 case
+uses real `request_resume_stage(step2_master)` and `register_recovery_stage`
+calls: entry generation2 versus Step3 generation3, with wrong-execution refusal.
+The existing GATK parameter keeps its Step3-entry case. No stage matrix was added.
+
+`poll_compute_recovery` seals the first exact source-monitor failed permit on the
+existing reservation/action/evidence/original caller. Only that current identity
+can reuse it past stale `query_unconfirmed`; Worker nonce/quiet validation stays
+in the existing wait path. The existing R4 case now performs the real second
+backend POST without native snapshot, rejects a superseded monitor, and checks
+one action/budget slot, unchanged deadlines and consumed nonce. No new API,
+schema model, route, recovery engine or native owner implementation was added.
+
+**Fresh environment and command failures.** The successful hostname preflight
+returned `server10610` as chenjc UID6708/GID520. Control root is
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS`, current link
+`releases/20260912-opt-4d3d24e6`, SOURCE_COMMIT
+`4d3d24e6c0308b682a92e2b09824026b7a888818`.
+Live source mounts remain backend/WGS DAG `20260926-p0-e358aad`,
+GATK/common `20260915-main-359df11`, discovery `20260927-dag-discovery-4fe71cb`.
+Actual Compose project is `airflow-wgs`; WGS intake scan and auto dispatch are
+false, WGS/GATK execution gates are true. No mount/service/gate was changed.
+
+The first read-only script assumed project `ngs-huaweicloud`, found zero matching
+services, and did not run its interpreter probe. Read-only image/label inventory
+resolved the project. The corrected UID6708:520 Airflow path probe exited1 with
+PermissionError under `/home/airflow/.local/lib/python3.11/site-packages`.
+The live Worker is UID50000:GID0, and the same pinned image with that identity
+successfully loaded `/usr/local/bin/python`, Airflow2.9.3 (exit0). UID is not0;
+no chmod, dependency installation, wheel or image change was needed. Raw scripts
+and outputs are in `.codex-artifacts/ue05-review/`.
+
+Images used without pulls:
+
+- backend `sha256:8491604ee01d9b3a84d74e7edf233a9d5dd20ddbf14f8a646c25c05f8729efed`
+- Airflow `sha256:58195672af685cfa6551cfc44b37b6218bd2039c44b717163a6e8072f78dfd2b`
+
+Tests used disposable `--network none --read-only --cpus 1 --memory 1g` containers,
+source read-only, isolated scratch/tmpfs and only synthetic task evidence.
+Backend UID6708:520 writes JUnit/temp data in its task directory. Airflow
+UID50000:0 uses tmpfs scratch and no host write mount; outer chenjc redirects
+stdout to the task directory. No live DB, runtime root, SSH secret mount or real
+batch was used. Kernel swap-limit warnings did not fail any test.
+
+**Unique results and repair.** Remote child is exactly
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue05-native-consumers-20260930-continue/review-20260930`.
+Only this previously absent child was created (chenjc:bioinfo755); no deletion or
+permission change occurred. Raw artifacts were downloaded to the matching local
+`.codex-artifacts/ue05-review/` and result SHA256 matches remote manifest.
+
+1. `python -m pytest backend/tests/test_cce_recovery_poll.py::test_manual_terminal_allows_one_budgeted_recovery backend/tests/test_cce_recovery_cleanup_fence.py::test_unknown_stage_cannot_fail_or_release -q --tb=short -p no:cacheprovider --basetemp=/evidence/backend-green-tmp --junitxml=/evidence/backend-green.xml`
+   produced R2 WGS/GATK **2 passed**, R4 **1 failed** in2.49s. R4 failed at the
+   no-actions assertion because the earlier genuine failure callback deliberately
+   leaves an `airflow_dag_failed` audit action. Recovery-count assertions queried
+   all audit/control actions. This was a fixture scope error; the runtime source
+   did not change. Assertions now select only `cce_compute_recovery`, preserving
+   the callback audit record. The first mixed log/XML and input tar are retained.
+2. Rerun only that corrected existing R4 node with analogous flags and
+   `--basetemp=/evidence/r4-green-fixture-tmp --junitxml=/evidence/r4-green-fixture.xml`:
+   **1 passed** in1.49s, no skipped/error. R2 source and test files were byte-compared
+   unchanged between source inputs, so its two cases were not repeated.
+3. `/usr/local/bin/python -m unittest discover -s dags/tests -p test_ssh_transport.py -v`:
+   **9 passed** in3.118s, no skipped. Fake clock/process fixtures, no real SSH
+   invocation or wait. Original reconnect budget and uncertain-dispatch refusal
+   are covered once; no old Step1/full-batch suite was run.
+4. Same interpreter, `-m unittest discover -s dags/tests -p test_native_callback_observation.py -v`:
+   **2 passed** in2.836s, WGS/GATK callback/cleanup/Worker wire assertions.
+5. Same interpreter, `/evidence/dagbag-two-files.py`: exactly `bio_wgs.py` and
+   `bio_gatk.py` each load their expected DAG, `import_errors={}`, exit0.
+   No full-folder scan, metadata initialization or live DAG run was performed.
+
+There are **14 unique passing behavior cases plus two file imports**. The R4
+first failure remains reported separately. Existing old RED logs/XML were also
+fetched successfully to `.codex-artifacts/ue05-continue/`; earlier unavailable
+hash statements below are historical. No RED was rerun after coordinator direction.
+SSH's earlier missing-pytest log remains an environment ERROR, not behavioral RED.
+No local runtime test, compile or DagBag was used.
+
+**Input and raw result hashes.** Local/remote source inputs are preserved separately:
+
+- first corrected source tar: `9380958b4778932c16758e3ffcf3aa39c8b2b8bec5393675fe8041985f50f271`
+- final fixture-corrected tar: `c9170c42bc2adf4f17ee7f3b94c55bdd18520df2001b580aeaaf8c476dc6fa07`
+- `backend-green.log`: `1b67c12a032b2b8164af9beaba91e27256f8708ea4f2a0219981ebd295b8a5f3`
+- `backend-green.xml`: `8a4403556365fb493afe7d2014aaff3d102518ebd256eaf3502dfa6fcfcc3711`
+- `r4-green-fixture.log`: `e01296fc9a700d445ebe6116f42490af268eccb7683a49bb1da4f55d4eebaf57`
+- `r4-green-fixture.xml`: `6fe83413d91dbcbee9dad528f5c7c438aff35624fb847fb698ca0691c3982c1a`
+- `ssh-green.log`: `1733dcd19d9dcc1ecb0f3eaee3615732bce4aa180a90c83d926c793df36c2a82`
+- `callback-green.log`: `84a8b9ae0aacedb4d0e57ffafe65aaaf23b5cd4a84a02bf35af62add3270ad2d`
+- `dagbag-green.log`: `bbc847968d48d01874934e29b8afe2224e40c3dddf935034d7773d6b04e1bed7`
+
+`validation-v2-inputs.sha256`, `validation-v2-results.sha256` and
+`downloaded-evidence.sha256` record script/input/raw evidence provenance.
+The two consumer input hashes are budget
+`77c8879fe0c694ef9ff367f36032074b313b7f36c7849ffb0a66553661320ebb`
+and poll `dd67aa1f4ab4e0cd71c14cc739841fe7adc37fc83a83077f44b926dc3949ef73`.
+
+**Files and next step.** Exact correction paths: backend app budget/poll,
+backend tests recovery poll/cleanup fence, docs05/08, CURRENT_STATE/TASKS/HANDOFF.
+`git diff --check` passed. The precise correction commit and raw evidence were
+sent to the coordinator for the agreed two-finding/evidence closeout.
+No broad second review is needed. Manual Step1 and GATK Step1/2 entries were not
+added as runtime matrix cases; the chosen real WGS Step2 path proves the changed
+shared consumer boundary. Native internals and installed/production behavior are
+not covered. Rollback: leave isolated commits unmerged; deployed state/data are
+unchanged. AF source delivery is accepted; only overall UE05 final native/AF
+pairing remains with the coordinator. UE06 remains gated.
+
+## 2026-09-30 UE-05 reviewed corrections authorized
+
+The coordinator completed the previously agreed one cross-consumer source
+review, independently confirmed two Important findings and instructed the
+original owner to correct them under the existing user continuation authority.
+Report: coordinator worktree
+`docs/reviews/2026-09-30-ue05-source-handoff-review.md`.
+Correct only actual Step3 identity selection after a Step1/2 entry and the
+durable source-monitor native permit for the independent Worker follow-up.
+Use the original R2/R4 test nodes; no new recovery framework or stage matrix.
+Current source baseline is `8617dfa`, status record `a9a326d`, same worktree
+and UE05 branch. The existing checkpoint is not accepted or deployed.
+
+Fresh external connectivity evidence is the WGS owner's successful BS10610
+read-only W42301 document access as `chenjc` on `server10610`. The original
+gateway reset remains a historical failure, not permanent network state.
+One fresh restricted environment/interpreter preflight is authorized, followed
+only by the planned isolated SSH/R2/R4/thin-bridge/two-file-import delta if it
+passes. Stop if pre-session SSH fails again; no blind retries or local/production
+runtime substitute. Do not install dependencies, alter services, databases,
+data, node200, BS96 or UE06. The existing pinned images and task-specific
+synthetic evidence root are retained.
+
+## 2026-09-30 UE-05 task reconfirmed; static completion only
+
+**Task confirmation.** The latest user asked airflow-agent to speak with
+`airflow-cloud-demo` and confirm its task. The coordinator checked the actual
+message timeline: the current task is UE-05; the earlier UE-04 instruction
+was historical and had been misread after compaction. Its reply explicitly
+keeps UE-04 `a6c31d1`/`7976f25` as the accepted prerequisite and retains the
+UE-05 drafts. The scope-check turn performed only read-only Git/document
+operations; no source was reverted, no SSH/test/commit occurred in that check.
+Current worktree is `C:/Users/11217/.codex/worktrees/gatk-prod-compat/airflow-demo`,
+branch `jiucheng/airflow/UE05-native-recovery-consumers`, baseline `06bf30a`.
+
+**Current scope.** Finish R2 current action/DagRun/frozen Step3/native terminal
+binding, R4 six-stage failure/cleanup protection and existing DAG snapshot
+producers. Preserve the independent Worker nonce, Worker quiet proof, original
+policy/budget/deadline, genuine business failures and all `.codex-artifacts/`.
+Formal spec/plan remain in the coordinator's `wgs422-p0-integration-20260926`
+worktree. No new stage, production, real batch, installation, dependency,
+service/database mutation, deletion, merge or deployment is authorized.
+
+**Network and validation boundary.** After the earlier successful read-only
+BS10610 fingerprint, backend RED logs were produced in
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue05-native-consumers-20260930-continue/`:
+`r2-red.log`/`r2-red.xml` report two failures in 1.35 seconds at the missing
+action/DagRun binding rejection; `r4-red.log`/`r4-red.xml` report one failure
+in 1.19 seconds because the baseline callback rejected the new optional
+argument. The latter is interface RED, not behavioral GREEN. `ssh-red.log`
+reports missing pytest in the image's default snakemake Python environment;
+this is an interpreter environment ERROR, not application RED. Subsequent
+explicit-interpreter attempts could not import Airflow. Tests now use existing
+standard-library unittest without adding a dependency, but have not run.
+
+The next isolated interpreter/identity check failed before SSH opened:
+exit 1, `kex_exchange_identification: read: Connection reset`,
+`Connection reset by 172.17.61.18 port 22`,
+`Connection closed by UNKNOWN port 65535`. No command in that session,
+including the proposed task-directory permission adjustment, is known to have
+run. The likely failing component is the gateway/session path; the exact
+cause is unconfirmed. No further SSH attempts followed. Remote raw logs remain
+at the exact paths above, but their file hashes have not been fetched.
+
+**Remaining work and rollback.** Complete only static source/docs, record an
+exact reviewable source checkpoint and unverified delta commands, then request
+the coordinator's scoped source audit. No fixed-source GREEN or final two-DAG
+import exists. External connectivity recovery is required before BS10610
+preflight and runtime validation; local or production tests cannot replace it.
+Rollback is to leave the isolated source unmerged. Deployed services and data
+were unchanged by this task.
+
+**Source checkpoint delivered for review.** R2 persists a minimal compute-only
+permit bound to the action ID, DagRun, exact frozen Step3 tuple, business receipt
+and native terminal. Current polling also compares that permit to the latest
+monitor; historical actions cannot settle a replacement execution. Before the
+first action exists, marked native unknown/missing evidence blocks reservation,
+while fresh matching failure can resolve an obsolete UI reconnect phase. This
+does not remove queued downstream authorization or change the budget/deadline.
+R4 uses the shared terminal validator and trusted current run/cleanup-route stage,
+not the snapshot-selected stage. Failed Step3 cleanup still requires existing
+complete schema2 Master/Worker quiet evidence; Step2 handoff alone cannot release
+global ownership. WGS/GATK callback and cleanup producers read the existing
+stage-status/native observe paths. Worker probe follow-ups contain only their
+nonce-bound Worker proof. No new route, table or recovery engine was added.
+
+Source checkpoint commit: `8617dfa26b53d8371567fd1000a6a598ab87deff`
+(`UE05 bind native recovery and cleanup evidence (source only)`). Commit touched
+only the 22 paths below. After commit, Git reported no tracked changes and only
+the preserved untracked `.codex-artifacts/`. Nothing was pushed or merged.
+
+Changed files are the 19 paths listed in
+`.codex-artifacts/ue05-continue/source-delta-files.txt`, plus
+`CURRENT_STATE.md`, `TASKS.md`, `HANDOFF.md`: eight backend app modules,
+two backend test files, four DAG modules/helpers, two DAG test files and
+docs05/07/08. The shared SSH implementation remains in baseline commit
+`06bf30a`; its delta test is now standard-library unittest. `git diff --check`
+exited 0 after integration. No local runtime test, Python compile or DAG import
+was run. The checkpoint is SOURCE ONLY, unaccepted until source audit and
+BS10610 fixed-source GREEN; no merge or deployment follows this commit.
+
+**Preserved evidence and SHA256.** All files below are local untracked artifacts
+in `.codex-artifacts/ue05-continue/`, preserved without uploading or deleting
+anything after the gateway reset. `source-final.tar` contains tracked backend,
+DAG, config and script inputs plus the new thin callback test; it is a final
+source input, not executed evidence. The earlier RED checkpoint is retained
+separately and differs from the final source.
+
+| File | SHA256 |
+| --- | --- |
+| `baseline.tar` | `0eecf948ff0816d6226cec3c7e988d28715100ba9935111690ba701d2f42832b` |
+| `checkpoint.tar` (earlier RED input) | `959f7c0614372a281e71101875fac4d98bde6d8b072329ae1e081c60a4470ea5` |
+| `ssh-before.tar` | `9fe002bc89ce7e0069db22a193518f5aade5f16fa2f68723aab5ee8b25862f41` |
+| `source-final.tar` | `737ca9035231749caadd62468a597a8aa5ecd02f51339d207ac7e771ccdc2ecf` |
+| `source-delta.sha256` (19 individual input hashes) | `d720176fb858835b5ca77125b2195603d6bc6bb7f81c47fdb90b6d8f4a9b2461` |
+| `captured-red-output.log` | `dbca03d13b23d77ac8b99db255ba89aeb3579e29920a7344d13008344b33ceea` |
+| `captured-red.json` (exact command and result) | `fcc947a23e2cc63e671d215250e4369ad33309b5c68406c7baeca4ffbd170122` |
+| `captured-gateway-reset-output.log` | `6a7df1d387672173138a66e19eca461b33f7805b7094a454a2184e0c037fb55d` |
+| `captured-gateway-reset.json` (exact failed command) | `37a3659e9cbde950e539c62fcda15470ea7d6386ef013869cc6f432061a7e12e` |
+
+The captured command records are exported verbatim from current-thread tools
+`exec-b11ad1d7-47f4-46eb-9bbb-da75771e7fbf` (2026-09-30 04:23 UTC) and
+`exec-388de163-0127-462b-934a-d39bc51963ab` (04:33 UTC). The RED output is the
+captured log tail, not the complete remote log; complete remote `.log`/`.xml`
+hashes remain unavailable. The RED wrapper exited 0 to report individual test
+exit codes, all 1; it did not pass the tests. The reset command exited 1 before
+its streamed Bash script ran. Its proposed UID50000/package-path check and
+task-directory chmod are unexecuted ideas, not verified environment changes.
+
+**Unique pending delta commands.** Run only after external SSH recovery and
+fresh BS10610 boundary verification, against this final source in isolated
+network-disabled containers using the existing pinned images. Backend uses its
+existing pytest environment; DAG tests use the existing `/usr/local/bin/python`
+and Airflow module path. The effective Airflow identity/package visibility must
+be resolved read-only first; do not install dependencies. These commands have
+NOT run against the final source:
+
+```text
+python -m pytest backend/tests/test_cce_recovery_poll.py::test_manual_terminal_allows_one_budgeted_recovery backend/tests/test_cce_recovery_cleanup_fence.py::test_unknown_stage_cannot_fail_or_release -q --tb=short -p no:cacheprovider --basetemp=/evidence/final-backend-tmp --junitxml=/evidence/final-backend.xml
+/usr/local/bin/python -m unittest discover -s dags/tests -p test_ssh_transport.py -v
+/usr/local/bin/python -m unittest discover -s dags/tests -p test_native_callback_observation.py -v
+```
+
+Also import only `bio_wgs.py` and `bio_gatk.py` with the existing isolated
+two-file DagBag check; do not run the full DAG folder or metadata-backed CLI.
+Backend count is two parametrized R2 cases and one R4 node; SSH has nine methods,
+and the thin bridge has one method per deployed adapter. No flow-by-six-stage
+matrix, full suite, accepted UE01-04/F7/final-release rerun or real batch.
+
+## 2026-09-30 UE-05 resumed after SSH recovery (development in progress)
+
+Direct user instruction: SSH should now be connected; continue development.
+The pause is lifted. Continue the existing UE-05 branch/worktree from HEAD
+`06bf30a`, preserving the R2/R4 drafts and `.codex-artifacts/`. Formal spec/plan
+remain in the coordinator's `wgs422-p0-integration-20260926` worktree. This
+checkpoint covers only R2 exact action/compute terminal binding, R4 failure and
+cleanup fences, the existing authenticated native snapshot channel and DAG
+producers, plus docs05/07/08. No production, real batch, new dependency,
+installation, deployment, data cleanup or UE-06 operation is authorized.
+
+One bounded SSH hostname preflight exited 0 in 1.3 seconds, returning
+`server10610`; the read-only environment fingerprint then completed.
+Identity: `chenjc` UID6708, `bioinfo` GID520, docker group998. Control root:
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS`; current resolves to
+`releases/20260912-opt-4d3d24e6`, SOURCE_COMMIT
+`4d3d24e6c0308b682a92e2b09824026b7a888818`. Actual backend source remains
+`releases/20260926-p0-e358aad/backend`; WGS DAG source is pinned to that release,
+GATK/common to `20260915-main-359df11`, discovery DAGs to
+`20260927-dag-discovery-4fe71cb`. Backend image is
+`sha256:8491604ee01d9b3a84d74e7edf233a9d5dd20ddbf14f8a646c25c05f8729efed`;
+Airflow image is
+`sha256:58195672af685cfa6551cfc44b37b6218bd2039c44b717163a6e8072f78dfd2b`.
+Scanner/auto dispatch are false; execution gates true are existing test state,
+not changed here. The evidence root is `chenjc:bioinfo` mode0755.
+
+All new runtime validation will use task-specific
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue05-native-consumers-20260930-continue/`
+source/evidence, existing pinned images, network-disabled disposable containers,
+and synthetic files/SQLite. No application service or live database is used.
+Required delta nodes are `dags/tests/test_ssh_transport.py`,
+`backend/tests/test_cce_recovery_poll.py::test_manual_terminal_allows_one_budgeted_recovery`,
+`backend/tests/test_cce_recovery_cleanup_fence.py::test_unknown_stage_cannot_fail_or_release`,
+the thin `dags/tests/test_native_callback_observation.py` bridge, and two-DAG import.
+UE-01-04, F7 and final-release accepted evidence is referenced without rerunning.
+No new GREEN has yet been produced by this resumption.
+
+## 2026-09-30 UE-05 paused while SSH is unavailable
+
+The user directed the airflow agent to finish its current checkpoint and then
+pause until SSH recovers. The isolated branch is
+`jiucheng/airflow/UE05-native-recovery-consumers`; HEAD `06bf30a` is the
+independent shared-SSH **source** commit. It has no BS10610 GREEN. The one
+necessary BS10610 preflight in this turn failed before a session opened with
+`Connection timed out during banner exchange` (exit 1); no retry or remote
+command followed. Do not poll SSH, start another development phase, deploy,
+install, clean data, or treat this source as released while paused.
+
+The current R2/R4 checkpoint is **uncommitted and incomplete**. R2 edited only
+`backend/app/cce_recovery_budget.py`, `backend/app/cce_recovery_poll.py`, and
+`backend/tests/test_cce_recovery_poll.py`: it drafted a frozen Step3 request,
+latest business row/receipt, and exact native terminal binding persisted on the
+action; it kept the Worker nonce separate and drafted synthetic positive and
+negative cases. The draft tests were not run. Additional source edits are in
+`backend/app/stage_execution_contract.py`, `backend/app/main.py`,
+`backend/app/diagnostics_service.py`, `backend/app/gatk_airflow_sync.py`,
+`backend/app/gatk_runtime_service.py`, `backend/app/wgs_submission_service.py`,
+`dags/bio_wgs.py`, `dags/bio_gatk.py`, and `dags/cce_worker_wait.py`.
+`main.py` and service callers now pass optional native snapshots and settings,
+but the R4 backend failure/cleanup fence signatures and DAG callback/cleanup
+snapshot producers are still missing. The combined dirty source is therefore
+not an integrated or validated change. The existing `.codex-artifacts/` remains
+untracked and must be preserved.
+
+Static command: `git diff --check` exited 0. No runtime tests or DAG imports
+were run after the failed preflight; local runtime tests do not substitute for
+the required BS10610 isolated synthetic validation. On authorized resumption
+after SSH recovery, finish the R4 fence/producers and source review, then
+revalidate BS10610 hostname, control root, release, mounts and execution gates
+before the narrow synthetic nodes. Preserve the original recovery budget and
+Worker nonce boundary. Rollback is to leave this isolated branch unmerged;
+deployed state and data were not changed by this checkpoint.
+
+## 2026-09-30 UE-05 approved continuation and transient network boundary
+
+User-approved scope: shared OpenSSH transport for current WGS/GATK Step1-6 and
+P0 dispatch/observe, followed by R2/R4 optional exact native snapshots through
+existing authenticated poll/callback/cleanup requests. Worker nonce observation
+remains a separate contract. UE-04 source is complete; Step1 historical handling
+is not part of this task. Source baseline is HEAD `1e84714`; preserve the three
+uncommitted R2 draft files and existing `.codex-artifacts/`. SSH is to be an
+independent commit before R2/R4. Current work is isolated source and BS10610
+synthetic validation only; no BS96, node200, real batch, wheel, service,
+database, cleanup, deployment or release. This continuation adds only the
+shared SSH source/test and docs 07/08 plus this state record before the separate
+R2/R4 work. The coordinator reports a recent
+BS10610 gateway connection timeout; current-turn network access remains
+unverified. The one necessary read-only preflight command was
+`ssh -o BatchMode=yes -o ConnectionAttempts=1 -o ConnectTimeout=10 BS10610 hostname`.
+It exited 1 after 10.2 seconds, stderr:
+`Connection timed out during banner exchange` and
+`Connection to UNKNOWN port 65535 timed out`. The SSH gateway did not establish
+a session, so hostname/control root/current release/mounts/gates and remote
+synthetic nodes could not be checked. No retry, code execution, data change or
+local runtime-test substitution followed. Likely cause is the currently
+unreachable gateway or pre-session SSH path; the exact network component is
+unconfirmed. Continue source and static review; rerun the full test preflight
+only after external connectivity changes. Rollback is to leave this isolated
+branch unmerged; existing deployed services and data are untouched.
+
+SSH source files: `dags/common/ssh_transport.py`, `dags/bio_wgs.py`,
+`dags/bio_gatk.py`, `dags/cce_publish_dispatch.py`, `dags/cce_worker_wait.py`;
+focused fixture `dags/tests/test_ssh_transport.py` and one corrected ambiguous
+disconnect in `dags/tests/test_stage_execution_wait.py`. `docs/07` and `docs/08`
+describe the new boundary. Shared helper enforces `ConnectTimeout=30`,
+`ConnectionAttempts=1`, strict existing pre-session allowlist, cumulative
+three-failure cap, 5/10-second backoff and one monotonic deadline. The original
+WGS request-visibility business retries, P0 check/finish sequence, 30-second
+Step4 read probe and 150-second Worker nonce probe retain their semantics.
+Marked dispatch timeout goes to same-ref observe. Independent static review
+found and corrected one exhausted-budget reentry that could have spawned a
+fourth connection. `git diff --check` passed. Tests not run: BS10610 targeted
+synthetic nodes and DAG import, because the single SSH preflight above failed;
+local runtime tests are outside this repository's acceptance boundary. The
+gateway must recover before remote validation and any later UE-06 gate.
+
+## 2026-09-30 UE-05 work started (source only)
+
+**Goal and boundary.** Continue after committed UE-04 on branch
+`jiucheng/airflow/UE05-native-recovery-consumers`. Implement only R2, R4 and
+final writer read-only transient reconnect, using BS10610 isolated synthetic
+delta evidence. No node200, BS96, production, real batch, wheel, database,
+service, cleanup, deployment or release is authorized. Preserve the existing
+untracked `.codex-artifacts/` directory.
+
+**Current findings.** R2's queued action and compute terminal currently have
+separate checks, and poll can persist a terminal marker before the bound
+terminal receipt is fully validated. R4's Step3 reconnect observation is a
+read-only UI diagnostic; failure/cleanup callers do not currently carry a
+fresh six-stage native snapshot. Do not infer failure or quiet from unknown.
+Final release already has two intentional inventory rounds (pre-release and
+CAS verification); only typed transient query reads may reconnect. Native
+owner confirmed the narrow `release_query_deadline` internal signature and is
+validating its separate source; this platform checkpoint does not include or
+verify that native change.
+
+**Preflight.** Local source/document reading and `git status` were read-only.
+`ssh BS10610 hostname` returned `server10610`; native `RecoveryQueryError`
+and `_recovery_query` signatures were read from its separate source checkout.
+All UE-05 execution evidence below is isolated synthetic, with no application
+service or live database write.
+
+**Open work and rollback.** R2 and R4 need a narrow authenticated native
+snapshot transport decision before implementation. The Worker-probe nonce and
+its 600-second quiescence check must remain distinct from the stage snapshot.
+No deployed state exists; rollback is to leave this isolated branch unmerged.
+
+**Platform checkpoint review.** The R2 three-file draft in the working tree
+passed its preliminary WGS/GATK node (2/2), but follow-up review found that it
+does not bind the action to the frozen Step3 request/ref and accepts a business
+success row before the DAG's fresh native observation. It is not accepted,
+committed or counted as R2 proof. The frozen-request and exact native snapshot
+handoff must be designed together with R4; do not treat the existing
+`worker_observation` Worker-probe nonce as a stage snapshot without an explicit
+shape check. The R2 RED/GREEN logs remain diagnostic only at
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue05-r2-20260930/`:
+`r2-red-true.log` reproduced WGS/GATK `needs_attention` instead of expected
+`waiting`; `r2-final.log` recorded 2 passed, SHA-256
+`4cb12f7705a528eb45dd4e1a7f5b0292a10da786772f950c0ab37b5d42577aa9`.
+These results do not cover the newly identified frozen-request/native-terminal
+gap; no R2 acceptance or source commit follows from them.
+
+**Accepted partial source commit.** `4cb6e0d` contains only F7, platform
+final-release read-window source, their two focused fixtures, and docs/05 and
+docs/08. The R2 draft and R4 are outside this commit. No push, merge or
+deployment was performed.
+
+F7 WGS Step4 digest source is limited to `backend/app/cce_publish_recovery.py`
+and its one existing test node. On BS10610 the node first failed at the
+registered authority digest check, then passed 1/1 in a network-disabled,
+read-only backend container. The command selected only
+`backend/tests/test_cce_publish_recovery.py::test_wgs_publish_control_accepts_initial_and_recovery_frozen_digests[wgs]`
+with `python -m pytest -q`, using `docker run --network none --read-only
+--tmpfs /tmp` and isolated candidate `candidates/ue05-f7-20260930`.
+Evidence root is `/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/`.
+Raw RED `ue05-f7-20260930/red.log` SHA-256
+`49e7a4b64e1066019dbae9943fa27a5267ff925d794e68416138ae56e385dce4`;
+GREEN `ue05-f7-20260930/green.log` SHA-256
+`2ba01686be7c8a931be88186592674924cf06a514ef11f71f1f7f39dafe467e7`;
+the raw log ends `1 passed, 26 deselected in 0.53s`.
+GREEN JUnit SHA-256
+`548e0d176233d8e66c9e6243c707c37a7e35d96c50a37d2d2aef6795fb561653`.
+Candidate source/test SHA-256 were
+`b27660639b5c3b5e7434e58c9ccc772a6f86c6786e98ee86e104e0f8f9f6d2f5` /
+`72bdd5c0475359e7ada6e26513f326ca6daff35ef59451e10260dbca2697507c`.
+
+Final-release platform source is limited to `scripts/cce_paired_runtime.py`,
+`scripts/cce_recovery_workloads.py` and the single delta node in the existing
+bulk-inventory fixture. BS10610 `server10610` control root resolved to release
+`20260912-opt-4d3d24e6`; intake/auto dispatch remained false. In isolated
+candidate `ue05-final-release-20260930`, the pinned native read-only query
+source SHA-256 was `ae52b7601c3ea59e5e294bb3bf695802efc69f3d5b60333bd6b422c47bd14c53`.
+The command selected only
+`scripts/tests/test_cce_final_bulk_inventory.py::test_final_release_reconnect_does_not_repeat_materialization_or_cas`
+with `python -m pytest -q --tb=short -p no:cacheprovider`; it used the
+candidate and native `src` on `PYTHONPATH`, plus `CCE_PLUGIN_SOURCE` and the
+fixed `CCE_NATIVE_QUERY_SHA256`. No application container or live database
+was involved.
+The revised node injected typed transient at the CAS-proof read, exhausted
+the shared budget after preflight, and denied a stubbed missing lock: 3/3
+passed. Raw `ue05-final-release-20260930/final-release-green2.log` SHA-256
+`55425a44f4e6135845da2ab1ca1820f7d67faf2a96c6f6ec55e32faf4394e8d4`;
+JUnit SHA-256
+`d6cd8aa43d29f25da5f7b4397c723b0d1596076ce526f814710374904f31ddd8`.
+Matching local/remote candidate source SHA-256: paired runtime
+`fdc23a33f0d805bd923b6a31d5f70a381164f5b2a523160c621167aaf3d285ab`,
+workloads `18842e5d31362ff4029c7398370f103c329ada87812f97ae2498cab092ec2145`,
+test `712ddbd9d57b62596436387acbb0d19e87194478178f215cf3d7a40c35467373`.
+The native `_release_batch_lock` was stubbed for this platform delta, so this
+does not prove the real native signature, CAS, installed wheel or cloud path.
+Native owner source changed during a subsequent baseline attempt; its fixed
+SHA guard rejected all three cases during fixture setup, so that attempt is
+not a valid RED and was not rerun. Raw log SHA-256
+`04017d46f0f9ffb95d13f5d3bfabd49266babce5df172b6862a5abcc5040ba7f`.
+
+**Final-read backoff refinement.** Follow-up platform commit `be0adb8`
+replaces the fixed three-attempt cap with shared-deadline-bound 2/5/5-second
+backoff only for final-release typed read-only `TRANSPORT`/`SERVICE` queries.
+The existing single CAS and preflight/CAS inventory rounds remain. The same
+fixture's `reconnect` parameter injects four brief typed failures at the
+second (CAS-proof) inventory using a fake clock. An isolated copy of native
+query source was pinned under candidate `ue05-final-release-20260930/native`
+with SHA-256 `0a544c77bcbeb26249c2369eb6992dfc9239f85f185998721cbb9a978615f896`,
+avoiding concurrent edits in the native owner's worktree. With the previous
+fixed-three platform source, only this parameter failed 1/1 on the fourth
+`TRANSPORT`; raw `backoff-red.log` SHA-256
+`37daed57def1275c557749298b125bf6e1d55e0d1e1c4f99af336ab855ee333b`.
+With the refined platform source, only this parameter passed 1/1 in 0.20s;
+raw `backoff-green2.log` SHA-256
+`a5661b00cbecc1e68a12fba8ecc0bc387e39a4e0685ca0771cdab3fbaa483098`,
+JUnit SHA-256
+`e3f3284d3828de54a648f78b2adb6df445a0218e82e4dd3ac7811671ff4bb49e`.
+Matching local/remote source SHA-256: workloads
+`aabf27cf7b39eaeb591b5742dac1c8f74892f7d9a446154cf41fb7a0cd906a4d`,
+fixture `556bfa9d27db0441b7d3a66ffd51c9e32abdf6322285277b19f30b8668b03656`.
+The already-passing budget and missing-lock parameters were not rerun for
+this backoff-only change. The native owner separately committed the matching
+`release_query_deadline` interface and its own targeted evidence as `7172573`;
+no native wheel was installed here. Neither side's synthetic node proves the
+paired installed entry, live CAS or production behavior.
+
+## 2026-09-30 UE-04 source checkpoint committed (not deployed)
+
+**Goal and authority.** UE-04 registered WGS/GATK Step1–Step6 source
+integration is committed as `a6c31d1` on the isolated
+`jiucheng/airflow/UE04-unified-stage-execution` branch, after platform gate
+commits through `0feec86`/`5fd01a9` and DAG client `7ee7d7c`. The old
+`20260927B` Step1 case was complete before this work. No node200, BS96,
+production, real-batch, wheel, service, database, cleanup, deployment or
+release action was authorized or performed. Pre-existing untracked
+`.codex-artifacts/` was preserved.
+
+**Implemented.** R1 now ingests the latest Step2 receipt outside the first
+run-lock session and rechecks attempt, DagRun, recovery action and stop state
+before normal/P0 Step3 registration or public Resume side effects. Reused
+Step3 remains tied to its exact predecessor execution/generation/hash. F4
+requires the current Step6 business receipt and a fresh exact native succeeded
+snapshot to finalize marked WGS/GATK; WGS additionally rechecks the frozen
+producer digest before selecting marked versus legacy behavior and refuses
+late finalize after a stop. Airflow success alone cannot project full CCE
+business success; WGS canary/local projection remains intact. F3 recognizes
+only the persisted authorized current GATK recovery DagRun and its frozen
+`conf`. Marked Step1–Step6 sensors without submit XCom re-observe the exact
+current native ref before advancing. Legacy unmarked paths remain explicit.
+
+**Files.** Backend source: `main.py`, `wgs_resume_service.py`,
+`wgs_stage_execution_service.py`, `diagnostics_service.py`,
+`stage_execution_contract.py`, `gatk_runtime_service.py`,
+`gatk_airflow_sync.py`; WGS/GATK focused backend tests. DAG source:
+`bio_wgs.py`, `bio_gatk.py` and their focused tests. Contracts:
+`docs/05_API_CONTRACT.md`, `docs/07_AIRFLOW_DAG_SPEC.md`,
+`docs/08_WORKFLOW_RUNTIME_INTEGRATION.md`; state: `CURRENT_STATE.md`,
+`TASKS.md`, this handoff. No database model, frontend or production workflow
+core file was changed.
+
+**BS10610 environment and commands.** `ssh BS10610 hostname` returned
+`server10610`; the current test release resolved to
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260912-opt-4d3d24e6`.
+All Python checks used isolated candidate mounts, `docker run --rm --network
+none --read-only --tmpfs /tmp`, no application service or live database.
+Backend image `8491604ee01d` ran `python -m pytest
+tests/test_wgs_resume_stage.py tests/test_wgs_f4_airflow_sync.py -q
+--tb=short -p no:cacheprovider`: 50 passed, 1 dependency deprecation warning;
+JUnit `/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue04-r1-20260930/ue04-wgs-f4-digest-combined.xml`
+SHA-256 `71063ac4a566f4c9954d628c4e43ca3b5bbda7516a08f12ecc03f90a29306c4c`.
+After the final WGS status-reader refinement, only `-k missing_marker` ran:
+1 passed, 45 deselected; JUnit `ue04-wgs-f4-downgrade-delta.xml` in the same
+evidence directory, SHA-256
+`f9a129f8a6412a2868f8f382e1bfee0643be3521c215aed268757de1f16bb628`.
+GATK backend `python -m pytest -q tests/test_gatk_resume_stage.py
+tests/test_gatk_runtime_service.py --tb=short -p no:cacheprovider` passed
+28 before the last marker/conf change; new focused cases then passed 7/7.
+Raw delta log `/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue04-gatk-f4-20260930/backend-marker-conf-green.log`
+SHA-256 `7b250f88b42211589717e3548646056eb8cf1771ab1ad4fd75a8fb469061a2e7`
+ends `7 passed in 0.78s`.
+
+Airflow image `58195672af68` ran the WGS DAG test file as Python unittest:
+18 passed before the no-XCom change. Its new focused test passed 1/1; raw
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue04-dag-sensor-20260930/delta-green.log`
+SHA-256 `e4fbc219285698b658a6ec4d15173e66dd46f2483a179b6c111a47c9fd09ecc2`
+ends `Ran 1 test in 0.852s`, `OK`. GATK DAG focused 4 and shared 16
+passed before its no-XCom change; new focused 1/1 raw
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue04-gatk-f4-20260930/dag-no-xcom-green.log`
+SHA-256 `4728cb3e361fc1f8a702d5c4e94259b238800ad86136c2306f729e548db81368`
+ends `Ran 1 test in 0.001s`, `OK`. Earlier shared client 16/16 and
+targeted two-DAG DagBag import passed. Latest source matched the BS10610
+candidate SHA-256: `main.py` `52d8cb9b8bc56ad1e35d6a493af79e711fe1d4a424ad19bfe1f69f6bffd8960b`,
+WGS DAG `bde72f6946465d690ae3856be4bb760071c14c68479bfa7406d4cf39616ddfa0`,
+GATK runtime service `145f7469332eebac3118f75a20312a5ee1bd4dc513512a1dc1b9c3be56f1fdbd`,
+GATK DAG `fe7665d8ce697772d257958a1f338638a5188f6b1d1e75703dae62a0884712ef`.
+`git diff --check` and the source commit's staged diff check were clean.
+
+**Master TTL source and evidence limit.** Platform
+`scripts/cce_paired_runtime.py:174-193` selects only deployment-trusted,
+SHA-pinned CLI/platform/guard paths. `stage_command:200-209` routes registered
+Step4/5 to the fixed platform entry; `_predecessor:1149-1182` validates the
+previous exact business receipt; `_selected_registered:1355-1363` reads its
+`cce_master_binding`; `downstream_registered:1256-1270` passes the selected
+bundle and UID to native `step4`/`step5`. The adapter's fixed handler/worker
+route is in `scripts/cce_stage_execution_adapter.py:444-485`; request fields
+cannot select executable code. The separately committed native `4fa85874`
+has `cce_batch_runtime.py` SHA-256
+`ae52b7601c3ea59e5e294bb3bf695802efc69f3d5b60333bd6b422c47bd14c53`.
+Its existing ordinary v2 Step3-to-Step4/log-export TTL test passed 1/1;
+Step5 follows source delegation, not that test's direct invocation. Existing
+platform selected-Master Step4/5 tests stub log download, and
+`test_gatk_thin_binding` stubs the adapter itself. These tests do not prove a
+complete paired TTL run or an active deployed policy pin to `4fa85874`.
+
+**Failure and next phase.** A WGS DAG check initially used backend image
+`8491604ee01d` and exited 1 during collection with `ModuleNotFoundError:
+airflow`; cause was the image choice. Repeating on the Airflow image yielded
+18/18. Earlier full DAG-folder import lacked unrelated
+`snakemake_interface_logger_plugins`; `airflow dags list` lacked an initialized
+ephemeral metadata DB, so neither is acceptance evidence. No full latest
+backend suite, installed native wheel, node200 behavior, deployed policy pin,
+paired TTL end-to-end run or production validation was performed. The planned
+UE-06 candidate installation must check its actual entry and pin with its
+approved minimal runtime validation; this UE-04 source checkpoint does not
+authorize that phase. Rollback is to leave the branch unmerged or revert
+`a6c31d1`; there is no deployed state to undo.
+
+## 2026-09-29 UE-03 bounded inventory and Heavy role source checkpoint
+
+**Goal and authority.** Continue the approved unified-stage UE-03 source work
+in the isolated
+`C:\Users\11217\.codex\worktrees\gatk-prod-compat\airflow-demo` worktree,
+branch `jiucheng/airflow/UE03-inventory-probe`, based on UE-02 platform commit
+`3d5174ca7b53a6b304b39f5a74c76eff6af617c2`. Only platform source,
+synthetic tests and state documents changed here. The existing untracked
+`.codex-artifacts/` UE-01 backup was preserved. No user batch B/D, original
+FASTQ, analysis directory, database, production release, node200, wheel,
+service, Git remote or live CCE Job was touched.
+
+**Paired native interface.** On BS10610 the owner committed query-only native
+source `6f5c12027a8d3d88424ef0b335f7dddcc9a35f5a` in
+`/mnt/biodevrwbi/33.chenjiucheng/project/wgs-cloud-platform/projects/huawei-cloud-runtime`.
+`_recovery_query(config, "jobs", "--chunk-size=0", timeout=...)` and the
+equivalent `pods` form return native parsed JSON, enforce the 4 MiB cap,
+reject pagination and preserve typed query errors. Exact source file SHA-256
+for the platform acceptance was
+`d4f09a557f2edc93c7010b7a2d1a41a0ed7bc392a004a16bf8451d52ba1eae4f`.
+The platform no longer calls `_run/_kubectl` or `subprocess.run` for the
+bound inventory.
+
+**Completed platform slice.** `probe_final_workloads` and
+`probe_bound_workloads` use one run-label Job/Pod pair, one namespace Job/Pod
+pair, and one exact Master GET per proof. Full lists are indexed by frozen
+name/UID/run label and every relevant Pod owner reference; unrelated batches
+in the namespace are ignored. Pagination, malformed inventory, identity
+conflicts, active work at a replacement/release gate and missing persisted
+terminal proof fail closed. A legitimate move between reads raises
+`InventoryMoved`. Failure evidence, `RecoveryCapability.inspect`, active
+Worker observation and final writer release inherit this common query path.
+Inspect and lock CAS perform separate fresh rounds. The bound submission
+helper derives its Kubernetes selector through the pinned native
+`master_job.run_label(raw run_id)`; it does not use the raw ID as a label.
+Each query is bounded by 30 seconds and each inventory by 120 seconds;
+recovery inspection additionally uses its frozen original compute deadline.
+
+The Heavy global collector now skips only nonterminal Jobs annotated
+`cce-pipeline/action=evidence-reader`. The fixed native source confirms
+both evidence-reader and directory-probe helper producers carry this action,
+although the current production objects were not inspected for this field.
+An unmarked WGS Master without the required Heavy env still yields
+`master_configuration_inconsistent`. GATK's quota distinction is unchanged.
+
+**Changed files.** `scripts/cce_recovery_workloads.py`,
+`scripts/cce_recovery_inventory.py`, `backend/app/heavy_global_snapshot.py`;
+the new `scripts/tests/test_cce_final_bulk_inventory.py` and updated
+`scripts/tests/test_cce_recovery_workloads.py`,
+`scripts/tests/test_cce_recovery_inventory.py`,
+`scripts/tests/test_p02_final_inventory.py`,
+`scripts/tests/test_heavy_global_snapshot.py`; this handoff,
+`CURRENT_STATE.md`, `TASKS.md`, and
+`docs/08_WORKFLOW_RUNTIME_INTEGRATION.md`.
+`scripts/cce_recovery_failure.py` and `scripts/cce_paired_runtime.py`
+remain unchanged consumers of the shared entry.
+
+**BS10610 synthetic evidence.** Read-only preflight confirmed
+`server10610`, current control release `20260912-opt-4d3d24e6`, disabled
+test intake/automatic dispatch and the source commit above. The only copied
+platform candidate was
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/ue03-inventory-probe-20260929`;
+evidence is under
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue03-inventory-probe-20260929`.
+The first 275-Worker target failed as expected: **554 native-query calls
+versus the required five**. The final fixture imports the real native module
+from the fixed absolute source, verifies its file SHA-256, and substitutes
+only the subprocess transport with synthetic JSON. It covers failed
+classification, active observation versus replacement, final release and
+fresh lock-CAS proof. The final scoped command, using nipttest Python and
+`PYTHONDONTWRITEBYTECODE=1`, was:
+
+```text
+python -m pytest scripts/tests/test_cce_final_bulk_inventory.py scripts/tests/test_cce_recovery_workloads.py scripts/tests/test_cce_recovery_inventory.py::test_validated_inventory_drives_one_native_inventory_round scripts/tests/test_heavy_global_snapshot.py -q --tb=short -p no:cacheprovider --junitxml=<evidence>/ue03-platform.xml
+```
+
+The command required `CCE_PLUGIN_SOURCE=<fixed native repository root>`,
+`CCE_NATIVE_QUERY_SHA256=d4f09a557f2edc93c7010b7a2d1a41a0ed7bc392a004a16bf8451d52ba1eae4f`,
+`PYTHONPATH=<fixed native repository>/src`, and
+`HEAVY_TEST_MODULE=<candidate>/backend/app/heavy_global_snapshot.py`.
+Result: **35 passed, zero skipped, 0.38 seconds**. Raw log SHA-256
+`ff6b43805e71905fa2e83010e53c6cc9cadc1215eac2296bb68df530844a0c3f`;
+JUnit SHA-256
+`9cd207ecb92d2b1f8f45dd3073ef5fca672505292ca51b798bc2d10309e20e5b`;
+input manifest SHA-256
+`e9d2edf38c119cbc0abefcffeb76face70351b251fb7bb7a7c5a90ee003a116e`.
+Every listed candidate input hash matched the local source. The Heavy role
+test separately showed the expected RED result `waiting/mode=None` before
+the fix and 5/5 GREEN after it. Local syntax parsing and `git diff --check`
+were clean.
+
+**Failed command and limitation.** A targeted run of
+`scripts/tests/test_p02_final_inventory.py` in nipttest exited 1 during
+collection, first because the plugin source path was absent, then after
+adding it because that current plugin imports `typing.Self` and nipttest is
+Python 3.9. No test body ran, and no compatibility shim or environment
+upgrade was applied. The existing selected-monitor fixture includes
+`probe_waiting_workers`; it was not rerun under this incompatible plugin
+source. The new 275-Worker fixture exercises its real shared failure
+collector but does not recreate the entire registered monitor process.
+
+**Recovery probe deadline handoff.** After the query/Heavy checkpoint, the
+platform passed only the authenticated Step2/3 `cce_recovery_deadline` from
+`scripts/cce_paired_runtime.py:resume_registered` to native
+`writer_for_bundle(..., probe_deadline_epoch=...)`. The registered request is
+checked before reading the deadline; the existing `monitor_wait(payload, 0)`
+check now runs before writer construction. The same parsed epoch is used by
+`RecoveryCapability`. Requests without a frozen deadline keep the previous
+writer call. Normal Step3 observation does not validate the writer. Step4
+`publish_deadline` limits fresh dispatch and was deliberately not passed to
+an already started worker. No request, `ExecutionRef`, CLI or database field
+changed.
+
+The new isolated BS10610 synthetic file
+`scripts/tests/test_cce_probe_deadline_handoff.py` first failed as expected:
+6 failed, 3 passed because the original writer call omitted the frozen value
+and malformed deadlines reached writer construction. The first post-edit
+candidate run exited 1 during import because its isolated copy lacked the
+unchanged `scripts/cce_recovery_deadline.py`; that dependency was copied into
+the candidate, not edited. The final scoped command was:
+
+```text
+PYTHONPATH=<ue03 candidate> PYTHONDONTWRITEBYTECODE=1 <nipttest python> -m pytest <candidate>/scripts/tests/test_cce_probe_deadline_handoff.py -q --tb=short -p no:cacheprovider --junitxml=<evidence>/ue03-probe-deadline-final.xml
+```
+
+Result: **10 passed, zero skipped, 0.08 seconds**. Candidate source SHA-256:
+`scripts/cce_paired_runtime.py`
+`8f41e690c745ee821a0c2a928fe67d7dcf0c49e17193491fc3a21484d7949505`,
+unchanged `scripts/cce_recovery_deadline.py`
+`91bdf3559dbd9643c1d2c9bb607ad51c1f16a4d7c1017dd1b1c7c1c44fd2cc38`,
+and focused test
+`489989f0806f6c91415fbb7728d18dcbb2ae12083279fa88eaf7c72546fa2fcd`.
+Final raw log SHA-256
+`39bfbb45c5e58525f3aa3d49882de78d6995eb885dd8b35e2f146811755f3724`;
+JUnit SHA-256
+`3d7a998f0b1eaf9cfed3c1d8daaaf6d5f4b9ec4e448ac197eecc4087cfc13fbd`.
+Evidence is under the same `WGS_test/cce-evidence/ue03-inventory-probe-20260929`
+root. The existing 35-query/Heavy set was not rerun. Native optional-writer
+signature and directory retries still require their separate source commit
+and targeted acceptance before this platform call can be used in a release.
+
+**Open work, risk and rollback.** Native directory-probe retry is **not in
+commit `6f5c120`**. The native owner is implementing same-bound-Pod read-only
+2s/5s retries with a 120-second total and 30-second per-operation limit.
+These bounds are **not** a newly created business stage deadline. Ordinary
+Step1/4/6 have no applicable frozen absolute deadline and retain their
+external Airflow stage timers. The frozen compute recovery deadline must cap
+its own writer probe. Run the targeted native
+`tests/test_directory_probe_retry.py` and review the paired source before
+declaring UE-03 complete.
+Synthetic source tests do not establish live-cluster or installed-wheel
+behavior. This source slice can be reverted by its scoped platform commit;
+no runtime state was changed.
+
+**Directory-probe deadline map (read-only, no implementation).** Ordinary
+registered Step1/4/6 reaches native `writer_for_bundle.validate` through
+`scripts/cce_paired_runtime.py:192-209` (`stage_command`),
+`:1252-1274` (`downstream_registered`) and `:1322-1397`
+(`_selected_registered`). The native CLI also constructs the writer in
+`cce_batch_runtime.py:3545-3579`. Native `ProtectedWriter.claim/enter`,
+`writer_for_bundle.validate` and `protected_stage` lead to either
+`current_master_storage_identity` or `cloud_storage_identity`, then
+`_directory_probe_identity` (`cce_writer_guard.py:247-264`), whose current
+read-only exec timeout is 30 seconds. The live-Master path checks UID and
+volume binding before and after. The helper path checks its exact Job/Pod and
+PVC/PV; CREATE 30 seconds, Pod wait 60 seconds, cleanup 90 seconds and helper
+Job `activeDeadlineSeconds=600` are separate operation/helper limits, not
+the original stage deadline. The helper journal does not freeze an absolute
+helper expiry, so retry must not restart a 600-second helper lifetime.
+
+WGS `config/wgs_stage_contract.yaml` supplies relative Step1/4/6 timeouts
+of 172800/172800/86400 seconds, and Airflow WGS sensors have corresponding
+relative timers. GATK has relative Airflow wait timers and a separate
+15-minute runner execution timeout. None is an absolute deadline passed to
+the native writer. Only opted-in Step4 freezes `publish_deadline` at first
+registration (`backend/app/cce_publish_recovery.py:23-39`), but that value
+governs fresh dispatch only; it is not a deadline for an already started
+worker or writer probe. Step1 and Step6 frozen requests contain no
+authenticated original absolute deadline. Registered Step2/3 compute recovery
+has an applicable `cce_recovery_deadline`, now passed internally in
+`resume_registered` only. The helper's original lifecycle and local probe
+budgets stay separate; no new `ExecutionRef` field is needed.
+
+## 2026-09-29 UE-02 native platform gate source closeout
+
+**Goal and boundary.** Connect only marked, registered WGS/GATK Step1–Step6
+requests to native `StageExecutor`, including Step4 publish observation and the
+paired writer fence. Worktree:
+`C:\Users\11217\.codex\worktrees\gatk-prod-compat\airflow-demo`, branch
+`jiucheng/airflow/UE02-stage-executor-gates`, starting at source checkpoint
+`ca15d6ea6a077208ff870b7a17178f0b050fc558`. Native source HEAD on BS10610
+is `6c0aee2b326b774c5d6dff570f31718048a8eec7`; no native file was edited
+here. No DAG/backend shared observation, wheel install, node200, production,
+analysis submit, deployment, service restart, push or deletion was authorized or
+performed.
+
+**Completed source.** New `scripts/cce_stage_execution_adapter.py` provides
+read-only `executor_for_registered` and the `submit_registered_stage` /
+`run_registered_worker` paths. Its selected gate, worker command, handler and
+paths are fixed by trusted local code. The adapter freezes exact request bytes,
+batch binding and native ref in per-generation private registration, validates
+business terminal identity/schema/hash, and publishes a separate private
+per-generation native receipt. Old refs resolve from that registration and
+optional equal request-history; an older dispatch can coexist with a first
+successor freeze, but native submit still decides receipt and worker
+quiescence. Private control directories are owner-only 0700 and files 0600.
+Legacy worker/status/log evidence and invalid explicit markers fail closed.
+`ComputeIdentity` is not projected; the private receipt records null.
+
+`scripts/wgs_runtime_gate.py` and `scripts/gatk_runtime_gate.py` select the native
+path only for marked Step1–Step6, retain their existing business handlers, and
+reject marked requests at old worker entries. WGS keeps the native-open
+`.worker.log` while archiving old business status. `scripts/cce_publish_recovery.py`
+routes marked Step4 dispatch/observation through native evidence;
+`scripts/cce_paired_runtime.py` checks native writer quiescence under both exact
+stage locks, including missing WGS `<stage>.json` and GATK
+`<stage>.request.json` with residual private evidence. Opted-in Step4 publish
+rechecks deadline under native launch lock for a fresh launch, while a duplicate
+can reattach after expiry. Ordinary Step4 without publish opt-in follows its
+existing handler and stage timer. Four independent review findings on valid
+successor freeze, explicit null marker, missing WGS request and ordinary Step4
+were corrected with focused assertions. The independent delta review concluded
+Ready with no remaining Critical or Important finding.
+
+**Changed files.** Five runtime files above, plus
+`scripts/tests/test_cce_stage_execution_adapter.py`,
+`scripts/tests/test_wgs_native_stage_gate.py`,
+`scripts/tests/test_gatk_stage_execution_gate.py`,
+`scripts/tests/test_cce_native_consumers.py`, this handoff, `CURRENT_STATE.md`,
+`TASKS.md` and `docs/08_WORKFLOW_RUNTIME_INTEGRATION.md`. The existing untracked
+`.codex-artifacts/` is a UE-01 backup and was left untouched. No current
+production data or B/D batch record was modified.
+
+**BS10610 verification.** Read-only preflight confirmed hostname `server10610`,
+current control release `20260912-opt-4d3d24e6`, disabled test intake/automatic
+dispatch and native source HEAD above. Only the isolated candidate
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/ue02-stage-executor-gates-20260929`
+was updated. It used nipttest Python with `PYTHONPATH` pointing at that exact
+native source and ran:
+
+```text
+python -m pytest -q scripts/tests/test_cce_stage_execution_adapter.py scripts/tests/test_gatk_stage_execution_gate.py scripts/tests/test_wgs_native_stage_gate.py scripts/tests/test_cce_native_consumers.py --tb=short --junitxml=<evidence>/ue02-platform-gates.xml
+```
+
+Final result: **30 passed, 0 skipped in 0.29s**. Raw log:
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue02-stage-executor-gates-20260929/ue02-platform-gates.log`,
+SHA-256 `f02db17e9e2f808ae7be4375beeb6dbbb29cce1d12dfe4de3b949ab0a1b3b6ed`.
+JUnit SHA-256 `a6521601dc3e88206ee69fbdf4b42c27671e3b05e47631a393d4144e824508b4`.
+Exact candidate/native input manifest:
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue02-stage-executor-gates-20260929/ue02-platform-inputs.sha256`,
+SHA-256 `6627b11b2b22b8230a4db11354075b95341f6033aa3ad2ad237763ada7ab4394`.
+Candidate input hashes were checked against local source; native module SHA-256
+is `21b505da319cc752c5694f2b42e4082dd02dc47e3c7ddad895fdb87b08581bd2`.
+Local `git diff --check` and Python syntax compilation passed. The earlier
+selected-gate package/standalone import check was 4/4 in the same candidate.
+
+**Failure record.** First focused pytest exited 1 during collection because
+the new GATK test imported an old helper absent from the minimal candidate;
+its assertion was made self-contained. The next run exited 1 with 25 passed /
+5 failed: four tests lacked the unchanged `wgs_release_runtime.py` candidate
+dependency, and one orphan-dispatch assertion expected a different fail-closed
+message. The dependency was copied only into the candidate, and the assertion
+now supplies a valid same-ref dispatch without frozen registration. The final
+run above is green. No blind retry or broader test suite was run.
+
+**Outstanding and rollback.** UE-04 must decide DAG/backend acceptance of native
+asynchronous launches, shared read model and active old-request overwrite
+recovery; GATK `resume` remains disabled in the shipped registry. A worker whose
+active old request was overwritten before it wrote terminal evidence stays
+unknown and requires reconciliation. Synthetic tests do not prove a real FASTQ
+transfer, CCE Job, installed native wheel or production compatibility. Source
+rollback is a scoped revert of this UE-02 commit; no runtime state changed.
+
+## 2026-09-29 UE-02 platform selected-gate checkpoint (adapter blocked)
+
+Follow-up source map after checkpoint commit
+`7b199f07e2cd214727a2a232e237907b76a52d1d`: the pending adapter
+consumer list is in `docs/08_WORKFLOW_RUNTIME_INTEGRATION.md` under "UE-02
+adapter wiring map". It includes both gate CLIs, Step4 `--publish-dispatch`
+and `observe_locked`, paired `_inactive_dispatcher` calls from recovery and
+final writer release, and the backend's old request-only archive. WGS archives
+old status/worker/log but not its overwritten request, so native old-ref
+resolution cannot read the current request as history. WGS's old
+generation archiver also moves `.worker.log`; native submit opens that same
+path before its child runs. A direct reuse would misfile a live new-generation
+log. This map is documentation only; no gate executor code or runtime state
+changed. Native needs to settle trusted previous-generation receipt resolution,
+legacy active-writer checking under the launch lock, and the WGS control-log
+collision before platform wiring proceeds.
+
+Goal: wire trusted WGS/GATK Step1-Step6 gates to native `StageExecutor` after
+UE-01, without changing DAG/backend shared observation, deploying a wheel, or
+touching production. Worktree/branch:
+`C:\Users\11217\.codex\worktrees\gatk-prod-compat\airflow-demo`,
+`jiucheng/airflow/UE02-stage-executor-gates`, from UE-01 `eac84ea`.
+
+The native owner committed `StageExecutor` at `9272f2cc0fbf590c7820e0bc37f67ae35ab774ee`
+in the BS10610 cce-pipeline source. Its binding requires absolute request,
+dispatch and status paths in one directory, file mode 0600, and a distinct,
+resolvable previous generation status path with a terminal receipt and a
+quiescent old process group before submitting a successor. Unknown evidence
+keeps the successor unstarted. Native focused synthetic lifecycle evidence is
+recorded by its owner under
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue02-stage-execution-20260929-native/`.
+
+Platform source changes so far: `scripts/cce_paired_runtime.py` imports only the
+trusted selected pipeline gate; `scripts/tests/test_cce_paired_selected_adapter.py`
+covers WGS/GATK in package and standalone import modes; `docs/08_WORKFLOW_RUNTIME_INTEGRATION.md`,
+`CURRENT_STATE.md`, `TASKS.md` and this handoff record the checkpoint. The
+selected gate still checks the exact registered request identity before using
+the existing business handler. No WGS/GATK gate executor path was switched.
+
+BS10610 read-only preflight confirmed `server10610`, control root
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS`, current release
+`20260912-opt-4d3d24e6`, actual backend mount
+`20260926-p0-e358aad/backend`, and disabled intake/auto-dispatch gates. The
+synthetic test candidate is
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/ue02-stage-executor-gates-20260929`.
+The focused RED test on old selected-dispatch code failed as expected in two
+cases for importing the unselected gate (`selected-import-red2.log`, SHA-256
+`2e268d649617dded1a61e5fde23026f1a4782582af7311a4fca314eb364d7320`). After patching, the final focused GREEN command in that candidate
+was `python -m pytest -q scripts/tests/test_cce_paired_selected_adapter.py`,
+with `PYTHONPATH` set to the native source and the BS10610 nipttest Python;
+result 4 passed in 0.35s. Raw evidence is
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue02-stage-executor-gates-20260929/selected-import-green2.log`
+(SHA-256 `fd18a4da724fec169567e0bb4f48b9b6b70de87b21fe3e66c44b6d74cdeab98c`). The candidate module SHA-256 is
+`b22696d27dd2297fbd4d21ce14f76f13e181125ff5d7c1dc578e43062c3998f7`;
+test SHA-256 is `e9bf75bfd4fb2c18d170833336ff8c8465d885ef8a8a274c99e1a1b70b9f1014`.
+
+Blocker: current GATK gate overwrites a fixed per-stage `.status.json` and
+archives only the old request during recovery. WGS also writes a fixed status;
+its archived old status lives under `history/<stage>/generation-N/`, outside the
+native same-directory binding. Pointing two generations at the same status is
+rejected by native; inventing a status path or copying a DB projection would
+discard the terminal/worker-quiescence safety gate. The native owner and
+platform coordinator need to settle a narrow trusted historical receipt
+binding before adapter wiring. Preserve shared business status permissions;
+0600 applies to new executor control sidecars only.
+Also update the existing paired runtime `_inactive_dispatcher` fence when a
+native dispatch becomes selectable: it currently recognizes only the fixed
+GATK/WGS legacy worker sidecars. It must recognize the native dispatch/worker
+identity or explicitly fail closed before considering a prior writer inactive.
+
+No full suite, service/container test, cloud Job, node200, production check,
+batch submit, push, merge or deployment was run for this checkpoint. This
+selected-gate source checkpoint is committed in the isolated UE-02 branch;
+the overall UE-02 remains open pending the binding interface and coordinator
+closeout. Rollback is a scoped source revert; no runtime state changed. The
+next owner should resolve the binding contract, connect
+thin adapters while preserving WGS `run_stage` and GATK `_execute_stage`, then
+run only focused UE-02 acceptance and record exact evidence.
+
+## 2026-09-29 UE-01 stage-execution contract source closeout
+
+Goal: finish only UE-01's platform request marker, pathless identity/snapshot
+mapping and one cross-repository synthetic fixture. Worktree/branch:
+`C:\Users\11217\.codex\worktrees\gatk-prod-compat\airflow-demo`,
+`jiucheng/airflow/UE01-stage-execution-contract`, base `dcd7390`.
+The 2026-09-28 blocker entry below is historical and superseded by this result.
+
+BS10610 read-only preflight confirmed `server10610`, control root
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS`, current release
+`20260912-opt-4d3d24e6`, actual backend `/app` mount from
+`20260926-p0-e358aad/backend`, and disabled intake/auto-dispatch gates. The
+approved synthetic candidate was
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/ue01-stage-execution-contract-20260928`.
+Its older platform module/test copies (SHA-256 `e6ff0363...` / `1df50728...`)
+were replaced with the exact current worktree bytes after local backup. Final
+candidate SHA-256: `scripts/cce_paired_runtime.py` `b1eedef3f2ca23f57492dcf928b314b16af94ca0e50b930998e706f87715fc3e`,
+single fixture `f0601651c2da2b0104b1f6aa985e2002b9938ba669fd9d8cbd160eb4c6a048bf`,
+and platform marker module `895955cde9d562e683f45c151b98656869b02d9e319fb514806a1fb41d5eb170`.
+Native source was the real BS10610 checkout, commit `254527c573a525f8663ba567666eadf9fe45252e`,
+module `src/cce_pipeline/stage_execution.py` SHA-256
+`d9f69cdc8eb998b0dc1257f00fb1a21fffcdb1fb086ece415e2c75127c603b40`;
+both prior token/SHA-256 regex anchors are now corrected. We did not edit native.
+
+Exact single fixture command, from the candidate directory:
+
+```bash
+PYTHONPATH=/mnt/biodevrwbi/33.chenjiucheng/project/wgs-cloud-platform/projects/huawei-cloud-runtime/src \
+/sg2/33.chenjiucheng/software/miniforge3/envs/nipttest/bin/python -m pytest -q \
+  scripts/tests/test_cce_stage_execution_contract.py::test_current_execution_contract --tb=short
+```
+
+The SSH invocation ran from that directory and redirected stdout/stderr to a
+task-specific evidence file. The first run after native correction passed (exit
+0, `1 passed in 0.45s`):
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue01-stage-execution-20260929-platform/pytest-single.log`,
+SHA-256 `718af798eb1450a812074f301573c1f498edd3575a2450f85ee649d7e03c3c72`.
+Final static review found that the platform registry mapping accepted a present
+but disabled handler, whereas native `resolve_handler_key` rejects `None`,
+`False` and empty string. Added assertions within this same fixture: RED exit 1,
+`1 failed in 0.10s`, because no `RuntimeError` was raised. A three-line platform
+guard now matches the native resolver; final GREEN exit 0, `1 passed in 0.07s`.
+Raw logs are in the same evidence directory as `pytest-disabled-red.log`
+(SHA-256 `f2e6cab3c818c9b09e6cec72701d1952a36a5935554f21c628c0d70b5ccac0a0`)
+and `pytest-final.log`
+(SHA-256 `e8c2ebdecc6c68bd31c948de0b0c1dd4c57dd47d093194a6c1d241c65727824d`).
+The earlier native regex failures are historical contract failures, not the
+RED for this final platform change. `git diff --check` passed. Local pytest,
+full suites, backend registration integration, service/container runs, cloud
+Jobs, node200 and production were not run or touched: the approved UE-01 gate
+requested only this fixture. The WGS/GATK registration call sites were reviewed
+statically, not accepted by a running backend. No push, merge, wheel install or
+deployment. UE-02 waits for coordinator approval. Rollback of
+this source-only change is a scoped commit revert; runtime state is unaffected.
+
+Related deltas to retain when later phases integrate (prior recorded deployment
+fingerprints are not a fresh production recheck in this UE-01 task):
+
+| Source and status | UE-01 need | Later handling |
+| --- | --- | --- |
+| `744cd22`/`03dc8d7` baseline WGS initial/recovery hash and control-root fix | Required baseline; keep request/hash semantics and historical registrations | Preserve through UE-02–06 |
+| Production private GATK gate SHA `b3230de8...`, no paired module/manifest | Leave untouched; not a UE-01 consumer | Define trusted resolver/handler boundary at UE-02 before selecting a gate |
+| Deployed backend overlays: `9c7fc93` Step4 digest, `e634ca4` Stage4-to-5 fence, WGS phase policy later synced to source by `a85cfb6` | Not in this branch; do not overwrite or bulk copy | Reconcile per consumer in UE-04/05/06 |
+| Test-only `5c29d86` and integration worktree's uncommitted P0 paired/inventory/recovery changes | Do not copy the dirty tree for UE-01 | Select exact dependencies in UE-02/03/04/05 |
+| Production frontend Resume visibility, separate GATK transfer `a3c177a` and r4 phase `6d11712` candidates | No UI or phase promotion here | Keep separate release decisions; no dirty UI copy |
+| Production WGS selector 0.8.8/`57483541`; candidate native 0.8.9/`254527c` | Use real 0.8.9 source for this fixture only | UE-06 checks wheel/consumer/mount/selector pins; frozen WES bundles do not auto-upgrade |
+
+
+## 2026-09-28 UE-01 stage-execution contract (in progress; shared fixture blocked)
+
+Goal: implement the approved UE-01 producer/consumer contract in the Airflow
+platform only, coordinate with the native owner, run only the exact synthetic
+fixture on BS10610, update this handoff/state, and stop before UE-02–06 or any
+production deployment. Worktree `C:\Users\11217\.codex\worktrees\gatk-prod-compat\airflow-demo`,
+branch `jiucheng/airflow/UE01-stage-execution-contract`, based on audit docs
+commit `dcd7390893e3d4b6e25b7c15d4b1de96dbf231ef`.
+
+Platform implementation adds the request marker before the first new WGS/GATK
+stage request hash, keeps existing matching legacy WGS registrations reusable,
+leaves immutable GATK prepare unchanged, maps v2 `generation` to native
+`stage_generation`, validates trusted pipeline/stage registry keys, and maps
+native snapshot state without treating unknown or canceled as authorization to
+advance/retry/release. `docs/08_WORKFLOW_RUNTIME_INTEGRATION.md` records canonical
+JSON, digest envelope, identity, snapshot, status and deadline boundaries.
+
+Modified/untracked platform files: `backend/app/gatk_runtime_service.py`,
+`backend/app/wgs_stage_execution_service.py`, new
+`backend/app/stage_execution_contract.py`, `scripts/cce_paired_runtime.py`, new
+`scripts/tests/test_cce_stage_execution_contract.py`, and
+`docs/08_WORKFLOW_RUNTIME_INTEGRATION.md`. `git diff --check` passed. No platform
+test was run locally.
+
+Only authorized runtime fixture command so far (on synthetic candidate
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/ue01-stage-execution-contract-20260928`):
+
+```bash
+PYTHONPATH=/mnt/biodevrwbi/33.chenjiucheng/project/wgs-cloud-platform/projects/huawei-cloud-runtime/src \
+/sg2/33.chenjiucheng/software/miniforge3/envs/nipttest/bin/python -m pytest -q \
+  scripts/tests/test_cce_stage_execution_contract.py::test_current_execution_contract --tb=short
+```
+
+First run failed at native `resolve_handler_key("wgs", ...)`: `_TOKEN_RE` used
+a raw pattern with a literal `\\Z`. The native owner corrected that one anchor.
+The same test node then advanced to `ExecutionRef.from_trusted_registration`
+and failed because `_SHA256_RE` still uses a literal `\\Z`, rejecting the
+valid 64-character `request_hash`. Current observed native source hash is
+`104eb78c6e804f01359f1081c17e567acb508bd308612a30508ef7692cabfbd0`; its token
+anchor is corrected but SHA anchor is not. The coordinator has re-dispatched the
+native owner to correct the SHA line. This Airflow task must not edit the
+separate native checkout. Rerun only this same node after that exact source line
+changes; do not mask the native validation in the platform fixture.
+
+Boundary: BS10610 host-level synthetic fixture only. No node200 connection,
+test/production container, production database, deployment, data operation,
+native checkout edit, or push was performed by this platform task. The user
+provided node200 access guidance (`ssh NGS` or cpata SSH key); it does not change
+the agreed BS10610 target. Native source remains on its separate owner branch.
+
+Next: wait for a visible native source correction, then rerun the single fixture.
+If green, perform final diff review, finish this section and the
+task trackers with exact result, then commit only UE-01 Airflow files/docs. If it
+still fails, diagnose that failure and again limit reruns to this node. No commit
+or completion claim yet. Rollback for the Airflow task is a scoped revert of its
+UE-01 commit; no running platform release was changed.
+
+## 2026-09-28 GATK-PROD-COMPAT (no patch)
+
+Goal: assess only whether the recent WGS P0 changes need GATK equivalents. User
+explicitly excluded a full GATK/history audit, runtime rerun, native upgrade and
+production change. Worktree `C:\Users\11217\.codex\worktrees\gatk-prod-compat\airflow-demo`,
+branch `jiucheng/airflow/GATK-PROD-COMPAT-gatk-runtime`, base/HEAD
+`744cd22e09127137a55468cad0c9f14760fb6901`; integration comparison was
+`744cd22..257931c9b6cb157f7de29c45b0b73a30b0a85dfa`.
+
+| WGS P0 item | Actual recent diff and GATK applicability | Decision |
+|---|---|---|
+| Request hash / control root | The integration HANDOFF records the earlier paired-validator fix aligning WGS initial/recovery request hashes; that WGS contract is already in the comparison base. The committed delta here normalizes only WGS `control_workdir`. GATK keeps a separate recovery validator. | No port. |
+| Initial CREATE deadline / first Master after upload resume | The uncommitted paired-runtime diff now takes the original deadline from native `_master_create_intent`; that shared helper would also serve GATK if paired runtime were loaded. The no-Master upload-resume/prestart branch is explicitly WGS-only. Current production GATK has no paired module or activation manifest. | Common helper unreachable today; no current GATK patch. |
+| Step2 successful predecessor receipt | The uncommitted `_inactive_dispatcher` shortcut handles synchronous Step2 terminal status only under `pipeline == 'wgs'`, with registered-request/receipt identity checks. The normal predecessor-receipt contract is unchanged. | No GATK port. |
+| Step3 reconnect progress / Master identity | The uncommitted monitor change preserves nested Master/job/namespace/run-label fields only for WGS. `cce_recovery_policy.py` explicitly records GATK's existing 72-hour Step3 timeout. The paired reconnect identity path is not loaded by current production GATK. | No duplicate GATK patch. |
+| Step4 old action / old generation | `cce_publish_recovery.py` accepts sealed previous-generation Step4 evidence only for WGS (`pipeline == 'wgs'`). | No GATK port. |
+| Step6 dispatcher evidence sync | The uncommitted `_inactive_dispatcher` synchronous-status shortcut includes Step6 only for WGS (`pipeline == 'wgs'`). | Do not transplant. |
+| Successful final bulk inventory | The uncommitted workload probe adds namespace bulk inventory, but `_release_registered_writer` enables it only with `bulk_inventory=(pipeline == 'wgs')`. The deployed GATK gate has no paired-runtime binding. | No current GATK patch. |
+
+Read-only production evidence: SSH as `ctapa` through the approved BS96 TCP
+jump, using strict host-key checking against the existing node200 IP entry; the
+observed t640 ED25519 fingerprint matched the recorded
+`SHA256:KKSrhbpZdPlBe7ej63ZaYhvYwWhQpdEnGejD59NGMv4`. The installed GATK gate
+SHA256 is `b3230de8fcdba8806a91e247679c38d40ae57cd8b02280276e64f33e6f88ec0f`.
+The same private GATK root has no `cce_paired_runtime.py` or
+`cce-paired-deployment-v1.json`; its gate source contains no paired-module
+reference. Its hash matches the existing 2026-09-16 GATK deployment record and
+does **not** match the integration worktree gate SHA256
+`9d2585d74aa40d2172d4098c716e14fc349aabcea2b62b294ebefcbf7c68cac7`. The
+forced-command wrapper hash is
+`0c4fc77ccf3f12c991f418bf03a898287a0c4f3a4e7dfc93e7d647525276940a`; its
+resolved entry is `readonly runtime_gate="${config_dir}/gatk_runtime_gate.py"`
+followed by `exec "${GATK_PYTHON}" "${runtime_gate}" "$@"`. The latest
+recorded successful GATK run is from 2026-09-24 and completed Step3-Step6/finalize;
+this is historical evidence, not a fresh live run check.
+
+Commands/effects: inspected only the integration diff and HANDOFF, then read the
+GATK gate, paired-module/manifest presence and forced-command entry on t640.
+Integration worktree working-tree diffs were inspected only in the specified
+paired runtime, publish recovery, inventory and workload files. No tests,
+database/cloud query, batch submission, runtime modification, deployment, native
+upgrade or push. Direct local SSH to `172.17.61.200` timed out before remote
+execution; `ssh -J NGS` reached node005 but timed out forwarding to t640. An
+initial strict check using `HostKeyAlias=t640` found no local alias entry; the
+same pinned host key was present under the IP, and a strict BS96 TCP jump then
+succeeded. A first forced-command read timed out during SSH banner exchange; one
+bounded retry succeeded. The initial activation import returned `FileNotFoundError`
+because the paired module is absent; a metadata-only read confirmed absence. A
+source-text probe hit Python 3.6's default ASCII decode on a non-ASCII comment;
+the corrected bytes-only reference check succeeded. A keyscan probe was
+incompatible with the server's preferred KEX. No failed probe ran a command on
+t640; the successful reads were metadata/source inspection only. The temporary
+local SSH forward was stopped.
+
+Conclusion: no GATK patch. Keep the future unified-runtime work in its separate
+UE review/release; this compatibility gate does not authorize production rollout.
+
 
 ## 2026-09-27 authorized main/production repair synchronization
 

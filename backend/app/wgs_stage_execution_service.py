@@ -9,6 +9,7 @@ import secrets
 from sqlalchemy import func, select
 
 from app.models import AnalysisRun, WgsStageExecution
+from app.stage_execution_contract import freeze_stage_execution_protocol
 from app.wgs_stage_catalog import WgsStageContract
 
 
@@ -27,6 +28,18 @@ class WgsStagePredecessorPending(ValueError):
     """The exact predecessor receipt may still be crossing the shared mount."""
 
 
+def require_current_step3_predecessor(*, session, run: AnalysisRun, registered: WgsStageExecution | None = None) -> WgsStageExecution:
+    """Require the latest verified Step2 receipt; fence a replay to that receipt."""
+    predecessor = _successful_predecessor(session, run, "step2_master")
+    if registered is not None and (
+        registered.predecessor_execution_id != predecessor.execution_id
+        or registered.predecessor_generation != predecessor.generation
+        or registered.predecessor_receipt_hash != predecessor.receipt_hash
+    ):
+        raise ValueError("Step3 registered predecessor differs from the current Step2 receipt")
+    return predecessor
+
+
 def register_stage_execution(*, session, run: AnalysisRun, contract: WgsStageContract, stage_code: str, request_payload: dict, now: datetime | None = None, force_new_generation: bool = False) -> WgsStageExecution:
     if int((run.params_json or {}).get("orchestration_contract_version") or 1) != 2:
         raise ValueError("WGS stage execution registration requires contract version 2")
@@ -39,6 +52,10 @@ def register_stage_execution(*, session, run: AnalysisRun, contract: WgsStageCon
         .where(WgsStageExecution.analysis_id == run.analysis_id, WgsStageExecution.attempt == run.attempt, WgsStageExecution.stage_code == stage_code)
         .order_by(WgsStageExecution.generation.desc())
         .limit(1)
+    )
+    step3_predecessor = (
+        require_current_step3_predecessor(session=session, run=run)
+        if stage_code == "step3_monitor" else None
     )
     if stage_code == 'step3_monitor':
         from app.cce_recovery_policy import start_monitor_deadline
@@ -56,16 +73,32 @@ def register_stage_execution(*, session, run: AnalysisRun, contract: WgsStageCon
         from app.cce_publish_recovery import freeze_publish_request
         freeze_publish_request(run=run,request=request_payload,latest=latest,now=now,
             timeout_seconds=definition.timeout_seconds)
+    # Preserve a still-current legacy v2 registration on re-entry. A new
+    # generation freezes the protocol marker before its request hash.
+    if "stage_execution" in request_payload:
+        freeze_stage_execution_protocol(request_payload)
+    current_request_hash = _sha256(request_payload)
+    reusable = latest is not None and latest.request_hash == current_request_hash and (
+        not force_new_generation or latest.status in ACTIVE
+        or (stage_code == 'step4_publish' and request_payload.get('publish_dispatch_version') == 1)
+    )
+    if reusable:
+        if step3_predecessor is not None:
+            _require_matching_predecessor(latest, step3_predecessor)
+        return latest
+    freeze_stage_execution_protocol(request_payload)
     request_hash = _sha256(request_payload)
     if latest is not None and latest.request_hash == request_hash and (
         not force_new_generation or latest.status in ACTIVE
         or (stage_code == 'step4_publish' and request_payload.get('publish_dispatch_version') == 1)
     ):
+        if step3_predecessor is not None:
+            _require_matching_predecessor(latest, step3_predecessor)
         return latest
     if latest is not None and latest.status in ACTIVE:
         raise ValueError(f"stage {stage_code} already has an active generation")
     predecessor_code = _predecessor_code(run, definition)
-    predecessor = _successful_predecessor(session, run, predecessor_code)
+    predecessor = step3_predecessor or _successful_predecessor(session, run, predecessor_code)
     generation = int(latest.generation + 1) if latest is not None else 1
     row = WgsStageExecution(
         execution_id=f"wse_{secrets.token_hex(12)}",
@@ -86,6 +119,44 @@ def register_stage_execution(*, session, run: AnalysisRun, contract: WgsStageCon
     session.add(row)
     session.flush()
     return row
+
+
+def _require_matching_predecessor(registered: WgsStageExecution, predecessor: WgsStageExecution) -> None:
+    if (
+        registered.predecessor_execution_id != predecessor.execution_id
+        or registered.predecessor_generation != predecessor.generation
+        or registered.predecessor_receipt_hash != predecessor.receipt_hash
+    ):
+        raise ValueError("Step3 registered predecessor differs from the current Step2 receipt")
+
+
+def require_frozen_request_digest(frozen: dict, execution: WgsStageExecution) -> None:
+    """Recheck the WGS producer's initial/recovery digest before using a frozen request."""
+    if not isinstance(frozen, dict) or execution is None:
+        raise ValueError("current WGS stage request is unavailable")
+    expected = {
+        "orchestration_contract_version": 2,
+        "analysis_id": execution.analysis_id,
+        "attempt": execution.attempt,
+        "stage": execution.stage_code,
+        "execution_id": execution.execution_id,
+        "generation": execution.generation,
+        "request_hash": execution.request_hash,
+    }
+    if any(type(frozen.get(key)) is not type(value) or frozen[key] != value
+           for key, value in expected.items()):
+        raise ValueError("frozen WGS stage request differs from current execution")
+    envelope = {
+        "execution_id", "generation", "request_hash",
+        "predecessor_execution_id", "predecessor_generation",
+        "predecessor_receipt_hash",
+    }
+    # Initial WGS dispatch adds v2 after hashing; same-attempt recovery hashes
+    # its already-v2 frozen body. This is the existing paired digest contract.
+    if not frozen.get("resume_action_id"):
+        envelope.add("orchestration_contract_version")
+    if _sha256({key: value for key, value in frozen.items() if key not in envelope}) != execution.request_hash:
+        raise ValueError("frozen WGS stage request hash differs from current execution")
 
 
 def transition_stage_execution(*, session, execution_id: str, generation: int, status: str, observed_at: datetime | None = None, receipt_hash: str | None = None, evidence_type: str | None = None, evidence_key: str | None = None, terminal_payload: dict | None = None, message: str | None = None) -> bool:

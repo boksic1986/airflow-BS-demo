@@ -1,5 +1,22 @@
 # Active test-branch tasks
 
+## W423-JR-01-05-AIRFLOW-20261001
+
+- [x] Refresh exact remote main/production refs and verify clean own worktree;
+  preserve accepted UE branch and all untracked evidence.
+- [x] Report necessary commits, semantic gaps and predicted conflicts to the
+  coordinator; do not import its dirty product tree.
+- [ ] Complete UE merge and exact a85cfb6/6d11712/e634ca4 integration once each;
+  preserve main TTL, legacy dispatch and accepted native identity fences.
+- [ ] Freeze WGS/native prepare and QC inputs; implement W42303 with explicit
+  WGS-only prebinding, stable original ref, frozen deadline and terminal proof.
+- [ ] Complete W42304 group/QC2 delta and W42305 disabled/rejected delivery;
+  reuse accepted UE/group evidence, test only changed boundaries on BS10610.
+- [ ] Fix final source/wheel/Master/profile/resource/policy combination, inspect
+  actual test consumers and rollback, then coordinate test package/selector cutover.
+- [ ] Deliver one reviewed integration and precise raw evidence/handoff. BS96
+  scope remains pending, with no old-run migration, cleanup or real LIMS call.
+
 ## GATK-TTL-DOWNSTREAM-20260929 — Step4 recovered; Step5/6 pending
 
 Owner: workflow/runtime + QA. Scope: GATK Step4/5 only after the original
@@ -125,6 +142,223 @@ same-DagRun recovery.
 
 Scope excludes new run submission, Step2 resubmission, Master restart, broad
 backend suite execution, Airflow/DAG changes and production rollback.
+
+## UE-06-TEST-PAIR-20260930 — AF/platform owner
+
+- [x] Read current coordinator UE06 authority and accepted source baseline;
+  preserve the existing worktree and start the isolated UE06 branch.
+- [x] Fresh BS10610 control/current/mount/gate/active-use and permission checks;
+  hostname server10610, test scanner/dispatch false, active DB counts zero.
+- [x] Report exact platform candidate/evidence/source/dependency inputs and
+  distinct native ownership; receive native wheel/install/module hashes.
+- [x] Stage only approved source03bab6c and exact paired policy/bootstrap,
+  preserving shared0.8.8, services/current and readable rollback assets.
+- [x] Check actual ordinary/P0-downstream/shared-SSH loader inputs without
+  mocking the checked entries or repeating accepted behavior suites.
+- [x] Coordinator accepted real platform/native loading and shared SSH origins;
+  preserve first wrapper-origin assertion failure and artifact-only v2 repair.
+- [x] Download existing raw loader logs and verify their three remote hashes;
+  compare retained service/current/mount/gate and shared before/after evidence.
+- [x] Record exact source/pins/commands/rollback and old policy ENOENT limitation
+  in final HANDOFF; closeout is four state docs only, with no product changes.
+
+This section is current. The checkpoints below preserve earlier work and
+diagnostics; their old pending/paused checkboxes do not reopen those tasks.
+No test replay, push, merge, deployment, Step1 or batch cleanup is authorized.
+
+## UE-05-REVIEW-CORRECTIONS-20260930
+
+- [x] Read the coordinator's single review and trace both findings to current
+  producers and consumers; preserve entry identity and independent Worker proof.
+- [x] Resolve the action-authorized real Step3 frozen registration after a
+  Step1/2 entry; add one Step2-entry scenario to the existing R2 node.
+- [x] Persist the first verified source-monitor permit on the existing
+  reservation, reuse it only for matching current continuation, and complete
+  a real backend Worker follow-up within the existing R4 node.
+- [x] Fresh BS10610 boundary/interpreter preflight following external access
+  recovery, then remaining unique GREEN nodes and two-file DAG import. Reuse
+  existing RED as coordinator instructed; do not repeat accepted scopes.
+- [x] Preserve input/log/JUnit hashes and record fourteen unique passing behavior
+  cases plus two DAG file imports, including the R4 fixture repair/failure log.
+- [x] Submit correction commit `03bab6c` and raw evidence to the coordinator.
+- [x] Coordinator accepted AF source `03bab6c` and closed the two Important
+  findings after correction/evidence closeout; no repeated test/review required.
+- [x] Overall UE05 final native7172573/AF03bab6c pairing was subsequently
+  confirmed by the coordinator. UE06 was explicitly authorized as recorded
+  above; merge and deployment remain closed.
+
+## UE-05-CURRENT-SOURCE-CHECKPOINT-20260930
+
+- [x] Reconfirm the current task with `airflow-cloud-demo` after the user
+  identified task drift: continue UE-05; preserve accepted UE-04 and all drafts.
+- [x] Keep the existing `gatk-prod-compat` worktree, UE05 branch and `06bf30a`
+  source baseline. Read-only scope checks caused no source rollback.
+- [x] Complete the retained R2 action/DagRun/frozen/native proof and R4
+  six-stage callback/cleanup source checkpoint, document exact changed files
+  and validation limits. Source checkpoint is `8617dfa`; source/static
+  completion is not runtime acceptance.
+- [x] Coordinator's single scoped source audit of this checkpoint; its two
+  Important findings are addressed in UE-05-REVIEW-CORRECTIONS-20260930 above.
+- [x] Record backend RED separately from Airflow interpreter environment
+  errors. A later gateway reset prevents GREEN and final import.
+- [ ] After external SSH recovery evidence, revalidate BS10610 and execute
+  only the unique planned delta nodes. No SSH retry, local/production runtime
+  substitute, dependency installation, UE-06, merge or deployment beforehand.
+
+## UE-05-PAUSED-SSH-20260930
+
+- [x] Save shared SSH source as isolated commit `06bf30a`; BS10610 validation
+  remains unverified because the one gateway preflight timed out.
+- [ ] R2/R4 exact native snapshot integration is paused as an uncommitted,
+  incomplete source checkpoint. R2 fixture is a draft and has not run; R4
+  failure/cleanup fence signatures and DAG callback producers remain to do.
+- [ ] After the user confirms SSH recovery, complete static integration,
+  revalidate the BS10610 boundary, then run only the narrow isolated synthetic
+  nodes and update the evidence and handoff. Do not retry SSH while paused.
+
+## UE-05-AUTHORIZED-CONTINUATION-20260930
+
+- [x] From baseline `1e84714`, commit shared SSH transport and current WGS/GATK/P0
+  consumption as one independent source slice; keep one call budget, the
+  approved pre-session retry predicate and existing uncertain dispatch observe.
+  Source and focused fixture are committed at `06bf30a`; BS10610
+  synthetic execution is unverified after the single gateway timeout.
+- [ ] Repair the retained three-file R2 draft using the approved optional exact
+  native snapshot on existing authenticated requests; bind frozen Step3 identity
+  and terminal evidence before compute-terminal permission.
+- [ ] Complete R4 six-stage failure/cleanup fences with the same exact snapshot;
+  do not mix it with the Worker nonce probe or blanket-hide verified failures.
+- [ ] Use only BS10610 isolated synthetic delta nodes. Coordinator reported a
+  recent gateway timeout; record a repeated first preflight failure and do not
+  blindly retry or run local runtime tests. No UE-06 or production action.
+
+## UE-05-RECOVERY-CONSUMERS-20260930 (source in progress; not deployed)
+
+- [ ] R2: share one exact bound compute-terminal permit between manual/automatic
+  poll and reservation; preserve queued downstream authorization, original
+  budget/deadline, idempotence and stop/active/unknown fences. Current draft
+  passed a preliminary node but lacks frozen-request and fresh native-terminal
+  proof; it is not accepted or committed.
+- [ ] R4: protect all six marked stages from unknown-as-failed or
+  unknown-as-quiescent decisions in failure callbacks, cleanup and affected
+  public WGS sync; reuse UE-04 exact native snapshots.
+- [x] Platform final-release source: retry only typed transient read-only inventory queries
+  within one 120-second total budget, 30 seconds per query and any applicable
+  original deadline; preserve fresh CAS proof and one write. The platform
+  synthetic delta passed; paired native lock behavior remains separate.
+- [x] F7: WGS Step4 initial/recovery frozen request uses the producer's
+  version-correct digest validator; GATK canonical validation is unchanged.
+  F7 and platform final-release source/docs checkpoint: `4cb6e0d`.
+- [x] Refine the final read-only reconnect to use the same deadline until
+  exhaustion, with 2-second then 5-second capped backoff (`be0adb8`). The
+  native owner's separate source commit is `7172573`; no install/activation.
+- [ ] Use only planned BS10610 isolated synthetic delta nodes; update API and
+  runtime documentation, state and handoff. No UE-06 installation or release.
+
+## UE-04-UNIFIED-STAGE-EXECUTION-20260930 (source checkpoint complete; not deployed)
+
+- [x] Marked WGS/GATK gate bridge, exact native submit/observe CLI and frozen
+  request identity: platform commits through `0feec86` and `5fd01a9`.
+- [x] Shared DAG client and WGS/GATK native Step1–Step6 wiring: `7ee7d7c`;
+  isolated BS10610 focused 16/16 and targeted two-DAG import passed.
+- [x] R1: normal/P0 WGS Step3 requires latest Step2 receipt; internal and public
+  Resume recheck attempt, DagRun, action and stop after the ingestion session.
+- [x] F4: require current Step6 business receipt and a fresh, exact native
+  succeeded observation before WGS/GATK finalize; block Airflow success-only
+  reconciliation from projecting business success; reject WGS frozen-marker
+  downgrade and late finalize after a stop.
+- [x] F3: accept only the persisted, authorized current same-attempt GATK
+  recovery DagRun and its frozen `conf` in Airflow reconciliation.
+- [x] WGS/GATK exact stage-status marker, fresh native observation when a marked
+  submit XCom is absent, source review and scoped BS10610 synthetic deltas.
+- [x] Review the platform selected-Master Step4/5 call chain against native
+  `4fa85874` and record the precise existing directed-test coverage limits.
+- [x] API/DAG/runtime docs updated and source committed as `a6c31d1`.
+- [ ] UE-06, separately authorized: check the candidate installation's actual
+  native entry and policy pin, then run its planned minimal runtime validation.
+  UE-04 performed no wheel, node200, production, real batch, service, database,
+  cleanup or release action.
+
+Step1 and the old `20260927B` screenshot are complete historical context,
+not active UE-04 work. Existing `.codex-artifacts/` remains untracked and intact.
+
+## UE-03-INVENTORY-PROBE-20260929 (platform query slice source complete; probe retry open)
+
+- [x] Pair platform fixed namespace Job/Pod LIST calls with native
+  `_recovery_query` commit `6f5c120`; preserve typed errors, 4 MiB limit,
+  complete-list checks, exact Master GET and 120-second/30-second budgets.
+- [x] Share one in-memory, identity-bound inventory through failure evidence,
+  manual recovery inspection, active observation, bound diagnostics and final
+  writer release. Ignore unrelated namespace batches, reject bound
+  name/UID/owner/label conflicts, and requery at lock CAS.
+- [x] Keep active Worker counts observational; replacement and release require
+  strict inactive proof. Derive the bound helper's run label from the pinned
+  native `run_label(raw run_id)` function.
+- [x] Exclude only explicit `cce-pipeline/action=evidence-reader` helpers from
+  Heavy global Master counts; unmarked malformed WGS Master stays unavailable.
+- [x] BS10610 scoped synthetic RED/GREEN: 275 reclaimed Workers changed
+  554 queries to five per proof; final pinned-native set 35 passed, zero skipped.
+  Evidence paths and hashes are in `HANDOFF.md`.
+- [x] Pass the existing authenticated `cce_recovery_deadline` only from the
+  Step2/3 `resume_registered` recovery path into the native writer's optional
+  internal probe deadline; preserve the old writer call when absent. The
+  BS10610 isolated handoff synthetic is 10 passed, zero skipped. Step4's
+  `publish_deadline` only limits fresh dispatch, not its background worker.
+- [ ] Native directory-probe retries (2s/5s, at most three read-only attempts)
+  and targeted `tests/test_directory_probe_retry.py` acceptance. Ordinary
+  Step1/4/6 have no applicable frozen absolute deadline; keep their existing
+  external stage limits and do not create a new business deadline. The bounded
+  native probe operation must use the original deadline on the recovery path
+  above when it exists.
+- [ ] Final UE-03 paired review and downstream UE-04 handoff after the native
+  probe contract is resolved. No production activation in this task.
+
+## UE-02-STAGE-EXECUTOR-GATES-20260929 (source complete; not deployed)
+
+- [x] Confirm native `StageExecutor` final source commit `6c0aee2`, trusted
+  resolver, distinct private per-generation terminal receipt, process-quiescence
+  and 0600 control-file requirements. No wheel install or production gate change.
+- [x] Make registered downstream dispatch import only the validated WGS or
+  GATK gate. The focused BS10610 synthetic test is RED before the change and
+  GREEN 4/4 afterward for package and standalone imports.
+- [x] Freeze exact current request and binding in private registration;
+  publish/read a distinct terminal control receipt per generation while retaining
+  the existing shared WGS/GATK business status and handlers.
+- [x] Wire both gate CLIs, Step4 dispatch/observation and paired writer fence.
+  An older shared dispatch may precede a valid successor freeze, but native
+  still requires the old terminal and quiescent worker. Reject null/invalid
+  markers, legacy evidence and missing WGS/GATK request with private evidence.
+- [x] Run only the four focused BS10610 synthetic platform files against native
+  `6c0aee2`: 30 passed, 0 skipped; raw log/JUnit/input hashes in `HANDOFF.md`.
+- [x] Complete independent four-item delta review: Ready, no remaining
+  Critical/Important finding. Source closeout is recorded in `HANDOFF.md`.
+  No UE-03–06, DAG,
+  backend shared observation, node200, wheel install or production in this task.
+
+## UE-01-STAGE-EXECUTION-CONTRACT-20260928 (source complete; awaiting review)
+
+- [x] Freeze the approved `cce.stage-execution.v1` request marker and pathless
+  platform identity/snapshot mapping for WGS and GATK.
+- [x] Add the one synthetic cross-repository fixture and document the UE-01
+  identity, canonical JSON, status and deadline boundaries.
+- [x] Confirm the native token and SHA-256 regex corrections in the real
+  BS10610 source. The same `test_current_execution_contract` exposed a disabled
+  handler registry mismatch during final UE-01 review; narrow red/green ended
+  at 1 passed in 0.07s, with both raw logs retained.
+- [x] Review and commit only UE-01 platform files, docs/08 and own handoff.
+  No node200 or production change is included.
+- [x] Coordinator reviewed UE-01 and released UE-02 source development.
+
+## GATK-PROD-COMPAT-20260928 (complete; no patch)
+
+- [x] Compare the actual integration worktree diff with the seven WGS P0 items.
+- [x] Read the deployed GATK gate identity and paired-activation presence on t640
+  through the approved ctapa SSH route, without using the restricted runner.
+- [x] Conclude no GATK patch is needed: current production GATK does not select
+  the paired runtime; the only explicit GATK timeout delta already uses its
+  existing 72-hour Step3 wait bound.
+- No source change, test rerun, batch submission, deployment or push. Applicability
+  table and read-only evidence are recorded in the latest HANDOFF entry.
 
 ## AIRFLOW-REPAIR-SYNC-20260927
 

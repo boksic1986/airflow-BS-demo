@@ -549,6 +549,8 @@ def mark_submission_dag_failed(
     failed_task_ids: list[str],
     dag_run_id: str | None = None,
     resume_action_id: str | None = None,
+    native_stage_observation: dict | None = None,
+    settings=None,
 ) -> dict:
     """Project a terminal Airflow failure into the staged submission state."""
     run = session.scalar(
@@ -560,7 +562,10 @@ def mark_submission_dag_failed(
     if run is None or run.attempt != attempt:
         raise ValueError("unknown active WGS attempt")
 
-    reason = dag_failure_fence_reason(session=session, run=run, dag_run_id=dag_run_id)
+    reason = dag_failure_fence_reason(
+        session=session, run=run, dag_run_id=dag_run_id,
+        native_stage_observation=native_stage_observation, settings=settings,
+    )
     if reason:
         return {'analysis_id': analysis_id, 'attempt': attempt, 'status': run.status,
                 'ignored': True, 'reason': reason}

@@ -1,13 +1,107 @@
 # Airflow DAG specification
 
+## UE-05 native callback and cleanup bridge (2026-09-30, source only)
+
+Current WGS/GATK failure callbacks and transfer/global cleanup use the shared
+native callback reader. The graph's latest started stage selects an existing
+stage-status GET; that response supplies the current registration for a fixed
+read-only native observe. The full snapshot is validated before it is passed as
+`native_stage_observation` on the existing authenticated POST. Task state and
+submit XCom never substitute for native terminal evidence. The backend checks
+its own current/latest row again under the run lock, so a stale callback cannot
+select an older successful execution to release current ownership.
+
+Input/result slot cleanup reads Step1/Step5 respectively; global cleanup reads
+the graph's current native stage. WGS observer drain uses a separate exact Step3
+observation, including after later stages finish. Observation transport failure
+does not send a fabricated terminal or release request. Unknown remains unknown
+and is rejected by the backend permit fence.
+
+Step3 recovery polling receives this invocation's exact native snapshot before
+settling the current queued action. If a Worker challenge follows, its second
+POST carries only the separate nonce-bound `worker_observation`, preserving the
+existing Worker deadline and persisted stage-terminal binding.
+
+## UE-05 shared SSH connection layer (2026-09-30; source only)
+
+The current WGS/GATK Step1-6 restricted node200 commands and P0 Step4
+dispatch/read probe and Step3 Worker read probe use one OpenSSH transport
+implementation. It preserves each caller's fixed command, SSH config, exact
+registered execution/generation/hash, original deadline and backend permit.
+OpenSSH has a 30-second connection/handshake setting and
+`ConnectionAttempts=1`; the transport permits at most three pre-session
+connection attempts with 5/10-second backoff inside one caller budget. The
+existing WGS request-visibility business retry may make a separate connection
+after a connected response, while retaining that failure count and deadline.
+Short dispatch is capped at
+120 seconds. Existing Step4 read probe remains capped at 30 seconds, Step3
+Worker probe at 150 seconds, and either is further capped by its original
+persisted deadline. No stage lifetime is invented where no absolute deadline
+was frozen.
+
+Only exit 255 with empty stdout and wholly recognized pre-session diagnostics
+may reconnect. Authentication/host-key failure, mixed/unknown output, command
+timeout and post-session ambiguity are never replayed as SSH writes. An
+uncertain marked dispatch uses the UE-04 exact native observation; `unknown`
+cannot authorize a resend, later stage or cleanup. The transport cannot
+register a new execution, consume a recovery budget or grant P0 redispatch.
+The WGS request-visibility loop shares the connection-failure count and total
+budget across its invocations. DAG task retry counts, pools and leases remain
+unchanged. The node97 local path, Step7 and maintenance DAGs are outside this
+connection change.
+
 ## SSH banner timeout trailer (2026-09-27)
 
-WGS pre-execution reconnect accepts the OpenSSH companion line
+The earlier WGS pre-execution reconnect accepted the OpenSSH companion line
 `Connection to <host> port <port> timed out` only alongside a recognized
 pre-session error. The trailer alone remains insufficient. Exit255, empty
 stdout and fully recognized stderr are still required; remote/business or
 ambiguous post-execution output is never automatically replayed. Existing
-three-invocation limit,5s/10s delays and original registration/generation remain.
+three-invocation limit,5s/10s delays and original registration/generation remain
+under the shared connection layer above.
+
+## UE-04 unified stage client (2026-09-30, source only)
+
+Newly marked WGS/GATK Step1–Step6 registrations return the exact frozen
+execution ID, generation, request hash and `stage_execution` marker. The DAGs
+obtain the full native ref by the fixed read-only `--native-observe` command,
+compare it with that registration, and use the fixed `--native-submit` command
+with the same ref. A marked submit makes one logical SSH dispatch per task
+invocation, with only proven pre-session connection retries inside that call;
+an uncertain response is reconciled by observing that ref. Airflow task retries
+reuse the same registration and rely on the native launch fence to attach to
+an existing dispatch or start a first dispatch that never happened. A native
+`unknown` result never advances a stage or authorizes a second launch within
+the same invocation. Older unmarked frozen requests retain their prior gate
+path.
+
+WGS Step2 keeps its existing `submit_step2_master` task and `wgs_cce_runs`
+pool, holding the task until a matching native terminal result; no additional
+Step2 sensor or shared stage deadline is introduced. Step6 still requires
+`wait_step6_materialize` before `finalize_run`; native success and the current
+business receipt must both be visible. GATK keeps its submit/wait task graph
+and evaluates both tasks through the same client. The original task/sensor
+timeouts and the separate Step4 publish recovery authorization remain in
+force. This candidate has not been installed on node200 or deployed.
+
+At finalization the WGS and GATK DAGs query current Step6 stage status and
+perform a fresh fixed native observation, including when a recovery DagRun
+reuses a successful Step6 and its submit task has no XCom. They pass the full
+snapshot to the existing internal finalize POST. The backend ties the native
+terminal to the exact current registered business receipt before committing
+success. Older unmarked Step6 requests keep the receipt-only finalization.
+For any newly marked Step1–Step6 whose submit XCom is absent, a stage sensor
+uses the current backend registration to make a fresh exact native observation
+before accepting the business-ready receipt. Missing, stale or unknown native
+evidence cannot advance the sensor; older unmarked registrations retain their
+existing sensor path.
+An Airflow administrator marking a DagRun successful cannot by itself project
+WGS/GATK business success; the guarded finalizer is authoritative. WGS canary
+and local validation scopes retain their existing success projection because
+they do not execute the full CCE Step6 path. GATK reconciliation recognizes an
+explicitly authorized current same-attempt recovery DagRun, not an arbitrary
+run-ID suffix; reconciliation also compares its Airflow `conf` with the frozen
+authorized action before projecting a state.
 
 ## DAG discovery isolation (2026-09-27 test branch)
 

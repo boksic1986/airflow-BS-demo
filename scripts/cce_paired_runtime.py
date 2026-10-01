@@ -12,6 +12,7 @@ from pathlib import Path
 import stat
 import struct
 import sys
+import time
 from contextlib import ExitStack, contextmanager, nullcontext, redirect_stdout
 import io
 import fcntl
@@ -19,6 +20,8 @@ import re
 from types import SimpleNamespace
 
 PLATFORM_SOURCE = Path(__file__).resolve()
+STAGE_EXECUTION_PROTOCOL = 'cce.stage-execution.v1'
+STAGE_EXECUTION_TOKEN_RE = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}')
 DEPLOYMENT_TRUST_ROOT = PLATFORM_SOURCE.parent
 DEPLOYMENT_TRUST_PATH = DEPLOYMENT_TRUST_ROOT / 'cce-paired-deployment-v1.json'
 COMMANDS = dict(step1_upload='step1-upload', step2_master='step2-run',
@@ -252,11 +255,16 @@ def run_registered_stage(arguments):
             or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', analysis_id)
             or not attempt.isdigit() or int(attempt) < 1 or not generation.isdigit() or int(generation) < 1):
         raise RuntimeError('invalid registered downstream identity')
-    if __package__:
-        from . import wgs_runtime_gate, gatk_runtime_gate
+    if pipeline == 'wgs':
+        if __package__:
+            from . import wgs_runtime_gate as gate
+        else:
+            import wgs_runtime_gate as gate
     else:
-        import wgs_runtime_gate, gatk_runtime_gate
-    gate = wgs_runtime_gate if pipeline == 'wgs' else gatk_runtime_gate
+        if __package__:
+            from . import gatk_runtime_gate as gate
+        else:
+            import gatk_runtime_gate as gate
     path = gate._request_path(analysis_id, int(attempt), stage)
     payload = json.loads(_read_registered(path))
     expected = dict(analysis_id=analysis_id, attempt=int(attempt), stage=stage,
@@ -328,6 +336,108 @@ def _request_digest(registered,pipeline):
         sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 
+def execution_identity_from_registered_request(payload, *, pipeline, handler_registry):
+    """Map a verified v2 request to the public, pathless execution identity."""
+    if (not isinstance(payload, dict) or not isinstance(pipeline, str)
+            or not STAGE_EXECUTION_TOKEN_RE.fullmatch(pipeline)):
+        raise RuntimeError('registered stage execution identity is invalid')
+    stage = payload.get('stage')
+    if not isinstance(stage, str) or not STAGE_EXECUTION_TOKEN_RE.fullmatch(stage):
+        raise RuntimeError('registered stage execution stage is invalid')
+    if not isinstance(handler_registry, dict) or (pipeline, stage) not in handler_registry:
+        raise RuntimeError('stage execution handler registry key is unsupported')
+    handler = handler_registry[(pipeline, stage)]
+    if handler is None or handler is False or handler == '':
+        raise RuntimeError('stage execution handler registry key is unsupported')
+    if payload.get('stage_execution') != {'protocol': STAGE_EXECUTION_PROTOCOL}:
+        raise RuntimeError('unsupported stage execution protocol')
+    if payload.get('orchestration_contract_version') != 2:
+        raise RuntimeError('stage execution requires platform contract v2')
+    if payload.get('pipeline') not in (None, pipeline):
+        raise RuntimeError('registered stage execution pipeline differs')
+    if (not isinstance(payload.get('analysis_id'), str)
+            or not STAGE_EXECUTION_TOKEN_RE.fullmatch(payload['analysis_id'])
+            or not isinstance(payload.get('execution_id'), str)
+            or not STAGE_EXECUTION_TOKEN_RE.fullmatch(payload['execution_id'])
+            or type(payload.get('attempt')) is not int or payload['attempt'] < 1
+            or type(payload.get('generation')) is not int or payload['generation'] < 1
+            or not isinstance(payload.get('request_hash'), str)
+            or not re.fullmatch(r'[0-9a-f]{64}', payload['request_hash'])):
+        raise RuntimeError('registered stage execution identity is incomplete')
+    return {
+        'protocol': STAGE_EXECUTION_PROTOCOL,
+        'pipeline': pipeline,
+        'analysis_id': payload['analysis_id'],
+        'attempt': payload['attempt'],
+        'stage': stage,
+        'execution_id': payload['execution_id'],
+        'stage_generation': payload['generation'],
+        'request_hash': payload['request_hash'],
+    }
+
+
+def platform_status_from_snapshot(payload, snapshot, *, expected_ref, pipeline, handler_registry):
+    """Validate a native snapshot against its registration and project its state."""
+    identity = execution_identity_from_registered_request(
+        payload, pipeline=pipeline, handler_registry=handler_registry
+    )
+    expected = expected_ref.to_dict() if hasattr(expected_ref, 'to_dict') else expected_ref
+    if (not isinstance(expected, dict)
+            or set(expected) != set(identity) | {'registration_sha256'}
+            or any(expected.get(key) != value for key, value in identity.items())
+            or not isinstance(expected.get('registration_sha256'), str)
+            or not re.fullmatch(r'[0-9a-f]{64}', expected['registration_sha256'])):
+        raise RuntimeError('expected execution identity is invalid')
+    snapshot_keys = {
+        'schema', 'execution_ref', 'state', 'evidence_ref', 'runtime_identity',
+        'compute_identity', 'observation_health',
+    }
+    if (not isinstance(snapshot, dict) or set(snapshot) != snapshot_keys
+            or snapshot.get('schema') != 'cce.stage-execution.snapshot.v1'
+            or snapshot.get('execution_ref') != expected):
+        raise RuntimeError('native execution snapshot identity differs')
+    state = snapshot.get('state')
+    health = snapshot.get('observation_health')
+    if state not in {'accepted', 'running', 'succeeded', 'failed', 'canceled', 'unknown'}:
+        raise RuntimeError('native execution snapshot state is unsupported')
+    if health not in {'healthy', 'degraded'} or (state == 'unknown' and health != 'degraded'):
+        raise RuntimeError('native execution observation health is invalid')
+    runtime_identity = snapshot.get('runtime_identity')
+    if runtime_identity is not None and (
+        not isinstance(runtime_identity, dict)
+        or set(runtime_identity) != {'boot_id', 'pid', 'starttime_ticks', 'process_group_id'}
+        or not isinstance(runtime_identity.get('boot_id'), str)
+        or not STAGE_EXECUTION_TOKEN_RE.fullmatch(runtime_identity['boot_id'])
+        or any(type(runtime_identity.get(key)) is not int or runtime_identity[key] < 1
+               for key in ('pid', 'starttime_ticks', 'process_group_id'))
+    ):
+        raise RuntimeError('native runtime process identity is invalid')
+    compute_identity = snapshot.get('compute_identity')
+    if compute_identity is not None and (
+        not isinstance(compute_identity, dict)
+        or set(compute_identity) != {'compute_generation', 'master_uid'}
+        or (compute_identity.get('compute_generation') is not None
+            and (type(compute_identity['compute_generation']) is not int
+                 or compute_identity['compute_generation'] < 1))
+        or (compute_identity.get('master_uid') is not None
+            and (not isinstance(compute_identity['master_uid'], str)
+                 or not STAGE_EXECUTION_TOKEN_RE.fullmatch(compute_identity['master_uid'])))
+    ):
+        raise RuntimeError('native compute identity is invalid')
+    evidence_ref = snapshot.get('evidence_ref')
+    if (evidence_ref is not None and (not isinstance(evidence_ref, str)
+                                      or not STAGE_EXECUTION_TOKEN_RE.fullmatch(evidence_ref))):
+        raise RuntimeError('native execution evidence reference is invalid')
+    return {
+        'accepted': 'accepted',
+        'running': 'running',
+        'succeeded': 'success',
+        'failed': 'failed',
+        'canceled': 'canceled',
+        'unknown': None,
+    }[state]
+
+
 @contextmanager
 def _exclusive(path):
     try:
@@ -346,6 +456,46 @@ def _inactive_dispatcher(path, gate, pipeline):
     """A free lock/dead parent alone is not terminal dispatcher evidence."""
     worker = path.with_suffix('.worker.json' if pipeline == 'wgs' else '.worker.state.json')
     status = path.with_suffix('.status.json')
+    native_dispatch = path.with_suffix('.stage-execution.dispatch.json')
+    if os.path.lexists(path):
+        request = json.loads(_read_registered(path))
+        if not isinstance(request, dict):
+            raise RuntimeError('other dispatcher request is invalid')
+        marked = 'stage_execution' in request
+        if not marked and os.path.lexists(native_dispatch):
+            raise RuntimeError('native dispatcher belongs to a different protocol')
+        if marked:
+            if request['stage_execution'] != {'protocol': STAGE_EXECUTION_PROTOCOL}:
+                raise RuntimeError('other dispatcher protocol is unsupported')
+            if __package__:
+                from .cce_stage_execution_adapter import executor_for_registered
+            else:
+                from cce_stage_execution_adapter import executor_for_registered
+            executor, ref, binding = executor_for_registered(
+                request, gate=gate, pipeline=pipeline)
+            if (binding.request_path != path
+                    or binding.dispatch_path != native_dispatch):
+                raise RuntimeError('native dispatcher lock or dispatch path differs')
+            # Callers hold both exact stage locks through their writer decision.
+            quiet = executor.writer_quiescent(ref, locks_held=True)
+            if quiet is False:
+                raise RuntimeError('native dispatcher is active or uncertain')
+            if quiet is True:
+                if os.path.lexists(worker):
+                    raise RuntimeError('legacy dispatcher evidence remains beside native terminal')
+                return
+            # No native dispatch: legacy evidence still has to be reconciled.
+            if os.path.lexists(native_dispatch):
+                raise RuntimeError('native dispatcher evidence became uncertain')
+    else:
+        suffix = '.request.json' if pipeline == 'gatk' else '.json'
+        stage = path.name[:-len(suffix)] if path.name.endswith(suffix) else None
+        if (os.path.lexists(native_dispatch)
+                or (stage in COMMANDS and any(os.path.lexists(
+                    path.parent / directory / stage)
+                    for directory in ('stage-execution-registration',
+                                      'stage-execution-terminal')))):
+            raise RuntimeError('native dispatcher request is missing')
     if not worker.exists() and not status.exists():
         return  # Registered but never dispatched, or no request yet.
     if not worker.exists() or not status.exists() or not path.exists():
@@ -779,20 +929,24 @@ def resume_registered(payload, *, binding, gate, pipeline):
             or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', str(payload.get('resume_action_id') or ''))):
         raise RuntimeError('registered replacement requires Step2 or Step3 recovery')
     path, raw = _registered_request(payload, gate, pipeline)
+    if __package__:
+        from .cce_recovery_deadline import deadline_epoch, monitor_wait
+    else:
+        from cce_recovery_deadline import deadline_epoch, monitor_wait
+    monitor_wait(payload, 0)
+    original_deadline = deadline_epoch(payload)
     bundle = Path(binding['cce_bundle'])
     contract, config, modules = runtime._load(bundle, None)
-    writer = runtime.writer_for_bundle(runtime, bundle, contract, config)
+    writer = runtime.writer_for_bundle(runtime, bundle, contract, config,
+        **({'probe_deadline_epoch':original_deadline} if original_deadline is not None else {}))
     if writer is None:
         raise RuntimeError('trusted per-run writer registration required')
     if __package__:
         from .cce_recovery_inventory import RecoveryCapability
-        from .cce_recovery_deadline import deadline_epoch, monitor_wait
         from . import wgs_resume, gatk_resume
     else:
         from cce_recovery_inventory import RecoveryCapability
-        from cce_recovery_deadline import deadline_epoch, monitor_wait
         import wgs_resume, gatk_resume
-    monitor_wait(payload, 0)
     with ExitStack() as stack:
         # Exclude launches as well as execution. The current worker lock is
         # owned by the restricted gate, so it must not be acquired twice.
@@ -875,7 +1029,7 @@ def resume_registered(payload, *, binding, gate, pipeline):
 
         capability = RecoveryCapability(bundle=source, origin_bundle=bundle, expected_job_uid=old_uid, context=context,
             authorize=authorize, verify_lock=verify_lock, platform_execution=platform,
-            compute_deadline=deadline_epoch(payload),
+            compute_deadline=original_deadline,
             history_bundles=_source_history(path.parent,pipeline,runtime,bundle,contract,source))
         if pipeline == 'wgs':
             result = wgs_resume.resume_master(payload=payload, binding=binding, runtime=runtime, recovery=capability)
@@ -1133,6 +1287,9 @@ def _release_registered_writer(payload, binding, gate, pipeline,
     else:
         from cce_recovery_inventory import lineage_workers
         from cce_recovery_workloads import probe_final_workloads
+    # Step6 has no frozen final-release deadline. Step3's compute deadline and
+    # Step4's publish deadline do not govern this later read-only finalization.
+    release_query_deadline = time.monotonic() + 120
     with ExitStack() as locks:
         current_path, current_raw = _registered_request(payload, gate, pipeline)
         for stage in ('prepare', *COMMANDS, 'step7_cleanup'):
@@ -1155,7 +1312,8 @@ def _release_registered_writer(payload, binding, gate, pipeline,
             probe_final_workloads(runtime=runtime, config=config,
                 namespace=contract['kubernetes']['namespace'], run_label=binding['run_label'],
                 master_job=contract['kubernetes']['master_job'], master_job_uid=uid,
-                master_state='SUCCEEDED', workers=workers)
+                master_state='SUCCEEDED', workers=workers,
+                query_deadline_monotonic=release_query_deadline, reconnect_transient=True)
             return value['terminal']['submission_snapshot_sha256']
 
         evidence()  # Also required on an idempotent RELEASED replay.
@@ -1167,7 +1325,8 @@ def _release_registered_writer(payload, binding, gate, pipeline,
                 identity=identity,owner=owner,evidence_sha256=evidence(),inventory_complete=True,
                 workers_inactive=True,dispatcher_inactive=True,master_state='SUCCEEDED',protected_writes_complete=True)
         runtime._release_batch_lock(contract,config,lock_context=writer.context,
-            journal=writer.journal,save_journal=writer.save_journal,verify=proof)
+            journal=writer.journal,save_journal=writer.save_journal,verify=proof,
+            release_query_deadline=release_query_deadline)
 
 
 def _selected_registered(payload, *, binding, gate, pipeline, operation=None, runtime=None, query_owner=None):

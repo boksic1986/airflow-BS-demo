@@ -2450,6 +2450,8 @@ def test_forced_step2_retry_imports_terminal_receipt_before_new_generation(
                 WgsStageExecution.generation == 1,
             )
         )
+        assert first.json()["request_hash"] == generation_one.request_hash
+        assert first.json()["stage_execution"] == {"protocol": "cce.stage-execution.v1"}
         status_payload = {
             "schema_version": "wgs-runtime.stage-status.v1",
             "analysis_id": analysis_id,

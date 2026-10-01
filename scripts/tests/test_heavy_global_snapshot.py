@@ -46,4 +46,62 @@ class SnapshotTests(unittest.TestCase):
             with patch.object(m.subprocess,'run',return_value=Result({'items':leases['items'][:-1]})):
                 with self.assertRaises(ValueError):m.collect(['kubectl'],tmp)
 
+    def test_evidence_helpers_do_not_count_as_analysis_masters(self):
+        from unittest.mock import patch
+        import json,tempfile
+        now=datetime.now(timezone.utc).isoformat()
+        leases={'items':[{'metadata':{'name':'wgs-heavy-io-%02d'%i},
+                          'spec':{'holderIdentity':'owner' if i<2 else ''}}
+                         for i in range(25)]}
+        heavy_env=[{'name':'WGS_HEAVY_SLOT_MODE','value':'enforce'},
+                   {'name':'WGS_HEAVY_SLOT_LIMIT','value':'25'}]
+        def job(*, profile, run_label=None, action=None, env=()):
+            labels={'app.kubernetes.io/component':'snakemake-master',
+                    'cce.biosan.cn/profile-id':profile}
+            if run_label is not None: labels['cce.biosan.cn/run-id']=run_label
+            metadata={'labels':labels}
+            if action is not None: metadata['annotations']={'cce-pipeline/action':action}
+            return {'metadata':metadata,'spec':{'template':{'spec':{'containers':[{'env':list(env)}]}}}}
+        jobs={'items':[
+            job(profile='wgs-4.2.2',run_label='analysis-a',env=heavy_env),
+            job(profile='wgs-4.2.2',run_label='analysis-a',action='evidence-reader',env=heavy_env),
+            job(profile='wgs-4.2.2',action='evidence-reader'),
+            job(profile='gatk-scmc-v7.6.0'),
+        ]}
+        class Result:
+            def __init__(self,value): self.stdout=json.dumps(value)
+            def check_returncode(self): pass
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)/'run'/'attempt-1';root.mkdir(parents=True)
+            (root/'heavy-slot-status.json').write_text(json.dumps(dict(
+                schema_version='wgs-heavy-slot-status.v1',run_label='analysis-a',
+                updated_at=now,mode='enforce',limit=25,waiting_jobs=2)))
+            with patch.object(m.subprocess,'run',side_effect=[Result(leases),Result(jobs)]):
+                result=m.collect(['kubectl'],tmp)
+        self.assertEqual((result['used'],result['limit'],result['waiting'],result['mode']),
+                         (2,25,2,'enforce'))
+        self.assertEqual(result['reasons'],{})
+
+    def test_unmarked_wgs_master_without_heavy_config_stays_unavailable(self):
+        from unittest.mock import patch
+        import json,tempfile
+        leases={'items':[{'metadata':{'name':'wgs-heavy-io-%02d'%i},'spec':{}}
+                         for i in range(25)]}
+        jobs={'items':[{'metadata':{'labels':{
+            'app.kubernetes.io/component':'snakemake-master',
+            'cce.biosan.cn/profile-id':'wgs-4.2.2',
+            'cce.biosan.cn/run-id':'analysis-a'}},
+            'spec':{'template':{'spec':{'containers':[{'env':[]}]}}}}]}
+        class Result:
+            def __init__(self,value): self.stdout=json.dumps(value)
+            def check_returncode(self): pass
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(m.subprocess,'run',side_effect=[Result(leases),Result(jobs)]):
+                result=m.collect(['kubectl'],tmp)
+        self.assertEqual((result['used'],result['limit'],result['waiting'],result['mode']),
+                         (0,25,None,None))
+        self.assertEqual(result['reasons'],{
+            'waiting':'master_configuration_inconsistent',
+            'mode':'master_configuration_inconsistent'})
+
 if __name__ == '__main__': unittest.main()

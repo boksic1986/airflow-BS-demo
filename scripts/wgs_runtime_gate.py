@@ -46,6 +46,16 @@ ASYNC_STAGES = {
     "step5_download",
     "step7_cleanup",
 }
+NATIVE_STAGE_EXECUTION_STAGES = frozenset(
+    {
+        "step1_upload",
+        "step2_master",
+        "step3_monitor",
+        "step4_publish",
+        "step5_download",
+        "step6_materialize",
+    }
+)
 STEP_SCRIPTS = {
     "step1_upload": "Step1_upload_fastq.sh",
     "step2_master": "Step2_run.sh",
@@ -2893,7 +2903,7 @@ def _archive_failed_stage_generation(payload: dict[str, Any]) -> int:
 
 
 def _archive_contract_generation(
-    payload: dict[str, Any], generation: int
+    payload: dict[str, Any], generation: int, *, retain_worker_log: bool = False
 ) -> None:
     request_path = _request_path(
         str(payload["analysis_id"]), int(payload["attempt"]), str(payload["stage"])
@@ -2905,11 +2915,15 @@ def _archive_contract_generation(
     if final.exists() or partial.exists():
         raise RuntimeError("previous contract generation was already archived")
     partial.mkdir(mode=0o750)
-    for source, destination_name in (
+    sources = [
         (request_path.with_suffix(".status.json"), "status.json"),
         (request_path.with_suffix(".worker.json"), "worker.json"),
-        (request_path.with_suffix(".worker.log"), "worker.log"),
-    ):
+    ]
+    # The native executor opens this log before the new worker runs. Moving it
+    # from inside that worker would put the new generation's output in history.
+    if not retain_worker_log:
+        sources.append((request_path.with_suffix(".worker.log"), "worker.log"))
+    for source, destination_name in sources:
         if source.exists():
             os.replace(source, partial / destination_name)
     os.replace(partial, final)
@@ -2921,7 +2935,7 @@ def _archive_contract_generation(
 
 
 def _prepare_contract_generation(
-    payload: dict[str, Any], *, request_sha: str
+    payload: dict[str, Any], *, request_sha: str, retain_worker_log: bool = False
 ) -> int | None:
     if int(payload.get("orchestration_contract_version") or 1) != 2:
         return None
@@ -2959,8 +2973,60 @@ def _prepare_contract_generation(
     if worker and _process_matches(worker):
         raise RuntimeError("previous generation worker is still active")
     previous_generation = old_generations.pop()
-    _archive_contract_generation(payload, previous_generation)
+    _archive_contract_generation(
+        payload, previous_generation, retain_worker_log=retain_worker_log
+    )
     return previous_generation
+
+
+def _uses_native_stage_execution(payload: dict[str, Any]) -> bool:
+    if "stage_execution" not in payload:
+        return False
+    marker = payload["stage_execution"]
+    if (
+        marker != {"protocol": "cce.stage-execution.v1"}
+        or payload.get("stage") not in NATIVE_STAGE_EXECUTION_STAGES
+    ):
+        raise ValueError("unsupported WGS stage execution protocol or stage")
+    return True
+
+
+def _native_stage_adapter():
+    if __package__:
+        from . import cce_stage_execution_adapter
+    else:
+        import cce_stage_execution_adapter
+    return cce_stage_execution_adapter
+
+
+def start_native_stage(payload: dict[str, Any]) -> dict[str, Any]:
+    """Submit one registered Step1–6 execution through the shared native worker."""
+    if not _uses_native_stage_execution(payload):
+        raise ValueError("WGS native stage request is not registered")
+    if not _truthy("WGS_EXECUTION_ENABLED") or not _truthy("WGS_RUNTIME_ADAPTER_ENABLED"):
+        raise RuntimeError("WGS execution gate is disabled")
+    if payload["stage"] == "step4_publish" and any(
+        key in payload for key in ("publish_dispatch_version", "publish_deadline")
+    ):
+        if __package__:
+            from .cce_publish_recovery import registered_publish
+        else:
+            from cce_publish_recovery import registered_publish
+        registered_publish(payload, gate=sys.modules[__name__], pipeline="wgs")
+    snapshot = _native_stage_adapter().submit_registered_stage(
+        payload, gate=sys.modules[__name__], pipeline="wgs"
+    )
+    return snapshot.to_dict()
+
+
+def observe_native_stage(payload: dict[str, Any]):
+    """Return the native read-only snapshot for the current registered stage."""
+    if not _uses_native_stage_execution(payload):
+        raise ValueError("WGS native stage request is not registered")
+    executor, ref, _ = _native_stage_adapter().executor_for_registered(
+        payload, gate=sys.modules[__name__], pipeline="wgs"
+    )
+    return executor.observe(ref)
 
 
 def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
@@ -3170,6 +3236,39 @@ def _run_worker(payload: dict[str, Any]) -> int:
     return 0
 
 
+def _native_business_stage(ref: Any) -> None:
+    """Run only the existing WGS stage body inside the native worker lock."""
+    if ref.pipeline != "wgs" or ref.stage not in NATIVE_STAGE_EXECUTION_STAGES:
+        raise ValueError("unsupported WGS native stage")
+    payload = load_request(ref.analysis_id, ref.attempt, ref.stage)
+    if (
+        payload.get("stage_execution") != {"protocol": "cce.stage-execution.v1"}
+        or payload.get("orchestration_contract_version") != 2
+        or payload.get("execution_id") != ref.execution_id
+        or type(payload.get("generation")) is not int
+        or payload["generation"] != ref.stage_generation
+        or payload.get("request_hash") != ref.request_hash
+    ):
+        raise RuntimeError("WGS native worker request was superseded")
+    request_path = _request_path(ref.analysis_id, ref.attempt, ref.stage)
+    request_sha = hashlib.sha256(request_path.read_bytes()).hexdigest()
+    previous_generation = _prepare_contract_generation(
+        payload, request_sha=request_sha, retain_worker_log=True
+    )
+    current = _read_json(_sidecar_path(payload, ".status.json"))
+    if (
+        all(current.get(key) == payload.get(key) for key in
+            ("analysis_id", "attempt", "stage", "execution_id", "generation", "request_hash"))
+        and current.get("status") in {"success", "failed", "canceled"}
+    ):
+        # A crash after the business receipt cannot authorize a second run.
+        # The shared terminal reader validates this exact receipt separately.
+        return
+    retry_no = int(payload["generation"]) - 1 if previous_generation is not None else 0
+    _write_status(payload, "accepted", retry_no=retry_no)
+    _run_worker(payload)
+
+
 def _run_synchronous_stage(payload: dict[str, Any]) -> int:
     request_path = _request_path(
         str(payload["analysis_id"]), int(payload["attempt"]), str(payload["stage"])
@@ -3287,10 +3386,48 @@ def step7_probe(analysis_id: str, attempt: int, action: str, generation: int) ->
         return {**result, 'status': 'not_started'}
 
 
+def _native_cli_payload(arguments: list[str], *, worker: bool, submit: bool = False) -> dict[str, Any]:
+    expected = 5 if worker else 7
+    verb = "_native_worker" if worker else "--native-submit" if submit else "--native-observe"
+    if len(arguments) != expected or arguments[0] != verb:
+        raise ValueError("invalid WGS native stage command")
+    analysis_id, attempt_text, stage = arguments[1:4]
+    if (
+        ANALYSIS_RE.fullmatch(analysis_id) is None
+        or stage not in NATIVE_STAGE_EXECUTION_STAGES
+        or re.fullmatch(r"[1-9][0-9]{0,8}", attempt_text) is None
+    ):
+        raise ValueError("invalid WGS native stage identity")
+    generation_text = arguments[4] if worker else arguments[5]
+    if re.fullmatch(r"[1-9][0-9]{0,8}", generation_text) is None:
+        raise ValueError("invalid WGS native stage generation")
+    payload = load_request(analysis_id, int(attempt_text), stage)
+    if (
+        not _uses_native_stage_execution(payload)
+        or type(payload.get("generation")) is not int
+        or payload["generation"] != int(generation_text)
+    ):
+        raise ValueError("WGS native stage request was superseded")
+    if not worker and (
+        payload.get("execution_id") != arguments[4]
+        or payload.get("request_hash") != arguments[6]
+    ):
+        raise ValueError("WGS native observation identity was superseded")
+    return payload
+
+
 def main() -> int:
     global CCE_PIPELINE_BIN
     from wgs_release_runtime import select_release_runtime
 
+    if sys.argv[1:2] == ["_native_worker"]:
+        payload = _native_cli_payload(sys.argv[1:], worker=True)
+        CCE_PIPELINE_BIN = select_release_runtime(payload, default_cli=CCE_PIPELINE_BIN)
+        snapshot = _native_stage_adapter().run_registered_worker(
+            payload, gate=sys.modules[__name__], pipeline="wgs"
+        )
+        print(json.dumps(snapshot.to_dict(), sort_keys=True))
+        return 0
     reattach_mode = len(sys.argv) > 1 and sys.argv[1] == '--reattach'
     worker_mode = len(sys.argv) > 1 and sys.argv[1] == "--worker"
     command = (
@@ -3299,6 +3436,16 @@ def main() -> int:
         else os.getenv("SSH_ORIGINAL_COMMAND", "") or " ".join(sys.argv[1:])
     )
     parts = shlex.split(command)
+    if parts[:1] == ["--native-observe"]:
+        payload = _native_cli_payload(parts, worker=False)
+        CCE_PIPELINE_BIN = select_release_runtime(payload, default_cli=CCE_PIPELINE_BIN)
+        print(json.dumps(observe_native_stage(payload).to_dict(), sort_keys=True))
+        return 0
+    if parts[:1] == ["--native-submit"]:
+        payload = _native_cli_payload(parts, worker=False, submit=True)
+        CCE_PIPELINE_BIN = select_release_runtime(payload, default_cli=CCE_PIPELINE_BIN)
+        print(json.dumps(start_native_stage(payload), sort_keys=True))
+        return 0
     if parts and parts[0] in {'wgs-step7-status', 'wgs-step7-start'}:
         if len(parts) != 5:
             raise ValueError('invalid Step7 operation')
@@ -3331,9 +3478,15 @@ def main() -> int:
     payload = load_request(analysis_id, attempt, stage)
     CCE_PIPELINE_BIN = select_release_runtime(payload, default_cli=CCE_PIPELINE_BIN)
     if reattach_mode:
+        if _uses_native_stage_execution(payload):
+            raise RuntimeError("native stage execution cannot use the legacy reattach worker")
         return _finish_reattached_stage(payload)
     if worker_mode:
+        if _uses_native_stage_execution(payload):
+            raise RuntimeError("native stage execution cannot use the legacy worker")
         return _run_worker(payload)
+    if _uses_native_stage_execution(payload):
+        raise ValueError("marked WGS stage requires exact --native-submit identity")
     if stage in ASYNC_STAGES:
         print(json.dumps(start_async_stage(payload), sort_keys=True))
         return 0

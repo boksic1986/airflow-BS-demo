@@ -1,27 +1,29 @@
-"""Synthetic kubectl boundary checks; never query a cluster."""
+"""Synthetic native workload-query boundary checks; never query a cluster."""
 from copy import deepcopy
 import importlib
-import json
 from types import SimpleNamespace
 
 import pytest
 
 
 def job(name, uid, state="Failed"):
-    return dict(kind="Job", metadata=dict(name=name, namespace="test", uid=uid),
+    return dict(kind="Job", metadata=dict(name=name, namespace="test", uid=uid,
+        labels={"cce.biosan.cn/run-id": "synthetic-run"}),
         status=dict(active=0, conditions=[dict(type=state, status="True")]))
 
 
 def pod(name, uid, owner, code=1):
+    job_name = name.removesuffix("-pod")
     return dict(kind="Pod", metadata=dict(name=name, namespace="test", uid=uid,
-        ownerReferences=[dict(kind="Job", uid=owner, controller=True)]),
+        labels={"cce.biosan.cn/run-id": "synthetic-run", "job-name": job_name},
+        ownerReferences=[dict(kind="Job", name=job_name, uid=owner, controller=True)]),
         spec=dict(containers=[dict(name="main")]),
         status=dict(phase="Failed" if code else "Succeeded",
             containerStatuses=[dict(name="main", state=dict(terminated=dict(exitCode=code)))]))
 
 
 @pytest.fixture
-def cluster(monkeypatch):
+def cluster():
     objects = {
         ("job", "master"): job("master", "master-uid"),
         ("pods", "master"): dict(kind="PodList", metadata={},
@@ -33,25 +35,43 @@ def cluster(monkeypatch):
         ("pods", "not-created"): dict(kind="PodList", metadata={}, items=[]),
     }
     calls = []
-    def execute(argv, **kwargs):
-        calls.append(argv)
-        assert argv[:3] == ["synthetic-kubectl", "-n", "test"]
-        assert argv[3] == "get" and kwargs["timeout"] == 30
-        kind = argv[4]
-        name = argv[5] if kind == "job" else argv[6].removeprefix("job-name=")
-        value = objects[kind, name]
-        if isinstance(value, Exception):
-            raise value
-        return SimpleNamespace(returncode=0, stdout="" if value is None else json.dumps(value), stderr="")
-    monkeypatch.setattr("subprocess.run", execute)
-    runtime = SimpleNamespace(_kubectl=lambda config, *args: ["synthetic-kubectl", "-n", config["kubernetes"]["namespace"], *args])
+    def query(config, *args, timeout):
+        assert config["kubernetes"]["namespace"] == "test"
+        assert 0 < timeout <= 30
+        calls.append(args)
+        if args == ("job", "master"):
+            return deepcopy(objects["job", "master"])
+        selected = args in {
+            ("jobs", "-l", "cce.biosan.cn/run-id=" + runtime.run_label, "--chunk-size=0"),
+            ("pods", "-l", "cce.biosan.cn/run-id=" + runtime.run_label, "--chunk-size=0")}
+        assert selected or args in {("jobs", "--chunk-size=0"), ("pods", "--chunk-size=0")}
+        kind = "job" if args[0] == "jobs" else "pods"
+        metadata, items = {}, []
+        for (entry_kind, _), value in objects.items():
+            if entry_kind != kind:
+                continue
+            if isinstance(value, Exception):
+                raise ValueError("workload query unavailable") from None
+            if kind == "pods":
+                if value is None:
+                    return None
+                if value["metadata"].get("continue"):
+                    metadata["continue"] = value["metadata"]["continue"]
+                entries = value["items"]
+            else:
+                entries = [] if value is None else [value]
+            items.extend(entry for entry in entries if not selected or
+                entry["metadata"].get("labels", {}).get("cce.biosan.cn/run-id") == runtime.run_label)
+        return deepcopy(dict(kind="JobList" if kind == "job" else "PodList",
+            metadata=metadata, items=items))
+    runtime = SimpleNamespace(_recovery_query=query, run_label="synthetic-run")
     return objects, calls, runtime
 
 
 def probe(cluster, **override):
     module = importlib.import_module("scripts.cce_recovery_workloads")
     kwargs = dict(runtime=cluster[2], config={"kubernetes": {"namespace": "test"}},
-        namespace="test", master_job="master", master_job_uid="master-uid",
+        namespace="test", run_label="synthetic-run", master_job="master", master_job_uid="master-uid",
         master_pod_uid="master-pod-uid",
         workers=[dict(name="worker", uid="worker-uid"), dict(name="not-created", uid=None)])
     kwargs.update(override)
@@ -66,7 +86,7 @@ def test_exact_terminal_objects_return_observations_not_recovery_authority(clust
     assert result["workers"] == [dict(name="worker", uid="worker-uid", job_state="Complete", pods=1),
                                  dict(name="not-created", uid=None, job_state="absent", pods=0)]
     assert not ({"sealed", "complete", "automatic_recovery_allowed", "worker_inventory_complete"} & result.keys())
-    assert len(cluster[1]) == 6
+    assert len(cluster[1]) == 5
 
 
 @pytest.mark.parametrize("change", ["master_uid", "pod_uid", "pod_owner", "master_active",

@@ -30,9 +30,14 @@ def final_cluster(mirrored_final,monkeypatch):
     objects={'master':master,workers[0]['name']:worker}
     lists={'jobs':{'kind':'JobList','metadata':{},'items':[master,worker]},
            'pods':{'kind':'PodList','metadata':{},'items':[]}}
+    lists['namespace_jobs']=lists['jobs']
+    lists['namespace_pods']=lists['pods']
     def query(config,*args,**kwargs):
         if args[0]=='job':return copy.deepcopy(objects.get(args[1]))
-        if args[2].startswith('job-name='):return {'kind':'PodList','metadata':{},'items':[]}
+        if args in {('jobs','--chunk-size=0'),('pods','--chunk-size=0')}:
+            return copy.deepcopy(lists['namespace_'+args[0]])
+        assert args in {('jobs','-l','cce.biosan.cn/run-id='+label,'--chunk-size=0'),
+                        ('pods','-l','cce.biosan.cn/run-id='+label,'--chunk-size=0')}
         return copy.deepcopy(lists[args[0]])
     # Only external Kubernetes responses are substituted.
     monkeypatch.setattr(runtime,'_recovery_query',query)
@@ -52,7 +57,7 @@ def test_final_inventory_reconciles_live_or_reclaimed_terminal_work(final_cluste
     assert result['master_state']=='FAILED'
 
 
-def test_present_workers_use_complete_job_list_but_absent_workers_need_exact_get(final_cluster,monkeypatch):
+def test_present_and_reclaimed_workers_use_shared_lists_and_exact_master_get(final_cluster,monkeypatch):
     kwargs,objects,lists,workers=final_cluster
     original=runtime._recovery_query
     calls=[]
@@ -61,14 +66,15 @@ def test_present_workers_use_complete_job_list_but_absent_workers_need_exact_get
         return original(config,*args,**kwargs)
     monkeypatch.setattr(runtime,'_recovery_query',query)
     workloads.probe_final_workloads(**kwargs)
-    assert ('job',workers[0]['name']) not in calls
-    assert ('job','master') in calls
-    assert ('pods','-l','job-name='+workers[0]['name'],'--chunk-size=0') in calls
+    expected=[('jobs','-l','cce.biosan.cn/run-id='+kwargs['run_label'],'--chunk-size=0'),
+              ('pods','-l','cce.biosan.cn/run-id='+kwargs['run_label'],'--chunk-size=0'),
+              ('jobs','--chunk-size=0'),('pods','--chunk-size=0'),('job','master')]
+    assert calls == expected
     del objects[workers[0]['name']]
     lists['jobs']['items']=[objects['master']]
     calls.clear()
     workloads.probe_final_workloads(**kwargs)
-    assert ('job',workers[0]['name']) in calls
+    assert calls == expected
 
 
 def test_same_uid_pod_completion_between_lists_requires_fresh_observation(final_cluster,monkeypatch):
@@ -83,12 +89,7 @@ def test_same_uid_pod_completion_between_lists_requires_fresh_observation(final_
     finished['status']={'phase':'Succeeded','containerStatuses':[{'name':'worker',
         'state':{'terminated':{'exitCode':0}}}]}
     lists['pods']['items']=[active]
-    original=runtime._recovery_query
-    def query(config,*args,**kwargs):
-        if args==('pods','-l','job-name='+worker['name'],'--chunk-size=0'):
-            return {'kind':'PodList','metadata':{},'items':[copy.deepcopy(finished)]}
-        return original(config,*args,**kwargs)
-    monkeypatch.setattr(runtime,'_recovery_query',query)
+    lists['namespace_pods']={'kind':'PodList','metadata':{},'items':[finished]}
     with pytest.raises(workloads.InventoryMoved):
         workloads.probe_final_workloads(**dict(kwargs,allow_active_workers=True))
 
@@ -108,12 +109,7 @@ def test_same_uid_terminal_pod_conflict_is_not_inventory_movement(final_cluster,
         changed['status']['containerStatuses'][0]['state']['terminated']['exitCode']=1
     else:changed['status']={'phase':'Running'}
     lists['pods']['items']=[terminal]
-    original=runtime._recovery_query
-    def query(config,*args,**kwargs):
-        if args==('pods','-l','job-name='+worker['name'],'--chunk-size=0'):
-            return {'kind':'PodList','metadata':{},'items':[copy.deepcopy(changed)]}
-        return original(config,*args,**kwargs)
-    monkeypatch.setattr(runtime,'_recovery_query',query)
+    lists['namespace_pods']={'kind':'PodList','metadata':{},'items':[changed]}
     with pytest.raises(ValueError) as error:
         workloads.probe_final_workloads(**dict(kwargs,allow_active_workers=True))
     assert not isinstance(error.value,workloads.InventoryMoved)
@@ -134,12 +130,7 @@ def test_same_uid_pod_transition_with_wrong_run_label_is_hard_conflict(final_clu
     if label is None:del finished['metadata']['labels']
     else:finished['metadata']['labels']['cce.biosan.cn/run-id']=label
     lists['pods']['items']=[active]
-    original=runtime._recovery_query
-    def query(config,*args,**kwargs):
-        if args==('pods','-l','job-name='+worker['name'],'--chunk-size=0'):
-            return {'kind':'PodList','metadata':{},'items':[copy.deepcopy(finished)]}
-        return original(config,*args,**kwargs)
-    monkeypatch.setattr(runtime,'_recovery_query',query)
+    lists['namespace_pods']={'kind':'PodList','metadata':{},'items':[finished]}
     with pytest.raises(ValueError) as error:
         workloads.probe_final_workloads(**dict(kwargs,allow_active_workers=True))
     assert not isinstance(error.value,workloads.InventoryMoved)

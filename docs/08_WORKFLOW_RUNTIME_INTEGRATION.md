@@ -52,6 +52,285 @@ stage transition; the current execution transition and its terminal receipt
 remain authoritative. Stale/foreign generations and terminal regressions stay
 rejected. The runtime request and receipt formats are unchanged.
 
+## UE-05 bound terminal consumers (2026-09-30, source only)
+
+The shared UE-04 native terminal validator now accepts an explicitly expected
+failed/canceled terminal as well as succeeded; the success-only finalization
+wrapper keeps its existing contract. R2 uses a complete current native Step3
+snapshot, the frozen version-correct request and business receipt to bind the
+queued action's compute terminal. Its action/DagRun/attempt/execution identity
+is retained for budget arbitration without removing downstream authorization.
+Manual Resume Step1/2 retains its entry stage in action metadata; the actual
+compute terminal binds the current Step3 registration and frozen/native identity
+authorized by that same action. The entry stage is not rewritten to Step3.
+Fresh polling still requires the latest monitor execution; old durable bindings
+can settle their original historical action but cannot settle a replacement.
+
+The first exact native `failed` terminal for the source monitor persists a permit
+bound to that reservation, monitor and original caller. It allows the same
+caller to reach Worker waiting despite stale UI `query_unconfirmed`. An active
+wait becomes ready only after a later POST with an independently validated nonce
+Worker probe. Worker quiet, the original wait deadline and recovery budget remain
+separate checks. The permit does not settle a replacement monitor.
+
+R4 failure and cleanup consume the same full native snapshot through the existing
+authenticated internal request channel. The backend chooses the protected stage
+from trusted run/route state, not from the supplied snapshot's stage. Unknown,
+missing or stale observations preserve state and ownership. A fresh matching
+failed receipt can project the real failure despite an old UI-only reconnect
+diagnostic. Cleanup retains transfer receipts, lease ownership and Worker quiet
+requirements; a failed monitor process is not proof that Workers stopped, and
+a successful Step2 handoff is not a completed analysis.
+
+## UE-05 Airflow SSH transport boundary (2026-09-30; source only)
+
+Airflow's WGS/GATK current Step1-6 and P0 dispatch/observe callers share one
+OpenSSH connection layer. It keeps the registered command and restricted
+identity fixed, uses a 30-second handshake with OpenSSH internal attempts
+disabled, and allows at most three pre-session connection attempts with
+5/10-second backoff within the original single call budget. A separate WGS
+request-visibility business retry retains that same failure count and deadline.
+Only fully recognized
+pre-session exit-255 failures with empty stdout can be reconnected. A mixed,
+authenticated, post-session or timed-out command does not qualify for write
+replay. The P0 Step4 120-second dispatch, 30-second read probe and Step3
+150-second Worker probe limits retain any earlier frozen deadline. One
+logical probe may reconnect its SSH session, but its nonce, backend decision
+and Worker quiescence budget are unchanged.
+
+Transport outcomes are not native stage terminals. Ambiguous marked submits
+are reconciled through the UE-04 exact `execution_ref` observation; an unknown
+snapshot cannot permit a second launch, downstream transition or release.
+The connection layer cannot create an attempt/generation, run biological work
+for the duration of a stage, spend a recovery budget or grant P0 redispatch.
+No native SSH retry engine or production runtime installation is included.
+
+## UE-05 final writer query window (2026-09-30; source pairing in progress)
+
+The registered Step6 final writer now creates one local monotonic 120-second
+read window. Both full native workload inventories, including the fresh CAS
+proof, and the paired native directory-lock release receive the same absolute
+deadline. Each workload query remains at most 30 seconds. Only typed native
+`TRANSPORT` and `SERVICE` failures reconnect that read-only query with
+deadline-bound backoff, starting at 2 seconds and capped at 5 seconds.
+Malformed, incomplete, conflicting or active inventories still fail closed.
+The query retry sits inside the final inventory call, so it
+does not rerun Step6 materialization or repeat the release write. The Step3
+compute deadline and Step4 publish deadline do not govern later Step6 release.
+
+The platform delta was exercised with a pinned native read-only query and a
+stubbed lock release callback. It proves the platform deadline propagation
+and fresh inventory calls, not the paired native lock signature, actual CAS,
+installed wheel or live cloud behavior. The native owner validates the lock
+path separately before paired delivery. Missing lock/journal without trusted
+release proof remains an unknown outcome; the platform does not reconstruct a
+lock or infer release from a missing Job.
+
+
+## UE-04 receipt and native terminal convergence (2026-09-30; source only)
+
+WGS normal and P0 recovery Step3 registration require the latest successful
+Step2 receipt and bind its execution ID, generation and receipt hash. A late
+Step2 sidecar is ingested once after the first registration transaction releases
+its run lock; the caller then rechecks the current attempt, DagRun, recovery
+action and stop state under a new lock. Reused Step3 registrations and frozen
+recovery requests must still match the current predecessor tuple. This does not
+launch Step2 again or authorize a new Master.
+
+For a newly marked WGS/GATK Step6, the existing business status receipt alone
+does not prove native completion. The finalizer checks the latest registered
+Step6 generation and exact receipt digest, then requires a fresh complete
+`cce.stage-execution.snapshot.v1` from the fixed read-only native observation:
+`state=succeeded`, matching execution ref and `evidence_ref`. Observation
+health remains an independent field; `unknown` cannot finalize. WGS uses the
+SHA-256 of the exact status sidecar bytes, while GATK retains its canonical
+receipt hash. Neither Airflow task success nor a private control receipt by
+itself substitutes for both matching pieces of evidence. Legacy unmarked
+requests keep their historical receipt behavior. These source changes have not
+been deployed to node200 or a production environment.
+
+The WGS frozen request digest is rechecked against the current execution before
+choosing the marked or unmarked Step6 finalization path. The original producer
+hash excludes the six execution-envelope fields, and excludes the later-added
+v2 version for initial dispatch; recovery retains the v2 version in its hash.
+Removing a marker or changing the version therefore cannot downgrade a current
+marked execution into receipt-only completion.
+
+For Master TTL handoff, platform registered Step4/5 already pass the selected
+Master bundle and exact UID to the pinned native entry; native commit `4fa85874`
+adds a separate ordinary v2 Step4/5 fallback to the persisted handoff after a
+valid terminal. The existing platform selected-Master test stubs log download,
+and the native ordinary-path test directly covers Step4/log export but not a
+direct Step5 invocation. Source call-chain inspection does not prove an active
+deployed policy pin or full paired TTL acceptance.
+
+## UE-03 shared workload inventory (2026-09-29; source only)
+
+The native query source at commit `6f5c120` accepts fixed, read-only
+`_recovery_query(config, "jobs", "--chunk-size=0", timeout=...)` and the
+corresponding `pods` form. It retains typed query errors, the 4 MiB response
+limit, and rejection of incomplete or paginated lists. Platform workload
+observation now uses this interface only; it does not construct a second
+kubectl/subprocess path.
+
+Each proof reads complete run-label Job and Pod lists, complete namespace Job
+and Pod lists, and the exact current Master Job. A shared in-memory index
+compares the two lists by frozen name, UID, run label, Pod owner, terminal state
+and container exits. A namespace object from another run is ignored unless its
+name, UID, label or owner conflicts with the bound run. A missing Worker
+requires its validated persisted terminal and no residual Pods; 404 alone is
+insufficient. A changed but individually valid inventory raises
+`InventoryMoved`; an identity or terminal conflict fails closed. Active
+Workers can be counted for observation but cannot satisfy recovery or final
+writer release. Release and lock CAS take fresh proof rather than reusing a
+previous list. Total query budget is at most 120 seconds and each native query
+at most 30 seconds; the original compute deadline further bounds recovery
+inspection when one was frozen.
+
+`probe_bound_workloads` uses the same index. Its run label comes from the
+native `master_job.run_label` transformation of the validated submission
+context's raw `run_id`; the raw ID is never used as a Kubernetes label. This
+helper still requires the exact failed Master and its terminal Pod because
+that earlier submission snapshot does not contain a sufficient persisted
+replacement for the Pod diagnostics. The final recovery path accepts TTL
+reclamation only with complete persisted native FINAL and Worker terminals.
+These are observations, not dispatch or deletion authority.
+
+The Heavy global collector excludes only Jobs with the explicit native
+`cce-pipeline/action=evidence-reader` annotation. Native evidence-reader and
+directory-probe helpers carry this annotation even when copied from the
+Master template. Unmarked WGS Masters with missing Heavy configuration still
+produce `master_configuration_inconsistent`; GATK Masters keep their existing
+quota separation. The source change does not alter any production Job or
+snapshot. Native directory-probe retry and original stage deadline handling
+are tracked separately by the native UE-03 owner.
+
+The only current platform writer entry with an applicable frozen absolute
+deadline is registered Step2/3 compute recovery: `resume_registered` validates
+the exact request, checks `cce_recovery_deadline`, and passes that same epoch
+to the native writer's optional internal probe limit. Without that field it
+uses the existing writer call. Ordinary Step3 observation skips writer
+validation. Step4's `publish_deadline` applies to fresh dispatch only;
+reattachment and an already started business worker must not inherit it as a
+probe or stage-completion deadline. Ordinary Step1/4/6 have no applicable
+frozen absolute deadline. The native directory probe retains its own bounded
+read-only operation budget, without creating a new stage lifetime.
+
+## UE-02 native gate wiring (2026-09-29; source only)
+
+Native cce-pipeline source `6c0aee2` permits an absolute, generation-private
+`status_path` outside the request/dispatch directory and exposes
+`writer_quiescent(ref, locks_held=True)` for callers holding both exact stage
+locks. `scripts/cce_stage_execution_adapter.py` binds only the already
+registered WGS or GATK Step1–Step6 request to one native `StageExecutor`.
+The selected gate, paths, worker command and business handler are deployment
+owned; request fields cannot select a module, path or command. An explicit
+invalid or null `stage_execution` marker fails closed. Unmarked frozen requests
+retain their legacy gate path.
+
+The adapter atomically freezes exact request bytes, the selected batch binding
+and native ref in a private 0700 directory with 0600 files before native submit.
+Each generation has a distinct private terminal control receipt. The handler
+continues to write the existing shared business `.status.json`; after it
+finishes, the adapter validates exact identity, WGS/GATK schema, terminal state
+and GATK receipt hash before publishing the matching private control receipt.
+The reader checks that receipt against the frozen registration and, while the
+generation is current, the business status. An older ref resolves from its
+immutable private registration, with any available backend request history
+checked for equality. A valid older shared dispatch may precede a new
+generation's first freeze; native submit still requires its terminal receipt
+and quiescent process group. Missing, conflicting or legacy evidence remains
+closed. `compute_identity` is currently null; it is not inferred from business
+status.
+
+WGS and GATK new-marker gate entries submit to the shared native executor;
+their existing business stage functions remain the handlers. Old worker CLI
+entries reject a new marker. WGS retains the native-open `.worker.log` while
+archiving the prior generation's shared status, so a new live log is not moved
+into history. The paired recovery and final writer call native
+`writer_quiescent` while holding both stage locks, and reject missing request
+files if a WGS `<stage>.json` or GATK `<stage>.request.json` still has private
+registration or terminal evidence.
+
+Step4's explicit publish-dispatch path retains registered request/hash checks.
+For an opted-in publish deadline, a **fresh** native launch checks it under the
+native launch lock; a duplicate may reattach after expiry. Ordinary Step4
+requests without the publish opt-in use their existing business handler and
+stage timer, with no invented publish deadline. Native Step4 observation uses
+the exact private dispatch/terminal binding; unknown evidence is uncertain.
+
+This slice changes source only. DAG/backend acceptance of asynchronous native
+launches, shared observation and recovery transition policy belong to UE-04.
+GATK `resume` is not activated in the shipped registry. If a backend overwrites
+an active old request before it can publish its terminal, the result stays
+unknown pending reconciliation; no receipt is fabricated. No wheel was
+installed, and no node200 or production state changed. The BS10610 synthetic
+candidate ran the four focused platform files against native source `6c0aee2`:
+30 passed; independent four-item delta review reported Ready with no remaining
+Critical or Important finding. Exact log, JUnit and input hashes are in the
+latest `HANDOFF.md`.
+
+## Unified stage execution v1: UE-01 contract (2026-09-28)
+
+New WGS and GATK Step1–Step6 stage requests freeze the top-level extension
+`stage_execution: {"protocol":"cce.stage-execution.v1"}` before computing their
+existing `request_hash`. The platform `orchestration_contract_version=2` remains
+unchanged. Existing frozen requests retain their original bytes and hashes;
+legacy WGS re-entry returns the matching registration without adding the marker,
+and the immutable GATK prepare request remains outside this stage protocol.
+
+The pathless `ExecutionRef` carries `protocol`, registry-key `pipeline`,
+`analysis_id`, `attempt`, `stage`, `execution_id`, `stage_generation`,
+`request_hash`, and `registration_sha256`. Platform `generation` maps to
+`stage_generation` only at the adapter boundary; the existing seven-key
+`platform_execution` object is unchanged. Identity tokens use 1–256 ASCII
+characters, beginning with an alphanumeric and continuing with alphanumerics,
+underscore, dot, colon or hyphen; attempt and generation are positive integers
+(not booleans). The registration digest is SHA-256 of canonical UTF-8 JSON
+using sorted keys, compact separators, `ensure_ascii=False`,
+`allow_nan=False`, and no trailing newline. Its envelope contains the eight ref
+identity fields other than `registration_sha256`, plus the trusted frozen
+`runtime_binding`. Mutable state, runtime evidence and post-registration CREATE
+deadlines are excluded. A deadline already frozen in the request is covered by
+its `request_hash`; deadlines remain governed by their original stage-specific
+source and timer. The public ref has no deadline, filesystem path, command or
+module field.
+
+`ExecutionSnapshot` uses schema `cce.stage-execution.snapshot.v1` and carries the
+complete `execution_ref`, state, opaque `evidence_ref`, nullable process
+`runtime_identity`, separate nullable CCE `compute_identity`, and independent
+`observation_health`. States are `accepted`, `running`, `succeeded`, `failed`,
+`canceled`, and `unknown`. Platform `success` maps to native `succeeded`; `failed`
+and `canceled` retain their meanings. `unknown` must be marked degraded and does
+not overwrite the last confirmed platform state. It never authorizes another
+dispatch, stage advancement, lock release, or recovery. Read-only `canceled` adds
+no cancellation API and does not prove remote compute quiescence.
+
+The node200 gate/operator Python owns the deployment-fixed resolver and
+`(pipeline, stage)` handler registry. Unknown or disabled registry keys fail
+closed. The Airflow container does not import the native wheel or accept a
+request-selected path or command. UE-01 adds the contract mapping and request
+marker only; later lifecycle work remains separately gated. The sole platform
+fixture is
+`scripts/tests/test_cce_stage_execution_contract.py::test_current_execution_contract`,
+run on BS10610's synthetic test environment.
+
+UE-04 source gate bridge: marked WGS/GATK Step1–Step6 submit commands serialize
+the complete native `ExecutionSnapshot.to_dict()` result, preserving its exact
+execution ref, native state, evidence ref and independent observation health.
+They do not infer business success from an accepted launch or SSH exit code.
+The restricted GATK `--native-observe` command requires the current frozen
+analysis, attempt, stage, execution ID, generation and request hash, then calls
+the shared adapter's read-only `observe(ref)`; WGS uses its corresponding fixed
+command. Marked DAG dispatch uses the fixed restricted `--native-submit` with
+the same six identity fields and rejects a superseded generation or hash
+before any native submit; the adapter independently rechecks frozen bytes
+under its launch fence. The old `wgs-runtime`/`gatk-runtime` CLI shape rejects
+marked requests, while unmarked frozen requests retain their existing path.
+Step4's separately authorized `--publish-dispatch` keeps its exact hash fence.
+`unknown` is returned as evidence for same-ref reconciliation and never
+authorizes another launch. This source bridge is not deployed to node200.
+
 ## Paired request validation (2026-09-27)
 
 WGS initial dispatch hashes the body before adding the v2 execution envelope,
@@ -1082,22 +1361,24 @@ still allowed afterward. Eight tests of this existing entry passed on BS10610.
 This is one entry-point fence, not completion of generic resume, GATK, Step7,
 dispatch or PostgreSQL concurrency acceptance. No unrelated regression rerun.
 
-### Bound workload observations (2026-09-23, not a terminal seal)
+### Bound workload observations (2026-09-23 baseline, superseded query mechanics)
 
-`scripts/cce_recovery_workloads.py:probe_bound_workloads` issues read-only
-exact-name Job and job-name-selected Pod queries through the frozen runtime's
-kubectl command builder. Configured namespace must match the frozen binding.
+`scripts/cce_recovery_workloads.py:probe_bound_workloads` originally issued
+per-Worker exact-name Job and job-name-selected Pod queries. UE-03 replaces
+those query mechanics with the shared five-query native inventory above.
+Configured namespace must match the frozen binding.
 The exact Master Job UID must be Failed/inactive, and the bound Master Pod UID
 must appear among terminated, correctly owned Pods. Worker UIDs are exact;
-missing Jobs still require querying their residual Pods. An expected absent
+missing Jobs still require checking their residual Pods. An expected absent
 Worker with no known UID cannot adopt an unexpected Job/Pod.
 
 All main/init/ephemeral container status inventories must match Pod specs and
 show terminated exit codes. Active/deleting/foreign/ambiguous objects, missing
 Pod lists, pagination, failed queries and changed identities reject. Only a
-successful exact-name --ignore-not-found query may represent an absent Job.
-Each command has at most30s and the caller's overall budget at most300s (default
-120s). No Kubernetes writes, deletion, file mutation or status changes occur.
+complete namespace list can now establish absence, with the separate exact
+Master read checked for movement. Each command has at most 30 seconds and the
+overall query budget at most 120 seconds. No Kubernetes writes, deletion, file
+mutation or status changes occur.
 
 Caller MUST first bind a complete submission journal and admitted Worker
 manifest to the frozen Master context; an arbitrary list is not complete proof.
