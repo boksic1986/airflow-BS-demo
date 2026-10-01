@@ -1872,21 +1872,13 @@ def sync_run_airflow(analysis_id: str) -> dict[str, object]:
 def run_detail(analysis_id: str) -> dict[str, object]:
     try:
         with get_sessionmaker()() as session:
-            payload = get_run_detail(session=session, analysis_id=analysis_id)
             run = session.scalar(
                 select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
             )
-            if run is not None:
-                definition = require_pipeline(get_settings(), run.pipeline_name)
-                if definition.adapter.project_run_detail is not None:
-                    payload.update(
-                        definition.adapter.project_run_detail(
-                            session=session,
-                            settings=get_settings(),
-                            run=run,
-                        )
-                        or {}
-                    )
+            payload = (
+                _build_read_run_detail(session=session, settings=get_settings(), run=run)
+                if run is not None else None
+            )
     except PipelineRegistryError as exc:
         raise _pipeline_http_exception(exc) from exc
     if payload is None:
@@ -1894,6 +1886,16 @@ def run_detail(analysis_id: str) -> dict[str, object]:
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
         )
+    return payload
+
+
+def _build_read_run_detail(*, session, settings, run: AnalysisRun) -> dict[str, object]:
+    payload = get_run_detail(session=session, analysis_id=run.analysis_id, run=run)
+    definition = require_pipeline(settings, run.pipeline_name)
+    if definition.adapter.project_run_detail is not None:
+        payload.update(definition.adapter.project_run_detail(
+            session=session, settings=settings, run=run,
+        ) or {})
     return payload
 
 
@@ -1948,34 +1950,37 @@ def run_workspace(analysis_id: str) -> dict[str, object]:
     # Reuse the public run-detail projection while keeping the browser's first
     # paint to one HTTP resource. Only a pre-download queue candidate additionally
     # reads current Airflow task evidence; numeric progress remains DB-backed.
-    detail = run_detail(analysis_id)
-    with get_sessionmaker()() as session:
-        run = session.scalar(
-            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
-        )
-        if run is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
+    try:
+        with get_sessionmaker()() as session:
+            run = session.scalar(
+                select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
             )
-        settings = get_settings()
-        require_pipeline(settings, run.pipeline_name, capability="rules")
-        if run.pipeline_name == "gatk":
-            return build_gatk_workspace(
+            if run is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
+                )
+            settings = get_settings()
+            detail = _build_read_run_detail(session=session, settings=settings, run=run)
+            require_pipeline(settings, run.pipeline_name, capability="rules")
+            if run.pipeline_name == "gatk":
+                return build_gatk_workspace(
+                    session=session,
+                    run=run,
+                    run_payload=detail,
+                )
+            return build_wgs_workspace(
                 session=session,
                 run=run,
                 run_payload=detail,
+                heavy_slot_limit=int(getattr(settings, "wgs_heavy_slot_limit", 25)),
+                heavy_slot_mode=str(getattr(settings, "wgs_heavy_slot_mode", "monitor-only")),
+                evidence_root=str(getattr(settings, "wgs_evidence_root", "") or ""),
+                settings=settings,
+                airflow_client=get_airflow_client(),
             )
-        return build_wgs_workspace(
-            session=session,
-            run=run,
-            run_payload=detail,
-            heavy_slot_limit=int(getattr(settings, "wgs_heavy_slot_limit", 25)),
-            heavy_slot_mode=str(getattr(settings, "wgs_heavy_slot_mode", "monitor-only")),
-            evidence_root=str(getattr(settings, "wgs_evidence_root", "") or ""),
-            settings=settings,
-            airflow_client=get_airflow_client(),
-        )
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
 
 
 @app.get("/api/runs/{analysis_id}/families")

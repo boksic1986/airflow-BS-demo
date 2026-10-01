@@ -1,9 +1,11 @@
+import hashlib
 import json
+from pathlib import Path
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
-from app.models import AnalysisRun, Base, WgsMaintenanceAction
-from app.wgs_step7_service import observe_maintenance, maintenance_context
+from app.models import AnalysisRun, Base, RunStageState, WgsMaintenanceAction, WgsStageExecution
+from app.wgs_step7_service import observe_maintenance, maintenance_context, request_step7_cleanup
 
 
 @pytest.fixture
@@ -29,6 +31,121 @@ def test_timeout_sync_does_not_change_analysis(setup):
     assert action.error_message == '清理状态待确认'
     assert run.status == 'success'
     assert action.ended_at is not None
+
+
+def test_protocol_scope_default_failure_callback_preserves_original_error(setup):
+    run, action, args = setup
+    original_error = '清理进程已退出，尚无成功回执'
+    observe_maintenance(**args, status='failed', message=original_error)
+
+    result = observe_maintenance(
+        **args, status='failed', message='清理监控已停止，重试前需核对原执行',
+    )
+
+    assert result['error_message'] == original_error
+    assert observe_maintenance(**args, status='failed')['error_message'] == original_error
+    assert action.error_message == original_error
+    assert action.status == 'failed'
+    assert run.status == 'success'
+
+
+def test_protocol_scope_stopped_legacy_retry_preserves_old_registration(setup):
+    from app.wgs_observer import _ingest_runtime_stage_status
+    from app.wgs_stage_catalog import load_wgs_stage_contract
+    from app.wgs_stage_execution_service import register_stage_execution
+    from test_wgs_step7_service import FakeAirflow
+
+    run, old_action, args = setup
+    session = args['session']
+    run.params_json = {'analysis_batch': 'SYNTHETIC', 'orchestration_contract_version': 2}
+    frozen_target = {'cce_bundle': '/approved/synthetic/frozen-cce'}
+    old_action.target_snapshot_json = dict(frozen_target)
+    old_body = {
+        'analysis_id': run.analysis_id, 'attempt': 1, 'stage': 'step7_cleanup',
+        'maintenance_action_id': old_action.action_id, 'step7_generation': 1,
+        'step7_target_snapshot': dict(frozen_target),
+        'stage_execution': {'protocol': 'cce.stage-execution.v1'},
+    }
+    old_hash = hashlib.sha256(json.dumps(
+        old_body, sort_keys=True, separators=(',', ':'),
+    ).encode()).hexdigest()
+    old_execution = WgsStageExecution(
+        execution_id='wse_synthetic_rejected_step7', analysis_id=run.analysis_id,
+        attempt=1, stage_code='step7_cleanup', generation=1, status='accepted',
+        request_hash=old_hash, release_id='wgs-4.2.2-441d5e7',
+    )
+    session.add(old_execution)
+    for stage in ('step5_download', 'step6_materialize'):
+        session.add(RunStageState(
+            analysis_id=run.analysis_id, attempt=1, stage_code=stage,
+            stage_label=stage, stage_status='success', progress_source='synthetic',
+        ))
+    session.commit()
+    root = args['request_root'] / run.analysis_id / 'attempt-1'
+    root.mkdir(parents=True)
+    frozen_request = {
+        **old_body, 'orchestration_contract_version': 2,
+        'execution_id': old_execution.execution_id, 'generation': 1,
+        'request_hash': old_hash,
+    }
+    original_bytes = (json.dumps(frozen_request, sort_keys=True) + '\n').encode()
+    request_path = root / 'step7_cleanup.json'
+    request_path.write_bytes(original_bytes)
+    status_path = root / 'step7_cleanup.status.json'
+    status_path.write_text(json.dumps({
+        **frozen_request, 'schema_version': 'wgs-runtime.stage-status.v1',
+        'status': 'accepted', 'updated_at': '2026-09-22T01:00:00+00:00',
+    }))
+    observe_maintenance(**args, status='failed', message='清理进程已退出，尚无成功回执')
+    retried = request_step7_cleanup(
+        session=session, airflow_client=FakeAirflow(), analysis_id=run.analysis_id,
+        batch_confirmation='SYNTHETIC', requested_by='synthetic',
+        retry_failed=True, expected_action_id=old_action.action_id,
+    )
+    new_action = session.scalar(select(WgsMaintenanceAction).where(
+        WgsMaintenanceAction.action_id == retried['action_id'],
+    ))
+    retry_args = {
+        **args, 'action_id': new_action.action_id, 'generation': 2,
+        'dag_run_id': new_action.maintenance_dag_run_id,
+    }
+    context = maintenance_context(**retry_args)
+    assert context['action'] == old_action.action_id
+    assert context['runtime_identity']['request_hash'] == old_hash
+
+    observe_maintenance(**retry_args, status='stopped')
+
+    session.refresh(old_execution)
+    assert old_execution.status == 'failed'
+    assert old_execution.request_hash == old_hash
+    assert request_path.read_bytes() == original_bytes
+    sessions = sessionmaker(bind=session.get_bind())
+    assert _ingest_runtime_stage_status(sessions, args['request_root'], status_path) is False
+    session.refresh(old_execution)
+    assert old_execution.status == 'failed'
+    new_body = {
+        **old_body, 'maintenance_action_id': new_action.action_id,
+        'step7_generation': 2,
+    }
+    new_body.pop('stage_execution')
+    execution = register_stage_execution(
+        session=session, run=run,
+        contract=load_wgs_stage_contract(Path(__file__).parents[2] / 'config' / 'wgs_stage_contract.yaml'),
+        stage_code='step7_cleanup', request_payload=new_body,
+    )
+    session.commit()
+
+    assert execution.generation == 2
+    assert execution.status == 'accepted'
+    assert 'stage_execution' not in new_body
+    assert new_body['step7_target_snapshot'] == frozen_target
+    assert new_action.target_snapshot_json == old_action.target_snapshot_json == frozen_target
+    assert old_execution.request_hash == old_hash
+    assert request_path.read_bytes() == original_bytes
+    assert _ingest_runtime_stage_status(sessions, args['request_root'], status_path) is False
+    session.refresh(execution)
+    assert execution.status == 'accepted'
+    assert run.status == 'success'
 
 
 @pytest.mark.parametrize('field,value', [('attempt', 2), ('generation', 2),

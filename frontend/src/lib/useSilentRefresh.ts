@@ -1,27 +1,28 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {errorMessage} from './errors';
 
-export type RefreshContext = {isCurrent: () => boolean; initial: boolean};
+export type RefreshContext = {isCurrent: () => boolean; initial: boolean; signal: AbortSignal};
 
-/** One in-flight request per mounted consumer, with stale-route fencing. */
+/** One in-flight task per current scope, with cancellation and stale-route fencing. */
 export function useSilentRefresh(task: (context: RefreshContext) => Promise<unknown>, key: string, enabled = true, intervalMs = 10000) {
   const taskRef = useRef(task);
   taskRef.current = task;
   const keyRef = useRef(key);
   keyRef.current = key;
-  const pending = useRef<Promise<unknown> | null>(null);
   const trigger = useRef<() => Promise<void>>(async () => {});
   const completed = useRef(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) { trigger.current = async () => {}; return; }
     let alive = true;
     let timer: number | undefined;
     let failures = 0;
     let scheduled = false;
+    let controller: AbortController | null = null;
     const isCurrent = () => alive && keyRef.current === key;
+    setError(null);
     const delay = () => Math.max(document.visibilityState === 'hidden' ? 60000 : intervalMs,
       failures ? Math.min(60000, 20000 * 2 ** (failures - 1)) : 0);
     const schedule = () => {
@@ -32,18 +33,18 @@ export function useSilentRefresh(task: (context: RefreshContext) => Promise<unkn
       if (!isCurrent() || scheduled) return;
       scheduled = true;
       window.clearTimeout(timer);
-      // A route change may leave a request in flight. Wait; never publish it.
-      if (pending.current) await pending.current.catch(() => undefined);
-      if (!isCurrent()) { scheduled = false; return; }
-      const request = Promise.resolve().then(() => taskRef.current({isCurrent, initial: !completed.current}));
-      pending.current = request;
+      const requestController = new AbortController();
+      controller = requestController;
       try {
-        await request;
+        await Promise.resolve().then(() => {
+          if (!isCurrent() || requestController.signal.aborted) return;
+          return taskRef.current({isCurrent, initial: !completed.current, signal: requestController.signal});
+        });
         if (isCurrent()) { failures = 0; setError(null); }
       } catch (failure) {
         if (isCurrent()) { failures++; setError(errorMessage(failure)); }
       } finally {
-        if (pending.current === request) pending.current = null;
+        if (controller === requestController) controller = null;
         if (isCurrent()) { completed.current = true; setLoading(false); }
         scheduled = false;
         schedule();
@@ -60,7 +61,9 @@ export function useSilentRefresh(task: (context: RefreshContext) => Promise<unkn
     void run();
     return () => {
       alive = false;
+      controller?.abort();
       window.clearTimeout(timer);
+      if (trigger.current === run) trigger.current = async () => {};
       document.removeEventListener('visibilitychange', visibility);
       window.removeEventListener('focus', focus);
     };

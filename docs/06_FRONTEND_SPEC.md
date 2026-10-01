@@ -1,5 +1,28 @@
 # Frontend specification
 
+## Batch Runs and Run Detail request lifecycle (2026-10-02 candidate)
+
+The shared API client's public GET path has a default 30-second total budget
+covering fetch, response-body reading and the existing network retry. At most
+one retry remains available for a network `TypeError`; its 250-ms wait shares
+the original deadline and can be cancelled. Abort and timeout failures do not
+retry. HTTP response errors retain the existing handling. Cancellation bounds
+the browser request; it does not authorize any server-side workflow operation.
+
+Batch Runs forwards its refresh scope's abort signal through `listRuns`. Run
+Detail forwards signals through workspace/detail and active-tab requests,
+including log reads and search. Its workspace first-screen refresh and active
+tab refresh use independent scopes, so a slow tab request cannot hold the next
+workspace refresh. Run/attempt/query/tab changes and unmounts cancel the prior
+scope; stale responses and their `finally` handlers cannot publish state or
+release the new scope's request ownership.
+
+Existing last-good DOM and loading/error behavior are retained. Other pages
+keep their existing loading semantics; this change does not claim that every
+page forwards cancellation signals. No new page, response field, automatic
+workflow retry or cleanup action is introduced. These are candidate request
+behaviors, not evidence of production deployment or elimination of all delay.
+
 ## GATK transfer-slot waiting projection (2026-09-28, source only)
 
 Run Tracker and Run Detail Current progress consume the GATK API's Step1/Step5

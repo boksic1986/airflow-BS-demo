@@ -530,6 +530,33 @@ Frozen cleanup target equality is checked on registration; retries preserve
 the original target. Unowned partial remnants remain blocked. No new delete
 implementation or changes to Step1–6/GATK/bioinformatics scripts.
 
+### Step7 producer protocol scope correction (2026-10-02; source candidate)
+
+The shared WGS/GATK backend freezer marks new requests only when their actual
+`stage` is `step1_upload`, `step2_master`, `step3_monitor`, `step4_publish`,
+`step5_download` or `step6_materialize`. Step7 retains the legacy execution path
+and its frozen cleanup bundle; GATK's independent cleanup registration also
+remains unmarked. An explicit `stage_execution` must match both the supported
+protocol and stage: null, malformed or unsupported-stage markers fail closed.
+Matching existing unmarked registrations reuse their request bodies and hashes
+without adding a marker or rewriting that historical identity.
+
+This correction does not patch an existing marked Step7 request or sidecar.
+A later retry needs explicit user authorization and follows the existing
+maintenance context/probe/`stopped` flow: exact proof that the prior executor
+stopped closes its stage as failed before a new unmarked generation is
+registered. The prior database request/hash identity remains unchanged; the
+existing runner can reuse the per-stage request filename when retry is
+authorized, so preservation of that file's old bytes is not promised. A late
+accepted sidecar cannot revive the closed generation. Retry and cleanup
+scope remain subject to the
+[test/production and data boundaries](34_TEST_PRODUCTION_RELEASE_BOUNDARY.md).
+
+If a failed maintenance action already has a concrete error, a later empty or
+default monitor failure callback retains that error. An exact successful runtime
+receipt still takes precedence. This entry describes the source correction;
+deployed state is recorded in the release and handoff records.
+
 ## P0 correction interface (2026-09-25, isolated source accepted)
 
 Checkpoint297bcee replaces UID-0 selection with fixed code-adjacent

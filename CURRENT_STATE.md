@@ -1,5 +1,21 @@
 # Current state
 
+## 2026-10-02 STEP7-PERF authorized fix and BS96 release in progress
+
+User authorized the Step7 function fix, webpage loading fix, normal main/real
+production branch synchronization and BS96 deployment. Work starts from the
+accepted80abdfc product plus93ff950 diagnostic docs in an isolated branch.
+New tests run only on BS10610; two coordinator review points precede production
+apply. This authorization does not retry Step7 or delete clinical/cloud data.
+
+Step7 GREEN37 and backend read GREEN26 passed, with original RED evidence.
+Frontend's first24 selected checks pass; two new attempt-isolation defects were
+reproduced and minimally fixed. Final7 affected tests, tsc and build pass. Source
+and rollback-template reviews found no remaining source blocker. BS96 all27
+business runs are terminal; eight global Airflow GETs show no queued/running
+DagRuns or active/waiting TIs at17:07:26Z. Refresh before apply. Only backend
+and frontend-nginx are selected; no Git push or deployment has occurred yet.
+
 ## 2026-10-02 STEP7-20260927C read-only diagnosis complete
 
 WGS_20260928_130059_3B40E3 attempt1 remains biological success/11 samples.

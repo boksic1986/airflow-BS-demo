@@ -4,6 +4,10 @@ import re
 
 STAGE_EXECUTION_PROTOCOL = "cce.stage-execution.v1"
 STAGE_EXECUTION_EXTENSION = {"protocol": STAGE_EXECUTION_PROTOCOL}
+_NATIVE_STAGES = frozenset({
+    "step1_upload", "step2_master", "step3_monitor",
+    "step4_publish", "step5_download", "step6_materialize",
+})
 _SNAPSHOT_SCHEMA = "cce.stage-execution.snapshot.v1"
 _SNAPSHOT_KEYS = frozenset({
     "schema", "execution_ref", "state", "evidence_ref", "runtime_identity",
@@ -18,14 +22,17 @@ _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
 
 def freeze_stage_execution_protocol(request_payload: dict) -> None:
-    """Freeze the public executor protocol before the request hash is computed."""
+    """Freeze native Step1–Step6 before hashing; other stages stay legacy."""
     if not isinstance(request_payload, dict):
         raise ValueError("stage execution request must be an object")
+    stage = request_payload.get("stage")
+    native_stage = isinstance(stage, str) and stage in _NATIVE_STAGES
     if "stage_execution" in request_payload:
-        if request_payload["stage_execution"] != STAGE_EXECUTION_EXTENSION:
-            raise ValueError("unsupported stage execution protocol")
+        if request_payload["stage_execution"] != STAGE_EXECUTION_EXTENSION or not native_stage:
+            raise ValueError("unsupported stage execution protocol or stage")
         return
-    request_payload["stage_execution"] = dict(STAGE_EXECUTION_EXTENSION)
+    if native_stage:
+        request_payload["stage_execution"] = dict(STAGE_EXECUTION_EXTENSION)
 
 
 def require_native_stage_terminal(

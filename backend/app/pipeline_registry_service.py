@@ -127,7 +127,7 @@ def _project_gatk_samples(*, session, run, **_) -> dict[str, Any]:
 
 def _project_gatk_run_detail(*, run, session, settings, **_) -> dict[str, Any]:
     from app.gatk_step7_service import capability
-    cleanup = capability(session=session, settings=settings, run=run)
+    cleanup = capability(session=session, settings=settings, run=run, verify_frozen=False)
     action = cleanup.get("latest_action") or {}
     params = dict(run.params_json or {})
     return {
@@ -217,12 +217,13 @@ def _project_wgs_samples(*, session, settings, run, include_sample_details=False
     return get_wgs_sample_projection(session=session, settings=settings, run=run, include_sample_details=include_sample_details)
 
 
-def _project_wgs_dashboard_qc_statuses(*, session, settings, runs, **_) -> dict[str, str]:
+def _project_wgs_dashboard_qc_statuses(*, session, settings, runs, samples_by_run=None, **_) -> dict[str, str]:
     return {
         run.analysis_id: get_wgs_batch_qc_status(
             session=session,
             settings=settings,
             run=run,
+            samples=samples_by_run.get(run.analysis_id, []) if samples_by_run is not None else None,
         )
         for run in runs
     }

@@ -1190,6 +1190,9 @@ export function getApiBaseUrl(): string {
 let csrfToken = "";
 
 const GET_NETWORK_RETRY_DELAY_MS = 250;
+const GET_REQUEST_TIMEOUT_MS = 30000;
+
+export type GetRequestOptions = {signal?: AbortSignal; timeoutMs?: number};
 
 async function fetchResponseBody(url: string, init: RequestInit): Promise<{response: Response; body: string}> {
   const response = await fetch(url, init);
@@ -1198,15 +1201,79 @@ async function fetchResponseBody(url: string, init: RequestInit): Promise<{respo
 }
 
 function isRetryableNetworkError(error: unknown): boolean {
-  if (error instanceof DOMException && error.name === "AbortError") return false;
+  if (error && typeof error === "object" && "name" in error
+    && (error.name === "AbortError" || error.name === "TimeoutError")) return false;
   return error instanceof TypeError;
 }
 
-function wait(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+function requestCancellation(error: unknown, fallbackName = "AbortError"): Error {
+  if (error instanceof Error) return error;
+  const value = error && typeof error === "object" ? error as {name?: unknown; message?: unknown} : null;
+  const failure = new Error(typeof value?.message === "string" ? value.message : "Request cancelled");
+  failure.name = typeof value?.name === "string" ? value.name : fallbackName;
+  return failure;
 }
 
-async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) { reject(requestCancellation(signal.reason)); return; }
+    const abort = () => {
+      window.clearTimeout(timer);
+      signal.removeEventListener("abort", abort);
+      reject(requestCancellation(signal.reason));
+    };
+    const timer = window.setTimeout(() => {
+      signal.removeEventListener("abort", abort);
+      resolve();
+    }, milliseconds);
+    signal.addEventListener("abort", abort, {once: true});
+  });
+}
+
+async function fetchGetResponseBody(url: string, init: RequestInit, options: GetRequestOptions): Promise<{response: Response; body: string}> {
+  const controller = new AbortController();
+  const externalSignal = options.signal || init.signal;
+  const timeoutMs = options.timeoutMs ?? GET_REQUEST_TIMEOUT_MS;
+  const timeout = new Error(`GET request timed out after ${timeoutMs} ms.`);
+  timeout.name = "TimeoutError";
+  let abort: () => void = () => {};
+  const cancelled = new Promise<never>((_resolve, reject) => {
+    abort = () => reject(requestCancellation(controller.signal.reason));
+    controller.signal.addEventListener("abort", abort, {once: true});
+  });
+  const cancelExternal = () => controller.abort(externalSignal?.reason);
+  externalSignal?.addEventListener("abort", cancelExternal, {once: true});
+  const timer = window.setTimeout(() => controller.abort(timeout), timeoutMs);
+  const fetchWithRetry = async () => {
+    if (controller.signal.aborted) throw requestCancellation(controller.signal.reason);
+    const requestInit = {...init, signal: controller.signal};
+    try {
+      return await fetchResponseBody(url, requestInit);
+    } catch (error) {
+      if (controller.signal.aborted || !isRetryableNetworkError(error)) throw error;
+      await wait(GET_NETWORK_RETRY_DELAY_MS, controller.signal);
+      if (controller.signal.aborted) throw requestCancellation(controller.signal.reason);
+      return fetchResponseBody(url, requestInit);
+    }
+  };
+  try {
+    if (externalSignal?.aborted) cancelExternal();
+    // The same deadline also bounds body reads and the existing retry/backoff.
+    return await Promise.race([fetchWithRetry(), cancelled]);
+  } catch (error) {
+    if (error && typeof error === "object" && "name" in error
+      && (error.name === "AbortError" || error.name === "TimeoutError")) {
+      throw requestCancellation(error);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timer);
+    externalSignal?.removeEventListener("abort", cancelExternal);
+    controller.signal.removeEventListener("abort", abort);
+  }
+}
+
+async function requestJson<T>(path: string, init?: RequestInit, options: GetRequestOptions = {}): Promise<T> {
   const method = String(init?.method || "GET").toUpperCase();
   const headers = new Headers(init?.headers);
   if (!{"GET": true, "HEAD": true, "OPTIONS": true}[method] && csrfToken && path !== "/auth/login") {
@@ -1214,14 +1281,9 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   }
   const url = `${getApiBaseUrl()}${path}`;
   const requestInit = {...init, headers, credentials: "same-origin" as RequestCredentials};
-  let result: {response: Response; body: string};
-  try {
-    result = await fetchResponseBody(url, requestInit);
-  } catch (error) {
-    if (method !== "GET" || !isRetryableNetworkError(error)) throw error;
-    await wait(GET_NETWORK_RETRY_DELAY_MS);
-    result = await fetchResponseBody(url, requestInit);
-  }
+  const result = method === "GET"
+    ? await fetchGetResponseBody(url, requestInit, options)
+    : await fetchResponseBody(url, requestInit);
   const {response, body} = result;
   const contentType = String(response.headers.get("content-type") || "").toLowerCase();
   const looksHtml = contentType.includes("text/html") || /^\s*<!doctype html|^\s*<html/i.test(body);
@@ -1291,7 +1353,7 @@ function summarizeResponseText(body: string): string {
   return body.replace(/\s+/g, " ").trim().slice(0, 240);
 }
 
-export function listRuns(options: RunListOptions = {}): Promise<RunListResponse> {
+export function listRuns(options: RunListOptions = {}, requestOptions: GetRequestOptions = {}): Promise<RunListResponse> {
   const params = new URLSearchParams();
   if (options.pipeline) params.set("pipeline", options.pipeline);
   if (options.status) params.set("status", options.status);
@@ -1299,7 +1361,7 @@ export function listRuns(options: RunListOptions = {}): Promise<RunListResponse>
   params.set("sort", options.sort || "created_desc");
   params.set("limit", String(options.limit ?? 50));
   params.set("offset", String(options.offset ?? 0));
-  return requestJson<RunListResponse>(`/runs?${params.toString()}`);
+  return requestJson<RunListResponse>(`/runs?${params.toString()}`, undefined, requestOptions);
 }
 
 export function listSamplesResource(options: {
@@ -1607,8 +1669,8 @@ export function submitWgsSubmissionDraft(draftId: string, idempotencyKey: string
   });
 }
 
-export function getRunDetail(analysisId: string): Promise<RunDetail> {
-  return requestJson<RunDetail>(`/runs/${encodeURIComponent(analysisId)}`);
+export function getRunDetail(analysisId: string, options: GetRequestOptions = {}): Promise<RunDetail> {
+  return requestJson<RunDetail>(`/runs/${encodeURIComponent(analysisId)}`, undefined, options);
 }
 
 export type SubmissionCancelPreview = {analysis_id: string; attempt: number; effects: string[]};
@@ -1639,8 +1701,8 @@ export async function listIncompleteWgsSubmissions(): Promise<RunDetail[]> {
   }
 }
 
-export function getRunWorkspace(analysisId: string): Promise<RunWorkspaceResponse> {
-  return requestJson<RunWorkspaceResponse>(`/runs/${encodeURIComponent(analysisId)}/workspace`);
+export function getRunWorkspace(analysisId: string, options: GetRequestOptions = {}): Promise<RunWorkspaceResponse> {
+  return requestJson<RunWorkspaceResponse>(`/runs/${encodeURIComponent(analysisId)}/workspace`, undefined, options);
 }
 
 export type NativeExecution = {
@@ -1667,8 +1729,8 @@ export function getNativeRunView(analysisId: string, options: NativeViewQuery): 
   return requestJson<NativeRunView>(`/runs/${encodeURIComponent(analysisId)}/native-view?${params}`);
 }
 
-export function getRunSamples(analysisId: string): Promise<{items: Sample[]; manifest?: WgsSampleManifestRow[]; manifest_summary?: WgsManifestSummary}> {
-  return requestJson<{items: Sample[]; manifest?: WgsSampleManifestRow[]; manifest_summary?: WgsManifestSummary}>(`/runs/${encodeURIComponent(analysisId)}/samples`);
+export function getRunSamples(analysisId: string, options: GetRequestOptions = {}): Promise<{items: Sample[]; manifest?: WgsSampleManifestRow[]; manifest_summary?: WgsManifestSummary}> {
+  return requestJson<{items: Sample[]; manifest?: WgsSampleManifestRow[]; manifest_summary?: WgsManifestSummary}>(`/runs/${encodeURIComponent(analysisId)}/samples`, undefined, options);
 }
 
 export async function getWgsSubmissionSnapshot(analysisId: string): Promise<{detail: RunDetail; items: Sample[]}> {
@@ -1698,7 +1760,7 @@ export function getRunFamilies(analysisId: string): Promise<{items: WgsFamily[]}
 export type RuleQuery = {attempt?: number; limit?: number; offset?: number; status?: string; rule?: string; sampleId?: string; familyId?: string; phase?: string; sort?: "execution_order" | "active_first"};
 export type RulePhaseSummary = {phase: string; status: string; total: number; running: number; success: number; failed: number; canceled: number};
 export type RulePage = {items: RuleEvent[]; total: number; limit: number; offset: number; attempt?: number; current_attempt?: number; attempts?: number[]; phase_summaries?: RulePhaseSummary[]; phases?: Array<{key: string; label: string; order: number}>; filter_options?: {sample_ids: string[]; family_ids: string[]}};
-export function getRunRules(analysisId: string, options: RuleQuery = {}): Promise<RulePage> {
+export function getRunRules(analysisId: string, options: RuleQuery = {}, requestOptions: GetRequestOptions = {}): Promise<RulePage> {
   const params = new URLSearchParams();
   params.set("limit", String(options.limit ?? 50));
   params.set("offset", String(options.offset ?? 0));
@@ -1709,15 +1771,15 @@ export function getRunRules(analysisId: string, options: RuleQuery = {}): Promis
   if (options.familyId) params.set("family_id", options.familyId);
   if (options.phase) params.set("phase", options.phase);
   if (options.sort) params.set("sort", options.sort);
-  return requestJson<RulePage>(`/runs/${encodeURIComponent(analysisId)}/rules?${params.toString()}`);
+  return requestJson<RulePage>(`/runs/${encodeURIComponent(analysisId)}/rules?${params.toString()}`, undefined, requestOptions);
 }
 
-export function getRunPods(analysisId: string): Promise<{items: WgsPod[]}> {
-  return requestJson<{items: WgsPod[]}>(`/runs/${encodeURIComponent(analysisId)}/pods`);
+export function getRunPods(analysisId: string, options: GetRequestOptions = {}): Promise<{items: WgsPod[]}> {
+  return requestJson<{items: WgsPod[]}>(`/runs/${encodeURIComponent(analysisId)}/pods`, undefined, options);
 }
 
-export function getRunTransfers(analysisId: string): Promise<{items: WgsTransfer[]}> {
-  return requestJson<{items: WgsTransfer[]}>(`/runs/${encodeURIComponent(analysisId)}/transfers`);
+export function getRunTransfers(analysisId: string, options: GetRequestOptions = {}): Promise<{items: WgsTransfer[]}> {
+  return requestJson<{items: WgsTransfer[]}>(`/runs/${encodeURIComponent(analysisId)}/transfers`, undefined, options);
 }
 
 export function getTransferFiles(transferId: string, options: {status?: string; limit?: number; offset?: number} = {}): Promise<{items: WgsTransferFile[]; total: number; limit: number; offset: number}> {
@@ -1729,16 +1791,16 @@ export function getTransferFiles(transferId: string, options: {status?: string; 
   return requestJson<{items: WgsTransferFile[]; total: number; limit: number; offset: number}>(`/transfers/${encodeURIComponent(transferId)}/files?${params.toString()}`);
 }
 
-export function getRunValidationIssues(analysisId: string): Promise<{items: WgsValidationIssue[]}> {
-  return requestJson<{items: WgsValidationIssue[]}>(`/runs/${encodeURIComponent(analysisId)}/validation-issues`);
+export function getRunValidationIssues(analysisId: string, options: GetRequestOptions = {}): Promise<{items: WgsValidationIssue[]}> {
+  return requestJson<{items: WgsValidationIssue[]}>(`/runs/${encodeURIComponent(analysisId)}/validation-issues`, undefined, options);
 }
 
 export function revalidateRun(analysisId: string): Promise<RunDetail> {
   return requestJson<RunDetail>(`/runs/${encodeURIComponent(analysisId)}/actions/revalidate`, {method: "POST"});
 }
 
-export function getRunProgress(analysisId: string): Promise<RunProgressResponse> {
-  return requestJson<RunProgressResponse>(`/runs/${encodeURIComponent(analysisId)}/progress`);
+export function getRunProgress(analysisId: string, options: GetRequestOptions = {}): Promise<RunProgressResponse> {
+  return requestJson<RunProgressResponse>(`/runs/${encodeURIComponent(analysisId)}/progress`, undefined, options);
 }
 
 export function getRunQc(analysisId: string): Promise<RunQc> {
@@ -1753,18 +1815,18 @@ export function getRunConfig(analysisId: string): Promise<RunConfig> {
   return requestJson<RunConfig>(`/runs/${encodeURIComponent(analysisId)}/config`);
 }
 
-export function getRunLog(analysisId: string, stream: LogStream, key?: string, query?: string, matchIndex = 0): Promise<RunLog> {
+export function getRunLog(analysisId: string, stream: LogStream, key?: string, query?: string, matchIndex = 0, options: GetRequestOptions = {}): Promise<RunLog> {
   const params = new URLSearchParams({stream, tail: "200"});
   if (key) params.set("key", key);
   if (query?.trim()) {
     params.set("query", query.trim());
     params.set("match_index", String(matchIndex));
   }
-  return requestJson<RunLog>(`/runs/${encodeURIComponent(analysisId)}/logs?${params.toString()}`);
+  return requestJson<RunLog>(`/runs/${encodeURIComponent(analysisId)}/logs?${params.toString()}`, undefined, options);
 }
 
-export async function getRunLogIndex(analysisId: string): Promise<{items: RunLogIndexItem[]; archive?: RunLogArchive}> {
-  const result = await requestJson<{items: RunLogIndexItem[]; archive?: RunLogArchive}>(`/runs/${encodeURIComponent(analysisId)}/logs/index`);
+export async function getRunLogIndex(analysisId: string, options: GetRequestOptions = {}): Promise<{items: RunLogIndexItem[]; archive?: RunLogArchive}> {
+  const result = await requestJson<{items: RunLogIndexItem[]; archive?: RunLogArchive}>(`/runs/${encodeURIComponent(analysisId)}/logs/index`, undefined, options);
   if (result.archive?.available && result.archive.key) {
     result.archive.url = `${getApiBaseUrl()}/runs/${encodeURIComponent(analysisId)}/logs/archive?key=${encodeURIComponent(result.archive.key)}`;
   }

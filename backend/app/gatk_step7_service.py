@@ -142,17 +142,18 @@ def _snapshot_files(settings, run, receipt):
         'predecessor_receipt_hash':receipt.receipt_hash}
 
 
-def capability(*, session, settings, run):
+def capability(*, session, settings, run, verify_frozen=True):
     latest = _latest(session, run)
     reason = None
     try:
         receipt = _check(session, settings, run)
-        _snapshot(settings, run, receipt)
+        if verify_frozen:
+            _snapshot(settings, run, receipt)
     except ValueError as exc:
         reason = str(exc)
     blocked = reason
     observed_status=latest.status if latest else None
-    if latest and latest.status == 'failed' and not blocked:
+    if latest and latest.status == 'failed' and not blocked and verify_frozen:
         try:
             state=_runtime_terminal(settings,run,latest)
             if state == 'success':

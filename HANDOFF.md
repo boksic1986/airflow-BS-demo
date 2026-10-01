@@ -1,5 +1,62 @@
 # Handoff
 
+## 2026-10-02 — STEP7-PERF release fix authorized and started
+
+Human authorization relayed by airflow-cloud-demo: fix webpage loading and
+Step7 deletion-function issue, synchronize accepted code plus fixes to main
+and actual production branch, then deploy BS96. Normal pushes are authorized;
+no force push/reset, data cleanup or automatic Step7 retry is authorized.
+Scope: Step1-6-only shared protocol marking, exact legacy request/hash reuse,
+synthetic stopped-predecessor recovery boundary and specific-error retention;
+bounded Batch Runs/Run Detail read efficiency and frontend GET cancellation/
+deadline/scope fixes. Network-interface/firewall changes are excluded. Backend
+POST action validation, clinical bindings, original scanner/auto/watermark/
+pools and unrelated overlays remain protected. Tests only on BS10610 with
+synthetic SQLite/mock execution; no clinical/SFS deletion is a test.
+
+Working on existing isolated tree at source80+docs93ff950, branch
+jiucheng/backend/STEP7-PERF-20261002-release-fix. After fetch, origin/main and
+origin/jiucheng/release/production are bothce497d61 and are ancestors of this
+tree; local main/production refs are613b095. Independent audit is checking all
+accepted commits and actual overlay preservation before selecting the exact
+candidate. Local artifact root `.codex-artifacts/step7-perf-fix-20261002`.
+Review point1 is minimal candidate plus BS10610 results; point2 is exact
+commit/mount diff/active-run impact/services/rollback before BS96 deploy.
+Root is the sole production writer. No production write has begun.
+
+Implementation/TEST progress: Step7 RED30 has6 expected failures; GREEN37 passed.
+Backend read RED initially reached8 true defects and2 invalid synthetic registry
+fixtures; corrected fixtures then yielded2 duplicate-session assertion failures.
+Backend GREEN26 passed including rich QC and GATK strict cleanup guards. Frontend
+RED13 selected had9 failures; a subsequent24 selected checks passed, while two
+new reviewer attempt-boundary cases correctly failed. Those are now minimally
+fixed; final7 affected tests, tsc and build passed. All tests use pinned BS10610
+network-disabled scratch containers. No local runtime test was run.
+
+The initial frontend container-name fingerprint failed before writes; docker ps
+supplied frontend-nginx and the corrected fingerprint passed. An optional broad
+node_modules find hit protected old scratch directories; dropped it and reused
+pinned image dependencies, without changing permissions. Raw logs/XML and the
+separate failure record remain under the task evidence/artifact roots.
+
+BS96 readonly preflight preserved backend7aadaf93/frontend4df1, source80 parents,
+images/env/mounts/current and effective scan=true/auto=false/original watermark.
+All27 business records are terminal. At17:07:26Z, global queued/running DagRuns
+and running/queued/scheduled/deferred/up_for_retry/up_for_reschedule TIs all
+returned complete empty pages. This is bounded scheduler evidence, not a proof
+about all external workers. Stage old accepted requests are not patched/retried.
+
+Actual release will replace only backend and frontend-nginx mounts. The backend
+inherits its110-file parent with exactly9 reviewed file increments and preserves
+Heavy dd4fb66; observer's10 inherited differences and all Airflow/node layers
+remain untouched. The old Heavy distinction is documented in the prior backend
+overlay audit: Git554 adds collector accounting; backend uses read_snapshot,
+while the separately accepted node core was upgraded. Git equality of all
+runtime files is not claimed. Candidate packet includes private rollback configs,
+original full source pins and per-apply identity journals; rollback fails closed
+on a foreign subsequent deployment. Exact commit/packets/apply await final
+frontend acceptance and the original two coordinator review points.
+
 ## 2026-10-02 — STEP7-20260927C read-only diagnosis complete
 
 Coordinator relayed the user's failure/version question for only

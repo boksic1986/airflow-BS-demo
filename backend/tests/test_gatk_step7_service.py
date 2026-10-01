@@ -1,4 +1,6 @@
+import hashlib
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -77,6 +79,30 @@ def test_independent_cleanup_is_fenced_and_preserves_analysis(setup):
         analysis_id=run.analysis_id, batch_confirmation='0910A', requested_by='admin')
     assert again['action_id'] == action['action_id']
     assert len(airflow.calls) == 1
+
+
+def test_protocol_scope_gatk_cleanup_keeps_frozen_bundle_unmarked(setup):
+    session, run, settings, airflow = setup
+    action = request_cleanup(
+        session=session, settings=settings, airflow_client=airflow,
+        analysis_id=run.analysis_id, batch_confirmation='0910A', requested_by='admin',
+    )
+    bundle = (Path(settings.gatk_runtime_request_root).parent
+        / 'runs' / run.analysis_id / 'attempt-1' / 'cce')
+    original_bundle = {path.name: path.read_bytes() for path in bundle.iterdir()}
+
+    request = register_cleanup(
+        session=session, settings=settings, analysis_id=run.analysis_id,
+        attempt=1, action_id=action['action_id'],
+    )
+
+    assert request['stage'] == 'step7_cleanup'
+    assert 'stage_execution' not in request
+    assert request['request_hash'] == hashlib.sha256(json.dumps(
+        {key: value for key, value in request.items() if key != 'request_hash'},
+        sort_keys=True, separators=(',', ':'),
+    ).encode()).hexdigest()
+    assert {path.name: path.read_bytes() for path in bundle.iterdir()} == original_bundle
 
 
 def test_cleanup_requires_latest_receipt_and_confirmation(setup):

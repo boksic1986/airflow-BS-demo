@@ -163,21 +163,8 @@ def project_execution_dispatch(*, session, settings, run: AnalysisRun) -> dict[s
         )
     )
     if row is None:
-        try:
-            row = ensure_execution_dispatch(session=session, run=run)
-        except ExecutionDispatchConflict:
-            # The migration deliberately does not backfill historical runs.
-            # Multiple pre-migration attempts for one batch must remain
-            # readable without competing for the new unique execution claim.
-            submission_mode = str((run.params_json or {}).get("submission_mode") or "")
-            if submission_mode in {"three_stage", "auto_dispatch"}:
-                raise
-            return None
-        except ValueError:
-            # Historical WGS rows may predate catalogued project/batch identity.
-            # They remain readable but cannot participate in target switching.
-            return None
-        session.commit()
+        # Execution claims are created by operations, never by a page read.
+        return None
     targets = [
         _cce_target(session=session, analysis_id=run.analysis_id),
         _local_target(session=session, settings=settings, target="node-97", analysis_id=run.analysis_id),

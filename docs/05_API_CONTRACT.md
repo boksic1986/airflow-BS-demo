@@ -1,5 +1,35 @@
 # API contract
 
+## Run-page read efficiency (2026-10-02 candidate)
+
+`GET /api/runs` aggregates WGS QC status from the controlled batch QCstat's
+`是否通过质控` column without reading variant tables, metric contexts or MultiQC,
+or computing QC artifact hashes. It preserves `Sample_ID`/`Name`, sample/data-ID
+aliases (including the existing `-WGS` fallback), current-attempt selected-sample
+filtering, source pass/fail/warn/unknown normalization and `Sample.qc_status`
+fallback when the sample has no matching QC row. An explicitly unknown matching
+row remains unknown. The page reuses its one selected-sample query for counts
+and QC aggregation. Samples/QC retain the existing enriched metrics, judgments,
+variant counts and provenance.
+
+`GET /api/runs/{analysis_id}/workspace` builds the public detail and workspace
+projection from one fetched run in one session. WGS workspace reuses its
+selected samples for QC status. These projections introduce no response fields.
+When a WGS execution-dispatch record is absent, ordinary detail/workspace reads
+return `execution_dispatch: null`; they do not create a claim or commit a
+transaction. Explicit execution operations retain claim creation and their
+existing locks and validation.
+
+GATK public detail/workspace cleanup capabilities use database preconditions
+and the stored maintenance-action status. They do not scan the frozen cleanup
+bundle or runtime terminal receipt. `available` and `retry_available` are
+preliminary UI hints: the cleanup POST still validates the frozen binding,
+approved prepare/runtime identity, bundle snapshot and applicable predecessor
+runtime-terminal evidence before authorizing an operation. The strict service
+capability remains the default for callers that require frozen verification.
+The public response shape is unchanged. Candidate behavior does not establish
+production deployment or a measured reduction in browser latency.
+
 ## WGS recovered Tracker projection (2026-09-28 candidate)
 
 The existing `sync-airflow` action uses the run's bound DagRun state. When a

@@ -1,5 +1,16 @@
 # Active test-branch tasks
 
+## STEP7-PERF-20261002 — authorized implementation and release IN PROGRESS
+
+- [x] Step7 common marker scope; BS10610 RED30/GREEN37 and synthetic recovery.
+- [x] Backend read projections; BS10610 GREEN26 including rich QC/strict POST.
+- [x] Frontend GET/scope/attempt:24 pre-boundary GREEN,2 RED,final7 GREEN/build.
+- [ ] BS10610 delta RED/GREEN and affected regression acceptance; point1 review.
+- [x] Audit main/production ancestry; select two-service inherited-parent delta.
+- [ ] Exact deployment packet/active-run/rollback point2 review, authorized
+  normal branch synchronization and BS96 selected-service deployment.
+- [ ] Read-only acceptance and state/handoff closure, without automatic cleanup.
+
 ## STEP7-20260927C-20261002 — read-only diagnosis COMPLETE
 
 - [x] Reuse production baseline and verify exact backend/frontend/worker identity;

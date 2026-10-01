@@ -39,7 +39,7 @@ export function RunsPage() {
     return () => window.clearTimeout(timer);
   }, [keyword, keywordDraft, setSearchParams]);
 
-  const {loading, error} = useSilentRefresh(async ({isCurrent}) => {
+  const {loading, error} = useSilentRefresh(async ({isCurrent, signal}) => {
     const result = await listRuns({
       pipeline: pipeline === "all" ? "deployed" : pipeline,
       status: status === "all" ? undefined : status,
@@ -47,7 +47,7 @@ export function RunsPage() {
       sort,
       limit: pageSize,
       offset: (page - 1) * pageSize,
-    });
+    }, {signal});
     if (isCurrent()) setPayload(result);
   }, JSON.stringify([keyword, page, pipeline, sort, status]));
 

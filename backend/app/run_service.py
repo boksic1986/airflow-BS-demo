@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from typing import Any, Callable
 
 from sqlalchemy import String, case, cast, desc, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 
 from app.models import AnalysisRun, Sample, WgsOnpremExecutionSnapshot
 from app.sample_selection_scope import selected_clause, scope_status
@@ -66,8 +66,10 @@ def list_runs(
         ).all()
     )
     sample_rows = (
-        session.execute(
-            select(Sample.analysis_id, Sample.qc_status).where(
+        session.scalars(
+            select(Sample).options(load_only(
+                Sample.analysis_id, Sample.sample_id, Sample.qc_status, Sample.metadata_json,
+            )).where(
                 Sample.analysis_id.in_([run.analysis_id for run in page]), selected_clause()
             )
         ).all()
@@ -75,8 +77,10 @@ def list_runs(
         else []
     )
     sample_qc: dict[str, list[str | None]] = {}
-    for analysis_id, qc_status in sample_rows:
-        sample_qc.setdefault(analysis_id, []).append(qc_status)
+    samples_by_run: dict[str, list[Sample]] = {}
+    for sample in sample_rows:
+        sample_qc.setdefault(sample.analysis_id, []).append(sample.qc_status)
+        samples_by_run.setdefault(sample.analysis_id, []).append(sample)
     native_ids = {run.analysis_id: (run.params_json or {}).get('current_native_execution_id')
                   for run in page if (run.params_json or {}).get('native_monitor_only')}
     native_counts = {row.analysis_id: len(row.sample_scope_json) for row in session.scalars(
@@ -98,6 +102,7 @@ def list_runs(
         session=session,
         runs=page,
         projectors=qc_status_projectors,
+        samples_by_run=samples_by_run,
     )
     return {
         "items": [
@@ -116,8 +121,9 @@ def list_runs(
     }
 
 
-def get_run_detail(*, session: Session, analysis_id: str) -> dict | None:
-    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+def get_run_detail(*, session: Session, analysis_id: str, run: AnalysisRun | None = None) -> dict | None:
+    if run is None:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
     return _run_detail_payload(session, run) if run is not None else None
 
 
@@ -235,6 +241,7 @@ def _projected_qc_statuses_by_run(
     session: Session,
     runs: list[AnalysisRun],
     projectors: Mapping[str, Callable[..., dict[str, str]]] | None,
+    samples_by_run: Mapping[str, list[Sample]] | None = None,
 ) -> dict[str, str]:
     if not projectors:
         return {}
@@ -245,7 +252,7 @@ def _projected_qc_statuses_by_run(
     for pipeline_name, pipeline_runs in runs_by_pipeline.items():
         projector = projectors.get(pipeline_name)
         if projector is not None:
-            projected.update(projector(session=session, runs=pipeline_runs))
+            projected.update(projector(session=session, runs=pipeline_runs, samples_by_run=samples_by_run))
     return projected
 
 
