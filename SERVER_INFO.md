@@ -1,5 +1,13 @@
 # SERVER_INFO.md
 
+## 2026-10-02 W423 prepare permission correction
+
+PROD current wgs-4.2.3-3f98682-perm2775; r1 raw26b6fb15/canonicalc23869c4,
+correct modes2775/0664/0775. Backenda70599bd/observere5c018a5 consume policybeff4422
+at /data/airflow-WGS/wgs-permissions-20261002-3f98682-control; original fd855934
+code/images/Env and ten unrelated service IDs retained. Gates/options unchanged.
+Original 6C78D5 remains failed; corrected-label new run awaits human approval.
+
 ## 2026-10-02 WGS DNAscope panel configuration release
 
 TEST/BS96 catalog select `wgs-4.2.3-3f98682`, source `3f986821…`.

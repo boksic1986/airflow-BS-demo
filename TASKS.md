@@ -1,5 +1,17 @@
 # Active test-branch tasks
 
+## W423-PREPARE-6C78D5-20261002 — only active recovery card
+
+- [x] Exact BS96/node200 fingerprint and original prepare exit2/private log.
+- [x] Confirm incorrect profile0755/0644/0755 vs user2775/0664/0775.
+- [x] Native corrected profile; normal PROD catalog register/CAS/readback.
+- [x] Original failed/gen1, no active process/output/pending; one source preview5rows.
+- [ ] Human approves new analysis batch label; same-batch normal API dedupes.
+- [ ] Trigger one bounded normal API recovery; verify prepare receipt and next state.
+
+Keep old requests/receipts/hash, inputs and results unchanged. New attempt/analysis
+or selecting a different frozen release requires the coordinator's human confirmation.
+
 ## WGS-PANEL-20261002 — published-release configuration COMPLETE
 
 - [x] c727e8c Git/fd855934 mounted baseline and genuine pipeline-only receipt.

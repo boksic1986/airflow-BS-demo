@@ -1,5 +1,12 @@
 # API contract
 
+## W423 prepare permission correction (2026-10-02)
+
+PROD current selection is wgs-4.2.3-3f98682-perm2775, same3f source/build with
+original r1 corrected raw26b6fb15 and2775/0664/0775. Existing register/CAS/GET
+contract and historical entries remain. Same batch/input create is idempotent;
+CCE rerun retains old release. No new release-changing recovery API is added.
+
 ## WGS published configuration selection (2026-10-02)
 
 Current TEST/PROD selection is `wgs-4.2.3-3f98682` with original profile r1,

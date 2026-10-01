@@ -1,5 +1,43 @@
 # Handoff
 
+## 2026-10-02 — W423-PREPARE-6C78D5-20261002 ACTIVE, latest authorization
+
+Human in airflow-cloud-demo explicitly requested fix then rerun exact
+WGS_20261001_200308_6C78D5 /20260927D-test1 and now confirms2775/0664/0775.
+This is the only active card. UE04/05/06, oldStep1/oldbatch and WGS-PANEL are
+complete; do not restart their work after compaction. Native corrects profile;
+root alone handles normal AF catalog/binding and bounded recovery.
+Current branch jiucheng/ops/WGS-6C78D5-prepare-recovery-20261002 at58b4cae.
+BS96 server96/backend0c9914ab/observer2dac00a9 and t640/ctapa6801:520 verified.
+Original attempt1/gen1 wse_7e44eb2cd4d01c61b727486e is failed, hash05423d15;
+sampleinfo/config approval succeeded, no upload/analysis stage started.
+Private prepare log7405b7d8 (512bytes) reports WGS permission validation exit2:
+profile f0150c60 has0755/0644/0755, correct immutable WGS3f adapter requires
+2775/0664/0775. No config permission override exists. Keep guard unchanged.
+Evidence/scripts: .codex-artifacts/wgs-6c78d5-prepare-20261002.
+Original profile corrected by native to raw26b6fb15/canonicalc23869c4, only three
+mode fields; rollback original bytes in cce-pipeline-profiles/backups/
+20261002-wgs423-permissions/wgs-4.2.3-r1.before.yaml. WGS source/build unchanged.
+AF normal PROD register/CAS now selects wgs-4.2.3-3f98682-perm2775 with receipt
+10951f7a. New node map reuses unchanged source/config6e71d4, envSHAf05d0e80;
+private original env backup inwgs-6c78d5-prepare-20261002-backup/runtime.env.
+Phase source49531b9 adds30 exact JSON lines. Only backenda70599bd/observere5c018a5
+new policy mountbeff4422; original fd855934 code/images/Env and10other IDs retained.
+Root /data/airflow-WGS/wgs-permissions-20261002-3f98682-control stores exact
+Compose rollback files. Catalog/panel/gateway200/auth401 and oldentry identity PASS.
+Original run/request/hash/DB fields/data/process/DagRun unchanged. Same-attempt
+TI clear can issue new prepare generation only after terminal identity checks,
+but cannot repair frozen profile bytes. Public resume/rerun_failed create new
+attempt while retaining release. A changed frozen release/new attempt/analysis
+needs the coordinator's explicit human confirmation before normal API action.
+Same batch/input normal API dedupes to oldrun. Pending0rows/project absent and
+no exact-analysis process were verified. Normal source preview5rows matched
+original SHA48f5c4fc; batch-only new copy SHA b8cd34ee is prepared in memory.
+Await human approval for20260927D-test1-perm2775; create script ready but uncalled.
+Read-only failures: guessed runtime path lacked /runs/attempt-1 (exit1), fixed
+from configured root. Latest native-terminal SSH timed out during banner with
+empty stdout (exit255); no session or write. Recheck only when connection works.
+
 ## 2026-10-02 — WGS-PANEL minimal configuration COMPLETE
 
 Human task relayed by airflow-cloud-demo: native updates original profile to the

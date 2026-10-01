@@ -1,5 +1,17 @@
 # Current state
 
+## 2026-10-02 W423-PREPARE-6C78D5-20261002 — active scoped recovery
+
+Only target: WGS_20261001_200308_6C78D5 / 20260927D-test1, attempt1.
+User explicitly confirms2775/0664/0775; WGS3f permission guard is correct.
+Original r1 profile f0150c60 has0755/0644/0755 and caused prepare exit2.
+Corrected r1 raw26b6fb15 / canonicalc23869c4 is installed. PROD current is now
+wgs-4.2.3-3f98682-perm2775, receipt10951f7a, phase source49531b9.
+Backenda70599bd/observere5c018a5 retain original code; ten other IDs unchanged.
+Oldrun remains failed/immutable. Same-batch API dedupes to it; await explicit
+new analysis_batch20260927D-test1-perm2775 confirmation before one new run.
+UE04/05/06, oldStep1 and WGS-PANEL deployment are complete; do not reopen them.
+
 ## 2026-10-02 WGS-PANEL configuration COMPLETE
 
 TEST and PROD now select `wgs-4.2.3-3f98682`, source commit
