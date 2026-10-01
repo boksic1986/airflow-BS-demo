@@ -2,6 +2,7 @@
 
 ## W423-A468E9-HOURLY-20261002 — ACTIVE only follow-up
 
+- [x] Deliver12-item source/status snapshot to human-authorized docs owner01a0b254-07b5-7352-99aa-871b117459ad and coordinator; preserve existing hourly monitor while adding both-recipient substantive status reporting.
 - [x] Verify direct human hourly-monitor/recover-to-completion instruction, message 01a0f953-fa91-7ef0-9e4a-4b956784104c.
 - [x] Create the unique ACTIVE hourly heartbeat wgs-test1 for thread 01a0e728-4c99-71d0-87e9-987b311022c9; saved TOML readback matches, no prior matching monitor.
 - [x] Accept actual A468E9/a1 CCE Step1 dispatch/upload: Progress API 200/running, 0.4%, 2,125,820,066/522,508,028,738 bytes, 10 files.

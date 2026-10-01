@@ -2,6 +2,11 @@
 
 ## 2026-10-02 W423-A468E9-HOURLY-20261002 — ACTIVE only follow-up
 
+Human-authorized status-summary owner is thread01a0b254-07b5-7352-99aa-871b117459ad.
+The12-item existing-source snapshot was delivered to that owner and coordinator;
+hourly monitor now reports substantive changes/completion/blockers to both.
+This changes reporting only; original scope, cadence and runtime remain unchanged.
+
 Only active follow-up: WGS_20261001_210659_A468E9, current attempt 1,
 20260927D-test1. Normal execution is approved; actual CCE Step1 upload is running.
 Progress API returned 200: Uploading FASTQ, 0.4%, 2,125,820,066 of
