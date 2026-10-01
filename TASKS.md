@@ -1,5 +1,20 @@
 # Active test-branch tasks
 
+## STEP7-20260927C-20261002 — read-only diagnosis COMPLETE
+
+- [x] Reuse production baseline and verify exact backend/frontend/worker identity;
+  verify node t640/ctapa6801:520 and installed enabled gate/hash.
+- [x] Read only the exact original request/status/worker log/PID and maintenance
+  DagRun/TI/task-log GETs; preserve the initial text/plain parsing failure.
+- [x] Confirm Step7 native protocol marker rejection before cleanup, separate
+  UI callback fallback from original error and historical package labels.
+- [x] Report original errors promptly to airflow-cloud-demo and retain limits in
+  [diagnosis](docs/diagnostics/2026-10-02-step7-20260927C-readonly.md).
+
+No repair, deployment, retry, resource deletion or original cloud-state audit
+was performed. GATK/other batches are not declared affected. Any implementation
+or controlled recovery is outside the completed diagnostic scope.
+
 ## PERF-RUN-PAGES-20261001 — bounded production diagnosis COMPLETE
 
 - [x] Coordinator-authorized BS96 actual identity/mount/source/gate fingerprint.

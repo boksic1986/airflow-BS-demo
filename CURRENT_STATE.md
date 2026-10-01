@@ -1,5 +1,21 @@
 # Current state
 
+## 2026-10-02 STEP7-20260927C read-only diagnosis complete
+
+WGS_20260928_130059_3B40E3 attempt1 remains biological success/11 samples.
+Its Step7 action step7-sfs-2e667d84a31c/generation1 failed before actual cleanup:
+the request carried stage_execution protocol cce.stage-execution.v1, while
+the installed node gate admits only Step1-6 for this marker. The exact worker
+traceback is ValueError: unsupported WGS stage execution protocol or stage,
+at wgs_runtime_gate.py2990, before the normal worker/cleanup shell. This is
+not a captured0.8.8/0.8.9 version-check exception. PID5143 was absent on the
+matching node boot; the stage receipt remains accepted without terminal success.
+The original Airflow TI reported 清理进程已退出，尚无成功回执; a later callback
+replaced the UI message with the generic monitor-stopped fallback. No retry,
+POST/probe/clear, deletion, DB direct access, fix/deploy or test occurred.
+Actual cloud retention/removal by other actors is not established. See
+[Step7 diagnosis](docs/diagnostics/2026-10-02-step7-20260927C-readonly.md).
+
 ## 2026-10-01 PERF-RUN-PAGES read-only diagnosis complete
 
 BS96 restored backend7aadaf93/frontend4df1, actual mounts and eleven relevant

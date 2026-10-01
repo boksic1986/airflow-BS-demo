@@ -1,5 +1,17 @@
 # SERVER_INFO.md
 
+## 2026-10-02 STEP7-20260927C precise read-only observation
+
+At16:05:57Z BS96 backend7aadaf93/frontend4df1/worker e483a853 retained the
+final restored IDs/images/env/mounts. At16:09:14Z node200 verified t640,
+ctapa6801:520 and enabled WGS production gate; runtime.env SHA2567c7d7a1b...,
+forced-command.sh71ff6eac..., common wgs_runtime_gate.pyfd9689cd... .
+Exact original Step7 worker5143/start3078275130 was absent on the same boot.
+Its request held cce.stage-execution.v1 for step7_cleanup, which the installed
+gate rejects before normal execution. No deployment, gate/lock/resource change
+or cloud cleanup ran in this diagnosis. See the
+[Step7 report](docs/diagnostics/2026-10-02-step7-20260927C-readonly.md).
+
 ## 2026-10-01 PERF-RUN-PAGES read-only observation
 
 At15:44:37Z BS96/server96 retained actual backend7aadaf93/frontend4df1,

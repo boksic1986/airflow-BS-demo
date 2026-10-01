@@ -1,5 +1,61 @@
 # Handoff
 
+## 2026-10-02 — STEP7-20260927C read-only diagnosis complete
+
+Coordinator relayed the user's failure/version question for only
+WGS_20260928_130059_3B40E3, attempt1, Step7 maintenance generation1. Reuse
+the preceding BS96 fingerprint and compare actual mounts/source; verify
+node200 t640/ctapa and effective gate identity before precise file reads.
+Read only original request/status/receipts, Airflow DagRun/TI/log GETs and
+exact cloud Job/Pod observations through existing approved channels. WGS
+detail/workspace lazy-write GETs and observation/sync callbacks are excluded.
+No retry/clear/start/POST, deletion of data/resources/locks, version/binding
+change, restart, new analysis or DB direct access is authorized. Keep raw
+patient/sample content out of evidence. Goal is the original failure stage
+and whether historical frozen0.8.8/shared0.8.9 selection contributed; do not
+infer actual deletion from UI failure. Only local diagnostic files/docs may
+be written, under `.codex-artifacts/step7-20260927C-20261002`.
+
+Confirmed original failure: installed gatefd9689cd... wgs_runtime_gate.py2990
+raises ValueError: unsupported WGS stage execution protocol or stage from
+main --worker3485, before _run_worker3487. Actual request stage_execution is
+{protocol:cce.stage-execution.v1}, but Step7 is excluded from native Step1-6.
+Current registration source adds that marker on new registrations without the
+same stage scope. Action step7-sfs-2e667d84a31c/maintenance generation1,
+wse_0ccf679b4bdb74defb5b458f/stage generation1, request_hash2cdbe704...;
+request SHA118ac88f..., frozen WGS422-441d5e7/cce0.8.8. The error is a protocol
+marker scope defect, not an observed0.8.8/0.8.9 version-check failure.
+
+Airflow step7_cleanup try1 failed at15:57:06.879124Z with original error
+清理进程已退出，尚无成功回执, wait_step7_cleanup was upstream_failed. DAG callback
+later overwrote UI message at15:57:07.680509Z with the monitor-stopped fallback.
+Node status is still accepted; PID5143/start3078275130 is absent on matching
+boot. This worker did not reach actual deletion code. Cloud Job/Pod/SFS state
+or prior deletion by other actors is not independently established; after this
+root cause was confirmed, coordinator instructed no further expansion.
+
+Four exact-read scripts exited0. Initial Airflow log parsing raised
+JSONDecodeError because the200 endpoint was text/plain; the following read
+handled content-type and recovered the original exception. A guessed runner
+leaf and state.json were absent; actual wrapper/gate and worker.json were read.
+No blind task retry or probe/start was used. Original errors, source/control
+flow, times and evidence SHA256 are in
+docs/diagnostics/2026-10-02-step7-20260927C-readonly.md. Root source map was
+reviewed locally; coordinator independently confirmed the request/traceback
+closure. GATK has a separate legacy Step7 branch; no shared failure is claimed.
+
+Changed only the Step7 report and CURRENT_STATE/TASKS/SERVER_INFO/HANDOFF on
+jiucheng/infra/STEP7-20260927C-20261002-readonly-diagnosis. No implementation
+tests were requested or run. Next: independently scope a product fix and
+controlled recovery only after explicit authorization. Risk: accepted is not a
+success receipt or proof of cloud retention; package labels do not establish
+actual shell imports. Rollback is docs-only; production was not changed.
+Local documentation checks matched four evidence SHA256 values, parsed19 JSON
+records, resolved three report links and passed git diff --cached --check.
+Independent local evidence/report review returned PASS for identities, hashes,
+timeline, original errors and the deletion/version limits. No additional
+production sampling followed coordinator closure.
+
 ## 2026-10-01 — PERF-RUN-PAGES-20261001 read-only diagnosis complete
 
 Coordinator airflow-cloud-demo authorized bounded production GET timings for
