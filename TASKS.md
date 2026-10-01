@@ -1,15 +1,22 @@
 # Active test-branch tasks
 
-## STEP7-PERF-20261002 — authorized implementation and release IN PROGRESS
+## STEP7-PERF-20261002 — implementation and release COMPLETE
 
 - [x] Step7 common marker scope; BS10610 RED30/GREEN37 and synthetic recovery.
 - [x] Backend read projections; BS10610 GREEN26 including rich QC/strict POST.
 - [x] Frontend GET/scope/attempt:24 pre-boundary GREEN,2 RED,final7 GREEN/build.
-- [ ] BS10610 delta RED/GREEN and affected regression acceptance; point1 review.
+- [x] BS10610 delta RED/GREEN and affected regression acceptance; point1 review.
 - [x] Audit main/production ancestry; select two-service inherited-parent delta.
-- [ ] Exact deployment packet/active-run/rollback point2 review, authorized
+- [x] Exact deployment packet/active-run/rollback point2 review, authorized
   normal branch synchronization and BS96 selected-service deployment.
-- [ ] Read-only acceptance and state/handoff closure, without automatic cleanup.
+- [x] Read-only acceptance and state/handoff closure, without automatic cleanup.
+
+Product source `fd8559347dc71ddd015e8c3c757d1805d33260f7` is synchronized to
+main and actual production branch. TEST/BS96 two-service check/apply/accept
+passed; PROD packet `26ba1e4d…`, backend `ef698b65…`, frontend `04811cf1…`,
+ten other service IDs unchanged. Documentation-only closure is synchronized
+with these branches and does not change the deployed product source. See
+[release acceptance](docs/releases/2026-10-02-step7-run-pages-fix.md).
 
 ## STEP7-20260927C-20261002 — read-only diagnosis COMPLETE
 

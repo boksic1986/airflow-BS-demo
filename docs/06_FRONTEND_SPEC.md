@@ -1,6 +1,6 @@
 # Frontend specification
 
-## Batch Runs and Run Detail request lifecycle (2026-10-02 candidate)
+## Batch Runs and Run Detail request lifecycle (2026-10-02 deployed)
 
 The shared API client's public GET path has a default 30-second total budget
 covering fetch, response-body reading and the existing network retry. At most
@@ -17,11 +17,22 @@ workspace refresh. Run/attempt/query/tab changes and unmounts cancel the prior
 scope; stale responses and their `finally` handlers cannot publish state or
 release the new scope's request ownership.
 
+The first workspace publication renders promptly without an immediate duplicate
+summary request when its attempt first becomes known. Default Rules reads bind
+to the displayed attempt; explicit history/all query choices are retained.
+Rules/Samples/Pods reject known attempt mismatches, and Transfers retain labeled
+older history while rejecting attempts newer than the displayed summary.
+Logs wait for a successful current summary before reading because the log
+response lacks attempt identity. Missing identities retain the existing
+compatibility behavior; they are not a complete attempt-validation guarantee.
+
 Existing last-good DOM and loading/error behavior are retained. Other pages
 keep their existing loading semantics; this change does not claim that every
 page forwards cancellation signals. No new page, response field, automatic
-workflow retry or cleanup action is introduced. These are candidate request
-behaviors, not evidence of production deployment or elimination of all delay.
+workflow retry or cleanup action is introduced. Source `fd855934` and its built
+dist are deployed on BS10610 and BS96; see the
+[release acceptance](releases/2026-10-02-step7-run-pages-fix.md). Browser-chain
+latency and elimination of all delay were not measured by this acceptance.
 
 ## GATK transfer-slot waiting projection (2026-09-28, source only)
 

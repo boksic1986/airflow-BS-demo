@@ -1,5 +1,47 @@
 # SERVER_INFO.md
 
+## 2026-10-02 STEP7-PERF completed TEST and BS96 release
+
+Product source `fd8559347dc71ddd015e8c3c757d1805d33260f7` was synchronized
+by normal atomic fast-forward to main and `jiucheng/release/production`.
+Both coordinator gates accepted the source/tests and exact deployment packet.
+BS10610/server10610 and BS96/server96 check/apply/read-only acceptance passed.
+Only backend and frontend-nginx were recreated; no original Step7 retry or
+clinical/SFS/OBS deletion occurred.
+
+| Target | Apply UTC | Backend ID | Frontend-nginx ID | Other services |
+| --- | --- | --- | --- | --- |
+| BS10610 | 2026-10-01T17:32:10Z | `8f223ceaca15584a7f79356f054601d711da99ff23e8952b5a0ecfeb56b2d5ef` | `49bbc7078a8c0c3333f74687a86e196c6738b2f7d42120c438ee749cf73f04fc` | 8 IDs unchanged |
+| BS96 | 2026-10-01T17:36:40Z | `ef698b65b3ac07e75653976b1b1b1344acd2bd8d201eebd8eb73fe972dbd8640` | `04811cf1d3bbaffc9cc9dcddb44687f775a3812c2189d3ff49027ffcd075e6e9` | 10 IDs unchanged |
+
+PROD control root is `/data/airflow-WGS/step7-perf-20261002-fd85593-control`;
+TEST root is `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/step7-perf-20261002-fd85593-control`.
+Each binds `merged/backend` read-only to `/app/app` and
+`source/frontend/dist` read-only to `/usr/share/nginx/html`. All110 backend
+hashes match the packet, with nine reviewed increments over the accepted actual
+parent. Inherited Heavy `dd4fb66…`, observer's ten source differences and all
+Airflow/node layers remain preserved. Original image/Env/network/policy/other
+mounts are unchanged. Control `current` links remain
+`releases/20260912-panel-opt-4d3d24e6` on PROD and
+`releases/20260912-opt-4d3d24e6` on TEST; actual binds identify the new services.
+
+PROD packet SHA256 `26ba1e4d0e21b6356c2070e563b8466de26788abaf643037e7df21bbf32275c0`;
+TEST packet `b87597374ff13a5228a45b9781901c778cb230f8f26b1e6118192f832c66a24f`.
+Both formal gateways returned health/index200 with exact built-index bytes;
+unauthenticated API returned401. Catalog remains `wgs-4.2.3-bafd27c`, WGS/GATK
+execution true. TEST scan/auto false and seven runs terminal (4/2/1).
+PROD scan true, auto env true but inherited policy keeps **effective auto false**,
+watermark `2026-09-17T09:34:19.655673+00:00`,27 runs terminal (23/2/2).
+
+Each root retains pinned `backend.rollback.json` and
+`frontend-nginx.rollback.json`. Recovery verifies original source/config hashes,
+apply scope/journal and exact current instance ownership, failing closed on
+missing evidence or a foreign subsequent deployment; rollback was not executed.
+Exact images, original paths and limits are in the
+[completed release record](docs/releases/2026-10-02-step7-run-pages-fix.md).
+Single internal default20 runs GET changed2.278426s→0.166185s; GATK detail
+0.483357s→0.067499s. Warm cache is possible; browser timing/P95 was not measured.
+
 ## 2026-10-02 STEP7-20260927C precise read-only observation
 
 At16:05:57Z BS96 backend7aadaf93/frontend4df1/worker e483a853 retained the

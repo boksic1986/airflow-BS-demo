@@ -1,6 +1,6 @@
 # API contract
 
-## Run-page read efficiency (2026-10-02 candidate)
+## Run-page read efficiency (2026-10-02 deployed)
 
 `GET /api/runs` aggregates WGS QC status from the controlled batch QCstat's
 `是否通过质控` column without reading variant tables, metric contexts or MultiQC,
@@ -27,8 +27,10 @@ preliminary UI hints: the cleanup POST still validates the frozen binding,
 approved prepare/runtime identity, bundle snapshot and applicable predecessor
 runtime-terminal evidence before authorizing an operation. The strict service
 capability remains the default for callers that require frozen verification.
-The public response shape is unchanged. Candidate behavior does not establish
-production deployment or a measured reduction in browser latency.
+The public response shape is unchanged. Source `fd855934` passed focused TEST
+checks and is deployed on BS10610 and BS96; see the
+[release acceptance](releases/2026-10-02-step7-run-pages-fix.md). Internal GET
+samples do not measure browser latency or establish a latency guarantee.
 
 ## WGS recovered Tracker projection (2026-09-28 candidate)
 

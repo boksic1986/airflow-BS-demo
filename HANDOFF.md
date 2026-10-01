@@ -1,6 +1,131 @@
 # Handoff
 
-## 2026-10-02 — STEP7-PERF release fix authorized and started
+## 2026-10-02 — STEP7-PERF fix, branch synchronization and release COMPLETE
+
+### Authorization and result
+
+Human authorization relayed by airflow-cloud-demo covers Step7 function repair,
+webpage loading repair, normal main/production branch synchronization and BS96
+deployment. Both coordinator review gates accepted source/tests and then the
+exact production packet. Root was the sole production writer. Source commit
+`fd8559347dc71ddd015e8c3c757d1805d33260f7` was pushed with a normal atomic
+fast-forward to main and `jiucheng/release/production`; the earlier remote
+`ce497d61` is an ancestor, retaining UE01–UE06/native089/WGS423/GATKr5 history.
+Local unattached main/production refs were advanced with ancestor checks and
+compare-and-swap. The final closure commit changes only documentation and is
+also synchronized to both branches; deployed product source remains fd855934.
+
+TEST packet `b87597374ff13a5228a45b9781901c778cb230f8f26b1e6118192f832c66a24f`
+passed check/apply/accept at 2026-10-01T17:32:10Z. Backend is `8f223cea…`,
+frontend `49bbc707…`; eight other service IDs are unchanged. PROD packet
+`26ba1e4d0e21b6356c2070e563b8466de26788abaf643037e7df21bbf32275c0`
+passed check/apply/accept at 2026-10-01T17:36:40Z (2026-10-02 01:36:40
+Asia/Shanghai). Actual BS96 IDs:
+
+- backend `ef698b65b3ac07e75653976b1b1b1344acd2bd8d201eebd8eb73fe972dbd8640`.
+- frontend-nginx `04811cf1d3bbaffc9cc9dcddb44687f775a3812c2189d3ff49027ffcd075e6e9`.
+- Ten other service IDs unchanged; check/apply/accept reports contain no failures.
+
+Release root is `/data/airflow-WGS/step7-perf-20261002-fd85593-control`.
+Its `merged/backend` is mounted read-only at `/app/app`, and
+`source/frontend/dist` at `/usr/share/nginx/html`. All 110 backend file hashes
+match the packet: exactly nine increments over the inherited actual parent.
+Heavy remains `dd4fb66…`; observer's ten inherited differences and all
+Airflow/node layers are preserved. Original images, Env, network, unrelated
+mounts and `current` target `releases/20260912-panel-opt-4d3d24e6` are preserved.
+Git HEAD is not a claim of equality with every inherited runtime file.
+
+### Changes and focused tests
+
+Product changes: backend `stage_execution_contract.py`, `wgs_step7_service.py`,
+`wgs_sample_projection.py`, `run_service.py`, `pipeline_registry_service.py`,
+`gatk_step7_service.py`, `wgs_workspace_service.py`, `main.py`,
+`wgs_execution_dispatch_service.py`; frontend `api.ts`,
+`lib/useSilentRefresh.ts`, `pages/RunDetailPage.tsx`, `pages/RunsPage.tsx`.
+Five backend and three frontend test files record synthetic regressions.
+Shared protocol markers now apply only to native Step1–6; later generic errors
+retain concrete Step7 errors. Status-only read projections preserve rich QC and
+strict POST gates. Frontend adds bounded GET/cancellation and known-attempt
+guards while retaining existing loading semantics and Logs ordering.
+
+Only BS10610 ran runtime tests, using fixed existing images, synthetic data,
+network-disabled isolated containers and task-owned scratch. Commands/results:
+
+- `run-step7-red.sh`: 30 selected, six expected failures, 24 pass, zero errors.
+- `run-step7-green.sh`: focused pytest in four Step7/stage files; 37 pass,
+  30 deselected, 2.33s, including old request/hash and late-receipt guards.
+- `run-backend-perf-red.sh`: 11 selected, ten failures/one pass; eight genuine
+  defects and two invalid synthetic registry fixtures. Corrected only fixtures;
+  `run-backend-perf-workspace-red.sh` reproduced two duplicate-session failures.
+- `run-backend-perf-green.sh`: read-efficiency tests, rich-QC control and GATK
+  Step7 suite; 26 pass, 4.13s.
+- `run-frontend-red.sh`: 13 selected, nine expected failures/four pass.
+  Subsequent 24 selected passed; `run-frontend-review-red.sh` then reproduced
+  two added Rules/Samples attempt-boundary failures.
+- `run-frontend-green.sh`: final seven affected Vitest checks passed,
+  23 skipped, 9.77s; `npm run build` passed tsc and Vite (1.33s).
+
+No full suite, local runtime test, native089/423 acceptance repeat or real
+clinical cleanup test was run. Existing accepted checks were not repeated
+after final coordinator acceptance. The initial guessed frontend container
+fingerprint failed before writes; corrected from docker ps. Optional broad
+dependency discovery hit protected old scratch directories; reused the pinned
+dependency image without changing permissions. Exact failed commands, exit
+codes, causes and fixes are in the task `failures.md`.
+
+### Accepted readbacks, limits and evidence
+
+Before PROD apply, all 27 business runs were terminal; eight complete global
+Airflow GETs at 2026-10-01T17:34:55Z found no queued/running DagRuns or
+running/queued/scheduled/deferred/up_for_retry/up_for_reschedule TIs. This is
+bounded scheduler evidence, not an inventory of every external process.
+Formal gateway health/index returned 200, index bytes match the built dist,
+and unauthenticated API returned 401. WGS/GATK execution remains true;
+TEST scan/auto false; PROD scan true, auto Env true but effective auto false
+under inherited policy. Watermark `2026-09-17T09:34:19.655673+00:00` and
+catalog `wgs-4.2.3-bafd27c` are unchanged. PROD remains 23 success/2 failed/
+2 cancelled; TEST remains 4 success/2 failed/1 cancelled.
+
+Single internal authorized GET samples: default20 list 2.278426s → 0.166185s;
+GATK list 0.062800s → 0.053244s; historical GATK detail 0.483357s → 0.067499s;
+workspace 0.124118s → 0.091388s. Warm cache is possible. Browser-chain latency
+and P95 were not measured; no claim that all delay is eliminated.
+
+Evidence remains in local `.codex-artifacts/step7-perf-fix-20261002` and remote
+TEST `/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/step7-perf-fix-20261002`.
+Named `test/prod-prepare`, `-check`, `-apply`, `-accept` results and raw TEST
+logs/XML retain source, packets and outcomes. Private complete configs/inspect
+and identity journals stay protected on each host and are not committed.
+Local `public-evidence-index.json` hashes 23 named public receipts, logs,
+scripts and bundles; SHA256
+`5c23f017e675339450421ded4e11fb1666cf77ec19f0de200e8bf9ccc47780d1`.
+The [release record](docs/releases/2026-10-02-step7-run-pages-fix.md) and
+SERVER_INFO contain full current mounts, image pins and rollback config hashes.
+
+### Risks, rollback and next action
+
+No original Step7 retry/probe/clear/stop, clinical/SFS/OBS deletion, sidecar/hash
+patch, direct production DB access, scanner/auto/pool/watermark change or force
+push/reset occurred. Existing failed action/request remains historical. A later
+authorized retry must prove the predecessor stopped before registering an
+unmarked generation; its database request/hash stays unchanged, while the
+runner may reuse its request filename. Synthetic tests do not prove actual
+cleanup or real stopped-executor recovery.
+
+Rollback uses this root's exact pinned `backend.rollback.json` and
+`frontend-nginx.rollback.json`, plus original source/dist hashes. The rollback
+script is independent of candidate config and checks current service identity
+against this apply's scope/journal/receipt; foreign deployment or missing
+identity fails closed. Only the selected services are recreated, with no DB or
+data rollback. No rollback was needed. Release and docs closure are complete;
+any actual maintenance retry or expanded browser performance study needs its
+own explicit scope. No further accepted-runtime sampling is required here.
+
+Closure files: CURRENT_STATE.md, TASKS.md, HANDOFF.md, SERVER_INFO.md,
+docs/05_API_CONTRACT.md, docs/06_FRONTEND_SPEC.md,
+docs/08_WORKFLOW_RUNTIME_INTEGRATION.md and the linked release record.
+
+## 2026-10-02 — STEP7-PERF authorization/start snapshot (superseded above)
 
 Human authorization relayed by airflow-cloud-demo: fix webpage loading and
 Step7 deletion-function issue, synchronize accepted code plus fixes to main

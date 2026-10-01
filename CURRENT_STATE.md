@@ -1,20 +1,32 @@
 # Current state
 
-## 2026-10-02 STEP7-PERF authorized fix and BS96 release in progress
+## 2026-10-02 STEP7-PERF fix and BS96 release COMPLETE
 
-User authorized the Step7 function fix, webpage loading fix, normal main/real
-production branch synchronization and BS96 deployment. Work starts from the
-accepted80abdfc product plus93ff950 diagnostic docs in an isolated branch.
-New tests run only on BS10610; two coordinator review points precede production
-apply. This authorization does not retry Step7 or delete clinical/cloud data.
+User-authorized Step7 function and webpage loading fixes are released from
+source `fd8559347dc71ddd015e8c3c757d1805d33260f7`. Normal atomic fast-forward
+synchronized main and `jiucheng/release/production`, retaining accepted
+UE01–UE06/native089/WGS423/GATKr5 history. Both coordinator review gates passed.
+Focused tests ran only on BS10610: Step7 GREEN37, backend read GREEN26,
+frontend24 selected GREEN plus final7 affected GREEN, tsc and production build.
+Original RED failures and fixture corrections remain in the evidence record.
 
-Step7 GREEN37 and backend read GREEN26 passed, with original RED evidence.
-Frontend's first24 selected checks pass; two new attempt-isolation defects were
-reproduced and minimally fixed. Final7 affected tests, tsc and build pass. Source
-and rollback-template reviews found no remaining source blocker. BS96 all27
-business runs are terminal; eight global Airflow GETs show no queued/running
-DagRuns or active/waiting TIs at17:07:26Z. Refresh before apply. Only backend
-and frontend-nginx are selected; no Git push or deployment has occurred yet.
+TEST and BS96 check/apply/accept passed. BS96 applied at
+`2026-10-01T17:36:40Z` (2026-10-02 01:36:40 Asia/Shanghai), replacing only
+backend `ef698b65…` and frontend-nginx `04811cf1…`; ten other service IDs are
+unchanged. PROD packet SHA256 `26ba1e4d…` binds the actual 110-file backend
+overlay, nine reviewed increments and three-file dist. Inherited Heavy
+`dd4fb66…`, observer/Airflow/node layers and the original current symlink remain
+preserved. Formal gateway health/index returned200, served index matches the
+build, and unauthenticated API returned401. WGS/GATK execution stays true,
+PROD scan=true/effective auto=false, original watermark unchanged; catalog
+remains `wgs-4.2.3-bafd27c`. All27 business runs remain terminal (23/2/2).
+
+Single internal GET samples: default20 list 2.278426s before → 0.166185s after;
+historical GATK detail 0.483357s → 0.067499s. Warm cache is possible; these are
+not browser timings. No original Step7 action was retried, stopped or deleted,
+and no clinical/SFS/OBS data action was performed. Docs closure only follows
+this accepted deployment. Exact mounts, rollback pins, tests and limits are in
+the [release record](docs/releases/2026-10-02-step7-run-pages-fix.md).
 
 ## 2026-10-02 STEP7-20260927C read-only diagnosis complete
 

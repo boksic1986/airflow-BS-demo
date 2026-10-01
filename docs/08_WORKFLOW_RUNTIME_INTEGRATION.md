@@ -530,7 +530,7 @@ Frozen cleanup target equality is checked on registration; retries preserve
 the original target. Unowned partial remnants remain blocked. No new delete
 implementation or changes to Step1–6/GATK/bioinformatics scripts.
 
-### Step7 producer protocol scope correction (2026-10-02; source candidate)
+### Step7 producer protocol scope correction (2026-10-02; deployed)
 
 The shared WGS/GATK backend freezer marks new requests only when their actual
 `stage` is `step1_upload`, `step2_master`, `step3_monitor`, `step4_publish`,
@@ -554,8 +554,11 @@ scope remain subject to the
 
 If a failed maintenance action already has a concrete error, a later empty or
 default monitor failure callback retains that error. An exact successful runtime
-receipt still takes precedence. This entry describes the source correction;
-deployed state is recorded in the release and handoff records.
+receipt still takes precedence. Source `fd855934` is deployed on BS10610 and
+BS96 after focused synthetic acceptance and both coordinator review gates;
+see the [release record](releases/2026-10-02-step7-run-pages-fix.md).
+The original failed Step7 action was not retried and no actual cleanup was
+performed during this release.
 
 ## P0 correction interface (2026-09-25, isolated source accepted)
 
