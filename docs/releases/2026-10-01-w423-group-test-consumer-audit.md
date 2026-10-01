@@ -226,3 +226,39 @@ restoring those exact TEST selectors/mounts without overwriting shared0.8.8;
 preserve the new candidate and all evidence. No rollback is asserted GREEN
 until the restored pairing is verified. The already retained rollback0.8.8
 wheel alone does not establish compatibility of historically drifted TEST pins.
+
+## W423-R1 exact version compatibility addendum
+
+Coordinator reconfirmed `W423-R1-GROUP-FIRST-20261001 / AF-V423-BINDING` after
+the user's resend request. Baseline `b3f0174` and accepted UE/Group work are
+retained. Three exact version sets add `V4.2.3`: repository validation, the
+existing split-prepare handoff and backend required-receipt check. The latter
+prevents a successful423 stage status without its receipt from becoming ready.
+No schema, root/allowlist, hash, execution identity, generation, stage filter
+or artifact-pending semantics were changed; future versions remain fenced.
+
+Fresh BS10610 fingerprint matched the recorded current release, P0 backend
+image/mount and disabled scanner/auto-dispatch. A separate mode700 TEST
+candidate extracted the verified b3 archive. Existing fixture parameters
+cover both prepare stages, absent/present receipts, generation-scoped handoff
+identity and an unsupported `V4.2.999` negative. RED selected seven423 cases:
+five expected failures and two valid-receipt controls passed. GREEN selected
+four affected test nodes:26 passed in8.33s, exit0. The exact product diff is
+three membership additions across two files.
+
+Raw logs and command scripts are retained locally in
+`.codex-artifacts/w423-r1-20261001`; remote evidence is
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/w423-r1-b3f0174-20261001`.
+No prior Group/UE suite, native/CCE canary, package install, selector/service
+switch or old-batch action was repeated. Final AF catalog ID
+`wgs-4.2.3-bafd27c` remains distinct from CCE asset ID `20261001.1-wgs423`;
+their actual profile/resources/source roots and runtime pins still need the
+owner's final pairing. This addendum closes source compatibility only.
+
+After GREEN, coordinator/WGS owner supplied `cce-release-receipt.json`; its
+local copy was read without repeating publication validation. WGS assets are
+PASS/state_verified, source=bafd27ce5f38e736aae516d5c00247e449872479, raw
+profile436a6608/pipelinecf2b6bdf/resource7cd067fb. Canonical receipt SHA16f131a4
+differs from whole-file SHA006b405f by design. GATK profile/rule inventory and
+final platform consumer pins remain pending; asset publication is not TEST
+activation.

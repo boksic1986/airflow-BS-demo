@@ -3362,8 +3362,10 @@ def test_prepare_analysis_status_waits_for_final_sampleinfo_nfs_visibility(
         assert [item.sample_id for item in samples] == ["SAMPLE-1"]
 
 
-@pytest.mark.parametrize('version', ['V4.2.0', 'V4.2.1', 'V4.2.2'])
-def test_prepare_status_waits_for_required_handoff(tmp_path, monkeypatch, version):
+@pytest.mark.parametrize('version', ['V4.2.0', 'V4.2.1', 'V4.2.2', 'V4.2.3'])
+@pytest.mark.parametrize('stage', ['prepare_sampleinfo', 'prepare_analysis'])
+@pytest.mark.parametrize('has_receipt', [pytest.param(False, id='missing'), pytest.param(True, id='present')])
+def test_prepare_status_waits_for_required_handoff(tmp_path, monkeypatch, version, stage, has_receipt):
     monkeypatch.setenv('WGS_RUNTIME_ADAPTER_ENABLED', 'true')
     client, sessions, _ = make_client(tmp_path, monkeypatch)
     headers = login(client, 'operator', 'operator-pass')
@@ -3372,26 +3374,58 @@ def test_prepare_status_waits_for_required_handoff(tmp_path, monkeypatch, versio
         'batch_no': f'WGS_20260909A_T7Hg38{version}', 'fq_path': str(tmp_path),
     }).json()
     aid = created['analysis_id']
+    submission_phase = 'preparing_sampleinfo' if stage == 'prepare_sampleinfo' else 'preparing_analysis'
     with sessions.begin() as session:
         run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == aid))
         run.params_json = {**dict(run.params_json or {}), 'wgs_version': version,
-                           'submission_phase': 'preparing_sampleinfo'}
-    marker = Path(main.get_settings().wgs_runtime_request_root) / aid / 'attempt-1' / 'prepare_sampleinfo.status.json'
+                           'submission_phase': submission_phase}
+        release_id = run.params_json['pipeline_release_id']
+    marker = Path(main.get_settings().wgs_runtime_request_root) / aid / 'attempt-1' / f'{stage}.status.json'
     marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_text(json.dumps({'schema_version': 'wgs-runtime.stage-status.v1',
-        'analysis_id': aid, 'attempt': 1, 'stage': 'prepare_sampleinfo', 'status': 'success',
-        'updated_at': '2026-09-11T00:00:00Z'}))
-    # Receipt absence must stop preview import, even if sampleinfo is already visible.
+    payload = {'schema_version': 'wgs-runtime.stage-status.v1',
+        'analysis_id': aid, 'attempt': 1, 'stage': stage, 'status': 'success',
+        'updated_at': '2026-09-11T00:00:00Z'}
+    if has_receipt:
+        sampleinfo_stage = stage == 'prepare_sampleinfo'
+        decision = 'candidate' if sampleinfo_stage else 'selected'
+        receipt = {
+            'schema_version': 'wgs.prepare-sampleinfo.receipt.v1' if sampleinfo_stage else 'wgs.prepare-analysis.receipt.v1',
+            'analysis_id': aid, 'attempt': 1, 'execution_id': f'{stage}-g1',
+            'generation': 1, 'request_hash': 'a' * 64, 'release_id': release_id,
+            'safe_candidates' if sampleinfo_stage else 'selected': [{
+                'sequencing_batch': '20260909A', 'analysis_batch': '20260909A',
+                'family_id': 'FAMILY-1', 'sample_id': 'SAMPLE-1', 'data_id': 'DATA-1',
+                'sample_type': 'WGS', 'family_relation': 'proband', 'sex': 'M',
+                'decision': decision, 'reason_code': decision, 'reason_message': '',
+            }],
+        }
+        if not sampleinfo_stage:
+            receipt.update(pending=[], excluded=[])
+        payload['prepare_handoff_receipt'] = receipt
+    marker.write_text(json.dumps(payload))
+    # Isolate the receipt fence from filesystem imports for both prepare stages.
     monkeypatch.setattr(main, 'sync_sampleinfo_preview', lambda **_: None)
+    monkeypatch.setattr(main, 'sync_prepared_samples', lambda **_: None)
     response = client.get(f'/api/internal/wgs/runs/{aid}/stage-status',
-        params={'attempt': 1, 'stage': 'prepare_sampleinfo'},
+        params={'attempt': 1, 'stage': stage},
         headers={'X-Airflow-Demo-Token': 'internal-test-token'})
     assert response.status_code == 200, response.text
-    assert response.json()['artifact_pending'] is True
-    assert response.json()['ready'] is False
+    assert response.json()['artifact_pending'] is (not has_receipt)
+    assert response.json()['ready'] is has_receipt
     with sessions() as session:
         run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == aid))
-        assert run.params_json['submission_phase'] == 'preparing_sampleinfo'
+        samples = list(session.scalars(select(Sample).where(Sample.analysis_id == aid)))
+        if has_receipt:
+            assert run.params_json['submission_phase'] == ('config_review' if sampleinfo_stage else 'execution_review')
+            assert run.params_json['sample_selection_scope'] == {
+                'attempt': 1, 'status': 'preparing' if sampleinfo_stage else 'ready',
+            }
+            assert [(row.sample_id, row.metadata_json['selection_decision']) for row in samples] == [
+                ('SAMPLE-1', decision),
+            ]
+        else:
+            assert run.params_json['submission_phase'] == submission_phase
+            assert samples == []
 
 
 def test_prepare_analysis_status_imports_final_selection_before_pending_decisions(

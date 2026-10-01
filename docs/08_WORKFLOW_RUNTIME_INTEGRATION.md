@@ -1,5 +1,21 @@
 # Workflow runtime integration
 
+## W423-R1 exact version compatibility (2026-10-01, source only)
+
+`V4.2.3` uses the existing `prepare_sampleinfo`/`prepare_analysis` generation-
+scoped handoff request and receipt contracts. Repository preparability and
+the backend required-receipt check recognize this exact version. Successful
+stage status without the required receipt remains artifact_pending and not
+ready; valid receipts follow the existing selection and submission-phase
+projection. Repository allowlist/root, source/profile/config/receipt hashes
+and execution identity/generation validation remain mandatory. Unsupported
+versions are not accepted by prefix or wildcard.
+
+BS10610 focused synthetic validation passed26 cases after five expected423
+RED failures. This source addition does not install native089, register a
+final423 release or activate TEST/production. See the
+[W423-R1 evidence](releases/2026-10-01-w423-group-test-consumer-audit.md#w423-r1-exact-version-compatibility-addendum).
+
 ## GATK terminal Master TTL and downstream stages (2026-09-29 scoped production repair)
 
 WES/GATK `20260927B` (`GATK_20260929_024231_F246CD`, attempt 1) completed

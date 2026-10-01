@@ -11,6 +11,11 @@ Both final Masters have been pushed; package installation and TEST activation
 remain pending. Production/shared dependency exposure cannot be inferred safe
 from frozen assets or unchanged console names.
 
+W423-R1 subsequently adds exact `V4.2.3` to the three existing gate/backend
+version sets, preserving the preparation contract; focused BS10610 GREEN26
+closes that source gap only. Final release registration and TEST pairing
+remain pending. UE04/05/06 accepted source is reused.
+
 状态：2026-10-01 已向三位原 owner 派发；基线收口中，未宣布安装、验收或上线。
 
 ## 1. 授权与发布范围

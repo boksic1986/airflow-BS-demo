@@ -1,5 +1,20 @@
 # Active test-branch tasks
 
+## W423-R1-GROUP-FIRST-20261001 / AF-V423-BINDING — source complete
+
+- [x] Resend task confirmation to coordinator; use current W423 scope and
+  accepted UE04/05/06 source, retaining baseline `b3f0174`.
+- [x] Add only exact `V4.2.3` to repository, split-prepare handoff and backend
+  required-receipt version sets; retain all existing validation semantics.
+- [x] Reuse parameterized fixtures for both prepare stages, generation-scoped
+  requests, absent/present receipts and genuinely unsupported `V4.2.999`.
+- [x] Fresh BS10610 fingerprint; isolated RED5/GREEN26. Record raw logs and
+  the source delta without repeating Group, UE/P0 or clinical acceptance.
+
+Final installation/catalog/profile/resource/phase pairing and deployed TEST
+validation belong to the still-open Group card below. This source card grants
+no installation, TEST switch, BS96 release or old-batch action.
+
 ## W423-GROUP-TEST-AIRFLOW-20261001
 
 This latest human scope supersedes the earlier broad W42303/04 checklists below.
@@ -16,8 +31,8 @@ This latest human scope supersedes the earlier broad W42303/04 checklists below.
   ce497..0048 whole-branch read-only review found no blocking source issues.
 - [ ] Receive required user choice of shared nipttest installation versus TEST
   private prefix; no installation decision is inferred from source approval.
-- [ ] WGS owner provides new profiles/resources/release identity/rule inventory;
-  native installs approved full089 once, then Airflow pairs TEST consumers,
+- [ ] Consume the supplied WGS publication; receive the final GATK profile and
+  423 rule inventory. Native installs approved full089 once, then Airflow pairs TEST consumers,
   console/import environment, bootstrap/policy/catalog and platform mounts.
 - [ ] Validate only the new deployed TEST pairing and actual Group consumer
   boundary; capture exact rollback. No installation/switch is authorized yet.

@@ -1,5 +1,27 @@
 # Current state
 
+## 2026-10-01 W423-R1 exact 4.2.3 compatibility source verified
+
+After the user's resend request, coordinator `airflow-cloud-demo` reconfirmed
+`W423-R1-GROUP-FIRST-20261001 / AF-V423-BINDING` as the current task. UE04/05/06
+are accepted source history already integrated into baseline `b3f0174`; this
+task does not reopen those workstreams or the old Step1 incident.
+
+Three exact version sets now include `V4.2.3`: repository validation, the two
+existing prepare handoff stages, and the backend's required-receipt check.
+Existing allowlist/root, hash, identity, generation and artifact-pending
+semantics remain unchanged. The unsupported negative now uses `V4.2.999`.
+Fresh BS10610 isolated RED reproduced five 423 failures (two valid-receipt
+controls passed); focused GREEN passed 26 cases. Raw evidence and commands:
+`.codex-artifacts/w423-r1-20261001` and the latest HANDOFF entry.
+
+This closes the version compatibility source delta only. Exact final catalog,
+profile/resource/phase/runtime pairing and deployed TEST acceptance remain
+pending with the Group task below; no package installation or environment
+selector/service switch occurred. The WGS publication receipt has since been
+supplied and read (assets PASS/state_verified, canonical SHA16f131a4); actual
+AF release registration and consumer pairing have not been performed.
+
 ## 2026-10-01 W423 Group TEST candidate; no activation
 
 Latest human scope defers prepare/FQ synthesis and QC2. The isolated release

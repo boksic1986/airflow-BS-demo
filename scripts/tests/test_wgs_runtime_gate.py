@@ -11,6 +11,11 @@ import yaml
 
 
 ROOT = Path(__file__).parents[1]
+PREPARABLE_RELEASES = [
+    ("V4.2.0", "wgs-4.2.0-b067c72"),
+    ("V4.2.1", "wgs-4.2.1-cc9bde3"),
+    ("V4.2.3", "wgs-4.2.3-bafd27c"),
+]
 
 
 def load_gate():
@@ -341,9 +346,10 @@ def test_split_prepare_commands_preserve_native_wgs_contract(tmp_path: Path) -> 
     assert analysis[analysis.index("--algo") + 1] == "Haplotyper"
 
 
-@pytest.mark.parametrize('version,release', [('V4.2.0', 'wgs-4.2.0-b067c72'), ('V4.2.1', 'wgs-4.2.1-cc9bde3')])
+@pytest.mark.parametrize("version,release", PREPARABLE_RELEASES)
+@pytest.mark.parametrize("stage", ["prepare_sampleinfo", "prepare_analysis"])
 def test_wgs_42_prepare_uses_generation_scoped_handoff_request(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, version: str, release: str
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, version: str, release: str, stage: str
 ) -> None:
     gate = load_gate()
     repo = tmp_path / "wgs-4.2.0"
@@ -354,7 +360,7 @@ def test_wgs_42_prepare_uses_generation_scoped_handoff_request(
     payload = {
         "analysis_id": "WGS_20260909_010203_A1B2C3",
         "attempt": 1,
-        "stage": "prepare_sampleinfo",
+        "stage": stage,
         "pipeline_release_id": release,
         "wgs_version": version,
         "wgs_source_commit": "b067c72eed795e59b724b13324b0d380ae8b7e94",
@@ -366,10 +372,15 @@ def test_wgs_42_prepare_uses_generation_scoped_handoff_request(
         "fq_path": "/bi/fastq/T7_Fastq",
         "sequencing_batch": "20260909A",
         "analysis_batch": "20260909A",
-        "execution_id": "wse-sampleinfo-g1",
+        "execution_id": f"wse-{stage}-g1",
         "generation": 1,
         "request_hash": "a" * 64,
     }
+
+    if stage == "prepare_analysis":
+        source = Path(payload["analysis_project_root"]) / "sampleinfo" / f"{payload['batch_no']}.sampleinfo.txt"
+        source.parent.mkdir(parents=True)
+        source.write_text("sample\tbatch\nSYNTHETIC001\t20260909A\n", encoding="utf-8")
 
     command = gate.build_prepare_command(payload)
 
@@ -377,8 +388,17 @@ def test_wgs_42_prepare_uses_generation_scoped_handoff_request(
     request = json.loads(request_path.read_text(encoding="utf-8"))
     assert request["schema_version"] == "wgs.prepare-handoff.request.v1"
     assert request["release_id"] == release
+    assert request["stage"] == stage
+    assert request["execution_id"] == payload["execution_id"]
+    assert request["request_hash"] == payload["request_hash"]
     assert request["generation"] == 1
     assert request_path.parent.name == "generation-1"
+    assert request_path.parent.parent.name == stage
+    assert gate._prepare_handoff_request(payload) == request_path
+    assert not gate._uses_prepare_handoff({**payload, "stage": "prepare"})
+    if stage == "prepare_analysis":
+        assert request["source_sampleinfo"]["sha256"] == gate._sha256_file(source)
+        assert request["pending_input"]["revision"] == 1
 
 
 def test_prepare_analysis_can_use_an_explicit_cce_pipeline(
@@ -581,7 +601,7 @@ def test_prepare_command_rejects_fastq_directory_for_another_batch(
         gate.build_prepare_command(payload)
 
 
-@pytest.mark.parametrize('version,release', [('V4.2.0', 'wgs-4.2.0-b067c72'), ('V4.2.1', 'wgs-4.2.1-cc9bde3')])
+@pytest.mark.parametrize("version,release", PREPARABLE_RELEASES)
 def test_release_repository_validation_does_not_require_git(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, version: str, release: str
 ) -> None:
@@ -625,8 +645,9 @@ def test_wgs_422_immutable_release_is_preparable_but_unknown_version_is_fenced(
     assert gate.validate_release_repository(payload) == repo.resolve()
     assert gate._uses_prepare_handoff({**payload, "stage": "prepare_sampleinfo"})
     with pytest.raises(RuntimeError, match="historical WGS release"):
-        gate.validate_release_repository({**payload, "wgs_version": "V4.2.3"})
-    assert not gate._uses_prepare_handoff({**payload, "wgs_version": "V4.2.3", "stage": "prepare_sampleinfo"})
+        gate.validate_release_repository({**payload, "wgs_version": "V4.2.999"})
+    for stage in ("prepare_sampleinfo", "prepare_analysis"):
+        assert not gate._uses_prepare_handoff({**payload, "wgs_version": "V4.2.999", "stage": stage})
 
 
 def test_historical_release_cannot_be_reprepared_without_frozen_binding(

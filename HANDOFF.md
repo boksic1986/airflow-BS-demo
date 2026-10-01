@@ -1,5 +1,89 @@
 # Handoff
 
+## 2026-10-01 — W423-R1 version compatibility source handoff
+
+Goal/confirmation: user requested that task alignment be resent because the
+coordinator had been busy. `airflow-cloud-demo` replied with the unique current
+card `W423-R1-GROUP-FIRST-20261001 / AF-V423-BINDING`: preserve accepted UE04/05/06
+source, continue the narrow WGS423/native089/two-Master Group release, and
+defer FQ synthesis/async prepare. Worktree remains
+`C:/Users/11217/.codex/worktrees/gatk-prod-compat/airflow-demo`, branch
+`jiucheng/airflow/W423-test-group-release-20261001`, parent
+`b3f017477ba4f1814f14291cc36e8c17d5b816e8` (consumer product `0048c36`).
+
+Completed: product delta is exactly three version-set additions of `V4.2.3`
+in `scripts/wgs_runtime_gate.py` (repository validation and split-prepare
+handoff) and `backend/app/main.py` (required receipt). The two-stage filter,
+repository allowlist/approved root, source/profile/config hashes, receipt and
+execution/generation identities, and artifact_pending logic are unchanged.
+No API/schema or new preparation protocol was introduced. The existing gate
+and backend test nodes now share version/stage parameters; the gate negative
+uses truly unsupported `V4.2.999`. Valid backend receipts use the real decision
+projection, with filesystem imports stubbed only to isolate the receipt fence.
+This is synthetic compatibility evidence, not final catalog or native-package
+integration. AF catalog candidate remains `wgs-4.2.3-bafd27c`; CCE asset ID
+`20261001.1-wgs423` is a separate identity.
+
+Environment: `ssh BS10610`, hostname `server10610`, uid/gid6708:520. Fresh
+read-only fingerprint verified control root
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS`, current link
+`releases/20260912-opt-4d3d24e6`, full current source
+`4d3d24e6c0308b682a92e2b09824026b7a888818`, actual backend P0 mount
+`releases/20260926-p0-e358aad/backend` and cached backend image
+`sha256:8491604ee01d9b3a84d74e7edf233a9d5dd20ddbf14f8a646c25c05f8729efed`.
+Airflow worker/scheduler/API mounts retain the accepted P0/discovery mappings;
+scanner=false and auto_dispatch=false. New candidate/evidence/scratch roots
+were absent before creation, resolved below approved TEST parents and created
+as chenjc:bioinfo mode700. The retained b3 archive hash was verified before
+extraction; no prior evidence was overwritten.
+
+Commands/results: local scripts `preflight.sh`, `setup.sh`, `run-red.sh`,
+`run-green.sh` were piped literally to `ssh BS10610 "tr -d '\r' | bash -s"`.
+Only the changed test files were copied to the b3 candidate before RED; only
+the two product files were copied after RED. Pytest used the cached image,
+uid6708:520, --network none, --read-only, --cpus1/--memory1g, task scratch and
+no cache/dependency installation. RED selected the new 423 parameters of the
+three existing affected test nodes: exit1, 5failed/2passed/18deselected in3.56s.
+Failures were the historical-version rejection, missing --handoff-request for
+both stages, and missing-receipt artifact_pending=False for both stages.
+GREEN selected those same nodes plus the existing 422/unknown-version node:
+exit0, 26passed in8.33s. Raw remote `red.log`/`green.log` were mirrored locally
+as `raw-red.log`/`raw-green.log`. Existing dependency deprecation and kernel
+swap-limit warnings did not affect the test outcome. Local apply_patch context
+checks rejected an initial expected ROOT line and abbreviated doc lines;
+the attempts changed no files. Actual context was read before correction.
+
+Evidence root:
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/w423-r1-b3f0174-20261001`;
+candidate root: control/candidates/w423-r1-b3f0174-20261001/source. Local
+mirror/command scripts: `.codex-artifacts/w423-r1-20261001`. Runtime tests were
+not run locally. Full backend/gate, Group/UI, UE/P0/Worker suites and clinical
+or CCE canaries were deliberately not repeated under the coordinator's narrow
+acceptance instruction. No additional independent review was opened.
+
+Changed files: the two product modules, their existing test modules,
+CURRENT_STATE/TASKS/HANDOFF, docs08, and the two current W423 release records.
+Local diff-check passed; source hashes match the files mounted for GREEN.
+No running service, database, profile, package, runtime workdir or clinical
+batch changed. Artifacts remain untracked and retained.
+
+Subsequent owner input: coordinator and WGS owner supplied the final WGS
+publication receipt. Its local `cce-release-receipt.json` was read;
+assets.status=PASS/state_verified=true, source=bafd27ce5f38e736aae516d5c00247e449872479,
+raw profile436a6608/pipelinecf2b6bdf/resource7cd067fb, AF and CCE IDs separate.
+Receipt canonical SHA is16f131a4ed501bd3c2f7747e3532f34bd84b18d024d39f90525b55693282893f;
+whole JSON file SHA is006b405fcee225baeb5d7150e3d9a74199b95f6abe69dede694d01fd0676eef3.
+This receipt is owner-reviewed publication evidence, not a new AF runtime
+check. No release registration or service switch was inferred from it.
+
+Remaining: user installation choice; final GATK profile and423 rule inventory;
+canonical profile revision and runtime pins; exact catalog/private prepare
+config/console/import/bootstrap/policy pairing; deployed TEST acceptance and
+verified rollback. This patch does not register the 423 repository or bypass
+missing final pins. Source rollback is a revert of this three-set delta on the
+candidate branch; there is no deployment from this task to roll back. Existing
+deployment bytes/mounts must be captured and verified before any later switch.
+
 ## 2026-10-01 — W423 Group source and bounded native impact handoff
 
 Goal: latest human requested the already merged WGS4.2.3/native089/two-Master
