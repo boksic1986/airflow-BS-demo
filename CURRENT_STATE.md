@@ -1,5 +1,48 @@
 # Current state
 
+## 2026-10-01 UNIFIED089 Gate2 TEST minimum acceptance COMPLETE; PROD held
+
+The native owner installed shared nipttest0.8.9/source1f5/wheelf843 and its
+bootstrap under the separate GO (receipt SHA256 `1727e1f4...`). AF then selected
+common16/policy, all four private runtime.env and five fixed wrappers, including
+the PROD private node selectors. The node-pair receipt SHA256 is
+`2d5164f94b8e0860276858860362294e048a9736c640bf142825f4b00fec62a2`;
+rootselect recorded four imports, four CLI selections and installed profiles
+passing. Four effective selectors matched the actual PVC/PV, 4/4 PASS. Admission
+was not opened. This **did change PROD node env/wrapper selection and the shared
+native package**; PROD gateway source, catalog and Heavy remain on their prior
+selection, with the v3 execution/auto gates closed.
+
+TEST selected its six actual gateway services using the reviewed paired variants;
+backend remained paired-frozen. The installed modules/imports, six-service
+mounts, loaded gates and API health passed the minimum acceptance. The exact
+mount-contract comparison passed; WGS/GATK Rules GET both returned 200 with
+zero historical rows, so this is no real Group event replay. TEST execution,
+scan and auto remain closed. The genuine WGS423 receipt was registered and
+current selection CAS changed from `wgs-4.2.2-3b1dae5` to
+`wgs-4.2.3-bafd27c`; closed readback confirmed catalog SHA256
+`342d4e073d2ac3d201ad4028016449daf550a7d88e4da5a2dcd9439754b16069`.
+The first transaction POST succeeded, but its final local assertion confused
+publisher raw profile SHA `436a6608...` with installed canonical `21558a4c...`
+and exited 1. Read-only closure succeeded with no duplicate POST, while gates
+remained closed. This was a checker error, not a product change.
+
+TEST Heavy alone now uses core `554f3edc...`, retained entry `dc5c1d...` and
+original launcher `65991c5...`, with new flock/Python PIDs 113056/113067.
+Two fresh complete snapshots at 13:55:05.298335Z and 13:56:24.895783Z each
+matched one Lease GET returning25 objects, held/used/waiting0, limit25 and idle. The
+first read-only acceptance timed out because it compared SFS mtime with node
+launch wall time; the corrected payload timestamp/hash check passed, retaining
+the 599/604-second mtime offset as a clock-source observation, not stale data.
+Earlier Heavy apply invoker failures and exact rollback evidence remain in the
+Gate2 audit; they caused no ad hoc product patch or clinical analysis.
+
+TEST minimum acceptance is complete. Coordinator PROD next GO, PROD gateway/
+catalog/Heavy acceptance and **v2.paired LAST** remain pending; production is
+not finally released. Keep gates closed and do not submit a new analysis or
+repeat full/UE tests. Exact Gate2 receipts and limits are in the
+[candidate record](docs/releases/2026-10-01-unified-native089-candidate.md).
+
 ## 2026-10-01 UNIFIED089 first-gate admission closure COMPLETE
 
 Direct human excluded four cross-UID keyword PIDs as unrelated and authorized

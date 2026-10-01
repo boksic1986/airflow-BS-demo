@@ -1,9 +1,11 @@
 # Active test-branch tasks
 
-## W423-R1-UNIFIED089 — candidate preparation, window closed
+## W423-R1-UNIFIED089 — Gate2 TEST minimum accepted; PROD held
 
-Latest status: first gate released and old-code admission closure COMPLETE;
-native independent GO already issued. Product/source pairing is not yet selected.
+Latest status: TEST minimum acceptance COMPLETE with gates closed; coordinator
+PROD next GO remains pending. Shared089 and all four private node envs/five
+wrappers, including PROD selectors, have changed. PROD gateway source/catalog/
+Heavy remain prior, and v3 execution/auto gates remain closed.
 
 - [x] Fresh host/effective original source/config/hash/platform/DAG/transfer/
   namespace checks; Mounts order-only discrepancy canonicalized with all fields.
@@ -12,8 +14,22 @@ native independent GO already issued. Product/source pairing is not yet selected
   original source/image/mounts/scan/watermark and other services preserved.
 - [x] Send mechanical closure time/targets/evidence directly to native and coordinator.
 - [x] Prepare bounded installed TEST command checklist, not executed; no repeated tests.
-- [ ] Receive native installed receipt; next AF pairing GO and TEST acceptance.
-- [ ] PROD catalog CAS and v2.paired LAST after accepted TEST evidence.
+- [x] Accept native installed receipt `1727e1f4...`; native alone installed
+  shared089/source1f5/wheelf843/bootstrap, without AF package reinstall.
+- [x] Select node common16/policy and four private envs/five wrappers; exact
+  pair receipt `2d5164f9...`, four imports/four CLI and profiles pass. Confirm
+  four effective PVC/PV identities, 4/4 read-only PASS.
+- [x] Select TEST six reviewed gateway services with backend paired-frozen;
+  actual imports, complete mounts, health, loaded closed gates and Rules GET
+  pass. Rules returned zero historical rows; no Group event replay is claimed.
+- [x] TEST genuine423 receipt POST and current-release CAS; final read-only GET
+  confirms `wgs-4.2.3-bafd27c`, catalog SHA `342d4e07...`, no duplicate POST.
+  Initial script exit1 was a raw-vs-canonical SHA assertion error after success.
+- [x] TEST Heavy core554/new process pair113056/113067 and two fresh complete
+  snapshots, each25 Lease GETs/held0/used0/limit25/waiting0/idle. Preserve
+  launcher/entry; first mtime-based checker timeout was clock-source mismatch.
+- [ ] Coordinator PROD next GO, bounded PROD gateway/catalog/Heavy pairing and
+  acceptance, then `v2.paired` LAST and exact approved gate restoration.
 
 - [x] Reconfirm current card with airflow-cloud-demo after the user's resend.
 - [x] Preserve accepted UE04/05/06; final AF80abdfc(parent0afd) retains two
@@ -31,16 +47,14 @@ native independent GO already issued. Product/source pairing is not yet selected
   config checks pass, no runtime selection. Stage existing Heavy entry/core
   wiring, exact backups/PID/starttime; launchers and active processes unchanged.
 - [x] Submit one concrete final candidate and old/new/rollback inventory to
-  airflow-cloud-demo; final packetf9cf2671/archivecf8fef55 verified, review pending.
-- [ ] Remaining after first-gate closure: native installed receipt,
-  native-only package/bootstrap install, AF pairing, focused validation,
-  TEST complete producer/client/backend/Group minimum joint acceptance first,
-  then production final423 new-request selection and exact gate restoration.
+  airflow-cloud-demo; final packetf9cf2671/archivecf8fef55 verified and accepted.
 
 No old Step1 incidents, FQ, clinical canary, analysis rerun, schema extension,
 private native fork, unrelated full upgrade or new UE/collector/recovery work.
 Required final423 producer/DAG/backend/UI dependencies belong to this packet;
-accepted source tests are reused, installed consumers remain pending.
+accepted source tests are reused. TEST installed minimum acceptance is complete;
+PROD final selection and release remain pending. Earlier source-only Group
+checkpoints below are retained as history and do not describe current Gate2.
 
 ## W423-R1-GROUP-FIRST-20261001 / AF-V423-BINDING — source complete
 

@@ -1,16 +1,83 @@
 # W423-R1-UNIFIED089 final candidate
 
-Latest status: **FIRST-GATE ADMISSION FROZEN, candidate source NOT SELECTED**.
-Only two backends were recreated with v3 old-code configuration at13:17/13:18Z.
-Native independent install GO has been handed off; AF has not installed native.
-Catalog registration/activation, active node environment/wrapper/source selection
-and collector restart have not occurred. TEST installed-consumer acceptance is
-pending and precedes production new-request selection. The user cancelled the
-422-native089 transition; its preserved drafts are marked OBSOLETE/NOT SELECTED.
+Latest status: **TEST MINIMUM ACCEPTANCE COMPLETE; PROD NEXT GO PENDING**.
+Admission remains closed. Shared089 and all four private node envs/five wrappers
+are selected, including PROD node selectors. TEST gateway, catalog and Heavy are
+selected and accepted at the stated minimum. PROD gateway source/catalog/Heavy
+remain prior; production is not finally released. The user cancelled the
+422-native089 transition; its preserved drafts remain OBSOLETE/NOT SELECTED.
+
+## Gate2 selected state and bounded TEST acceptance (2026-10-01)
+
+Native independently installed shared nipttest0.8.9/source1f5/wheelf843 and
+bootstrap; accepted receipt SHA256
+`1727e1f475d0f1c675fbb4676639ad739c58e7111c78d0989207fd48aeb39c17`.
+AF selected common16/policy and four private runtime.env/five wrappers. The
+node-pair receipt SHA256
+`2d5164f94b8e0860276858860362294e048a9736c640bf142825f4b00fec62a2`
+records the selection without opening admission or touching PROD gateway/Heavy.
+The installed `gate2-node-select.log` reports4/4 imports,4/4 CLI and profiles PASS;
+four effective selectors matched the actual PVC/PV, 4/4 read-only PASS
+(`gate2-pvc-result.json`, SHA256 `2b823fa1...`). PROD env/wrapper and shared
+native changes are classified as **production node configuration changes**;
+they are not a production gateway/catalog or full release.
+
+TEST six actual gateway services were recreated with the reviewed variants,
+backend `backend.v2.paired-frozen.json`, original project/directory and
+`--no-deps --pull never`. Unrelated services were unchanged. Apply receipt
+`gate2-test-gateway-apply-result.json` SHA256 `8ca5a037...`; acceptance
+`gate2-test-gateway-accept-v2-result.json` SHA256 `5439a205...` confirms
+actual loaded backend/DAG modules, three Airflow service imports, zero DAG
+import errors, API health200, auth required and execution/scan/auto false.
+The separate complete mount check covered all six services, source/destination,
+RW and duplicate-destination contract: PASS (`gate2-test-mount-contract-result.json`,
+SHA256 `30461ce6...`). WGS and GATK Rules GET returned200 with zero rows in
+the checked historical analyses; this is endpoint/schema acceptance, not a
+real Group event replay or a new analysis.
+
+The TEST catalog registered the genuine WGS publisher receipt SHA256
+`16f131a4...` and CAS selected `wgs-4.2.3-bafd27c` from prior
+`wgs-4.2.2-3b1dae5` with execution gates closed. Initial registration and
+activation HTTP assertions passed, but the final local readback assertion
+compared publisher raw profile SHA256 `436a6608...` with installed canonical
+SHA256 `21558a4c...` and exited1. Read-only closure confirmed current423,
+raw/canonical distinction and catalog-after SHA256
+`342d4e073d2ac3d201ad4028016449daf550a7d88e4da5a2dcd9439754b16069`;
+POST was not repeated. Closure receipt `gate2-test-catalog-result.json` SHA256
+`b542f880e8b80a76b26ca1ba91efebfc3329d4b27741ea4c3e124829e3bbbe69`.
+This was a checker assertion error after successful API mutation, not a second
+catalog operation or a product source change.
+
+TEST Heavy alone uses new core SHA256
+`554f3edc1c8f3fe656600a2417532087f9f96ec0b1df07b894c63a0823e4cd87`,
+original entry `dc5c1d...` and launcher `65991c5...`; new flock/Python PIDs
+113056/113067. Two fresh complete snapshots at 13:55:05.298335Z and
+13:56:24.895783Z each showed 25 exact Lease GETs, held/used/waiting0,
+limit25 and idle. The first read-only acceptance timed out because it compared
+SFS mtime with node launch wall time. The corrected payload timestamp/hash
+check passed; raw mtime remains 599/604 seconds behind payload timestamps.
+This is a clock-source difference, not evidence that the snapshots were stale.
+Earlier apply invoker failures (missing pidfd API and exiting `/proc` read)
+were recorded with exact PID fences: the first made no mutation; the second
+ended only the old TEST process pair before core selection. No ad hoc product
+patch was made. See ignored `gate2-heavy-final-audit.md` for the commands,
+rollback and read-only acceptance limits. PROD Heavy was untouched.
+
+Next: coordinator PROD GO, fresh bounded PROD gateway/catalog/Heavy pairing and
+acceptance, then `v2.paired` **LAST** for approved admission restoration. Neither
+PROD catalog CAS nor a new analysis/attempt or full regression is claimed. Once
+any marked089 attempt exists, global native downgrade and automatic old
+backend/DAG rollback remain invalid; retain compatible code with gates closed.
+
+## Pre-Gate2 candidate packet and rollback plan (historical)
+
+The sections below preserve the original frozen candidate, first-gate closure
+plan and rollback inventory. Their pending-install wording is superseded by the
+selected Gate2 state above; production actions are still pending.
 
 ## Current -> target
 
-| Component | Current observed state | Fixed target |
+| Component | Pre-Gate2 observed state | Fixed target |
 | --- | --- | --- |
 | AF | Actual service snapshots with deployed regression safeguards | `80abdfceea0d604e6524375e2b1a2aa32022ee65`, sole parent accepted `0afd253e158b649c33daaf83d428c191e0420dc3` |
 | Shared native | nipttest0.8.8/source417de59 | 0.8.9 / `1f5e1e0d7d7095ab43b14f514aafe623f4f89ca3`; wheel `f843cfa7766169bb7e5485b2af99ffbe933aac9ae7e667056aa3223da62c098d` |

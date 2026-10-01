@@ -1,5 +1,116 @@
 # Handoff
 
+## 2026-10-01 — UNIFIED089 TEST pairing and minimum acceptance complete
+
+AF product source remains80abdfc; only phase evidence and state documents changed.
+Coordinator reconfirmed the sole card after the user's requested resend and
+accepted native receipt1727e1f4. TEST acceptance is complete; PROD gateway source,
+catalog and Heavy remain unselected under v3 admission freeze pending its next GO.
+All four node envs/five wrappers, including PROD consumers, were selected under
+the explicit pairing authorization; do not describe all PROD configuration as
+unchanged. Private credentials and data/evidence roots remain separate.
+
+Final Gate2 index SHA24b901d01590f12dc0c0aac3aa9d916f3ee79051a6487c5e616c475dd6c917e6;
+39-member archive SHA1bd2928fbad15bc9b47c697da091863f5be7353c55b8f3594c521d9853b0f2bc.
+Copied to approved BS10610 task root WGS_test/cce-evidence/w423-unified089-20261001,
+verified all member names/types/sizes/hashes, extracted fresh gate2-test-pairing-final
+directory0700/files0600. No private env/Compose contents exported; immutable final
+f9cf2671 candidate packet remains unchanged. Infra's42-item detailed local receipt
+index is included as provenance; only the39 curated public files are in this archive.
+Documents-only git diff --check passed; no tests were rerun.
+
+### Actual selections and checks
+
+- Node t640/6801:520 selected nine exact files at13:39:47Z, preserving all original
+  backups. Common16/bootstrap/policy/two prepare files checked20 total. Receipt
+  gate2-node-pair-result.json SHA2d5164f94b8e0860276858860362294e048a9736c640bf142825f4b00fec62a2;
+  four sourced-env imports/CLI/selected_runtime/stage hash/bootstrap all passed,
+  PYTHONPATH absent; log SHAe9ed41ba8a0e4e44889dcb835f7bb00421773fac95d6e7cc51ec7651b6a71475.
+  One installed-interpreter WGS/GATK profile canonical check matched21558a4c/fd652a12;
+  raw hashes436a/17d2 are distinct. Actual four config PVC/PV GETs4/4 PASS,
+  receipt2b823fa10a77d6a0476558e914913442fb01537b8040518439e2ce7b43b5f8a1.
+- TEST six services selected13:41:31–13:41:58Z using backend v2.paired-frozen and
+  other five paired, exact original image/project/directory, --no-deps --pull never.
+  Apply receipt8ca5a0377f01a92e3ad1206b26353b9a5fa735d11401fc993ad049c53befa2b0.
+  New backend4b9325ab1cc7, observer591b5bec9f07, API083500cf4c65, scheduler9940f698bb8a,
+  worker7d2ed4d10d78, frontendbd584afda7bb. Four unrelated services unchanged.
+  Actual parent/source/DAG/dist hashes match, three real Airflow interpreter module
+  imports pass, list-import-errors exit0/total0. Loaded execution/scan/auto false,
+  watermark empty/auth true. Accept-v2 receipt5439a205de3977a784367d7a1f14bf107d82ea8c0dd632d9d4c43e5c140b5f79.
+  Complete mount destinations/no duplicates/Type/RW/Propagation/normalized Mode and
+  raw/canonical Source pass, receipt30461ce6a7a861338e6e434cab63c9c2685e5984bf82014daab7181cc81a72a2.
+  Gateway actual172.17.106.10:12959 health/index/JS/CSS GET200 and approved dist hashes
+  match, receipt54cba2116a63b7626bc0f168757090f629d9ba902831103dfd9f0e993cf4a67c.
+- TEST genuine receipt16f131a4 registration then expected-current422 CAS selected
+  wgs-4.2.3-bafd27c with gates closed. Catalog6801b8a8 ->342d4e073d2ac3d201ad4028016449daf550a7d88e4da5a2dcd9439754b16069.
+  Initial command exit1 AFTER both POSTs and subsequent GET succeeded: its final
+  assertion confused publisher raw profile436a with separate canonical2155. Only
+  read-only closure followed; no POST retry or catalog edit. Closure receipt
+  b542f880e8b80a76b26ca1ba91efebfc3329d4b27741ea4c3e124829e3bbbe69 at13:55:53Z.
+- TEST Heavy core7b261 ->554f3edc atomically; entrydc5 and launcher65991 unchanged.
+  Exact old Python148291 was TERM'd; both old PIDs disappeared before remaining
+  replacement. New flock113056/field22=3077522844 and Python113067/3077522848.
+  Two actual complete snapshots13:55:05.298335Z/13:56:24.895783Z, used0/limit25,
+  waiting0/idle; two exact25 Lease GETs each held0 match naturally observed used0.
+  Existing TEST config/evidence/lock remain. No PROD Heavy signal/file change.
+
+### Diagnosed probe failures and evidence limits
+
+Gateway accept first called PATH snakemake-venv Python (ModuleNotFoundError airflow)
+and compared one side's alias source with realpath; actual CLI interpreter and
+complete saved mount fields resolved these probe errors. No product/service repair.
+First external HTTP check used unbound127.0.0.1; observed binding172.17.106.10 fixed
+the read-only call. Preserve initial failures and new v2 receipts separately.
+
+Heavy apply1 exit1 before mutation: pidfd APIs absent. Apply2 sent only precise
+old TEST Python TERM, then exit1 while reading dying-process exe PermissionError;
+readback proved both PIDs gone and old core intact. Reviewed phase2 had no signals
+and finished only the remaining replace/launch. Initial raw pidfd stderr was
+overwritten; summary/tool record and no-mutation readback remain, so do not claim
+full original log preservation. First acceptance timed out on SFS mtime; payload
+clock and node launch share a clock, whereas raw SFS mtime lags599/604s. V2 preserved
+raw mtime and checked two timezone-aware post-launch payload times/PIDs/hashes/Leases.
+
+Existing WGS/GATK Rules GET200 each returned0 rows; no real Group row/producer
+replay claim. No known installed marked089 journal fixture was supplied, and no
+new attempt/clinical analysis was created. Accepted UE/Group/17+2 source evidence
+is reused; no full test suite or rebuild. Protected data, attempts, locks and
+journals preserved. Exact backups remain, but after any marked089 attempt global
+native downgrade/automatic old backend+DAG rollback is forbidden. Keep compatible
+stack closed and repair forward. Next: coordinator reviews this evidence and
+issues the PROD next gate; no production source/catalog/Heavy selection here.
+
+## 2026-10-01 — UNIFIED089 pairing authorization, TEST acceptance in progress
+
+User requested resending the task to airflow-cloud-demo. The send succeeded;
+coordinator reconfirmed sole W423-R1-UNIFIED089 and explicitly authorized
+common16/policy, all four private runtime.env files/five fixed wrappers, TEST
+six gateway services with backend paired-frozen/paired-management, and existing
+TEST Heavy entry/core/process replacement. Native install receipt1727e1f4 is
+accepted: shared089/source1f5, wheelf843, bootstrap9e36, other197 distributions
+unchanged. AF does not reinstall or repeat the native package audit.
+
+Exact selectors and backups are final-node-profile-manifest.json; TEST gateway
+uses final-gateway-candidate-final-manifest.json v2 variants on BS10610 with
+original project/directory and --no-deps --pull never. TEST Heavy uses only
+the TEST row of final-heavy-candidate-manifest.json with PID/starttime fencing.
+PROD gateway source/catalog/Heavy are not authorized for selection in this phase;
+PROD v3 admission freeze stays active. Private credentials and runtime/result/
+evidence roots remain separate. No deletion, new analysis, attempt, lock cleanup,
+Step1 incident work, FQ/QC2/delivery, UE04/05 repeat or full regression is in scope.
+Minimal actual imports/CLI/selectors/hashes/DAG/Rules GET and one installed-profile
+canonical check supplement accepted tests. TEST catalog normal register/CAS is
+authorized only if required for the frozen final configuration check.
+
+The final TEST current-release/configuration check requires selecting423 while
+execution stays closed. Use only the prepared genuine registration receipt and
+CAS expected prior wgs-4.2.2-3b1dae5 through existing authenticated management
+API after actual gateway acceptance; no direct catalog edit or database access.
+
+Record each actual result below. After any marked089 attempt, automatic old
+backend/DAG rollback and global native downgrade are forbidden; retain the
+089-compatible stack closed for repair and coordinate a bounded remedy.
+
 ## 2026-10-01 — UNIFIED089 first-gate closure complete, native evidence handed off
 
 ### Executed closure and exact targets

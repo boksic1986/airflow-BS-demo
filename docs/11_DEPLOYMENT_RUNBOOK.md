@@ -1,6 +1,38 @@
 # Deployment runbook
 
-## 2026-10-01 final423/shared089 candidate packet, not deployed
+## 2026-10-01 Gate2 TEST accepted; PROD next GO pending
+
+Shared nipttest0.8.9 and the four private node envs/five wrappers are now
+selected, including PROD WGS/GATK selectors. This is a real production node
+configuration change; PROD gateway source/catalog/Heavy remain prior and its
+v3 execution/auto admission gates remain closed. TEST has selected six reviewed
+gateway services with backend paired-frozen, genuine WGS423 catalog registration
+and CAS, and TEST Heavy core554. Its minimum actual imports, loaded gates,
+complete mount contract, API/Rules GET, four PVC/PV identities and two fresh
+complete Heavy/Lease snapshots passed. Rules GET returned zero historical rows;
+there was no real Group replay or new analysis.
+
+Use the [Gate2 receipt and limits](releases/2026-10-01-unified-native089-candidate.md)
+for exact installed hashes and rollback. The initial catalog transaction's
+final checker confused publisher raw profile SHA with installed canonical SHA
+after its POSTs succeeded; the later read-only closure confirmed current423 and
+did not repeat POST. The first Heavy read-only checker compared SFS mtime against
+node launch wall time and timed out; payload timestamps and independent Lease
+GETs passed, while the raw 599/604-second mtime offset remains recorded. These
+were checker/invoker issues, without an ad hoc product patch or full test rerun.
+
+Before a PROD gateway/catalog/Heavy operation, obtain the coordinator's next
+GO and recheck the actual host, current configs, gates and exact rollback.
+Preserve the closed gates through bounded PROD acceptance; select `v2.paired`
+LAST only after all approved checks. Do not infer a final production release
+from shared089 or PROD node selector selection. After a marked089 attempt,
+automatic downgrade to old native/backend/DAG is unsafe; retain the compatible
+stack with gates closed for repair.
+
+## 2026-10-01 final423/shared089 candidate packet (pre-Gate2 plan)
+
+The following candidate wording records the earlier preparation/freeze phase;
+the Gate2 status above supersedes its pending-install observations.
 
 The sole card W423-R1-UNIFIED089 prepares AF80abdfc(parent0afd), native089/1f5/f843,
 WGS423/bafd/e481/profile436a and GATK7.6.0/a4f/r5/profile17d2. The422-native089

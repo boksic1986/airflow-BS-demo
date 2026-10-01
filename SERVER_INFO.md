@@ -1,5 +1,48 @@
 # SERVER_INFO.md
 
+## 2026-10-01 UNIFIED089 Gate2 effective selection; TEST accepted, PROD held
+
+Native owner installed shared nipttest0.8.9/source1f5/wheelf843 and bootstrap
+on node200 `t640` under its independent GO (installed receipt SHA256
+`1727e1f475d0f1c675fbb4676639ad739c58e7111c78d0989207fd48aeb39c17`).
+AF's node-pair result SHA256
+`2d5164f94b8e0860276858860362294e048a9736c640bf142825f4b00fec62a2`
+records common16/policy plus four private runtime.env and five wrappers selected;
+`rootselect.log` reports four imports, four CLI calls and installed profiles
+passing. Actual four effective node selectors matched the same PVC/PV, 4/4 PASS.
+These selections include **PROD** private WGS/GATK env/wrappers; it is inaccurate
+to call this phase free of production configuration changes. No admission opened.
+
+BS10610 `server10610`: six TEST gateway services selected from the reviewed
+paired variants, backend `backend.v2.paired-frozen.json` and execution/scan/auto
+still false. Six required DAG/module imports in each of three Airflow services,
+zero DAG import errors, API health 200 and loaded auth/gates passed.
+Complete mounts across all six services matched expected source/destination/RW
+contract, including no duplicate destinations. WGS/GATK Rules GET returned200
+with zero rows in the checked historical runs; no real Group replay was claimed.
+Apply/accept/mount receipts SHA256: `8ca5a037...`, `5439a205...`, `30461ce6...`.
+TEST catalog now selects `wgs-4.2.3-bafd27c` after the genuine receipt and CAS;
+the prior current was `wgs-4.2.2-3b1dae5`. Closed readback catalog SHA256 is
+`342d4e073d2ac3d201ad4028016449daf550a7d88e4da5a2dcd9439754b16069`.
+The first transaction's POSTs passed but its final raw-vs-canonical profile SHA
+assertion exited1; a read-only GET closed it without repeated POST. TEST gates
+remain closed.
+
+TEST Heavy only: core SHA256 `554f3edc1c8f3fe656600a2417532087f9f96ec0b1df07b894c63a0823e4cd87`,
+entry `dc5c1d...` and launcher `65991c5...` retained; new flock/Python PIDs
+113056/113067. Complete snapshots at 13:55:05.298335Z and 13:56:24.895783Z
+each returned 25 exact Lease GETs, held/used/waiting0, limit25 and idle. The
+first mtime-based checker timed out on a 599/604-second SFS/node clock-source
+offset; payload timestamp and exact hash/Lease checks passed. No PROD Heavy
+process was replaced.
+
+BS96 `server96`: backend remains on old-source `v3.freeze` with execution/auto
+closed, scan true and original watermark literal unchanged. PROD gateway source,
+catalog and Heavy remain prior. Coordinator PROD next GO and final bounded
+acceptance are pending; `v2.paired` gate restoration is LAST. Neither PROD
+release completion nor a new analysis is claimed. See the
+[Gate2 phase record](docs/releases/2026-10-01-unified-native089-candidate.md).
+
 ## 2026-10-01 UNIFIED089 first-gate effective backend state
 
 Only backend admission closure applied, original code/image/mounts retained.
