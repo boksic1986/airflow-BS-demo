@@ -1,16 +1,55 @@
 # Active test-branch tasks
 
-## W423-PREPARE-6C78D5-20261002 — only active recovery card
+## W423-A468E9-HOURLY-20261002 — ACTIVE only follow-up
 
-- [x] Exact BS96/node200 fingerprint and original prepare exit2/private log.
-- [x] Confirm incorrect profile0755/0644/0755 vs user2775/0664/0775.
-- [x] Native corrected profile; normal PROD catalog register/CAS/readback.
-- [x] Original failed/gen1, no active process/output/pending; one source preview5rows.
-- [ ] Human approves new analysis batch label; same-batch normal API dedupes.
-- [ ] Trigger one bounded normal API recovery; verify prepare receipt and next state.
+- [x] Verify direct human hourly-monitor/recover-to-completion instruction, message 01a0f953-fa91-7ef0-9e4a-4b956784104c.
+- [x] Create the unique ACTIVE hourly heartbeat wgs-test1 for thread 01a0e728-4c99-71d0-87e9-987b311022c9; saved TOML readback matches, no prior matching monitor.
+- [x] Accept actual A468E9/a1 CCE Step1 dispatch/upload: Progress API 200/running, 0.4%, 2,125,820,066/522,508,028,738 bytes, 10 files.
+- [ ] Monitor only the current A468E9 attempt hourly; communicate issues and apply minimum scoped repair/recovery until workflow completion.
+- [ ] Require Step1–6 final receipts, delivered results and consistent Airflow/platform success before completing this card and removing the monitor.
 
-Keep old requests/receipts/hash, inputs and results unchanged. New attempt/analysis
-or selecting a different frozen release requires the coordinator's human confirmation.
+Unchanged state stays quiet; notify on issues, meaningful progress and completion.
+Full batch execution is not complete. No Step7, repeated deletion/creation,
+prepare/profile change or reopening of earlier completed recovery scopes.
+
+## W423-PREPARE-6C78D5-20261002 — scoped recovery COMPLETE
+
+- [x] Exact BS96/node200 fingerprint and original prepare exit 2/private log.
+- [x] Confirm incorrect profile 0755/0644/0755 vs user 2775/0664/0775.
+- [x] Native corrected profile; normal PROD perm2775 catalog register/CAS/readback.
+- [x] User explicitly authorized only test1/6C78D5 and test/BE4F5F online record deletion; supersede the new-label approval wait.
+- [x] Private 0600/0700 snapshot; delete two exact DagRuns/two parent records, 27 owned rows including 5+5 sample rows; both APIs return 404.
+- [x] Preserve three old audits, add two deletion audits; related global slot/lease/reference/intake/draft/observer counts zero, original 5035B0 unchanged, file deletions zero.
+- [x] One normal POST for original test1 returned 201: WGS_20261001_210659_A468E9/a1, perm2775 release, unchanged five-row source SHA 48f5c4fc.
+- [x] Sampleinfo ready/successful; normal all/default configuration approval returned 200.
+- [x] Accept exact prepare_analysis success/ready receipt, matching node status SHA; API five selected samples/ready and execution_review at prepare acceptance.
+- [x] Verify direct human "修复后 rerun" authorization; one normal start-wgs-execution returned 200 for the same five-row/all/default selection, phase approved and both approvals true.
+- [x] Accept actual Step1 dispatch/upload: execution approval/commit/slot acquisition/start TIs success, wait_step1_upload up_for_reschedule; normal CCE committed attempt 1 revision 2 and upload slot held.
+
+Current prepare_analysis is success with ready=true, artifact_pending=false,
+failed=false, generation 1,
+wse_a4e1a8881a3a550bc77baa29, request SHA256
+a0129d092d247b4173c4ddd062121104a688d6963a6c00297407b227261ad7aa.
+Registered receipt SHA256
+743a2d45556ea1a4edca36ce652a0c857925673dcedd0a9deab797e2ae1055d9
+matches the node status file; prepare_handoff_receipt is present. API
+sample_count=5/sample_scope_status=ready. Following one normal execution
+confirmation, submission_phase=approved,
+config_approved=true/execution_approved=true. Authorization was verified directly
+from airflow-cloud-demo human message 01a0f918-6569-7df3-ac4a-ac0c28f1c433;
+the latest deletion/resubmission instruction imposed no stop-before-execution
+restriction. No repeated creation/prepare or dispatch/lease bypass is required.
+Corrected profile raw SHA 26b6fb15 is frozen; source 3f98682/native 0.8.9 remain
+selected. Private deletion snapshot SHA256 is
+660bef282eb17d9ba7713229d3a55da85b8df14d92492c1f86f33865b8d2e5de.
+Offline inputs/FASTQ/sampleinfo/projects/results/pending/evidence/request copies
+and cloud data remain protected. This scoped deletion/resubmission/prepare task is
+complete. New test1 execution is approved and Step1 dispatch/upload acceptance
+passed: wse_ec58be0b95c3e84d357d60e5 generation 1, request SHA256
+f0486b753e23f7a523e728a4d5df989589b6d84e9ed6c1aaae62ba573e0ef8be,
+normal slot wgs-obs-upload-01 held by A468E9-a1-input. Full batch execution is
+not complete and batch success is not claimed. Its sole continuation is the
+W423-A468E9-HOURLY-20261002 card above.
 
 ## WGS-PANEL-20261002 — published-release configuration COMPLETE
 

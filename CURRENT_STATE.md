@@ -1,16 +1,72 @@
 # Current state
 
-## 2026-10-02 W423-PREPARE-6C78D5-20261002 — active scoped recovery
+## 2026-10-02 W423-A468E9-HOURLY-20261002 — ACTIVE only follow-up
 
-Only target: WGS_20261001_200308_6C78D5 / 20260927D-test1, attempt1.
-User explicitly confirms2775/0664/0775; WGS3f permission guard is correct.
-Original r1 profile f0150c60 has0755/0644/0755 and caused prepare exit2.
-Corrected r1 raw26b6fb15 / canonicalc23869c4 is installed. PROD current is now
-wgs-4.2.3-3f98682-perm2775, receipt10951f7a, phase source49531b9.
-Backenda70599bd/observere5c018a5 retain original code; ten other IDs unchanged.
-Oldrun remains failed/immutable. Same-batch API dedupes to it; await explicit
-new analysis_batch20260927D-test1-perm2775 confirmation before one new run.
-UE04/05/06, oldStep1 and WGS-PANEL deployment are complete; do not reopen them.
+Only active follow-up: WGS_20261001_210659_A468E9, current attempt 1,
+20260927D-test1. Normal execution is approved; actual CCE Step1 upload is running.
+Progress API returned 200: Uploading FASTQ, 0.4%, 2,125,820,066 of
+522,508,028,738 bytes across 10 files. The full batch is not complete.
+
+Directly verified human message 01a0f953-fa91-7ef0-9e4a-4b956784104c requests
+hourly monitoring, communication on issues, minimum scoped repair and recovery
+until the full workflow ends. Unique heartbeat automation wgs-test1 is ACTIVE,
+once per hour, targeting thread 01a0e728-4c99-71d0-87e9-987b311022c9; saved TOML
+readback matched and no matching monitor already existed. Unchanged state stays
+quiet; report issues, meaningful progress and completion. Complete and remove
+the monitor only after Step1–6 final receipts, delivered results and consistent
+Airflow/platform success. Scope remains this current attempt: no Step7 or repeat
+of the completed deletion, creation, prepare/profile or earlier recovery scopes.
+
+## 2026-10-02 W423-PREPARE-6C78D5-20261002 — scoped recovery COMPLETE
+
+User explicitly confirmed 2775/0664/0775 and then authorized deleting only the
+online records for 20260927D-test1 (WGS_20261001_200308_6C78D5, failed) and
+20260927D-test (WGS_20261001_180321_BE4F5F, cancelled), followed by one normal
+resubmission of test1 under its original label. The earlier new-label approval
+wait is superseded.
+
+Exact deletion is complete: two Airflow DagRuns and two parent business records,
+27 owned rows total including 5+5 sample rows. The three old audit rows remain;
+two deletion audit rows were added. Both old IDs return 404 from business API
+and Airflow. Related global slot/lease/reference/intake/draft/observer counts
+were zero; original 5035B0 success and all its fields are unchanged. File
+deletions: zero. The private snapshot uses 0600 files/0700 directory, SHA256
+660bef282eb17d9ba7713229d3a55da85b8df14d92492c1f86f33865b8d2e5de.
+
+One normal POST returned 201 and created WGS_20261001_210659_A468E9, attempt 1,
+for 20260927D-test1 on wgs-4.2.3-3f98682-perm2775. The original five-row source
+SHA starts 48f5c4fc; normal all/default configuration approval returned 200.
+Sampleinfo and prepare-analysis acceptance passed: prepare_analysis success,
+ready=true, artifact_pending=false, failed=false, generation 1,
+execution_id wse_a4e1a8881a3a550bc77baa29, request SHA256
+a0129d092d247b4173c4ddd062121104a688d6963a6c00297407b227261ad7aa.
+Registered receipt SHA256
+743a2d45556ea1a4edca36ce652a0c857925673dcedd0a9deab797e2ae1055d9
+matches the node status file; prepare_handoff_receipt is present. The new request
+freezes corrected profile raw SHA 26b6fb15; WGS source 3f98682 and native 0.8.9
+remain selected. API sample_count=5, sample_scope_status=ready.
+Exact deletion, one normal resubmission and prepare acceptance are complete.
+
+Direct read_thread verification of the human instruction in airflow-cloud-demo,
+message 01a0f918-6569-7df3-ac4a-ac0c28f1c433, confirmed "修复后 rerun".
+The latest deletion/resubmission request has no restriction to stop before
+execution. Under this original authorization, one normal
+POST actions/start-wgs-execution for A468E9 returned 200, preserving the same
+five-row/all/default selection and normal dispatch/lease gates. Current
+submission_phase=approved, config_approved=true, execution_approved=true.
+Actual Step1 dispatch/execution acceptance passed: Airflow execution approval,
+execution commit, upload-slot acquisition and upload start are success;
+the Step1 upload waiter is up_for_reschedule.
+Dispatch is running/CCE/committed, attempt 1 revision 2. Step1 execution is
+wse_ec58be0b95c3e84d357d60e5, generation 1, request SHA256
+f0486b753e23f7a523e728a4d5df989589b6d84e9ed6c1aaae62ba573e0ef8be.
+The normal slot wgs-obs-upload-01 holds A468E9-a1-input. Full batch execution
+is not complete and batch success is not claimed; continuation belongs only to
+W423-A468E9-HOURLY-20261002 above.
+
+PROD catalog receipt 10951f7a and phase source 49531b9 remain selected;
+backend a70599bd/observer e5c018a5 retain original code, ten other IDs unchanged.
+UE04/05/06, old Step1 and WGS-PANEL deployment are complete; do not reopen them.
 
 ## 2026-10-02 WGS-PANEL configuration COMPLETE
 

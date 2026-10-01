@@ -1,5 +1,160 @@
 # Handoff
 
+## 2026-10-02 — W423-A468E9-HOURLY-20261002 ACTIVE, only follow-up
+
+Directly verified airflow-cloud-demo human message
+01a0f953-fa91-7ef0-9e4a-4b956784104c requires hourly monitoring, coordinator
+communication on issues, authorized minimum repair/normal recovery until the
+whole flow completes. This is the only ongoing target: 20260927D-test1 /
+WGS_20261001_210659_A468E9, initial attempt1. Preparation and the two old record
+deletions are COMPLETE and must not be replayed. Original5035B0/all other runs
+and all files remain protected; do not execute Step7.
+
+Normal execution confirmation was called once and returned200, phase approved,
+both approvals true. Airflow execution approval/commit/target choice/input-slot/
+start_step1_upload tasks success; wait_step1_upload up_for_reschedule. Dispatch
+running/CCE, committed attempt1/revision2. Step1 current registered execution
+wse_ec58be0b95c3e84d357d60e5, generation1, request hash
+f0486b753e23f7a523e728a4d5df989589b6d84e9ed6c1aaae62ba573e0ef8be.
+Normal upload lease wgs-obs-upload-01 owns A468E9-a1-input. Progress GET200
+reports Uploading FASTQ/running,0.4%; transfer GET has2125820066/522508028738
+bytes,10files, detail available. These are an initial observation, not a fixed
+future phase or completion claim. API/native workflow owns natural Step1–6.
+
+No matching old automation was found before creating one app heartbeat:
+id `wgs-test1`, name `WGS test1 每小时进度与恢复`, ACTIVE, every1hour,
+bound to this thread01a0e728-4c99-71d0-87e9-987b311022c9. App view and saved TOML
+readback confirm heartbeat/hourly/ACTIVE/target thread. Automation creation time
+1790889567693ms. Monitor prompt reads these latest cards/environment boundary,
+checks current identity/receipts/real progress, communicates with coordinator
+019fa8d1-0d81-7e92-abee-8154dd1cf0a7 on exceptions before scoped repair/recovery,
+uses only normal bounded resume/rerun_failed and does not repeat active or
+successful stages. It remains silent for unchanged healthy state and reports
+meaningful progress/problems/decisions/completion. No duplicate monitor exists.
+
+Complete only after actual Step1–6 receipts, final results and Airflow/platform
+terminal success agree; then delete this monitor. New inputs, expanded deletion,
+permission relaxation or native production core behavior changes need separate
+human decision. Do not query obsolete prepare_sampleinfo internal status after
+approval: it writes back config_review; current approved phase is correct.
+No product behavior was changed for that observed older interface issue.
+
+Evidence: new-execution-approved.jsonl, new-execution-progress.jsonl and
+step1-actual-tracker.jsonl under the existing untracked task artifact folder;
+execution API200, normal leases/identity and real byte progress all verified.
+Only docs and app heartbeat configuration changed after the earlier fix.
+Full workflow is still running; hourly follow-up is installed, not a promise
+that final success has already occurred. Root remains sole production writer.
+
+## 2026-10-02 — A468E9 normal execution confirmation AUTHORIZED
+
+Before the execution action, read_thread on airflow-cloud-demo directly verified
+human message01a0f918-6569-7df3-ac4a-ac0c28f1c433: "修复后 rerun".
+This combines with this chat's latest explicit two-record deletion/resubmission
+request; no later human instruction limits the task to preview or asks to wait.
+Scope is new WGS_20261001_210659_A468E9/a1 only, same five selected sample/data
+pairs, original all/default parameters, corrected frozen perm2775 release.
+Use normal POST actions/start-wgs-execution exactly once; retain execution
+admission/leases/current gates, then verify the real Step1 state. Do not repeat
+creation/preparation or expand to other runs/full test suites. This authorization
+supersedes the previous entry's execution-confirmation wait; no full batch success
+is implied. Exact input/protection/prepare evidence remains as recorded below.
+
+## 2026-10-02 — W423 exact record deletion/resubmission/prepare COMPLETE
+
+Latest human request names only 20260927D-test1 and 20260927D-test. This entry
+closes that scoped maintenance and preparation, superseding older new-label waits.
+Before mutation, private snapshot and live locked guards were checked; authorization,
+online targets and offline protection are itemized in the next entry.
+
+- 20260927D-test1 / WGS_20261001_200308_6C78D5-a1: exact Airflow DELETE and
+  business parent/CASCADE succeeded; both GETs404, no linked metadata remains.
+- 20260927D-test / WGS_20261001_180321_BE4F5F-a1: exact Airflow DELETE and
+  business parent/CASCADE succeeded; both GETs404, no linked metadata remains.
+- Total27 owned rows removed, including5+5 sample metadata. Three existing audits
+  preserved and two deletion audits added. Global slots/leases/scanner/reference/
+  drafts untouched; exact associated rows were absent. No files/cloud data deleted.
+- All other run IDs remain, including original20260927D/5035B0 success with its
+  full business row unchanged. Final run total28 after deleting2 and creating1.
+
+One normal POST /api/wgs/runs returned201 for original analysis label
+20260927D-test1: WGS_20261001_210659_A468E9, attempt1,
+DagRun WGS_20261001_210659_A468E9-a1. Same original protected source SHA48f5c4fc
+and5rows; normal all/default configuration approval200. Source file unchanged.
+Selected sample/data pairs exactly equal the five input rows (scope SHA256
+07eed770d80b4c18e34c745d5943b0b9f0ff46a4b6a06175d342069128701c75).
+New request freezes wgs-4.2.3-3f98682-perm2775, raw profile26b6fb15, immutable
+WGS3f98682/native0.8.9/build051371a9. No new image/source behavior or gate change.
+
+Both prepare Airflow tasks success; prepare_analysis ready=true,
+artifact_pending=false, failed=false. Registered/native identity is
+wse_a4e1a8881a3a550bc77baa29, attempt1/generation1, request hash
+a0129d092d247b4173c4ddd062121104a688d6963a6c00297407b227261ad7aa.
+Required prepare_handoff_receipt is present; registered receipt hash matches
+native status file SHA743a2d45556ea1a4edca36ce652a0c857925673dcedd0a9deab797e2ae1055d9.
+Private new prepare log2086bytes/SHA9745ac9a has no observed error marker.
+Old native failed status hash60ae9b61 and cancelled sampleinfo status remain.
+
+Current true state: running,5selected samples/ready, submission_phase
+execution_review; config approved, execution NOT approved. Airflow execution
+approval sensor up_for_reschedule; Step1 upload task has no state and did not run.
+Normal execution confirmation is the next action. Full batch completion/success
+is not claimed. Do not re-create, clear tasks or approve execution implicitly.
+
+Modified tracked files: CURRENT_STATE.md, TASKS.md, HANDOFF.md only for this close.
+Commands/results: snapshot-exact-records.sh PASS; delete-exact-records.sh PASS
+locked scope/27row cascade/two404; resubmit-original-test1.sh PASS201 once;
+normal approve-wgs-config PASS200; new-run-readback and final-protection-readback
+PASS exact identity/receipt/scope/protection; final-native-receipt PASS frozen
+source/profile/build/native and old status preservation. Full test suites were
+not run: this is authorized live record maintenance/ordinary preparation with
+API/native readbacks, no product implementation delta. Evidence scripts/safe
+summaries stay untracked under .codex-artifacts/wgs-6c78d5-prepare-20261002.
+
+Private backup remains at the exact snapshot path in the next entry (SHA660bef28,
+0600 inside0700). Do not infer automatic restorability. Restoring deleted DB rows
+and DagRun state needs separate reviewed maintenance; a plain Airflow POST may
+schedule work. Existing permission/catalog/service rollback material remains
+available from the previous configuration fix; none was applied here.
+
+## 2026-10-02 — exact two-record deletion and original-label resubmission AUTHORIZED
+
+Human in this chat explicitly requests deleting the two unsuccessful records
+and resubmitting, then names20260927D-test1 and20260927D-test. Exact online targets:
+WGS_20261001_200308_6C78D5(failed/test1) and WGS_20261001_180321_BE4F5F(cancelled/test).
+Scope: their Airflow DagRuns and business records/linked metadata only. Preserve
+original20260927D successful5035B0, other runs, all offline inputs/FASTQ/sampleinfo,
+projects/results/pending/evidence/request copies and cloud data. No file deletion.
+No public record-deletion API exists in this source; the intake-reset CLI is broad
+and must not be reused. Exact controlled backend ORM deletion is authorized by
+this explicit record request, with private per-table snapshots and terminal guards.
+Verify both actual runs/native processes first; snapshot before mutation. Do not
+promise snapshot recovery before it is created. Then normal POST creates one
+20260927D-test1 using same5row source and corrected perm2775 current catalog.
+This latest request replaces the earlier pending new-label/retain-old-record plan.
+
+Pre-delete live snapshot completed on verified server96/backend a70599bd:
+`/data/airflow-WGS/wgs-permissions-20261002-3f98682-control/record-delete-20261002/exact-two-runs.snapshot.json`,
+mode0600 inside0700 directory; SHA256
+`660bef282eb17d9ba7713229d3a55da85b8df14d92492c1f86f33865b8d2e5de`.
+Contains exact business rows and both Airflow DagRuns/task instances. Recovery is
+not promised automatically; preserve snapshot for separately reviewed restore.
+Both Airflow DagRuns are failed, with no active task; native exact-ID processes
+absent and both target output projects absent. Original5035B0 remains success.
+6C78D5 exact owned rows: analysis_run1/sample5/run_action2/run_attempt1/
+run_stage_state2/wgs_execution_dispatch1/wgs_input_snapshot1/wgs_stage_execution2.
+BE4F5F exact owned rows: analysis_run1/sample5/run_action1/run_attempt1/
+run_stage_state1/wgs_execution_dispatch1/wgs_input_snapshot1/wgs_stage_execution1.
+Preserve existing audit_log1+2 and add deletion audits. Exact associated target
+slots/OBS leases/reference operations/onprem snapshots/intake/drafts/lifecycle/
+observer/kubernetes rows all zero; no child analysis references either target.
+Dispatch rows remain initial preparing with no committed timestamp/attempt;
+registered native stages are success/failed only. Historical accepted config
+approval is completed audit metadata, not an active runtime request.
+Authorized mutation: normal Airflow DELETE for the two exact DagRun IDs only,
+then locked exact-parent ORM transaction with live FK CASCADE (27 owned rows),
+retaining all global rows and audits. No direct Airflow metadata DB access.
+
 ## 2026-10-02 — W423-PREPARE-6C78D5-20261002 ACTIVE, latest authorization
 
 Human in airflow-cloud-demo explicitly requested fix then rerun exact
