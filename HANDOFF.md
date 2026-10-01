@@ -1,5 +1,53 @@
 # Handoff
 
+## 2026-10-01 — PERF-RUN-PAGES-20261001 read-only diagnosis complete
+
+Coordinator airflow-cloud-demo authorized bounded production GET timings for
+slow Batch Runs and Run Detail loading: BS96/server96 only, expected restored
+backend7aadaf93/frontend4df1, source80abdfc. Check actual current/control/mounts
+and gates before requests. Measure health, frontend default20 runs page and
+one historical run's detail/workspace/first-screen samples. Existing release
+evidence does not prove a WGS dispatch association, so skip WGS detail/workspace
+to avoid its lazy write; use historical GATK F246CD if live source guards match.
+No code fix, deploy/restart, cleanup, new batch, DB direct access, policy/gate
+change, instrumentation install, load test or completed release replay is
+authorized. Bounded logs and one docker stats snapshot are allowed. Evidence
+is local under `.codex-artifacts/perf-run-pages-20261001`; no remote file writes.
+All four bounded SSH scripts exited0. First authenticated timings and final
+supplemental results were sent promptly to airflow-cloud-demo. Deployed20
+runs200/2.278426s; GATK6 runs200/0.062800s; historical GATK detail/workspace/
+samples200 at0.483357/0.124118/0.013732s; real capabilities200/0.004968s.
+Formal gateway health without internal header200/0.006982s. The initial
+container-origin token-bearing gateway health/runs both403 (0.009552/0.001994s,
+153B) are failure evidence, not successful page timings. No blind retry or auth
+change followed: use the existing authenticated internal channel and state its
+limits. That channel bypasses browser session lookup/nginx/network/navigation.
+
+One stats snapshot and five-minute logs capped at200 lines per service showed
+no sampled saturation,5xx or matched exception class. Actual nginx main access
+format lacks request_time/upstream_response_time, so original browser durations
+cannot be reconstructed. The user's slow Batch Runs→detail navigation, notably
+GATK, was not reproduced; no root cause is claimed. Workspace publishes detail
+before the normal following samples GET finishes. Base detail preceded workspace,
+so possible cache warming prevents interpreting their timing difference as
+isolated cost. WGS lazy-write GETs were omitted; no DB direct access was used.
+
+Changed only CURRENT_STATE.md, TASKS.md, SERVER_INFO.md, HANDOFF.md and
+docs/diagnostics/2026-10-01-run-pages-readonly.md. The report lists commands,
+full evidence SHA256, actual mounted source pins, timings and limitations.
+No implementation tests were requested or run for this diagnostic task.
+Local checks matched all four evidence SHA256 values, parsed15 JSON records,
+resolved three report links and passed git diff --cached --check. The five
+documentation files are isolated on
+jiucheng/infra/PERF-RUN-PAGES-20261001-readonly-diagnosis. Next:
+Independent local report/evidence review returned PASS. Its manifest-pin
+coverage note was resolved by citing the guarded group1 script and verifying
+the existing local final manifest SHA256; no extra production call was made.
+coordinator combines the bounded data with its existing frontend/backend review;
+any fix or further production instrumentation needs a separately scoped task.
+Risk/rollback: internal timing cannot rule out session/navigation or intermittent
+latency. No production change requires rollback; revert only the docs commit.
+
 ## 2026-10-01 — UNIFIED089 final index metadata correction
 
 Coordinator accepted the actual release and requested two local index corrections:

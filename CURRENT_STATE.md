@@ -1,5 +1,20 @@
 # Current state
 
+## 2026-10-01 PERF-RUN-PAGES read-only diagnosis complete
+
+BS96 restored backend7aadaf93/frontend4df1, actual mounts and eleven relevant
+source hashes matched final80; original gates were preserved. Existing internal
+auth GET timing: deployed20 runs200/2.278426s, GATK6 runs200/0.062800s;
+historical GATK F246CD detail200/0.483357s, workspace200/0.124118s,
+samples200/0.013732s, capabilities200/0.004968s. Gateway health200/0.006982s.
+No browser session/navigation timing or user's slow-detail reproduction is
+claimed. Internal token measurements bypass browser authentication/nginx;
+initial token-bearing gateway403 responses are preserved. One stats snapshot
+and bounded logs showed no sampled saturation or5xx; existing access logs lack
+request_time. No fix, deploy/restart, DB direct access, new run, policy change
+or implementation test occurred. Evidence/limits and coordinator follow-up are
+in [diagnostic report](docs/diagnostics/2026-10-01-run-pages-readonly.md).
+
 ## 2026-10-01 UNIFIED089 actual release and gate restoration COMPLETE
 
 Coordinator-authorized PROD selection and bounded acceptance completed. The

@@ -1,5 +1,20 @@
 # Active test-branch tasks
 
+## PERF-RUN-PAGES-20261001 — bounded production diagnosis COMPLETE
+
+- [x] Coordinator-authorized BS96 actual identity/mount/source/gate fingerprint.
+- [x] Health, default20 deployed/GATK runs, one historical GATK
+  detail/workspace/samples and real capabilities GET timings.
+- [x] One stats snapshot and bounded existing logs/config timing-field check.
+- [x] Preserve initial gateway403 failure and internal-auth/browser limits;
+  report first timings and final supplemental results to airflow-cloud-demo.
+- [x] Document findings in CURRENT_STATE/SERVER_INFO/HANDOFF and
+  [report](docs/diagnostics/2026-10-01-run-pages-readonly.md).
+
+Diagnosis scope is complete; slow browser navigation/root cause remains
+unconfirmed. Coordinator owns existing source review and any next authorization.
+No code fix, deployment, session creation, DB direct connection or test run.
+
 ## W423-R1-UNIFIED089 — actual release and gate restoration COMPLETE
 
 Latest status: coordinator-authorized TEST/PROD bounded acceptance, genuine

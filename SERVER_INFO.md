@@ -1,5 +1,19 @@
 # SERVER_INFO.md
 
+## 2026-10-01 PERF-RUN-PAGES read-only observation
+
+At15:44:37Z BS96/server96 retained actual backend7aadaf93/frontend4df1,
+their final restored images and complete mounts. Current control symlink and
+eleven relevant mounted backend/three frontend dist hashes matched the final
+release record. Auth/WGS/GATK and effective scan remain enabled; inherited
+policy leaves effective auto false with the unchanged activation watermark.
+One15:47:23Z stats snapshot showed backend CPU0.16%/565.4MiB and nginx
+CPU0%/108.8MiB. Existing nginx main access format has no request_time or
+upstream_response_time. This is bounded observation, not a new release or
+an intermittent-resource exclusion. See
+[timing report](docs/diagnostics/2026-10-01-run-pages-readonly.md) for API
+measurements, rejected gateway403 evidence and browser/session limitations.
+
 ## 2026-10-01 UNIFIED089 final selected state and gate restoration
 
 BS96 `server96`: PROD current release is `wgs-4.2.3-bafd27c` after the genuine
