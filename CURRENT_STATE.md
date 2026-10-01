@@ -1,5 +1,54 @@
 # Current state
 
+## 2026-10-01 W423-R1-UNIFIED089 candidate preparation
+
+Final candidate source is `80abdfceea0d604e6524375e2b1a2aa32022ee65`, sole
+parent accepted0afd. Two reviewed deployed safeguards are preserved: controls
+GREEN17 and real PostgreSQL GREEN2. Gateway v2 candidates are staged privately
+on BS96/BS10610: actual effective `/app/app` and DAG `common` copies merge only
+selected files, preserving all other source. PROD app differences13/8, TEST19/10;
+each Airflow service has six paired DAG files. All Compose configs passed syntax
+checks; actual runtime imports remain pending. No whole `/app` replacement.
+
+Common16 files, four envs/five wrappers, two423 prepares, policy/bootstrap and
+two Heavy entry/core candidates are staged with exact original backups. Heavy
+launchers/Python/config/evidence/flock/log roots remain; active processes untouched.
+Final TEST producer/client/backend/Group pairing precedes production new-request
+selection. Native rollback compares29 package source files;197 other distributions
+are fingerprints. Full old/new/rollback details are in the final candidate record
+and ignored `final-packet.json`. Window CLOSED; no installation/selection/restart.
+
+LATEST USER OVERRIDE: new requests must use WGS4.2.3/bafd27c, not a422
+transition. The422-native089 ID/config/phase/receipt drafts below are obsolete
+and unselected. They were not registered or activated. Final candidate is
+WGS Mastere481/profile436a plus GATK7.6.0 Mastera4f/r5/profile17d2, shared
+native1f5/f843. Verify TEST's fixed final combination first, then switch new
+production requests; explicitly audit required producer/DAG/backend overlays.
+Old441d remains only historical attempt/rollback provenance. No tracked
+product or phase policy was modified by the obsolete transition proposal.
+
+Coordinator reconfirmed the sole active card after the user's resend request.
+UE04/05 source is accepted; UE06's isolated installation is not shared
+production activation. AF source is80abdfc(parent0afd253), native1f5e1e0/full wheelf843.
+The user's current decision is one shared nipttest0.8.9 for new WGS/GATK calls,
+with separate TEST/PROD private credentials, requests, results and control roots.
+AF owns common source/configuration; native alone owns pip and its bootstrap.
+
+Read-only BS96/BS10610 API and seven known DAG probes found nonterminal0;
+the initial narrow node matcher found six SFS/BSS collector/flock processes;
+later exact Heavy matching found two more pairs. This is bounded
+preflight, not proof of every cloud workload being idle. All four operator
+configs resolve the same actual PVC/PV identity; TEST's old PVC pin is stale.
+Production scanner/auto/execution=true and original watermark remain intact.
+
+Production current441d WGS422 is frozen to native088. Obsolete draft ID was
+`wgs-4.2.2-441d5e7-native089-r1`, retaining the old source/profile/Master/assets.
+Its native089 compatibility/static canonical evidence is historical only.
+Old publisher receipt is not an089 attestation. Production and
+TEST lack the deployed UE marker/client files; environment pairing alone does
+not activate the shared UE protocol. No package/config selector/service changed.
+See [candidate record](docs/releases/2026-10-01-unified-native089-candidate.md).
+
 ## 2026-10-01 W423 exact phase identities verified as source
 
 Owner provenance was checked:14 fixed modules, unchanged entrypoints/aliases,
@@ -11,8 +60,9 @@ and identities still return Unknown. BS10610 isolated RED4/controls3 then
 focused GREEN7 in1.64s; R1 GREEN26 and Group/UE evidence were not repeated.
 
 Actual installation/canonical/private-config/platform pairing and TEST
-acceptance remain pending. Owner reports blank LIMS password does not disable
-generated downstream callbacks; the final TEST callback policy remains open.
+acceptance remain pending. The fixed native Step6 only materializes outputs;
+this TEST card excludes independent delivery/LIMS script execution. Empty
+passwords are not a callback switch; no callback development remains on this card.
 
 ## 2026-10-01 W423-R1 exact 4.2.3 compatibility source verified
 

@@ -1,5 +1,26 @@
 # SERVER_INFO.md
 
+## 2026-10-01 UNIFIED089 final snapshots and inactive candidates
+
+User selected shared nipttest089, separate TEST/PROD credentials/control roots,
+final WGS423/bafd and GATKr5; this supersedes earlier pending-location/scope
+notes. AF80abdfc(parent0afd) is candidate source, not a deployed source claim.
+Maintenance window CLOSED; no pip, active selector or service/process restart.
+
+BS96/server96/chenjc6708:520 private control:
+`/data/airflow-WGS/unified089-wgs423-0afd253-20261001-control` (2700).
+BS10610/server10610/chenjc6708:520 private control:
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/unified089-wgs423-0afd253-20261001-control` (0700).
+Actual IDs/mounts/images and private original Compose/env/catalog/parent snapshots
+remain there. V2 candidates preserve actual source with minimal merged-parent
+deltas. All IDs were unchanged during staging; config checks did not deploy.
+
+Node200=t640/ctapa6801:520 via NGS jump/key. Common16 files, four envs/five
+wrappers/two private423 prepares and two Heavy wiring candidates are inactive.
+Heavy PID/starttime/flock evidence corrects the earlier narrow six-process probe.
+See [final candidate record](docs/releases/2026-10-01-unified-native089-candidate.md)
+for complete file/hash/backups and required next-window acceptance.
+
 ## 2026-10-01 W423 Group TEST preflight and consumer audit
 
 Fresh checks supersede the source-only observation below. BS10610 is

@@ -1,5 +1,231 @@
 # Handoff
 
+## 2026-10-01 — final UNIFIED089 review packet, maintenance window CLOSED
+
+### Goal and authority
+
+Human requested coordinator recontact/resend; airflow-cloud-demo reconfirmed
+sole W423-R1-UNIFIED089. Latest human direction selects final WGS4.2.3 for new
+requests and cancels422-native089 transition. Coordinator approved two precise
+deployed regression safeguards and inactive existing Heavy entry/core wiring.
+AF owns common source/private consumers/gateway candidates; native alone writes
+shared nipttest/package-adjacent bootstrap as6708. No maintenance-window go.
+
+### Completed source and existing test evidence
+
+AF `80abdfceea0d604e6524375e2b1a2aa32022ee65`, sole parent accepted0afd253.
+Four committed files: cce_publish_recovery.py, main.py, existing controls test
+file and runtime integration doc. Preserve exact deployed controls exception;
+delete only duplicate sync while run lock held. No migration/API or gate change.
+Independent review found no blocking source issue. Main SHA84cf19122bededce743b1205f17063187200188be3feb6ead6f0e02619d1bab5;
+controls SHAe9b16fe5cca812321987f5a9e9659c15145b1b0585143267d1f172ca415cd9a0.
+
+Only coordinator-approved existing focused tests ran on BS10610: controls raw
+0afd RED2/15pass -> exact hunk GREEN17; real PostgreSQL lock RED1/1pass -> GREEN2.
+PG used cached image99436129, network none/no ports, tmpfs-only synthetic DB;
+backend shared only its new namespace127.0.0.1/regression. Exact created IDs
+39e139e02ffb6e7478ed1da9d09184c115311c85352e177a0975aa4ce2f12c60 and
+af73df95ccb600e3bbfd4bd21f51b05d4652899d823759127fc379a3d529b8d5 were
+removed by matching-ID cleanup. Existing DB/networks/volumes untouched.
+GREEN2 took3.02s with existing AnyIO deprecation warning; kernel swap warning
+did not alter test outcome. Coordinator accepted original logs; no test rerun.
+
+### Actual inactive candidates and backups
+
+BS96 server96/6708:520 final control
+`/data/airflow-WGS/unified089-wgs423-0afd253-20261001-control` is2700
+(parent SGID, permission bits0700). TEST server10610/6708:520 root is
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/unified089-wgs423-0afd253-20261001-control`0700.
+Actual full inspect/env/original Compose/catalog snapshots remain0600 privately.
+Catalog read through existing backend6801 avoided changing host permissions.
+Effective observer source was separately captured, rather than inferred from backend.
+
+Versioned source80ab and genuine existing frontend build were staged. Initial
+v1 individual-file variants are retained but superseded: static review found
+new modules absent beneath old read-only parents, so syntax alone could not
+prove mount usability. V2 copies actual effective full `/app/app` per backend/
+observer and DAG `common` per Airflow service, folds only selected task files
+and removes overlapping child file binds. All unselected files compare equal;
+no symlinks were present; Python bytecode cache excluded. Only those parent binds
+change; original `/app` and unrelated source/mounts remain. Private exact original
+parent tar backups exist and original-mount rollback variants remain.
+
+PROD backend13/observer8 changes; TEST19/10 including selected observer catalog953
+parity (plain423ID alone does not require suffix parsing). Three Airflow services
+each receive six paired files, with existing initializer/common/auxiliary files
+retained and SSH banner semantics preserved. Frontend uses three real dist files;
+110 current inputs match unchanged accepted source, cached builder defaults pinned.
+No immutable build-time attestation was invented and no rebuild/UI test rerun.
+
+Each v2 Compose is0600, freezes actual env and image digest, retains original
+project/directory and has exact rollback. All `config --quiet` commands returned0;
+no up/run/restart. Apply command explicitly --no-deps --pull never. PROD freeze
+closes only execution/auto flags, preserving scan and original watermark.
+TEST v2 prepares execution-only freeze for coordinator review, retaining scan/
+auto false; no active gate changed. Backend/observer GATK delta is exactly three
+console/profile/revision keys, biological paths unchanged. Both existing release
+management flags are true; catalog receipt/CAS transactions were only prepared.
+All captured actual container IDs remained unchanged through both staging runs.
+
+Node t640/6801:520: common16 sources0afd->80ab byte-identical; schema2 policy
+ae8a367a and source schema1 bootstrap9e36cdef, four private envs/five wrappers,
+own PROD/TEST423 prepares and exact original backups are frozen in node manifest.
+Native package/bootstrap was not written by AF. Profile canonical inputs21558a4c
+andfd652a12 were computed once with frozen f843 wheel schema, no install/cloud
+call; **INPUT_SCHEMA_ONLY**, not installed acceptance. WGS genuine publisher
+receipt canonical16f131a4 remains unchanged; operator80ab pairing is separate.
+
+Heavy candidates/backups exist in both private roots under candidate leaf/heavy
+and backups/unified089-20261001/heavy. PROD dd4 single entry -> dc5 thin entry
++554f core (old core honestly ABSENT); TEST retains dc5 entry,7b26 core ->554f.
+Launchers5f2/659, current nipttest Python and config/evidence/flock/log paths stay.
+Captured flock/Python: PROD58159:2928014220 /58165:2928014222;
+TEST148288:2907479590 /148291:2907479596. No signals/restart. Earlier narrow
+six-process matcher saw only three SFS/BSS pairs and missed Heavy; refresh actual
+workload/PID/starttime/lock before window. Reader exclusion does not clear Leases
+or force used slots; current running modules retain old imported code.
+
+### Evidence and commands
+
+Ignored local evidence: `.codex-artifacts/w423-unified089-20261001`.
+Final packet JSON SHA `bd9f5bda290e8e88d560dff8cafdc2966ed786bdbe7c4a7df4d1102638647bb1`;
+curated39-member review tar SHA `73af6a080c7830b6bda1bc15fdd461bcae37ce2f993f5cc7b6f89c6ff2a86322`.
+Public evidence archive is under approved WGS_test task root; private raw Compose,
+env/inspect/catalog/effective-parent backups are excluded. Full source tar SHA6d88eae3,
+frontend tarc3862e5b. See final-packet.json for full hashes and old/new/rollback maps.
+
+Commands/results: literal PowerShell stdin -> SSH `tr -d '\r' | bash -s`;
+final gateway staging on BS10610/BS96 exit0; mount-closure staging both exit0;
+Heavy controlled node SSH exit0/stderr empty; git diff --check passes. Runtime
+tests were remote only. Broad backend/frontend/DAG/UE/group/phase suites, clinical
+canary and new analyses were not run: coordinator explicitly required reuse of
+accepted evidence and these19 focused cases only. New installed pairing, actual
+mount/import/CLI and fresh Heavy snapshot checks require released window and
+native owner installation. Local static docs/Git/hash checks do not replace them.
+
+Capture failures diagnosed earlier: Path.readlink unavailable on hostPython,
+fixed to os.readlink and resumed saved snapshots; strict mode700 rejected PROD
+inherited2700, corrected permission-bit+owner check without changing parent.
+An attempted docs path15_SERVER_INFO did not exist; actual root SERVER_INFO used.
+Two document patches were rejected before writes for duplicate target/unknown
+header and corrected with exact matched content. No active effect or blind rerun.
+
+### Remaining work, risk and rollback
+
+Submit one fixed packet to coordinator. Explicit release, fresh bounded idleness,
+native-only installation/import/bootstrap fingerprint and complete minimum TEST
+producer/client/backend/Group acceptance precede PROD final423 new-request CAS.
+Mount/import/freshsnapshot remain pending despite syntax/source checks. Restore
+original flags exactly after reviewed acceptance; no protected data deletion.
+
+Native preflight compares29 old package source files;197 other distributions
+are fingerprint counts, not197 package files or reinstall instructions. Complete
+088 distribution/entry/bootstrap rollback stays with native owner's exact inventory.
+Before any marked089 attempt, AF exact private selection and native exact package
+may be restored. After a marked089 attempt, retain089; global downgrade invalid.
+Keep old private088/frozen history. TEST old drift is restorable, not proven
+healthy; historical manual resume not newly attested. Heavy rollback coordinates
+approved process replacement and restores PROD original single entry/ABSENT core
+or TEST original core. No offline project/result/FASTQ/pending files were deleted.
+
+Updated docs: CURRENT_STATE, TASKS, HANDOFF, SERVER_INFO, deployment runbook and
+final candidate record. Product implementation already committed separately80ab.
+
+## 2026-10-01 — user replaces422 transition with final WGS423 target
+
+Coordinator relayed the direct human correction: WGS4.2.2 is retired for new
+requests and publication should select WGS4.2.3. This supersedes the earlier
+coordinator's422-native089 transitional proposal. Current card staysUNIFIED089:
+WGSbafd27c/V4.2.3/Mastere481/raw profile436a and GATK7.6.0/Mastera4f/r5/raw17d2;
+same shared native1f5/fullf843 and AF0afd. TEST final combination acceptance
+precedes production new-request selection. Necessary production producer/DAG
+and backend overlays must be itemized and preserved, not replaced wholesale.
+
+No422 alias or other422-only product change was added to tracked code/policy.
+Tracked differences are this handoff/current/tasks and the new candidate doc.
+Obsolete422 drafts were never API-registered, selected or run. Preserve them
+with obsolete/not-selected markers, and never alter the old formal441d entry,
+publisher receipt, frozen attempts or protected data.
+
+Common16-file0afd source, schema2 policySHAae8a367a and schema1 bootstrapSHA
+9e36cdef were staged inactive onctapa/t640. Four private env/wrapper backups
+exist in each private root/backups/unified089-20261001 (0700/0600; wrapper0700).
+Five wrapper candidates include the production WGS explicit-invocation alias.
+All original active env/wrapper hashes remain unchanged; native bootstrap and
+shared package were not written. Existing TEST configuration, not production
+private config, supplied TEST423 prepare config; FQ options were not changed.
+
+Staging failures (no active effect): exit1 on existing candidates parent755
+versus an overly strict0700 check; inspection confirmed owner6801 and safe
+existing parents, which were preserved while new leaves are0700. One diagnosed
+resume verifies existing bytes/modes without overwrite. Next exit1 was the
+assumed published423 prepare/config.yaml (absent); owner repo deliberately
+has no private config, so source was the actual existing TEST configuration
+SHA5f3f206d and its new published repo/template/profile references. Completion
+at11:07Z recorded all four candidates/backups, no active selection.
+
+Gateway controls were staged privately under TEST candidates/unified089-0afd253-
+control and PROD unified089-20261001-control. TEST snapshot/candidates completed.
+PROD stopped with PermissionError reading the host catalog as6708, after saving
+private Compose/env/rollback and obsolete phase alias candidates. Backend6801
+can read its mounted catalog; use that existing read-only path for the snapshot,
+preserve original host permissions. Do not activate either obsolete Compose.
+
+Next: mark obsolete drafts, prepare distinct final423 candidate paths, finish
+actual source/overlay diff and final old/new/rollback manifest, archive non-secret
+evidence, submit one final packet. Maintenance window and pip remain closed.
+
+## 2026-10-01 — UNIFIED089 scope and preflight, no maintenance window
+
+Human directly authorized shared nipttest089 and production GATK089 in
+coordinator turn01a0f6e3; later human instruction deprecated private environment
+forks. On resend coordinator formally reconfirmed W423-R1-UNIFIED089, with
+UE04 source closed, UE05 accepted, UE06 isolated-install history retained.
+Native is the sole pip/package-adjacent bootstrap writer6708; AF owns four
+trusted consumers and one common platform source/policy, not a second package.
+
+Write workspace remains gatk-prod-compat/airflow-demo, branch
+jiucheng/airflow/W423-test-group-release-20261001, fixed product source0afd253.
+No tests, SSH data actions, package installation, active configuration writes,
+selector changes, container restarts or analysis submissions occurred in this
+candidate stage. User authorizes production environment/GATK pairing; full
+BS96 UI/backend/DAG/WGS423 clinical deployment is outside this authorization.
+
+Earlier literal-stdin Bash probes captured server96/server10610 controls,
+current symlinks, effective mounts/images/env hashes and bounded GET-only
+business/transfer/Airflow counts:27 PROD/7 TEST runs, nonterminal0, seven known
+DAGs queued/running0. Six matching ctapa collector/flock processes, no matching
+analysis process. Four existing kubectl/config pairs confirm namespace
+snakemake-ns/PVC a96cb97f/PV80dc8875; do not reuse stale TEST PVC35e498b9.
+Production scan/auto/WGS/GATK execution=true; watermark
+2026-09-17T09:34:19.655673+00:00 must be preserved/restored exactly.
+
+Failures: first Airflow supplementary read used unsupported order_by and
+returned HTTP400; corrected existing API query omits it. First PVC probe lacked
+the optional kubernetes Python SDK (exit1); no dependency was installed. An
+existing kubectl_bin/config probe then succeeded. Raw success/failure scripts
+and logs remain in .codex-artifacts/w423-unified089-20261001.
+
+Targeted candidate input reads10:42–10:43Z confirmed unchanged actual backend
+IDs/mount controls, old PROD441d receipt/profile/Master and private prepare
+console088. Both deployed backends lack stage_execution_contract.py; worker
+DAG trees lack common/stage_execution.py and marker clients. New environment
+pairing must not be reported as shared UE production activation.
+
+Candidate422 IDwgs-4.2.2-441d5e7-native089-r1 uses existing regex/schema;
+preserves441d source, Master3d180a9f, raw profiler3/12b25bf, pipelineba4dca43
+and resource67713468. Requires new private prepare console reference and
+exact repository/prepare keys plus a12-addition/4-override phase data alias.
+Coordinator dispatched native owner for the bounded089 canonical/compatibility
+proof. The old assetsPASS and receipt43d88c43 remain genuine old evidence,
+not a new089 publisher receipt. No assets compatibility was invented.
+
+Next: finish inactive common source/bootstrap/policy/wrapper/env candidates,
+remote private backups and exact deployment/rollback inventory; coordinator
+reviews once before opening any window. Rollback cannot downgrade shared089
+under a new marked attempt; old TEST profile/policy drift is not healthy rollback.
+No existing request, result, sampleinfo, FASTQ, pending or evidence is deleted.
+
 ## 2026-10-01 — exact WGS423/GATKr5 phase source handoff
 
 Coordinator approved the existing policy mechanism after owner provenance

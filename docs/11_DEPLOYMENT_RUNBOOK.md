@@ -1,5 +1,31 @@
 # Deployment runbook
 
+## 2026-10-01 final423/shared089 candidate packet, not deployed
+
+The sole card W423-R1-UNIFIED089 prepares AF80abdfc(parent0afd), native089/1f5/f843,
+WGS423/bafd/e481/profile436a and GATK7.6.0/a4f/r5/profile17d2. The422-native089
+transition is cancelled. Window CLOSED: no pip, catalog activation, active
+wrapper/env change or restart. Follow the
+[fixed candidate/rollback record](releases/2026-10-01-unified-native089-candidate.md).
+
+Use only reviewed gateway v2 variants: actual effective `/app/app` and DAG
+`common` copies with exact selected deltas, not whole `/app` replacement or v1
+new-file binds beneath read-only parents. Per-service images/env/project roots
+and rollback are pinned privately. Config --quiet is syntax-only; later authorized
+application uses --no-deps --pull never and still requires actual loaded hashes.
+
+Native alone installs shared nipttest/bootstrap. AF pairs common source and four
+private consumers; complete TEST producer/client/backend/Group acceptance precedes
+PROD new-request selection. Preserve scanner/watermark and restore original gates.
+Reuse accepted tests; supplement only approved affected pairing/import/mount checks.
+
+Heavy standalone wiring uses existing `scripts/heavy_global_snapshot.py` entry
+and same-directory `heavy_snapshot_core.py` from `backend/app/heavy_global_snapshot.py`.
+Retain launchers/config/evidence/Python/flock/log. Backend-only binds cannot update
+the loaded node core. The two private candidate/backups and PID/starttime maps
+are in the packet. Approved replacement requires loaded SHA and fresh snapshot;
+no new collector framework, Lease clearing or forced slot count.
+
 ## 2026-09-27 BS10610 auxiliary DAG discovery release
 
 Only Airflow API/scheduler/worker were recreated with three updated read-only

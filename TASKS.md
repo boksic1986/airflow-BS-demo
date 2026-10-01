@@ -1,5 +1,33 @@
 # Active test-branch tasks
 
+## W423-R1-UNIFIED089 — candidate preparation, window closed
+
+- [x] Reconfirm current card with airflow-cloud-demo after the user's resend.
+- [x] Preserve accepted UE04/05/06; final AF80abdfc(parent0afd) retains two
+  reviewed deployed safeguards, controls GREEN17 and real PG GREEN2.
+- [x] Read-only actual consumers, private env hashes, API/transfers/known DAGs
+  and storage identity: four current configs share one PVC/PV; old TEST pin drift.
+- [x] Identify exact PROD422 native088 fence and existing suffix-ID mechanism.
+- [x] Freeze one16-file common source, existing schema1 bootstrap/schema2
+  policy, four trusted wrappers, env deltas and precise private rollback copies.
+- [x] Stop the422-native089 transition after the user's WGS423 correction;
+  retain obsolete drafts, no registration/activation or tracked phase alias.
+- [x] Prepare final WGS423/bafd/e481/profile436a and GATK7.6.0/a4f/r5/profile17d2
+  pairing and exact production producer/DAG/backend overlay inventory.
+- [x] Stage gateway v2 actual effective-parent merges and exact rollback;
+  config checks pass, no runtime selection. Stage existing Heavy entry/core
+  wiring, exact backups/PID/starttime; launchers and active processes unchanged.
+- [ ] Submit one concrete candidate and old/new/rollback inventory to coordinator.
+- [ ] After coordinator window release: fresh idle, short admission closure,
+  native-only package/bootstrap install, AF pairing, focused validation,
+  TEST complete producer/client/backend/Group minimum joint acceptance first,
+  then production final423 new-request selection and exact gate restoration.
+
+No old Step1 incidents, FQ, clinical canary, analysis rerun, schema extension,
+private native fork, unrelated full upgrade or new UE/collector/recovery work.
+Required final423 producer/DAG/backend/UI dependencies belong to this packet;
+accepted source tests are reused, installed consumers remain pending.
+
 ## W423-R1-GROUP-FIRST-20261001 / AF-V423-BINDING — source complete
 
 - [x] Resend task confirmation to coordinator; use current W423 scope and
@@ -29,8 +57,8 @@ This latest human scope supersedes the earlier broad W42303/04 checklists below.
   shared metadata exposure and TEST pin/profile drift to coordinator/native.
 - [x] Coordinator reviewed product0048c36 and bounded evidence; one fresh
   ce497..0048 whole-branch read-only review found no blocking source issues.
-- [ ] Receive required user choice of shared nipttest installation versus TEST
-  private prefix; no installation decision is inferred from source approval.
+- [x] User selected shared nipttest089 with four separate private consumers;
+  actual installation remains pending the coordinated window.
 - [x] Read coordinator-approved WGS publication and external GATK r5 profile
   receipts; retain raw profile hashes separately from canonical revision pins.
 - [x] Verify final423/r5 source evidence; register exact phase identities,
