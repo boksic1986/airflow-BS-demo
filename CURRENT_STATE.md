@@ -28,6 +28,10 @@ rule inventory and deployed consumer pairing remain pending.
 Static registry review confirms both new phase identities are absent:
 `wgs-4.2.3-bafd27c` and `gatk-scmc-v7.6.0@r5`. These concrete gaps were reported
 to the coordinator; no mapping is inferred from old421 fixtures or profiles.
+Coordinator selected ordinary catalog/no-merge for later TEST acceptance.
+With options disabled, AF passes no algo override and reference=all, leaving
+the owner's declared Haplotyper default intact. Independent source-import
+test-project preview remains deferred for the unaudited423 option inventory.
 
 ## 2026-10-01 W423 Group TEST candidate; no activation
 

@@ -1,5 +1,29 @@
 # Handoff
 
+## 2026-10-01 — disabled-options static chain and selected TEST entry
+
+Coordinator selected the ordinary catalog/no-merge path for this round.
+Static trace only: SubmitPage omits algo/reference overrides when configuration
+options are disabled; the catalog request defaults them to None and skips the
+explicit-options attestation branch. Its run specification normalizes reference
+to all; stage requests retain algo=None and reference=all. The gate therefore
+passes no --algo override and passes --use-reference all. Haplotyper remains
+the frozen WGS owner's declared native default; no execution is claimed.
+
+Independent test-projects/source-import preview requires explicit caller and
+reference choices and rejects bafd's empty, unaudited option inventory with
+HTTP400 WGS_TEST_PROJECT_INVALID / Unsupported release options. Coordinator
+explicitly deferred that entry for this release; it is not the selected TEST
+path and no cc9 attestation is inherited. No request, API, source/test change
+or remote action occurred. Static provenance is retained in ignored
+`static-disabled-options-chain.json` beside the pairing draft.
+
+This documentation update reuses product5415 GREEN26 unchanged. Exact phase
+registration is approved only after owner final module/rule provenance arrives;
+evidence and installation choice remain pending. No A-path retest, B-path
+development, package installation, selector/service switch or batch action is
+authorized by the selected entry. Document diff-check is the only new check.
+
 ## 2026-10-01 — owner profile receipts added to pending TEST pairing
 
 Goal: consume the coordinator's final GATK r5/WGS publication inputs after

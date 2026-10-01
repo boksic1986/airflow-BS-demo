@@ -295,3 +295,12 @@ Unknown for both. The old WGS mapping's262 rules/14 module blobs and GATK17
 rules are accepted prior provenance, not final423/r5 evidence. Owner final
 module/inventory identity is required before proposing those source additions.
 No current generic AF rule-inventory exporter or new parser was introduced.
+
+Coordinator selected ordinary catalog/no-merge as the future TEST entry. With
+options disabled, its frontend omits explicit options, the backend skips the
+explicit-options attestation branch, reference defaults to all, and the gate
+receives no algo override. The frozen owner's declared Haplotyper default is
+left intact; no runtime execution was performed for this static conclusion.
+Independent test-project/source-import preview rejects the unaudited423 option
+inventory and is deferred; this entry's limitation does not block the selected
+ordinary catalog path. No options attestation, API or test was added.
