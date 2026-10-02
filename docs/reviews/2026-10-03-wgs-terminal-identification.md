@@ -111,3 +111,36 @@ cause repair is pending coordinator final diff/GREEN/target/rollback approval.
 
 Repair activation, tmp creation and same-attempt Step3 Resume remain pending.
 All original successful outputs and evidence are protected. No Step7 or cleanup.
+
+## Accepted production repair
+
+Coordinator final GO followed source/actual RED/GREEN review. Precise source,
+tests and documentation commit: `edbe381ad91a838be66e5d1f8c7ede8db1def9c6`.
+22:19:57.761677Z UTC actual90bb→55cb atomic replacement completed; only backend
+restarted22:20:00.536410Z. Service IDs/images/mounts/env and gates remained.
+Actual SHA/metadata and `/api/health`200 read back22:21:54Z. The initial wrong
+`/health` path returned404 before creation of any projection guard or POST.
+22:21:55.647937Z the new exclusive normal dag-terminal POST returned200,
+ignored=false/status=failed for original323D3F/a1. Old guards were not replayed.
+Immediate rollback is the saved90bb diagnostic module, alongside preserved77c.
+Tmp creation and normal same-attempt Step3 Resume remain pending. Monitoring
+remains stopped; no new attempt, release change, Step7 or cleanup.
+
+## Original-attempt restoration remains incomplete
+
+The normal platform failure projection succeeded; restoration then stopped at
+the authorized exact tmp utility. No existing node mount matched the actual SFS
+PV export. Coordinator accepted one existing native reader-generator utility,
+with only biosan-clinical PVC and original image/UID/GID, no fsGroup mutation,
+backoff0 and180s deadline. Actual create22:42:42Z returned0; Job UID
+`afdd48e4-2907-4371-93ca-897743e1a872`, document SHA
+`05a83e8004d9be96d1d7cf93bff1aa9d236d4da7aca987a4f4c899072338460f`.
+It failed22:43:12Z/BackoffLimitExceeded. Exact Pod GET confirmed absence of UID
+`857cfb34-a097-4815-92dc-1da2007e32f3`; this is not a label-selector omission.
+Scoped Events prove volume mount/image pull/container start22:43:09Z, but no
+container exit message or deletion actor. Effective workDir value and tmp
+creation are unknown. No second helper, Resume or new execution was dispatched.
+Private original evidence is retained under the node operator-evidence task
+directory; existing durable cloud logs are the next evidence route to assess.
+Automatic monitoring remains stopped. No inputs/results, locks or old resources
+were deleted; no Step7 was run.
