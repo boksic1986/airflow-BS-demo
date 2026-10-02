@@ -316,6 +316,21 @@ def test_registered_initial_submission_selects_its_view(registered,monkeypatch,o
         payload['control_workdir']=str(request.parent)
     binding=json.loads((old_bundle.parent/'batch-binding.json').read_bytes())
     binding['cce_bundle']=str(bundle)
+    if pipeline=='wgs' and outcome=='reconnect':
+        # Freeze a normal WGS gate label in this new synthetic copy. The native
+        # handoff/intent uses the same manifest label as the control binding.
+        run_label='cce-run-0123456789abcdef'
+        manifest_path=bundle/'master-job.yaml'
+        manifest=yaml.safe_load(manifest_path.read_bytes())
+        label_key='cce.biosan.cn/run-id'
+        manifest['metadata']['labels'][label_key]=run_label
+        for labels in (
+                manifest.get('spec',{}).get('template',{}).get('metadata',{}).get('labels',{}),
+                manifest.get('spec',{}).get('selector',{}).get('matchLabels',{})):
+            if label_key in labels:
+                labels[label_key]=run_label
+        manifest_path.write_text(yaml.safe_dump(manifest))
+        binding['run_label']=run_label
     (bundle.parent/'batch-binding.json').write_text(json.dumps(binding))
     monkeypatch.setattr(gate,'_load_binding',lambda p:binding)
     payload.pop('resume_action_id');payload.update(runtime_workdir=str(bundle.parent))
@@ -447,8 +462,8 @@ def test_registered_initial_submission_selects_its_view(registered,monkeypatch,o
         monkeypatch.setattr(runtime,'_kubectl_json',REAL_LEGACY_QUERY)
         factory=paired._monitor_query_owner
         clock=[h.now]
-        def owner(*a):
-            value=factory(*a);value.now=lambda:clock[0]
+        def owner(*a, **kwargs):
+            value=factory(*a, **kwargs);value.now=lambda:clock[0]
             value.sleep=lambda seconds:clock.__setitem__(0,clock[0]+seconds)
             return value
         monkeypatch.setattr(paired,'_monitor_query_owner',owner)

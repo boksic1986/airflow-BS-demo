@@ -1373,7 +1373,10 @@ def monitor_registered(payload, *, binding, gate, pipeline):
     runtime = load_runtime()
     if runtime is None:
         return None
-    owner = _monitor_query_owner(payload, gate, pipeline, runtime)
+    # This callback is consumed only after the entire selected-Master read
+    # returns. A healthy control write must publish that read, never old counts.
+    owner = _monitor_query_owner(payload, gate, pipeline, runtime,
+        observation=lambda: (value, binding))
     try:
         value = _selected_registered(payload, binding=binding, gate=gate, pipeline=pipeline,
             runtime=runtime, query_owner=owner)
@@ -1389,7 +1392,7 @@ def monitor_registered(payload, *, binding, gate, pipeline):
     return value
 
 
-def _monitor_query_owner(payload, gate, pipeline, runtime):
+def _monitor_query_owner(payload, gate, pipeline, runtime, *, observation=None):
     """Current worker owns the lock; reuse its registered status, never a new spool."""
     if __package__:
         from .cce_query_reconnect import QueryReconnect
@@ -1419,8 +1422,34 @@ def _monitor_query_owner(payload, gate, pipeline, runtime):
     def save(state):
         previous = current()
         payload['_monitor_reconnect'] = state
-        progress = {k:previous[k] for k in ('progress_percent', 'completed_units', 'total_units', 'unit', 'current_item')
+        progress = {k:previous[k] for k in ('progress_percent', 'completed_units', 'total_units', 'unit', 'current_item',
+                    'master', 'master_job', 'namespace', 'run_label', 'monitoring_error')
                     if k in previous}
+        if state['phase'] == 'healthy':
+            if observation is None:
+                raise RuntimeError('query confirmation requires the complete current Master observation')
+            value, binding = observation()
+            if not isinstance(value, dict) or not isinstance(binding, dict):
+                raise RuntimeError('invalid confirmed Master observation')
+            if pipeline == 'wgs':
+                progress = dict(master=value, master_job=binding.get('master_job'),
+                    namespace=binding.get('namespace'), run_label=gate._binding_run_label(binding))
+            else:
+                progress = dict(
+                    progress_percent=int(float(value['percent'])) if value.get('percent') is not None else None,
+                    completed_units=int(value['completed']) if value.get('completed') is not None else None,
+                    total_units=int(value['total']) if value.get('total') is not None else None,
+                    unit='rules', current_item=value.get('current_rule'))
+            # Query recovery does not confirm that the rule-evidence bridge
+            # recovered. The ordinary collector is the authority for that.
+            if 'monitoring_error' in previous:
+                progress['monitoring_error'] = previous['monitoring_error']
+            if previous.get('monitoring_error'):
+                progress['monitoring_health'] = 'degraded'
+        # Non-healthy writes keep a new control timestamp. Existing consumers
+        # retain the old business time while query_unconfirmed is true.
+        # Receipt identity is still emitted only by the verified gate writer;
+        # never copy cce_master_binding or receipt fields out of the old JSON.
         message = 'Monitor observation confirmed' if state['phase'] == 'healthy' else 'Monitor query unavailable; execution state unconfirmed'
         if pipeline == 'wgs':
             if not gate._write_status(payload, 'running', message, **progress):

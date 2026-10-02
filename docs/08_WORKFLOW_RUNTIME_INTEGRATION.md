@@ -1,5 +1,33 @@
 # Workflow runtime integration
 
+## W423 same-execution monitor progress publication (2026-10-02, source only)
+
+The shared selected monitor publishes the complete, validated Master read in the
+same atomic status write that confirms healthy query control. WGS uses its normal
+`master`, `master_job`, `namespace`, `run_label` fields; GATK derives its existing
+rule counters from that same returned value. Missing numeric measurements remain
+unknown. Previous counters are never presented as a new healthy observation.
+An existing rule-evidence error remains degraded until its ordinary collector
+confirms recovery. Verified receipt/binding fields still come only from the gate.
+
+Non-healthy query reservations retain the safe business snapshot while advancing
+the control timestamp. Existing `query_unconfirmed` consumers keep the previous
+business observation time and progress; waiting/blocked/exhausted markers remain
+visible. Retaining an old status timestamp would suppress those markers and is
+not this contract. The exact typed execution scope, original deadline, durable
+save-before-query, retry limit and terminal fences are unchanged.
+
+BS10610 isolated producer/real-ingestion acceptance: 24 pass, including 8 new
+cases that failed against the old source, plus 6 existing selected reconnect
+cases. Normal WGS run-label validation is retained. Candidate paired SHA is
+`34606ce7428557f8ac05bd811a8acf6b0078e9e83dd29a7e89e30639240ce2c4`.
+This is source acceptance, not a production release. Current running Step3
+imports the monitor once and cannot hot-load this change. Its Step2-origin
+active action prevents a normal monitor-only Resume; the failed/blocked observer
+exception requires a Step3-origin action. No production files, monitor process,
+generation, Master or Worker changed. See
+[review and activation boundary](reviews/2026-10-02-monitor-progress-preserve.md).
+
 ## Initial Master submission after an earlier stage recovery (2026-10-02)
 
 A registered recovery action can start at Step1 before a native Master exists.
