@@ -24,6 +24,7 @@ def registered(adapter,tmp_path,monkeypatch):
     gate=wgs_runtime_gate if pipeline=='wgs' else gatk_runtime_gate
     control=tmp_path/'requests'/old_cap.context['analysis_id']/'attempt-1'
     monkeypatch.setattr(wgs_runtime_gate,'REQUEST_ROOT',tmp_path/'requests')
+    monkeypatch.setattr(wgs_runtime_gate,'RUNTIME_RUN_ROOT',str(tmp_path/'requests'))
     binding=json.loads((bundle.parent/'batch-binding.json').read_bytes())
     payload={'analysis_id':old_cap.context['analysis_id'],'attempt':1,'stage':'step2_master',
         'schema_version':'wgs-runtime.request.v4','orchestration_contract_version':2,

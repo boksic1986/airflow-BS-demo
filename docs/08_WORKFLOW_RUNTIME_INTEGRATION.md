@@ -1,5 +1,29 @@
 # Workflow runtime integration
 
+## Initial Master submission after an earlier stage recovery (2026-10-02)
+
+A registered recovery action can start at Step1 before a native Master exists.
+Carrying that action into Step2 does not identify a replacement producer. The
+restricted Step2 worker holds the existing launch/worker/writer locks and may
+use the normal initial submission producer only after checking the exact
+successful Step1 predecessor, frozen attempt/config, registered initial owner,
+directory-lock identity and owner, and existing native journals/handoff/intent.
+A fresh initial submission additionally requires an empty Master UID and an
+exact absent Master Job. Platform generation and Job absence alone grant no
+initial-submission authority. A same-producer journal uses the existing CREATE
+intent reconciliation; an unknown outcome never sends another CREATE.
+
+The frozen request, request hash and recovery action are preserved. Native
+initial generation remains 1 even when the authorized platform Step2 execution
+has a later generation. Existing Master/replacement ownership retains the
+original recovery path. No native workflow or public API/schema is changed.
+
+Step3–6 reconstruct the producer from a unique native submission/recovery
+journal matching the verified platform execution, then validate its handoff,
+frozen binding, receipt and current directory owner. They do not choose a
+producer type from the presence of `resume_action_id`. Missing, duplicate,
+foreign or changed evidence fails closed; the reader never creates a Master.
+
 ## A468E9 initial submission recovery — authorized candidate, not deployed
 
 The shared WGS/GATK stage adapter freezes old initial Step2 sender evidence in

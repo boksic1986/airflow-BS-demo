@@ -595,6 +595,14 @@ def submit_registered(payload, *, binding, gate, pipeline):
     writer = runtime.writer_for_bundle(runtime, bundle, contract, config)
     if writer is None:
         raise RuntimeError('trusted per-run writer registration required')
+    with writer.serialize():
+        writer.validate()
+        return _submit_registered_locked(payload, pipeline=pipeline, path=path, raw=raw,
+            bundle=bundle, runtime=runtime, contract=contract, config=config, modules=modules, writer=writer)
+
+
+def _submit_registered_locked(payload, *, pipeline, path, raw, bundle, runtime, contract, config, modules, writer):
+    """Existing initial producer; its caller owns the registered writer scope."""
     platform = dict(pipeline=pipeline, **{k:payload[k] for k in
         ('analysis_id','attempt','stage','execution_id','generation','request_hash')})
     action = payload['execution_id']
@@ -605,79 +613,132 @@ def submit_registered(payload, *, binding, gate, pipeline):
         raise RuntimeError('initial operator owner differs from registered submission')
     journal_path = path.parent / ('submission-'+action+'.json')
     selected = journal_path.with_suffix('') / 'view'
-    with writer.serialize():
-        writer.validate()
-        journal = json.loads(_read_registered(journal_path)) if journal_path.exists() else {}
-        identity = dict(platform_execution=platform, source_bundle=str(bundle), selected_bundle=str(selected))
-        if journal and journal.get('identity') != identity:
-            raise RuntimeError('initial submission journal changed')
-        selected = runtime._prepare_submission_view(bundle, selected, contract,
-            platform_execution=platform, owner_action=writer.context['action'])
-        def require_job(job):
-            return _initial_job_uid(selected,job,journal)
-        def save():runtime._atomic_write_text(journal_path,json.dumps(journal,sort_keys=True)+'\n')
-        if journal:
-            job = runtime._recovery_query(config,'job',contract['kubernetes']['master_job'])
-            uid = require_job(job)
-            if not runtime._read_master_handoff(selected,contract):
-                runtime._write_master_handoff(selected,contract,job_name=contract['kubernetes']['master_job'],
-                    job_uid=uid,state='JOB_CREATED',deadline_epoch=journal['deadline_epoch'])
-            # Binding the UID and persisting our receipt are separate writes.
-            # Reconcile a crash between them against the exact CAS owner.
-            name, lock_identity, pending = runtime._directory_lock_identity(contract,writer.context)
-            current = runtime._recovery_query(config,'configmap',name)
-            lock = json.loads(current['data']['lock']) if current else {}
-            if (lock.get('state') == 'OWNED' and lock.get('identity') == lock_identity
-                    and lock.get('owner') == {**pending,'master_uid':uid}):
-                writer.context['master_uid'] = uid
-        elif runtime._recovery_query(config,'job',contract['kubernetes']['master_job']) is not None:
-            raise RuntimeError('unregistered existing Master cannot be adopted')
-        create = runtime._create_job_from_path
-        def submit(config_arg, manifest):
-            if journal or Path(manifest) != selected/'master-job.yaml' or _read_registered(path) != raw:
-                raise RuntimeError('initial CREATE is already transmitted or request changed')
-            intent = runtime._master_create_intent(selected, contract)
-            if intent is None:
-                raise RuntimeError('initial CREATE requires a persisted native intent')
-            journal.update(identity=identity,state='submitting',deadline_epoch=intent['deadline_epoch'])
-            save()
-            try:
-                job = create(config_arg,manifest)
-            except Exception as error:
-                # Observe once; never send CREATE again on unknown outcome.
-                job = runtime._recovery_query(config,'job',contract['kubernetes']['master_job'])
-                if job is None:raise RuntimeError('initial CREATE outcome unknown; retain intent') from error
-            uid = require_job(job)
-            journal.update(state='created',job_uid=uid);save()
+    journal = json.loads(_read_registered(journal_path)) if journal_path.exists() else {}
+    identity = dict(platform_execution=platform, source_bundle=str(bundle), selected_bundle=str(selected))
+    if journal and journal.get('identity') != identity:
+        raise RuntimeError('initial submission journal changed')
+    selected = runtime._prepare_submission_view(bundle, selected, contract,
+        platform_execution=platform, owner_action=writer.context['action'])
+    def require_job(job):
+        return _initial_job_uid(selected,job,journal)
+    def save():runtime._atomic_write_text(journal_path,json.dumps(journal,sort_keys=True)+'\n')
+    if journal:
+        job = runtime._recovery_query(config,'job',contract['kubernetes']['master_job'])
+        uid = require_job(job)
+        if not runtime._read_master_handoff(selected,contract):
             runtime._write_master_handoff(selected,contract,job_name=contract['kubernetes']['master_job'],
                 job_uid=uid,state='JOB_CREATED',deadline_epoch=journal['deadline_epoch'])
-            return job
-        writer.serialize = nullcontext
-        runtime._create_job_from_path = submit
+        # Binding the UID and persisting our receipt are separate writes.
+        # Reconcile a crash between them against the exact CAS owner.
+        name, lock_identity, pending = runtime._directory_lock_identity(contract,writer.context)
+        current = runtime._recovery_query(config,'configmap',name)
+        lock = json.loads(current['data']['lock']) if current else {}
+        if (lock.get('state') == 'OWNED' and lock.get('identity') == lock_identity
+                and lock.get('owner') == {**pending,'master_uid':uid}):
+            writer.context['master_uid'] = uid
+    elif runtime._recovery_query(config,'job',contract['kubernetes']['master_job']) is not None:
+        raise RuntimeError('unregistered existing Master cannot be adopted')
+    create = runtime._create_job_from_path
+    def submit(config_arg, manifest):
+        if journal or Path(manifest) != selected/'master-job.yaml' or _read_registered(path) != raw:
+            raise RuntimeError('initial CREATE is already transmitted or request changed')
+        intent = runtime._master_create_intent(selected, contract)
+        if intent is None:
+            raise RuntimeError('initial CREATE requires a persisted native intent')
+        journal.update(identity=identity,state='submitting',deadline_epoch=intent['deadline_epoch'])
+        save()
         try:
-            runtime.step2(bundle,contract,config,modules,writer=writer,
-                platform_execution=platform,submission_view=selected)
-        finally:
-            runtime._create_job_from_path = create
-        exported = _exported_master(runtime,bundle,selected,contract,platform)
-        uid = exported['native']['job_uid']
-        writer.context['master_uid'] = uid
-        _, identity_lock, owner = runtime._directory_lock_identity(contract,writer.context)
-        def proof(current,operation):
-            if operation != 'bind' or require_job(runtime._recovery_query(config,'job',contract['kubernetes']['master_job'])) != uid:
-                raise RuntimeError('initial owner cannot be rebound')
-            return dict(object_uid=current['metadata']['uid'],resource_version=current['metadata']['resourceVersion'],
-                identity=identity_lock,owner={**owner,'master_uid':''},bound_master_uid=uid,master_state='ACTIVE',
-                evidence_sha256=exported['native']['request_hash'])
-        runtime._claim_batch_lock(contract,config,lock_context=writer.context,
-            journal=writer.journal,save_journal=writer.save_journal,verify=proof)
-        if _read_registered(path) != raw:raise RuntimeError('initial submission request superseded')
-        journal.update(state='confirmed',job_uid=uid);save()
-        if __package__:
-            from .cce_recovery_inventory import VerifiedMasterResult
-        else:
-            from cce_recovery_inventory import VerifiedMasterResult
-        return VerifiedMasterResult(dict(bundle=str(selected),master_uid=uid,mode='submitted'),exported,platform)
+            job = create(config_arg,manifest)
+        except Exception as error:
+            # Observe once; never send CREATE again on unknown outcome.
+            job = runtime._recovery_query(config,'job',contract['kubernetes']['master_job'])
+            if job is None:raise RuntimeError('initial CREATE outcome unknown; retain intent') from error
+        uid = require_job(job)
+        journal.update(state='created',job_uid=uid);save()
+        runtime._write_master_handoff(selected,contract,job_name=contract['kubernetes']['master_job'],
+            job_uid=uid,state='JOB_CREATED',deadline_epoch=journal['deadline_epoch'])
+        return job
+    writer.serialize = nullcontext
+    runtime._create_job_from_path = submit
+    try:
+        runtime.step2(bundle,contract,config,modules,writer=writer,
+            platform_execution=platform,submission_view=selected)
+    finally:
+        runtime._create_job_from_path = create
+    exported = _exported_master(runtime,bundle,selected,contract,platform)
+    uid = exported['native']['job_uid']
+    writer.context['master_uid'] = uid
+    _, identity_lock, owner = runtime._directory_lock_identity(contract,writer.context)
+    def proof(current,operation):
+        if operation != 'bind' or require_job(runtime._recovery_query(config,'job',contract['kubernetes']['master_job'])) != uid:
+            raise RuntimeError('initial owner cannot be rebound')
+        return dict(object_uid=current['metadata']['uid'],resource_version=current['metadata']['resourceVersion'],
+            identity=identity_lock,owner={**owner,'master_uid':''},bound_master_uid=uid,master_state='ACTIVE',
+            evidence_sha256=exported['native']['request_hash'])
+    runtime._claim_batch_lock(contract,config,lock_context=writer.context,
+        journal=writer.journal,save_journal=writer.save_journal,verify=proof)
+    if _read_registered(path) != raw:raise RuntimeError('initial submission request superseded')
+    journal.update(state='confirmed',job_uid=uid);save()
+    if __package__:
+        from .cce_recovery_inventory import VerifiedMasterResult
+    else:
+        from cce_recovery_inventory import VerifiedMasterResult
+    return VerifiedMasterResult(dict(bundle=str(selected),master_uid=uid,mode='submitted'),exported,platform)
+
+
+def _initial_step2_continuation(path, payload, gate, pipeline, runtime, bundle, contract, config, writer):
+    """A recovery action may precede the first Master, without being its producer."""
+    if payload['stage'] != 'step2_master':
+        return False
+    context = writer.context
+    expected_action = runtime.initial_owner_action(pipeline=pipeline,
+        analysis_id=payload['analysis_id'], attempt=payload['attempt'], run_id=contract['identity']['run_id'])
+    if (context.get('generation') != 1 or context.get('action') != expected_action
+            or context.get('pipeline') != pipeline or context.get('analysis_id') != payload['analysis_id']
+            or context.get('attempt') != str(payload['attempt'])):
+        return False  # A real prior/replacement owner keeps the recovery path.
+    platform = dict(pipeline=pipeline, **{k:payload[k] for k in
+        ('analysis_id','attempt','stage','execution_id','generation','request_hash')})
+    views = list(_journal_views(path.parent, pipeline, runtime, bundle, contract))
+    journal_path = path.parent / ('submission-'+payload['execution_id']+'.json')
+    current = [v for v in views if v[0] == journal_path and v[1].get('identity',{}).get('platform_execution') == platform]
+    if views and (len(current) != 1 or len(views) != 1):
+        return False  # Existing/unknown producers must be reconciled, never CREATE again.
+    for pattern in ('submission-*', 'recovery-*' if pipeline == 'wgs' else 'resume-*'):
+        for artifact in path.parent.glob(pattern):
+            if artifact.is_symlink():
+                raise RuntimeError('initial continuation has an unsafe native artifact')
+            if artifact.is_dir() and artifact != journal_path.with_suffix(''):
+                if not artifact.with_suffix('.json').exists():
+                    raise RuntimeError('initial continuation has an unregistered native intent')
+    frozen = runtime._handoff_binding(bundle, contract)
+    if (frozen['attempt'] != payload['attempt'] or frozen.get('execution_generation') != 1
+            or frozen.get('recovery_context') or frozen.get('platform_execution')
+            or runtime._read_master_handoff(bundle, contract)
+            or runtime._master_create_intent(bundle, contract)):
+        return False
+    predecessor, evidence = _predecessor(payload, gate, pipeline, previous='step1_upload')
+    if (type(payload.get('predecessor_generation')) is not int
+            or payload['predecessor_generation'] != predecessor['generation']):
+        raise RuntimeError('initial continuation predecessor generation changed')
+    name, identity, owner = runtime._directory_lock_identity(contract, context)
+    cm = runtime._recovery_query(config, 'configmap', name)
+    lock = json.loads(cm['data']['lock']) if cm else {}
+    owners = [owner]
+    if current and current[0][1].get('job_uid'):
+        owners.append({**owner, 'master_uid':current[0][1]['job_uid']})
+    if (lock.get('schema_version') != 2 or lock.get('identity') != identity
+            or lock.get('state') != 'OWNED' or lock.get('owner') not in owners):
+        raise RuntimeError('initial continuation directory owner changed or missing')
+    if not current:
+        if owner['master_uid'] or runtime._recovery_query(config,'job',contract['kubernetes']['master_job']) is not None:
+            raise RuntimeError('initial continuation cannot adopt an existing Master')
+    elif owner['master_uid'] not in ('', current[0][1].get('job_uid')):
+        raise RuntimeError('initial continuation differs from its submitted Master')
+    _registered_request(payload, gate, pipeline)
+    if any(_read_registered(p) != value for p,value in evidence):
+        raise RuntimeError('initial continuation successful predecessor changed')
+    return True
 
 
 def _journal_views(root, pipeline, runtime, bundle, contract):
@@ -1053,6 +1114,9 @@ def resume_registered(payload, *, binding, gate, pipeline):
                 _inactive_dispatcher(other, gate, pipeline)
         stack.enter_context(writer.serialize())
         scope = writer.validate()
+        if _initial_step2_continuation(path,payload,gate,pipeline,runtime,bundle,contract,config,writer):
+            return _submit_registered_locked(payload, pipeline=pipeline, path=path, raw=raw,
+                bundle=bundle, runtime=runtime, contract=contract, config=config, modules=modules, writer=writer)
         initial=_initial_abort_source(path.parent,payload,gate,pipeline,runtime,bundle,contract,config,writer)
         abort=None; producer_evidence=()
         if initial is not None:
@@ -1492,9 +1556,8 @@ def _selected_registered(payload, *, binding, gate, pipeline, operation=None, ru
         json.dumps({k:v for k,v in receipt.items() if k != 'receipt_hash'},
             sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     action = source.get('resume_action_id')
-    initial = not action
     if (source.get('orchestration_contract_version') != 2
-            or (not initial and not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', str(action)))
+            or (action is not None and not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', str(action)))
             or any(source.get(k) != payload.get(k) for k in ('analysis_id', 'attempt'))
             or (not direct and (any(receipt.get(k) != source[k] for k in keys)
             or receipt.get('status') != 'success'
@@ -1520,18 +1583,19 @@ def _selected_registered(payload, *, binding, gate, pipeline, operation=None, ru
         if not read_only:
             writer.validate()
         original = runtime._handoff_binding(bundle, contract)
+        platform = dict(pipeline=pipeline, **{k:source[k] for k in keys})
+        matches = [v for v in _journal_views(source_path.parent,pipeline,runtime,bundle,contract)
+            if v[3] == platform]
+        if len(matches) != 1:
+            raise RuntimeError('selected Master journal is missing or ambiguous')
+        journal_path, selected_journal, selected, _ = matches[0]
+        initial = 'identity' in selected_journal
         if initial:
-            action = source['execution_id']
-            if not re.fullmatch(r'[A-Za-z0-9_-]{1,192}', action):
-                raise RuntimeError('invalid initial submit identity')
-            journal_path = source_path.parent / ('submission-'+action+'.json')
-            selected = journal_path.with_suffix('') / 'view'
+            if journal_path.name != 'submission-'+source['execution_id']+'.json':
+                raise RuntimeError('initial submit journal producer changed')
         else:
-            matches = [v for v in _journal_views(source_path.parent,pipeline,runtime,bundle,contract)
-                if v[1].get('recovery_v2',{}).get('context',{}).get('action') == action]
-            if len(matches) != 1:
-                raise RuntimeError('selected Master journal is missing or ambiguous')
-            journal_path, selected_journal, selected, _ = matches[0]
+            if selected_journal.get('recovery_v2',{}).get('context',{}).get('action') != action:
+                raise RuntimeError('recovery submit journal producer changed')
             parent = Path(selected_journal.get('registered_source',str(bundle)))
             allowed = [bundle, *[v[2] for v in _journal_views(source_path.parent,pipeline,runtime,bundle,contract)]]
             if parent not in allowed or parent.resolve(strict=True) != parent:
