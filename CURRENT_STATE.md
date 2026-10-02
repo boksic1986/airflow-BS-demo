@@ -19,6 +19,12 @@ Step2 generation. Unknown evidence blocks. Existing hourly automation remains
 unique and read-only while this owned implementation is in progress; it must
 not dispatch duplicate development. Source GREEN is not current-run recovery.
 
+Platform prelaunch snapshot hook is implemented and minimally validated only:
+BS10610 real StageExecutor21b505da RED5, final GREEN5, adapter SHA91e05347.
+Old dispatch/business receipt/stderr are frozen before overwrite/spawn using
+nonblocking worker lock. Native initial-abort/capability integration is pending;
+no package/selector/API recovery action occurred. No backend/DAG/API/DB change.
+
 Human-authorized status-summary owner is thread01a0b254-07b5-7352-99aa-871b117459ad.
 The12-item existing-source snapshot was delivered to that owner and coordinator;
 hourly monitor now reports substantive changes/completion/blockers to both.

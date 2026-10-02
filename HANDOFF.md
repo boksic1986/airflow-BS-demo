@@ -1,5 +1,49 @@
 # Handoff
 
+## 2026-10-02 — initial sender snapshot hook implemented, integration pending
+
+W423-A468E9-INITIAL-RECOVER uses the directly verified scoped authorization below.
+Native contract is finally frozen to eight flat locator names, with no request
+chosen paths or boolean authority. Platform adapter now snapshots original
+initial Step2 dispatch/business receipt/stderr in the existing worker-command
+callback before shared dispatch overwrite and worker spawn. Existing native
+launch lock plus short nonblocking worker lock protects capture; old registration,
+terminal, business SHA and native group quiescence are checked. Snapshot reads
+and publish are byte-based, allowing immutable non-JSON stderr replay. Old
+source snapshots derive from the new operator-trusted closure, never imports.
+Only capture is implemented; native abort, independent workload observation,
+capability/CAS/consumer integration and deployment are still pending.
+
+Modified scripts/cce_stage_execution_adapter.py and added
+scripts/tests/test_initial_dispatch_freeze.py; state/runtime docs synchronized.
+BS10610 preflight matched server10610/control root/actual mounts, scan/autofalse;
+same cached WGS Master8ba8858e/Python3.11.9/non-root/networknone. Real native
+StageExecutor SHA21b505da ran; transport/process launch/group state synthetic.
+Final RED5: both WGS/GATK miss old snapshot before native Popen plus absent hook
+negative checks. Final GREEN5: actual callback ordering, LOCK_NB contention,
+conflicting immutable evidence, and raw stderr idempotence. Adapter SHA
+91e0534754b513fd5c6ea42eb2d7a68afd47c7b3c0edb4831f72755eb899d771.
+Remote evidence /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/
+wgs-initial-recover-20261002; RED hook-red-final.log SHA
+c51b6140c466d1ee6b622246e444aeda48052b268227cdfc2efad0aec1f828ab,
+GREEN hook-green-final2.log SHA
+befdafff7dc78deba501802711e05d954e6cc0540a8bfb3d6545dfe9e8432f55.
+Exact scripts/raw outputs are private under the existing local artifact root.
+
+Earlier GREEN1negative failed because generic JSON publication parsed a binary
+conflict; fixed publication to compare private raw bytes. Positive test then
+removed its pre-capture setup so only the real callback creates the snapshot;
+final5passed is authoritative. Prior logs retained. A tar timestamp warning
+reflects the host's roughly15second offset; hashes and client timezone remain
+the evidence authority. Guessed file reads were missing; indexed exact files
+resolved them. Full suites and old accepted23tests not rerun.
+
+Current production snapshot is still the10:09 read below; no native/selector/
+profile/service switch, POST, data or lock mutation. Next integrate the native
+initial-abort return/digest shape, complete workload/capability validation on
+BS10610, and submit exact candidate plus fresh activation/rollback fingerprint
+to coordinator. Rollback remains source-only revert; do not replay old cleanup.
+
 ## 2026-10-02 — A468E9 bounded initial recovery authorized
 
 Goal: W423-A468E9-INITIAL-RECOVER within the existing hourly operations card.

@@ -1,5 +1,30 @@
 # Workflow runtime integration
 
+## A468E9 initial submission recovery — authorized candidate, not deployed
+
+The shared WGS/GATK stage adapter freezes old initial Step2 sender evidence in
+the existing native worker-command callback, after native old closure checks
+and before shared dispatch replacement/log append/new launch. Native holds the
+launch lock; the callback acquires the worker lock nonblocking and releases it
+before returning. Contention rejects launch, never waits in the reverse order.
+It revalidates the old immutable registration, terminal and business receipt,
+matching finished dispatch and process-group quiescence, then publishes private
+immutable snapshots of old dispatch, business receipt and stderr. Publication
+is byte-idempotent; changed bytes or conflicting snapshots reject. This grants
+no initial-abort, compute FINAL, owner transition or Master CREATE authority.
+
+The frozen native consumer contract uses exactly eight flat trusted locators:
+registration_path, terminal_path, dispatch_path, business_receipt_path,
+stderr_path, paired_source_path, native_source_path and executor_source_path.
+Requests and environment values cannot choose them. The three fixed old source
+snapshots are data under the new operator-trusted closure's initial-abort-sources
+directory; they are never imported. Native independently re-reads and validates
+their SHA and the precise old failure/control-flow identity. Initial abort and
+INITIAL_ABORTED takeover remain distinct from compute FAILED/FINAL; the normal
+recovery API, same attempt and old evidence are retained. Full native/consumer
+integration and deployment acceptance are pending. No source GREEN implies
+current-run recovery. See the existing incident/recovery review note.
+
 ## 2026-10-01 final423 candidate preserves production safeguards
 
 Step4 registration retains the deployed exact exception for a confirmed queued

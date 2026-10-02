@@ -81,13 +81,21 @@ def _read_json(path: Path) -> tuple[bytes, dict[str, Any]]:
     return raw, value
 
 
-def _read_private_json(path: Path) -> tuple[bytes, dict[str, Any]]:
+def _read_private_bytes(path: Path) -> bytes:
     _check_private_dir(path.parent)
     info = path.lstat()
     if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
             or stat.S_IMODE(info.st_mode) != 0o600):
         raise ValueError("stage private evidence file is unsafe")
-    return _read_json(path)
+    return _paired()._read_registered(path)
+
+
+def _read_private_json(path: Path) -> tuple[bytes, dict[str, Any]]:
+    raw = _read_private_bytes(path)
+    value = json.loads(raw)
+    if not isinstance(value, dict):
+        raise ValueError('registered stage evidence must be an object')
+    return raw, value
 
 
 def _registry(gate, pipeline: str):
@@ -304,7 +312,7 @@ def _publish_once(path: Path, raw: bytes) -> None:
         try:
             os.link(temporary, path, follow_symlinks=False)
         except FileExistsError:
-            if _read_private_json(path)[0] != raw:
+            if _read_private_bytes(path) != raw:
                 raise ValueError("frozen stage evidence conflicts") from None
         directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
         try:
@@ -432,6 +440,96 @@ def _terminal_reader(binding, *, gate, pipeline: str):
     )
 
 
+def _initial_dispatch_root(request_path: Path, ref) -> Path:
+    return (request_path.parent / 'stage-execution-terminal' / ref.stage
+            / f'initial-dispatch-generation-{ref.stage_generation}')
+
+
+def _freeze_initial_dispatch(candidate, *, gate, pipeline: str) -> None:
+    """Keep old sender bytes before native submit replaces its shared sidecars.
+
+    Called with the exact launch lock held by native submit. Acquire worker.lock
+    nonblocking: the inverse worker->launch order must never block here. This
+    snapshot grants no initial-abort, owner transition or CREATE authority.
+    """
+    if candidate.stage != 'step2_master' or candidate.stage_generation <= 1:
+        return
+    path = _request_path(gate, candidate.analysis_id, candidate.attempt, candidate.stage)
+    _, current = _read_json(path)
+    if not current.get('resume_action_id'):
+        return
+    dispatch_path = path.with_suffix('.stage-execution.dispatch.json')
+    if not os.path.lexists(dispatch_path):
+        return
+    with _paired()._exclusive(path.with_suffix('.worker.lock')):
+        dispatch_raw, dispatch = _read_json(dispatch_path)
+        old = _native().ExecutionRef.from_dict(dispatch.get('execution_ref', {}))
+        if old == candidate:
+            return
+        if (old.pipeline != pipeline or old.analysis_id != candidate.analysis_id
+                or old.attempt != candidate.attempt or old.stage != candidate.stage
+                or old.stage_generation >= candidate.stage_generation):
+            raise ValueError('initial dispatch identity differs from recovery')
+        if old.stage_generation != 1:
+            return
+        _, previous = _old_payload(old, gate=gate, pipeline=pipeline, registry=_registry(gate, pipeline))
+        if previous.get('resume_action_id'):
+            return
+        executor, current_ref, _ = executor_for_registered(current, gate=gate, pipeline=pipeline)
+        if current_ref != candidate:
+            raise ValueError('initial dispatch successor changed')
+        binding = _stage_binding(old, gate=gate, pipeline=pipeline, registry=_registry(gate, pipeline))
+        receipt = _terminal_reader(binding, gate=gate, pipeline=pipeline)
+        if receipt is None or receipt.state != 'failed':
+            return  # Ordinary terminal compute recovery retains its existing path.
+        if executor.writer_quiescent(old, locks_held=True) is not True:
+            raise ValueError('initial sender is active or uncertain')
+        business_path = path.with_suffix('.status.json')
+        business_raw, business = _read_json(business_path)
+        terminal = _business_terminal(business_raw, business, old, pipeline=pipeline)
+        _, control = _read_private_json(binding.status_path)
+        if terminal is None or terminal != (control['state'], control['business_sha256'],
+                                             control['business_receipt_hash']):
+            raise ValueError('initial business receipt differs from its terminal')
+        log_path = path.with_suffix('.worker.log')
+        log_raw = _paired()._read_registered(log_path)
+        root = _initial_dispatch_root(path, old)
+        snapshots = ((dispatch_path, root/'dispatch.json', dispatch_raw),
+                     (business_path, root/'business-receipt.json', business_raw),
+                     (log_path, root/'stderr.log', log_raw))
+        for _, destination, raw in snapshots:
+            _publish_once(destination, raw)
+        # A concurrent append or replacement makes the snapshot unusable.
+        if any(_paired()._read_registered(source) != raw for source, _, raw in snapshots):
+            raise ValueError('initial sender evidence changed while freezing')
+
+
+def initial_dispatch_proof(ref, *, gate, pipeline: str) -> dict[str, str]:
+    """Derive native's fixed raw-evidence locators from trusted local scopes."""
+    path, _ = _old_payload(ref, gate=gate, pipeline=pipeline, registry=_registry(gate, pipeline))
+    root = _initial_dispatch_root(path, ref)
+    values = {
+        'registration_path': _registration_path(path, ref.stage, ref.stage_generation),
+        'terminal_path': _terminal_path(path, ref.stage, ref.stage_generation),
+        'dispatch_path': root/'dispatch.json',
+        'business_receipt_path': root/'business-receipt.json',
+        'stderr_path': root/'stderr.log',
+    }
+    for item in values.values():
+        _read_private_bytes(item)
+    paired = _paired()
+    trust = paired._load_deployment_trust()
+    if trust is None:
+        raise ValueError('initial dispatch proof requires the paired deployment')
+    sources = Path(paired.__file__).resolve().parent/'initial-abort-sources'
+    for name in ('paired_source', 'native_source', 'executor_source'):
+        item = sources/(name+'.py')
+        paired._trusted_path({**trust['writers']['platform'], 'path': str(item)})
+        paired._read_regular(item)
+        values[name+'_path'] = item
+    return {name: str(item) for name, item in values.items()}
+
+
 def _executor_for_registered(payload: dict[str, Any], *, gate, pipeline: str):
     native = _native()
     registry = _registry(gate, pipeline)
@@ -448,6 +546,7 @@ def _executor_for_registered(payload: dict[str, Any], *, gate, pipeline: str):
         # Native calls this only for a new launch while holding launch.lock,
         # after its second resolver check. Recheck the original Step4 dispatch
         # deadline here; reattach and observation remain read-only after expiry.
+        _freeze_initial_dispatch(candidate, gate=gate, pipeline=pipeline)
         if candidate.stage == "step4_publish":
             current_path = _request_path(
                 gate, candidate.analysis_id, candidate.attempt, candidate.stage)
