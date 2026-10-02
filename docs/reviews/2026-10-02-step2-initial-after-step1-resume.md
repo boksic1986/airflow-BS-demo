@@ -109,3 +109,19 @@ Then use only the normal same-a1 Step2 resume API once, excluding successful
 prepare/Step1. Record new action/generation/execution/hash, actual Master
 UID/START and Step3 evidence. Unknown POST results require readback, not replay.
 Full Step1–6/results/Airflow/platform/frontend success remains outstanding.
+
+## Actual checkpoint outcome: 2026-10-02 12:51Z
+
+Independent code/GREEN review and the exact deployment checkpoint passed.
+Commit `b861052` / platform SHA `981e7e82` was installed on BS96 at the same
+canonical path, with only its local policy SHA changed to `ec6f3592`.
+Original private bytes and the exact once/success receipts were saved.
+Wrappers, native package, bootstraps, node200/GATK and services retained bytes.
+No further test selection ran.
+
+One normal same-a1 Step2 recovery registered platform generation 2, succeeded
+and confirmed native initial generation 1 / Master START. Step3 is now running;
+successful prepare/Step1 were reused. See the
+[actual production release and continuation record](../releases/2026-10-02-step2-initial-routing-bs96.md).
+The implementation/release/recovery task is complete; full pipeline completion
+remains the separate hourly operational monitor.
