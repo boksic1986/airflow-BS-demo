@@ -20,6 +20,25 @@ Other batches, permissions, inputs, deletion, Step7 and old completed scopes
 remain outside this authorization. Keep the unique hourly monitor read-only
 during the owned implementation so it does not dispatch duplicate work.
 
+### Compute budget clarification — live10:09 Asia/Shanghai
+
+Fresh BS96 preflight again matched server96, current actual backend/observer/
+worker mounts and gates. Minimal authenticated run/request reads show policy
+version1/attempt1/enabled=true/monitor_timeout_seconds432000/original_deadline
+null and budget attempt1/count0/original_deadline null. Step3 request does not
+exist; original Step2 request has no cce_recovery_deadline, raw SHA256
+aa9c502b6ed15424b7188929f21b154ae820e88e4f997344462ff929b2c979b8.
+Step1 and Step2 receipt hashes/current gen1 identities remain unchanged.
+
+Existing cce_recovery_policy.start_monitor_deadline initializes the frozen
+compute deadline only at the first Step3 registration, when no prior monitor
+exists and the attempt-matched zero-count budget has no deadline. Thereafter
+it retains the exact original deadline. The old600second Step2 CREATE/handoff
+deadline is separate. This evidence permits no deadline reset or backfill;
+recovery must preserve that normal initialization contract. Evidence: private
+.codex-artifacts/wgs-6c78d5-prepare-20261002/
+initial-recover-20261002-1008-preflight-budget.jsonl.
+
 ## Live observation
 
 Only run WGS_20261001_210659_A468E9/20260927D-test1/current attempt1.

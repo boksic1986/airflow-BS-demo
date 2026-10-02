@@ -36,6 +36,18 @@ receive native producer contract, implement only required thin consumer, validat
 once onBS10610, then present exact activation/rollback to coordinator. Rollback
 at this point is docs-only; production source, data, evidence and locks unchanged.
 
+10:09 Asia/Shanghai follow-up read: exact BS96 container IDs/mounts/gates,
+a1/gen1 and both receipt hashes remain unchanged. Frozen compute policy is
+enabled/version1/a1/432000seconds/deadline null; budget count0/a1/deadline null;
+Step3 request absent, original Step2 has no compute deadline. Existing first
+Step3 registration initializes this budget once; old600second handoff deadline
+is distinct and remains immutable. Sanitized private evidence:
+.codex-artifacts/wgs-6c78d5-prepare-20261002/initial-recover-20261002-1008-preflight-budget.jsonl.
+Only a read-only budget gap check ran, no native diagnosis/test or runtime action.
+One Windows rg wildcard-path search failed123; directory plus -g resolved it.
+Automation wgs-test1 updated via app API, preserving ACTIVE/hourly/name/target,
+to reflect this owned authorized implementation and suppress duplicate dispatch.
+
 ## 2026-10-02 — coordinator review/authorization hold for A468E9
 
 Coordinator read the exact 1c6b274 diff and original native traceback/RED/GREEN
