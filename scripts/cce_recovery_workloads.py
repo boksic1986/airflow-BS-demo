@@ -167,7 +167,8 @@ def _complete_list(value, kind):
 
 def _live_inventory(*, runtime, config, namespace, run_label, bound, master_job,
                     timeout_seconds, allow_active_workers=False,
-                    query_deadline_monotonic=None, reconnect_transient=False):
+                    query_deadline_monotonic=None, reconnect_transient=False,
+                    allow_active_master=False, forbidden_uids=()):
     """One native-query inventory round, shared by recovery and final release.
 
     The namespace lists detect bound objects with changed labels. The run-label
@@ -217,6 +218,8 @@ def _live_inventory(*, runtime, config, namespace, run_label, bound, master_job,
             _identity(uid, UID)
             if item.get("kind") != "Job" or metadata.get("namespace") != namespace:
                 raise ValueError("namespace Job inventory is malformed")
+            if uid in forbidden_uids:
+                raise ValueError("forbidden old Master UID remains in live Job inventory")
             labels = metadata.get("labels", {})
             if not isinstance(labels, dict):
                 raise ValueError("Job labels are invalid")
@@ -255,6 +258,8 @@ def _live_inventory(*, runtime, config, namespace, run_label, bound, master_job,
             owners = metadata.get("ownerReferences", [])
             if not isinstance(owners, list) or any(not isinstance(o, dict) for o in owners):
                 raise ValueError("Pod owner references are invalid")
+            if any(owner.get("uid") in forbidden_uids for owner in owners):
+                raise ValueError("forbidden old Master UID remains in live Pod inventory")
             controllers = [o for o in owners if o.get("controller") is True]
             related = (labels.get("cce.biosan.cn/run-id") == run_label
                        or labels.get("job-name") in bound
@@ -284,7 +289,7 @@ def _live_inventory(*, runtime, config, namespace, run_label, bound, master_job,
         labelled_job, namespace_job = labelled_jobs.get(name), namespace_jobs.get(name)
         if (labelled_job is None) != (namespace_job is None):
             raise InventoryMoved("bound Job changed between complete live inventories")
-        allow_active = allow_active_workers and name != master_job
+        allow_active = (allow_active_master if name == master_job else allow_active_workers)
         labelled_state = _job_state(labelled_job, namespace, name, record["uid"],
                                     allow_active=allow_active)
         namespace_state = _job_state(namespace_job, namespace, name, record["uid"],
@@ -293,6 +298,11 @@ def _live_inventory(*, runtime, config, namespace, run_label, bound, master_job,
             if labelled_state in {"Complete", "Failed"}:
                 raise ValueError("bound Job terminal evidence conflicts")
             raise InventoryMoved("bound Job changed between complete live inventories")
+        if allow_active_master and name == master_job and labelled_job is not None:
+            version = labelled_job["metadata"].get("resourceVersion")
+            if (not isinstance(version, str) or not version
+                    or version != namespace_job["metadata"].get("resourceVersion")):
+                raise InventoryMoved("replacement Master version changed between complete live inventories")
         labelled_observed = _terminated_pods(
             {"kind": "PodList", "metadata": {}, "items": labelled_pods[name]},
             namespace, record["uid"], allow_active=allow_active)
@@ -311,15 +321,63 @@ def _live_inventory(*, runtime, config, namespace, run_label, bound, master_job,
         raise InventoryMoved("Master changed after complete live inventory")
     if exact_master is not None:
         exact_state = _job_state(exact_master, namespace, master_job,
-                                 bound[master_job]["uid"])
+                                 bound[master_job]["uid"], allow_active=allow_active_master)
         if exact_master.get("metadata", {}).get("labels", {}).get(
                 "cce.biosan.cn/run-id") != run_label:
             raise ValueError("Master differs from complete live inventory")
         namespace_state = _job_state(namespace_master, namespace, master_job,
-                                     bound[master_job]["uid"])
+                                     bound[master_job]["uid"], allow_active=allow_active_master)
         if exact_state != namespace_state:
             raise ValueError("Master terminal evidence conflicts")
+        if (allow_active_master and exact_master["metadata"].get("resourceVersion")
+                != namespace_master["metadata"].get("resourceVersion")):
+            raise InventoryMoved("replacement Master version changed after complete live inventory")
     return namespace_jobs, namespace_pods, pod_states, exact_master
+
+
+def probe_initial_workloads(*, runtime, config, namespace, run_label, master_job,
+                            master_job_uid, timeout_seconds=120, replacement_job=None):
+    """Observe complete absence after native no-START proof was validated.
+
+    Empty live inventories do not establish no-START or compute FINAL. The
+    caller retains that separate native proof and rechecks before exact CAS.
+    Even a terminal old Master or Pod is a residual object, not permission to
+    replace it through this initial-submission branch. A created/submitting
+    replay may observe only its separately verified replacement UID/version;
+    STARTED recovery uses the existing selected observer instead.
+    """
+    for value in (namespace, run_label, master_job):
+        _identity(value, DNS)
+    _identity(master_job_uid, UID)
+    if config.get("kubernetes", {}).get("namespace") != namespace:
+        raise ValueError("configured namespace differs from frozen binding")
+    if type(timeout_seconds) is not int or not 0 < timeout_seconds <= 120:
+        raise ValueError("invalid workload query budget")
+    selected_uid = master_job_uid
+    if replacement_job is not None:
+        replacement_job = _object(replacement_job)
+        metadata = _metadata(replacement_job, namespace)
+        labels = metadata.get("labels", {})
+        version = metadata.get("resourceVersion")
+        if (replacement_job.get("kind") != "Job" or metadata["name"] != master_job
+                or metadata["uid"] == master_job_uid
+                or not isinstance(labels, dict)
+                or labels.get("cce.biosan.cn/run-id") != run_label
+                or not isinstance(version, str) or not version):
+            raise ValueError("replacement Master differs from verified binding")
+        selected_uid = metadata["uid"]
+    jobs, pods, _, master = _live_inventory(
+        runtime=runtime, config=config, namespace=namespace, run_label=run_label,
+        bound={master_job: {"uid": selected_uid}}, master_job=master_job,
+        timeout_seconds=timeout_seconds, allow_active_master=replacement_job is not None,
+        forbidden_uids=(master_job_uid,) if replacement_job is not None else ())
+    if replacement_job is None:
+        if master is not None or jobs or any(pods.values()):
+            raise ValueError("initial submission workloads are not absent")
+    elif master is None or master["metadata"].get("resourceVersion") != version:
+        raise ValueError("replacement Master differs from verified version")
+    return {"master": master, "master_state": "INITIAL_ABORTED", "workers": [],
+            "workers_inactive": True}
 
 
 def probe_final_workloads(*, runtime, config, namespace, run_label, master_job,

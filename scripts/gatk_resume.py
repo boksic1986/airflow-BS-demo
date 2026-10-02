@@ -226,9 +226,11 @@ def resume(*, analysis_id, attempt, expected_job_uid, expected_binding_sha256,
                 raise ResumeGuardError('internal verified recovery capability required')
             recovery.bind(runtime,contract,config,run_label=binding['run_label'],pipeline='gatk',
                 analysis_id=analysis_id,attempt=attempt,action=recovery.context['action'])
+            destination=request_dir/('resume-'+expected_job_uid+'-view')
             def check():
-                observed=recovery.inspect()
-                if observed['terminal']['state']=='FAILED':
+                observed=(recovery.inspect(journal=journal,destination=destination)
+                    if recovery.initial_abort is not None else recovery.inspect())
+                if observed.get('initial_abort') is not None or observed['terminal']['state']=='FAILED':
                     _guard_maintenance_and_obs(runtime,contract,config,modules)
                 return observed
             journal=journal or dict(identity)
@@ -236,12 +238,13 @@ def resume(*, analysis_id, attempt, expected_job_uid, expected_binding_sha256,
                 raise ResumeGuardError('registered recovery source changed')
             journal['registered_source'] = str(recovery.bundle)
             result=runtime._advance_recovery_view(recovery.bundle,contract,config,context=recovery.context,
-                expected_job_uid=expected_job_uid,destination=request_dir/('resume-'+expected_job_uid+'-view'),
+                expected_job_uid=expected_job_uid,destination=destination,
                 journal=journal,save_journal=lambda value:_save(journal_path,value),check=check,
                 claim=recovery.claim,authorize=recovery._authorized,
                 before_handoff=lambda:_guard_maintenance_and_obs(runtime,contract,config,modules),execute=execute,
                 platform_execution=recovery.platform_execution,
-                **({'compute_deadline':recovery.compute_deadline} if recovery.compute_deadline is not None else {}))
+                **({'compute_deadline':recovery.compute_deadline} if recovery.compute_deadline is not None else {}),
+                **({'initial_abort':recovery.initial_abort} if recovery.initial_abort is not None else {}))
             return recovery.export_result({**identity,**result,'replacement_job_uid':result['master_uid'],
                     'status':'succeeded' if result['mode']=='succeeded' else 'ready' if result['mode']=='ready' else 'completed'})
         job = _query(runtime, config, 'job', names['master_job'])

@@ -767,7 +767,26 @@ def _source_history(root,pipeline,runtime,bundle,contract,source):
         if not record:
             if parent==bundle and 'identity' in journal:break  # Initial prepared input, not a Master.
             raise RuntimeError('Master lineage lacks native evidence')
-        history.append(parent);source=parent
+        recovery=journal.get('recovery_v2',{})
+        if recovery.get('recovery_kind')=='initial_abort':
+            if __package__:
+                from .cce_recovery_inventory import InitialAbortAncestor
+            else:
+                from cce_recovery_inventory import InitialAbortAncestor
+            original=runtime._handoff_binding(parent,contract)
+            child=runtime._handoff_binding(source,contract)
+            digest=recovery.get('initial_abort_sha256')
+            if (recovery.get('original')!=original or recovery.get('expected_job_uid')!=record['job_uid']
+                    or recovery.get('context')!=child.get('recovery_context')
+                    or recovery.get('platform_execution')!=child.get('platform_execution')
+                    or recovery.get('view')!=str(source) or original['execution_generation']!=1
+                    or record.get('state')!='JOB_CREATED' or record.get('pod_uid')
+                    or not re.fullmatch(r'[a-f0-9]{64}',str(digest))):
+                raise RuntimeError('initial abort ancestor differs from its registered child')
+            history.append(InitialAbortAncestor(parent,digest))
+        else:
+            history.append(parent)
+        source=parent
     return tuple(history)
 
 
@@ -790,6 +809,78 @@ def _producer_registration(platform,gate,pipeline,analysis_id,attempt):
     if not registered:
         raise RuntimeError('selected producer has no authenticated registration')
     return tuple(registered)
+
+
+def _initial_abort_source(root,payload,gate,pipeline,runtime,bundle,contract,config,writer):
+    """Locate the original pre-START producer under existing sender/writer locks.
+
+    Native owns abort validation. Journals and operator-derived raw locators
+    only identify its immutable input; neither absence nor business failure
+    grants replacement authority here.
+    """
+    if pipeline!='wgs' or payload['stage']!='step2_master':
+        return None
+    views=list(_journal_views(root,pipeline,runtime,bundle,contract))
+    replays=[v for v in views if v[1].get('recovery_v2',{}).get('context',{}).get('action')==payload['resume_action_id']]
+    if replays and (len(replays)!=1 or replays[0][1]['recovery_v2'].get('recovery_kind')!='initial_abort'):
+        return None  # Ordinary compute recovery retains its existing path.
+    name,identity,_=runtime._directory_lock_identity(contract,writer.context)
+    current=runtime._recovery_query(config,'configmap',name)
+    lock=json.loads(current['data']['lock']) if current else {}
+    if lock.get('state')!='OWNED' or lock.get('identity')!=identity:
+        raise RuntimeError('registered directory lock missing or foreign')
+    candidates=[]
+    for view in views:
+        journal_path,journal,selected,platform=view
+        if 'identity' not in journal or journal.get('state')!='created':
+            continue
+        native=runtime._handoff_binding(selected,contract)
+        if native.get('execution_generation')!=1:
+            continue
+        pending=dict(generation=1,action=native.get('recovery_context',{}).get('action'),master_uid='')
+        if replays:
+            if str(selected)!=replays[0][1].get('registered_source'):
+                continue
+        elif lock.get('owner')!=pending:
+            continue
+        candidates.append(view)
+    if not candidates:
+        return None
+    if len(candidates)!=1:
+        raise RuntimeError('initial abort has no unique registered source')
+    journal_path,journal,source,platform=candidates[0]
+    frozen=runtime._handoff_binding(bundle,contract)
+    native=runtime._handoff_binding(source,contract)
+    if (source.resolve(strict=True)!=source or native.get('platform_execution')!=platform
+            or any(native[k]!=frozen[k] for k in ('attempt','files_sha256','config_sha256'))):
+        raise RuntimeError('initial source differs from registered frozen inputs')
+    record=runtime._read_master_handoff(source,contract)
+    if (not record or record.get('schema_version')!=2 or record.get('state')!='JOB_CREATED'
+            or record.get('job_uid')!=journal.get('job_uid') or record.get('pod_uid')
+            or any(record.get(k)!=v for k,v in native.items())):
+        raise RuntimeError('initial source handoff differs from its journal')
+    journal_raw=_read_registered(journal_path)
+    if json.loads(journal_raw)!=journal:
+        raise RuntimeError('initial submission journal changed')
+    evidence=(*_producer_registration(platform,gate,pipeline,payload['analysis_id'],payload['attempt']),
+        (journal_path,journal_raw))
+    if __package__:
+        from . import cce_stage_execution_adapter as adapter
+    else:
+        import cce_stage_execution_adapter as adapter
+    producer=gate._request_path(payload['analysis_id'],payload['attempt'],platform['stage'])
+    _,_,_,ref=adapter._read_frozen(adapter._registration_path(producer,platform['stage'],platform['generation']),
+        gate=gate,pipeline=pipeline,registry=adapter._registry(gate,pipeline))
+    locators=adapter.initial_dispatch_proof(ref,gate=gate,pipeline=pipeline)
+    abort=runtime._initial_submission_abort_evidence(source,contract,
+        submission_journal=journal,dispatch_proof=locators)
+    if replays:
+        _,replay,_,_=replays[0]
+        identity=replay['recovery_v2']
+        if (identity.get('original')!=native or identity.get('expected_job_uid')!=record['job_uid']
+                or identity.get('initial_abort_sha256')!=hashlib.sha256(runtime._recovery_encoded(abort)).hexdigest()):
+            raise RuntimeError('initial abort replay evidence changed')
+    return source,record,abort,evidence
 
 
 def _reconcile_initial_intent(root,payload,gate,pipeline,runtime,bundle,contract,config,writer):
@@ -962,13 +1053,32 @@ def resume_registered(payload, *, binding, gate, pipeline):
                 _inactive_dispatcher(other, gate, pipeline)
         stack.enter_context(writer.serialize())
         scope = writer.validate()
-        _reconcile_initial_intent(path.parent,payload,gate,pipeline,runtime,bundle,contract,config,writer)
-        source, record = _recovery_source(path.parent, payload, pipeline, runtime, bundle, contract, writer)
+        initial=_initial_abort_source(path.parent,payload,gate,pipeline,runtime,bundle,contract,config,writer)
+        abort=None; producer_evidence=()
+        if initial is not None:
+            if original_deadline is not None:
+                raise RuntimeError('initial abort cannot change an initialized compute budget')
+            source,record,abort,producer_evidence=initial
+            started=[v for v in _journal_views(path.parent,pipeline,runtime,bundle,contract)
+                if v[1].get('recovery_state')=='started'
+                and v[1].get('recovery_v2',{}).get('context',{}).get('action')==payload['resume_action_id']]
+            if started:
+                if len(started)!=1:
+                    raise RuntimeError('initial abort has ambiguous started replay')
+                _,_,selected,producer=started[0]
+                expected=_exported_master(runtime,bundle,selected,contract,producer)
+                writer.serialize=nullcontext
+                _observe_registered_source(payload,binding,gate,pipeline,runtime,bundle,contract,config,modules,writer,
+                    expected=expected,evidence=producer_evidence)
+                return payload['_cce_master_result']
+        else:
+            _reconcile_initial_intent(path.parent,payload,gate,pipeline,runtime,bundle,contract,config,writer)
+            source, record = _recovery_source(path.parent, payload, pipeline, runtime, bundle, contract, writer)
         if not isinstance(record, dict) or record.get('schema_version') != 2:
             raise RuntimeError('native Master handoff identity required')
         old_uid = record['job_uid']
         live = runtime._recovery_query(config,'job',contract['kubernetes']['master_job'])
-        if live is not None and live.get('metadata',{}).get('uid') == old_uid:
+        if abort is None and live is not None and live.get('metadata',{}).get('uid') == old_uid:
             active, complete, failed = runtime._job_flags(live)
             if not failed and not live['metadata'].get('deletionTimestamp'):
                 if not complete:
@@ -980,14 +1090,14 @@ def resume_registered(payload, *, binding, gate, pipeline):
                 _observe_registered_source(payload,binding,gate,pipeline,runtime,bundle,contract,config,modules,writer,
                     operation=lambda *args:None)
                 return payload['_cce_master_result']
-        terminal = runtime._recovery_final_evidence(source, contract, old_uid)['terminal']
+        terminal = abort['binding'] if abort is not None else runtime._recovery_final_evidence(source, contract, old_uid)['terminal']
         context = dict(pipeline=pipeline, analysis_id=payload['analysis_id'],
             execution_id=payload['execution_id'], generation=terminal['execution_generation']+1,
             action=payload['resume_action_id'])
         platform = {k:payload[k] for k in ('analysis_id', 'attempt', 'stage', 'execution_id', 'generation', 'request_hash')}
         platform['pipeline'] = pipeline
         name, identity, old_owner = runtime._directory_lock_identity(contract, writer.context)
-        expected_owner = dict(generation=terminal['execution_generation'],
+        expected_owner = abort['pending_owner'] if abort is not None else dict(generation=terminal['execution_generation'],
             action=terminal['recovery_context']['action'], master_uid=old_uid)
         if (identity['pipeline'] != pipeline
                 or identity['analysis_id'] != payload['analysis_id']
@@ -995,7 +1105,7 @@ def resume_registered(payload, *, binding, gate, pipeline):
             raise RuntimeError('operator registration differs from native old owner')
 
         def authorize(facts):
-            if _read_registered(path) != raw:
+            if _read_registered(path) != raw or any(_read_registered(p)!=v for p,v in producer_evidence):
                 raise RuntimeError('registered recovery request superseded')
             current_scope = writer.validate()
             if (current_scope != scope or facts['native_directory'] != scope['native_directory']
@@ -1033,7 +1143,8 @@ def resume_registered(payload, *, binding, gate, pipeline):
         capability = RecoveryCapability(bundle=source, origin_bundle=bundle, expected_job_uid=old_uid, context=context,
             authorize=authorize, verify_lock=verify_lock, platform_execution=platform,
             compute_deadline=original_deadline,
-            history_bundles=_source_history(path.parent,pipeline,runtime,bundle,contract,source))
+            history_bundles=_source_history(path.parent,pipeline,runtime,bundle,contract,source),
+            **({'initial_abort':abort} if abort is not None else {}))
         if pipeline == 'wgs':
             result = wgs_resume.resume_master(payload=payload, binding=binding, runtime=runtime, recovery=capability)
         else:
@@ -1445,6 +1556,15 @@ def _selected_registered(payload, *, binding, gate, pipeline, operation=None, ru
         else:
             expected = dict(expected_job_uid=old['job_uid'], context=context, original=original,
                 view=str(selected), platform_execution=platform)
+            if journal.get('recovery_v2',{}).get('recovery_kind')=='initial_abort':
+                abort_path=runtime._master_handoff_path(parent,contract).with_name('INITIAL_SUBMISSION_ABORT.json')
+                abort_raw=_read_registered(abort_path)
+                abort=runtime._validate_initial_submission_abort(json.loads(abort_raw))
+                if (abort_raw!=runtime._recovery_encoded(abort) or abort['bundle']!=str(parent)
+                        or abort['binding']!=original or abort['job_uid']!=old['job_uid']):
+                    raise RuntimeError('selected Master initial abort changed')
+                expected.update(recovery_kind='initial_abort',
+                    initial_abort_sha256=hashlib.sha256(runtime._recovery_encoded(abort)).hexdigest())
             if __package__:
                 from .cce_recovery_deadline import deadline_epoch
             else:

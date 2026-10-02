@@ -7,6 +7,17 @@ records the original diagnosis and the subsequent scoped authorization below.
 
 ## 2026-10-02 authorization update
 
+Latest source/acceptance: fixed native c8d07c21/runtime bfa1e15f plus platform
+factory/capability/replay/selected monitor/Step6 lineage passed focused16
+BS10610 outcomes. Final independent source review closes selected-journal
+kind/SHA consumption and unlabelled renamed-owner oldUID inventory findings.
+Native abort/advance/lock-proof are real; Kubernetes/CAS/transport and completed
+child snapshot are synthetic. No production activation/current-run recovery.
+Source and deployment review remain separate. Latest HANDOFF records original
+joint-1/joint-2/joint-4/final-red/final-green logs and exact evidence digests.
+Do not repeat prior hook5/deadline19+4. Fresh BS96 observed03:13Z/11:13Shanghai
+still failed/a1/gen1 with preserved Step1success; rollout manifest is next.
+
 Direct human message01a0fa57-9513-7c20-a09b-b100f8d2066a in coordinator
 thread019fa8d1-0d81-7e92-abee-8154dd1cf0a7 says "修复后 rerun" after its
 bounded initial-submit reconciliation proposal. Airflow owner directly verified

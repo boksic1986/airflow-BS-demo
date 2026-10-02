@@ -1,5 +1,64 @@
 # Handoff
 
+## 2026-10-02 — initial consumer accepted; rollout pending, current run unchanged
+
+W423-A468E9-INITIAL-RECOVER uses verified human authorization below. Native fixed
+commit c8d07c21cf8930da28d451c2fc4a98126d1ba509/runtime SHA
+bfa1e15f75f83ebe816897e1e454225ca2f78128b1761a2212230d033cd3c3d1.
+Platform implementation changes paired runtime, recovery inventory/workloads,
+WGS/GATK resume and four new synthetic test files; prelaunch hook unchanged.
+No backend/DAG/UI/API/DB/profile/Compose change or production activation/POST.
+Fresh BS96 observed03:13:22.968270Z/Shanghai11:13: actual service mounts/gates
+match, current A468E9 remains failed/a1/gen1, five samples; Step1success10/10 and
+both original receipt SHA unchanged. The full workflow is not complete.
+
+Implemented under existing sender/writer locks: unique original created/knownUID
+journal and authenticated producer/input mapping; native eight-locator abort
+consumer; exact pending-owner INITIAL_ABORTED takeover with native encoded SHA;
+created/submitting complete live replacement UID/version/manifest checks;
+STARTED selected observer without repeat CREATE/START. Child-journal-bound
+InitialAbortAncestor is native revalidated and contributes zero Workers at
+Step6; ordinary compute ancestors still require FINAL. Normal selected monitor
+revalidates the old abort before strict recovery_v2 comparison with its kind/SHA.
+Replay preserves oldUID as forbidden, including unlabelled renamed-owner Pods
+in complete namespace inventory. Compute inventory defaults remain unchanged.
+
+BS10610 focused16 outcomes passed against fixed native, non-root6708/image
+8ba8858e/Python3.11.9/networknone/sourcesRO; actual host/mount/gates preflight
+before every run. No repeat of old hook5 or deadline19+4. Original remote evidence:
+/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/wgs-initial-recover-20261002.
+joint-1.log SHA e93c461de81c21a5b1c36fe6ba850ea6bc28cdbdf25b1ca00abcf635a8b36758:
+13passed/2fixture failures. joint-2.log SHA
+072d24ef27dd56e6b07d688a078eb302aa281020de749493af5faa0a0215304a:
+STARTED observer1passed/native fixture still failed. joint-4.log SHA
+beecebd09f2427d1d33e43c47f971156f7c9913d6d0433416d57b8e18aa9c9f7:
+real native abort/advance/lock-proof/replay/ancestor/inventory1passed, one CREATE
+and one START with synthetic cloud transport, preserved original files, created
+reconciliation without another START and native-revalidated Step6 ancestor.
+Its completed-child snapshot is explicitly synthetic, not a clinical result.
+final-red.log SHA fc3989825875e58bb540cfaeb6364e0551c4db5d3bda296b1bdc0f656ddc68d4:
+selected strict-journal omission and renamed/unlabelled oldUID both2RED.
+final-green.log SHA f7072c997d5d7160222264860973ced81407ad021bf70d795155cad099d91c8d:
+both2GREEN. Independent final source review closed those two Important findings,
+no remaining Critical/Important. Only these final affected cases were rerun.
+
+Earlier private REDs retained: missing initial methods6; typed ancestor1;
+factory positive/replay2; replay callback2; STARTED1. Paired fixture first failed
+because business status preceded native binding; corrected fixture order.
+Joint fixture corrections supplied CREATE saved state, frozen manifest label,
+idempotent identical owner and Step3 synthetic JSON transport. Product guards
+were not weakened to pass fixture failures. Raw archives/logs/runners remain
+under .codex-artifacts/wgs-6c78d5-prepare-20261002 and the remote evidence root.
+
+Next: exact immutable paired closure/maintained native wheel/rollback manifest,
+fresh all-consumer idle fingerprint and coordinator deployment review, then
+sole Airflow writer activates and uses normal API same-attempt Step2 generation.
+Old initial evidence, successful Step1, input/sampleinfo/pending/results, all
+other batches and hourly automation remain protected. No Step7/data cleanup.
+Before a new generation, rollback to the exact original089 wheel/bootstrap/
+policy/five wrappers; after registration first prove old-runtime compatibility
+with new recovery evidence. Do not widen shared package/private-env permissions.
+
 ## 2026-10-02 — initial sender snapshot hook implemented, integration pending
 
 W423-A468E9-INITIAL-RECOVER uses the directly verified scoped authorization below.

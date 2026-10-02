@@ -22,8 +22,31 @@ directory; they are never imported. Native independently re-reads and validates
 their SHA and the precise old failure/control-flow identity. Initial abort and
 INITIAL_ABORTED takeover remain distinct from compute FAILED/FINAL; the normal
 recovery API, same attempt and old evidence are retained. Full native/consumer
-integration and deployment acceptance are pending. No source GREEN implies
-current-run recovery. See the existing incident/recovery review note.
+integration is implemented and passed the focused16-case BS10610 joint delta
+with fixed native c8d07c21. Final independent source review passed; deployment
+acceptance is pending. No source GREEN implies current-run recovery.
+
+The thin factory executes inside existing sender/writer serialization before
+initial reattachment or compute-FINAL selection. It identifies one immutable
+gen1 created journal/knownUID, authenticates the original producer and inputs,
+then consumes native abort. Native generation advances from original binding;
+Step3 compute budget stays unchanged. Exact pending owner maps to native
+INITIAL_ABORTED takeover, digest from _recovery_encoded including trailing
+newline. Bind remains ACTIVE/exact new UID; check() carries no terminal.
+
+Only submitting/created replay observes an existing exact replacement: native
+view/manifest/context and journal first, then complete lists/exact GET agree on
+new UID/resourceVersion. Old UID remains forbidden even in unlabelled objects
+with renamed owner references. Active-Master and forbidden-UID options default
+to false/empty and apply only to this checked initial replacement. Missing
+unknown CREATE or changed evidence rejects. STARTED actions use the existing
+selected observer without CREATE/START. Normal selected monitor revalidates
+abort before strict journal equality includes kind and native encoded digest.
+Step6 lineage uses internal InitialAbortAncestor only when its child journal
+fixes original binding/UID/context/platform and abort SHA. Native re-reads the
+abort on every check; this noncompute ancestor contributes zero Workers.
+Ordinary ancestors still require native FINAL. Current complete inventory
+continues to reject residual old UID Pods and unknown run workloads.
 
 ## 2026-10-01 final423 candidate preserves production safeguards
 

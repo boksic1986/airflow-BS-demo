@@ -1,5 +1,23 @@
 # Current state
 
+## 2026-10-02 W423-A468E9-INITIAL-RECOVER — source accepted, deployment pending
+
+Platform initial-abort consumer is implemented and independently reviewed with
+no remaining Critical/Important findings. Focused BS10610 acceptance covers16
+new outcomes against native c8d07c21/runtime bfa1e15f: initial factory/precise
+pending CAS, complete replacement UID/version inventory, STARTED selected
+observer, normal Step3 selected journal consumption, native-revalidated Step6
+noncompute ancestor, and late oldUID/changed-owner rejection. Prior hook5 and
+deadline19+4 were not repeated. Native/Kubernetes/CAS transports in these tests
+are synthetic; source GREEN does not establish production START or completion.
+
+Fresh BS96 observation2026-10-02T03:13:22.968270Z (Shanghai11:13) matches actual
+backend/observer/worker mounts and gates. A468E9 remains failed/a1/gen1 with
+five samples, Step1success10/10 and unchanged receipts; Step2 has not resumed.
+No package/selector switch or recovery POST has occurred. Exact paired rollout
+manifest and fresh shared-consumer idle window are required before activation.
+Airflow remains sole production writer; original data/evidence/Step1 are retained.
+
 ## 2026-10-02 W423-A468E9-HOURLY-20261002 — ACTIVE only follow-up
 
 ### W423-A468E9-INITIAL-RECOVER — authorized implementation, not deployed
