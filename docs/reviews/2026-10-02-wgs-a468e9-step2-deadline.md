@@ -39,6 +39,35 @@ recovery must preserve that normal initialization contract. Evidence: private
 .codex-artifacts/wgs-6c78d5-prepare-20261002/
 initial-recover-20261002-1008-preflight-budget.jsonl.
 
+### Thin consumer and activation boundary — local read-only audit
+
+The existing resume-stage body and API/DB shape suffice. The new native branch
+is consumed inside resume_registered's existing launch/worker/writer locks,
+before the initial reconciliation/confirmed-source selection. Keep ordinary
+live initial reattachment and compute-FINAL replacement unchanged; initial
+abort is neither confirmed START nor compute FINAL. Producer signature and
+fields remain native-owned and pending. Step2 generation and pending-owner
+generation do not consume or reset the Step3 compute-recovery budget count.
+
+Create a separate platform closure from the actual deployed common16 bytes,
+changing only paired and necessary consumer files. Five fixed gate wrappers
+across four PROD/TEST WGS/GATK consumers must select that closure; a policy-only
+writer-path change leaves adjacent imports on the old closure. Both bootstraps
+must agree on the new policy and exact writer/guard pins. Unchanged Python/env,
+profile, catalog, images, backend/DAG/Compose/frontend need no switch for this
+node-only candidate. Native shared package maintenance requires the existing
+6708 authority; ctapa6801 must not overwrite it or widen permissions. Coordinator
+will arrange the sole maintenance window, with Airflow paused during native
+installation and resuming sole production ownership afterward.
+
+Rollback inventory must capture the current0.8.9 package/dist-info/console,
+bootstrap/policy and all current wrappers before activation, with a verified
+f843cfa7766169bb7e5485b2af99ffbe933aac9ae7e667056aa3223da62c098d rollback
+wheel. After any new generation is registered, prove rollback compatibility
+with its evidence before restoring an older package; otherwise retain the
+compatible stack with admission closed for repair. These are preparation
+constraints, not fresh active-consumer inventory or deployment acceptance.
+
 ## Live observation
 
 Only run WGS_20261001_210659_A468E9/20260927D-test1/current attempt1.
