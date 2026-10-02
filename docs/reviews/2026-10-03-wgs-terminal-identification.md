@@ -232,3 +232,29 @@ fabricated terminal, repeated Resume or lock/receipt/core edits. Automatic
 monitoring remains stopped. Node private evidence files:
 current-source-mirror-field.complete.safe.json and native-mirror-terminal-contract.safe.json
 under the same operator-evidence task root. No Step7 or cleanup.
+
+## Final blocked scope and version correction
+
+Coordinator's native contract conclusion: bfa has an internal SFS reader through
+_collect_step3_evidence(require_terminal=True). Public CLI has no force-refresh;
+ordinary Status/Resume may reuse a complete, nonterminal mirror when the Job is
+absent. Internal collection creates/deletes a reader and reads run-level aliases,
+so precise original Master UID and trusted source identity must be verified.
+This is a new evidence retrieval/possible source repair scope. Coordinator will
+explain it to the human and obtain new authorization. No internal producer,
+collector, evidence refresh or Resume is authorized by this handoff.
+
+Actual paired source remains981e7e82/line1161 and native source bfa1e15f. The
+native-owner contract referenced paired66f; coordinator requested correction to
+the installed981 baseline. That reference is not deployment evidence or an
+operating path. The actual pure-reader terminal gap evidence remains valid.
+
+Current identity remains original323D3F/attempt1/actionab7/Step3generation2,
+wse_acb2905b05475cf607ecaffd/hash4fba, native/Airflow/platform failed. Last live
+evidence23:32:56.705407Z; this final update is documentation only, with no SSH,
+cloud/API operation, test, installation or new production change. Keep writes
+stopped, monitoring stopped and all original successful outputs/input bindings,
+deadline, utility resources and private evidence. Do not fabricate terminal
+markers, use require_terminal=False to proceed, change locks/receipts or create
+another generation/attempt. Native owner supplies the corrected existing trusted
+collection contract; coordinator owns the new authorization and review boundary.
