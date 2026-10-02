@@ -1,5 +1,17 @@
 # SERVER_INFO.md
 
+## 2026-10-02 14:15Z paired temporary96 control route
+
+server96 /data/airflow-WGS: actual worker c92ad8fe4b2b1bc9e197fca8f47da90b59638d6b9266bd97c705758584021342;
+scheduler24301f4b730fa65a42018d3477444ee8bbe356bb613f5b1b0ac68ba082d7e0a4.
+Both WGS/GATK_RUNNER_200_ALIAS=wgs-cce-node96; SSH .96/ctapa/stricttrue.
+Only the two GATKalias env fields changed; image58195672, all otherenv/mount/user/
+command/SSHconfigdf94468a/other service IDs remained. Existing native/shared pair
+andb861 Step2 repair retained. Default policy remains paired200;96 is temporary,
+97 not a fallback.323D3F/a1 Step3wseb7f6 remains its original native944075/bootef1f/
+start4483218750.14:17:53 naturalwaitreschedule and public/AF/native running proved.
+See [actual release and rollback](docs/releases/2026-10-02-common-control-node-bs96.md).
+
 ## 2026-10-02 W423 prepare permission correction
 
 PROD current wgs-4.2.3-3f98682-perm2775; r1 raw26b6fb15/canonicalc23869c4,

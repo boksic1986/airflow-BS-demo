@@ -1,5 +1,25 @@
 # Deployment runbook
 
+## 2026-10-02 paired control-node mode
+
+Production uses the existing runner aliases as a pair: default200 means
+`WGS_RUNNER_200_ALIAS=GATK_RUNNER_200_ALIAS=wgs-node200`; temporary96 means both
+are `wgs-cce-node96`. Keep each pipeline's original restricted command and accepted
+runtime/profile checks.97 is not a fallback. Prepare both actual worker/scheduler
+Compose configurations together, verify the exact env-only delta, and apply only
+under the existing no-active-TI/empty-worker/native-continuity boundary. Compose
+editing or restart alone does not replace container env. Preserve the original
+SSH Host mappings; do not repoint wgs-node200 to96.
+
+Current production is the paired temporary96 mode, applied14:15:14Z. Existing
+323D3F attempt1 remains on96; node switching does not migrate an active execution.
+There was no frontend/progress/core rollback. The target must retain the accepted
+pair before future switching; this release did not install/validate current981e
+on200. Source/pin/profile installation is a separate scope. Exact current service
+IDs, private backups, failed-method records, scheduling pauses, natural handoff
+and rollback boundary are in the
+[paired-node release record](releases/2026-10-02-common-control-node-bs96.md).
+
 ## 2026-10-01 UNIFIED089 actual release and original gates restored
 
 The coordinator-authorized PROD gate completed. Genuine WGS423 registration
