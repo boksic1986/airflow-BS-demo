@@ -1,5 +1,41 @@
 # Handoff
 
+## 2026-10-02 — A468E9 bounded initial recovery authorized
+
+Goal: W423-A468E9-INITIAL-RECOVER within the existing hourly operations card.
+Verified the latest direct human message in airflow-cloud-demo via read_thread:
+01a0fa57-9513-7c20-a09b-b100f8d2066a, "修复后 rerun", following coordinator's
+explicit bounded initial-submit reconciliation proposal. The previous human
+authorization hold is superseded only for this exact fix and normal continuation.
+
+Scope: A468E9/20260927D-test1/attempt1, original five samples/ten FASTQ,
+Step1 success preserved, Step2/gen1 old deadline mismatch/evidence immutable.
+Native owner019f9d79-be3f-7701-af33-3595d72bbfac owns native source and minimum
+synthetic tests; this Airflow thread owns platform thin consumer, BS10610 affected
+interface acceptance and sole production deployment/recovery. Coordinator
+019fa8d1 owns source and deployment-fingerprint review. No repeated human
+approval needed within this scope. No new HTTP route/table/framework, permission
+or deadline relaxation, fake compute FINAL, manual lock release, direct DB,
+Step7, data deletion, repeat prepare/profile/creation or other-batch action.
+
+Required before recovery: durable no-START proof plus complete absence of active
+writers/Jobs/Pods/Workers, unchanged frozen input, precise pending-owner CAS,
+normal same-attempt new Step2 generation/view. Any incomplete evidence blocks.
+Deployment package/selectors and POST remain unexecuted until exact candidates,
+affected-interface acceptance, current consumer fingerprint and rollback are
+reviewed by coordinator. This replaces the old human hold; it is not deployment
+acceptance or a new runtime snapshot. Last live check09:22 Shanghai remains
+unchanged a1/gen1 failed with successful Step1.
+
+Modified CURRENT_STATE/TASKS/HANDOFF and incident note authorization status.
+Read-only parallel audits cover consumer chain and immutable rollout inputs;
+they do not edit source or access production. No new runtime tests yet: native
+contract/candidate pending; do not rerun accepted1c6b27419+4 cases. Keep one hourly
+monitor, read-only during owned development without duplicate dispatch. Next:
+receive native producer contract, implement only required thin consumer, validate
+once onBS10610, then present exact activation/rollback to coordinator. Rollback
+at this point is docs-only; production source, data, evidence and locks unchanged.
+
 ## 2026-10-02 — coordinator review/authorization hold for A468E9
 
 Coordinator read the exact 1c6b274 diff and original native traceback/RED/GREEN

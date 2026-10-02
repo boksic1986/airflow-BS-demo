@@ -3,7 +3,22 @@
 Task: W423-A468E9-HOURLY-20261002; owner: Airflow thread
 01a0e728-4c99-71d0-87e9-987b311022c9. Snapshot:2026-10-02 07:20 onward,
 Asia/Shanghai. Current operation and minimum platform repair only. This note
-does not authorize native implementation, production activation or data cleanup.
+records the original diagnosis and the subsequent scoped authorization below.
+
+## 2026-10-02 authorization update
+
+Direct human message01a0fa57-9513-7c20-a09b-b100f8d2066a in coordinator
+thread019fa8d1-0d81-7e92-abee-8154dd1cf0a7 says "修复后 rerun" after its
+bounded initial-submit reconciliation proposal. Airflow owner directly verified
+the message. The prior design-only/human hold in this historical note is
+superseded for W423-A468E9-INITIAL-RECOVER: native minimum recovery branch,
+thin platform consumer, affected BS10610 validation and reviewed controlled
+activation/normal same-attempt Step2 continuation. All preservation and evidence
+requirements below remain mandatory. No implementation/deployment/recovery
+success is implied; coordinator candidate/deployment review is still required.
+Other batches, permissions, inputs, deletion, Step7 and old completed scopes
+remain outside this authorization. Keep the unique hourly monitor read-only
+during the owned implementation so it does not dispatch duplicate work.
 
 ## Live observation
 

@@ -10,7 +10,10 @@
 - [x] 07:20 hourly check: accept actual Step1success10/10,100%; diagnose Step2gen1 failed from private traceback and differing persisted deadlines; Job/Pod absent, initial lock remains OWNED, no START/native FINAL proof in selected evidence.
 - [x] Prepare minimum platform deadline fix and real-native BS10610 RED/GREEN:19passed/1intentional skip,4negative cases passed; preserve strict guards and old files. Source candidate, not merged/deployed.
 - [x] Coordinator accepts candidate 1c6b274 retained RED/GREEN evidence and final independent source review: source ready, no blocking findings; deployment/recovery remain unapproved. Preserve candidate without merge/deployment and keep unchanged known-failure checks quiet.
-- [ ] Human decision on separately scoped initial-submit reconciliation, already requested by coordinator: ordinary resume-stage cannot recover this absent, unconfirmed Master. No gen2/POST/lock mutation until supported recovery is authorized and verified.
+- [x] Direct human authorization for bounded initial-submit reconciliation: coordinator human message01a0fa57-9513-7c20-a09b-b100f8d2066a "修复后 rerun", read directly2026-10-02; supersedes the earlier decision hold for this exact run only.
+- [ ] W423-A468E9-INITIAL-RECOVER: native owner delivers existing public recovery branch and minimum synthetic validation; Airflow owner delivers thin consumer and one BS10610 affected-interface acceptance. Retain a1/Step1/old evidence; no new route/DB table or batch hardcoding.
+- [ ] Coordinator reviews exact native/platform candidates, actual idle consumer fingerprint, immutable deployment closure and rollback before Airflow sole writer switches package/selectors.
+- [ ] Through normal API only, prove no START and complete inactive writer/Job/Pod/Worker/input/owner checks; CAS original pending owner, register same-attempt Step2 new generation, then accept real START_CONFIRMED and Step3 rule activity. Unknown or conflicting evidence blocks.
 - [ ] Monitor only the current A468E9 attempt hourly; communicate issues and apply minimum scoped repair/recovery until workflow completion.
 - [ ] Require Step1–6 final receipts, delivered results and consistent Airflow/platform success before completing this card and removing the monitor.
 

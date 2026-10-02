@@ -2,6 +2,23 @@
 
 ## 2026-10-02 W423-A468E9-HOURLY-20261002 — ACTIVE only follow-up
 
+### W423-A468E9-INITIAL-RECOVER — authorized implementation, not deployed
+
+Direct human message 01a0fa57-9513-7c20-a09b-b100f8d2066a in coordinator
+thread019fa8d1-0d81-7e92-abee-8154dd1cf0a7 says "修复后 rerun" after the
+bounded initial-submission reconciliation proposal. Verified by read_thread
+on2026-10-02 Asia/Shanghai. This supersedes the authorization hold below only
+for A468E9/a1: retain original five samples, ten FASTQ, successful Step1 and
+all old Step2/gen1 evidence. Native owner implements the existing recovery
+branch; Airflow owner supplies the thin consumer and remains sole production
+writer; coordinator reviews exact candidates and pre-deployment fingerprint.
+No selector/package switch or recovery POST has occurred. Normal API recovery
+must prove START was never sent, complete absence of active writers/Jobs/Pods/
+Workers, unchanged input and exact pending-owner CAS before same-attempt new
+Step2 generation. Unknown evidence blocks. Existing hourly automation remains
+unique and read-only while this owned implementation is in progress; it must
+not dispatch duplicate development. Source GREEN is not current-run recovery.
+
 Human-authorized status-summary owner is thread01a0b254-07b5-7352-99aa-871b117459ad.
 The12-item existing-source snapshot was delivered to that owner and coordinator;
 hourly monitor now reports substantive changes/completion/blockers to both.
