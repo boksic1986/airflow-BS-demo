@@ -30,8 +30,9 @@ See docs/reviews/2026-10-02-wgs-a468e9-step2-deadline.md. The full batch is not
 complete; retain the monitor and follow this current a1, avoiding repeated probes
 or implementation while the required new native scope remains undecided.
 
-Coordinator has accepted the retained RED/GREEN evidence for candidate 1c6b274
-and is completing a final read-only source review. It has already asked the
+Coordinator has accepted the retained RED/GREEN evidence and final independent
+read-only source review for candidate 1c6b274: source ready, no blocking findings.
+This does not approve deployment or current-run recovery. It has already asked the
 human about the separate native reconciliation scope; reply is pending.
 Keep candidate unmerged/undeployed. Hourly checks remain read-only: if current
 a1/gen1 failure is unchanged, stay quiet and do not repeat native diagnosis,

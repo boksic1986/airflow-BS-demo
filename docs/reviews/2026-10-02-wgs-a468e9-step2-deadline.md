@@ -63,8 +63,9 @@ is still durable before CREATE; unknown outcome observes once without another
 CREATE. No tolerance, extension, old evidence rewrite or native core change.
 Candidate platform raw SHA:
 a3b27c204772326363d43b3cddb98f9f145d704b652ca51e52969d961a4a353c.
-Independent read-only source review found no blocking issue. Coordinator review
-and integration/activation remain pending. Shared wrapper tests include GATK,
+Independent final read-only source review and coordinator acceptance passed
+for candidate1c6b274; source is ready. Integration/activation and current-run
+recovery remain pending separate decisions. Shared wrapper tests include GATK,
 but no GATK operational task was started.
 
 ## Minimum BS10610 validation
