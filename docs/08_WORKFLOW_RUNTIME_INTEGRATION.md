@@ -1,5 +1,17 @@
 # Workflow runtime integration
 
+## W423 normal terminal registration selection (2026-10-03)
+
+For a normal native terminal callback, the current attempt's latest registered
+native execution is selected in registration order when run progress still names
+a native stage. The callback's stage is never a selector. A downstream
+registration or newer generation therefore fences older snapshots even when
+`AnalysisRun.current_stage` lags. Pipeline/attempt scope, release, frozen request
+digest, exact native identity/state and business receipt checks still apply.
+Explicit cleanup retains its existing stage selection and Worker quiet gates.
+Allowlisted rejection logs name the selected execution and fixed failed predicate;
+they do not log requests, observations, params, raw exceptions or clinical data.
+
 ## W423 same-execution monitor progress publication (2026-10-02, source only)
 
 The shared selected monitor publishes the complete, validated Master read in the

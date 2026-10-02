@@ -255,6 +255,12 @@ def test_unknown_stage_cannot_fail_or_release(store, tmp_path):
                         native_stage_observation=snapshots[stage],
                     ))
 
+    # The remaining checks use an independent synthetic Step3 context. The
+    # downstream registrations above belong only to the unknown-stage matrix.
+    with store.begin() as session:
+        for row in session.scalars(select(WgsStageExecution).where(
+                WgsStageExecution.stage_code.in_(stages[3:]))):
+            session.delete(row)
     failed = {**snapshots['step3_monitor'], 'state': 'failed',
               'observation_health': 'healthy'}
     with store.begin() as session:

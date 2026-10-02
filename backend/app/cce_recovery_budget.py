@@ -9,6 +9,7 @@ reservations on the existing AnalysisRun row, shared with control operations.
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 import json
+import logging
 from pathlib import Path
 import re
 from uuid import uuid4
@@ -17,6 +18,7 @@ from sqlalchemy import select
 
 from app.models import AnalysisRun, ObserverRunState, PipelineStageExecution, RunAction, WgsMaintenanceAction, WgsStageExecution
 
+logger = logging.getLogger(__name__)
 
 ACTION = "cce_compute_recovery"
 DELAYS = (60, 180)
@@ -241,6 +243,11 @@ def _current_native_stage_row(*, session, run, cleanup_stage=None):
     filters = [model.analysis_id == run.analysis_id, model.attempt == run.attempt]
     if model is PipelineStageExecution:
         filters.append(model.pipeline_name == run.pipeline_name)
+    if cleanup_stage is None and run.current_stage in NATIVE_STAGES:
+        # Run progress can lag a registered downstream execution. Registration
+        # order is trusted; a caller's snapshot stage never selects the row.
+        return session.scalar(select(model).where(*filters,
+            model.stage_code.in_(NATIVE_STAGES)).order_by(model.id.desc()).limit(1))
     stage = _CLEANUP_STAGE.get(cleanup_stage)
     if stage is None and run.current_stage in NATIVE_STAGES:
         stage = run.current_stage
@@ -267,6 +274,34 @@ def _marked_native_terminal(*, session, run, settings, native_stage_observation,
             (run.params_json or {}).get("orchestration_contract_version") != 2):
         return None
     row = _current_native_stage_row(session=session, run=run, cleanup_stage=cleanup_stage)
+
+    def reject(predicate, error=None):
+        # Only trusted identity metadata and fixed validator messages may leave
+        # this fence; never log requests, observations, params or raw exceptions.
+        suffixes = ('snapshot schema differs', 'execution ref is incomplete',
+                    'protocol differs', 'execution ref token is invalid',
+                    'execution generation is invalid', 'execution digest is invalid',
+                    'execution identity differs', 'observation health is invalid',
+                    'evidence does not match business receipt',
+                    'runtime identity is invalid', 'compute identity is invalid')
+        allowed = {f'native stage {label} {suffix}'
+                   for label in ('success', 'terminal') for suffix in suffixes}
+        allowed.update({'native stage terminal state differs',
+                        'unsupported native stage terminal state',
+                        'current WGS stage request is unavailable',
+                        'frozen WGS stage request differs from current execution',
+                        'frozen WGS stage request hash differs from current execution'})
+        reason = str(error) if type(error) is ValueError and str(error) in allowed else None
+        logger.warning('%s', json.dumps(dict(
+            event='native_terminal_rejected', predicate=predicate,
+            analysis_id=run.analysis_id, attempt=run.attempt,
+            current_stage=run.current_stage, selected_stage=getattr(row, 'stage_code', None),
+            execution_id=getattr(row, 'execution_id', None),
+            generation=getattr(row, 'generation', None), status=getattr(row, 'status', None),
+            receipt_hash=getattr(row, 'receipt_hash', None),
+            validator_reason=reason), sort_keys=True))
+        return False, row
+
     if row is None:
         # A frozen marked request can exist before its registration is visible.
         # In particular, a Step2 submit terminal cannot drain Step3's observer.
@@ -277,7 +312,7 @@ def _marked_native_terminal(*, session, run, settings, native_stage_observation,
             ))
             if observer is None or observer.lifecycle_status == "stopped":
                 return None  # Existing observer drain is an idempotent no-op.
-            return False, None
+            return reject('observer_registration_missing')
         stage = _CLEANUP_STAGE.get(cleanup_stage)
         if stage is None and run.current_stage in NATIVE_STAGES:
             stage = run.current_stage
@@ -290,23 +325,23 @@ def _marked_native_terminal(*, session, run, settings, native_stage_observation,
                     from app.gatk_runtime_service import _request_path
                     path = _request_path(settings, run.analysis_id, run.attempt, stage)
                 if path.is_symlink():
-                    return False, None
+                    return reject('unregistered_request_path')
                 if path.is_file():
                     frozen = json.loads(path.read_text(encoding="utf-8"))
                     if not isinstance(frozen, dict) or frozen.get("stage_execution") is not None:
-                        return False, None
+                        return reject('marked_request_without_registration')
             except (AttributeError, OSError, ValueError, TypeError, json.JSONDecodeError):
-                return False, None
+                return reject('unregistered_request_unreadable')
         return None
     if settings is None:
         if row.stage_code == "step3_monitor":
             from app.cce_monitor_observation import query_unconfirmed
-            if query_unconfirmed(row):
+            if query_unconfirmed(row) and run.current_stage == "step3_monitor":
                 return None  # Preserve the existing legacy diagnostic reason.
-        return False, row
+        return reject('settings_unavailable')
     if cleanup_stage == "release_leases" and row.stage_code == "step2_master":
         # Step2 is only a Master handoff; it does not prove the compute stopped.
-        return False, row
+        return reject('master_handoff_is_not_compute_terminal')
     params = run.params_json or {}
     if run.pipeline_name == "wgs":
         release = params.get("pipeline_release_id")
@@ -314,33 +349,36 @@ def _marked_native_terminal(*, session, run, settings, native_stage_observation,
         profile, revision = params.get("runtime_profile_id"), params.get("runtime_profile_revision")
         release = f"{profile}@{revision}" if profile and revision else None
     if not isinstance(release, str) or not release or row.release_id != release:
-        return False, row
+        return reject('release_identity')
+    predicate = 'frozen_request_read'
     try:
         if run.pipeline_name == "wgs":
             from app.wgs_stage_execution_service import require_frozen_request_digest
             path = (Path(settings.wgs_runtime_request_root) / run.analysis_id /
                     f"attempt-{run.attempt}" / f"{row.stage_code}.json")
             if not path.is_file() or path.is_symlink():
-                return False, row
+                return reject('frozen_request_path')
             frozen = json.loads(path.read_text(encoding="utf-8"))
             if not isinstance(frozen, dict):
-                return False, row
+                return reject('frozen_request_schema')
+            predicate = 'frozen_request_digest'
             require_frozen_request_digest(frozen, row)
             marker = frozen.get("stage_execution")
         else:
             from app.gatk_runtime_service import _registration_payload, _request_path
             if _request_path(settings, run.analysis_id, run.attempt, row.stage_code).is_symlink():
-                return False, row
+                return reject('frozen_request_path')
             marker = _registration_payload(row, settings).get("stage_execution")
         if marker is None:
             return None
         from app.stage_execution_contract import STAGE_EXECUTION_EXTENSION, require_native_stage_terminal
         if marker != STAGE_EXECUTION_EXTENSION:
-            return False, row
+            return reject('stage_execution_protocol')
         expected_state = {"success": "succeeded", "failed": "failed",
                           "canceled": "canceled", "cancelled": "canceled"}.get(row.status)
         if expected_state is None:
-            return False, row
+            return reject('row_not_terminal')
+        predicate = 'native_stage_terminal'
         require_native_stage_terminal(
             native_stage_observation, pipeline=run.pipeline_name,
             analysis_id=run.analysis_id, attempt=run.attempt,
@@ -348,8 +386,8 @@ def _marked_native_terminal(*, session, run, settings, native_stage_observation,
             generation=row.generation, request_hash=row.request_hash,
             evidence_ref=row.receipt_hash, expected_state=expected_state,
         )
-    except (AttributeError, OSError, ValueError, TypeError, KeyError, json.JSONDecodeError):
-        return False, row
+    except (AttributeError, OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as error:
+        return reject(predicate, error)
     return True, row
 
 
