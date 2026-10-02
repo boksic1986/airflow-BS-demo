@@ -704,13 +704,17 @@ def _initial_step2_continuation(path, payload, gate, pipeline, runtime, bundle, 
     current = [v for v in views if v[0] == journal_path and v[1].get('identity',{}).get('platform_execution') == platform]
     if views and (len(current) != 1 or len(views) != 1):
         return False  # Existing/unknown producers must be reconciled, never CREATE again.
-    for pattern in ('submission-*', 'recovery-*' if pipeline == 'wgs' else 'resume-*'):
-        for artifact in path.parent.glob(pattern):
-            if artifact.is_symlink():
-                raise RuntimeError('initial continuation has an unsafe native artifact')
-            if artifact.is_dir() and artifact != journal_path.with_suffix(''):
-                if not artifact.with_suffix('.json').exists():
-                    raise RuntimeError('initial continuation has an unregistered native intent')
+    allowed = {journal_path, journal_path.with_suffix('')} if current else set()
+    artifacts = {p for pattern in ('submission-*', 'recovery-*', 'resume-*')
+        for p in path.parent.glob(pattern)}
+    if len(artifacts) > 4096:
+        raise RuntimeError('initial continuation native artifact scope is too large')
+    for artifact in artifacts:
+        # _journal_views deliberately ignores legacy recovery records without
+        # platform identity. Such bytes cannot establish a fresh CREATE scope.
+        if (artifact not in allowed or artifact.is_symlink()
+                or not (artifact.is_file() if artifact == journal_path else artifact.is_dir())):
+            raise RuntimeError('initial continuation has an unregistered native intent')
     frozen = runtime._handoff_binding(bundle, contract)
     if (frozen['attempt'] != payload['attempt'] or frozen.get('execution_generation') != 1
             or frozen.get('recovery_context') or frozen.get('platform_execution')

@@ -12,6 +12,10 @@ A fresh initial submission additionally requires an empty Master UID and an
 exact absent Master Job. Platform generation and Job absence alone grant no
 initial-submission authority. A same-producer journal uses the existing CREATE
 intent reconciliation; an unknown outcome never sends another CREATE.
+Because legacy recovery journals can lack platform identity, the new initial
+scope also checks every bounded submission/recovery/resume artifact directly.
+Only authenticated current-producer journal/directory replay is allowed;
+unknown or orphan artifacts block CREATE without altering legacy readers.
 
 The frozen request, request hash and recovery action are preserved. Native
 initial generation remains 1 even when the authorized platform Step2 execution

@@ -157,7 +157,7 @@ def test_first_step2_late_exact_job_reconciles_original_create_intent(continuati
 @pytest.mark.parametrize('view_inputs', [INITIAL_VIEW], indirect=True)
 @pytest.mark.parametrize('adapter', [INITIAL_ADAPTER], indirect=True)
 @pytest.mark.parametrize('fault', ['foreign_owner', 'failed_step1', 'changed_predecessor',
-    'changed_predecessor_generation', 'foreign_journal'])
+    'changed_predecessor_generation', 'foreign_journal', 'unknown_recovery_json'])
 def test_first_step2_requires_exact_predecessor_and_initial_owner(continuation, fault):
     case = continuation
     if fault == 'foreign_owner':
@@ -184,6 +184,16 @@ def test_first_step2_requires_exact_predecessor_and_initial_owner(continuation, 
         case.submit['predecessor_generation'] = 1
         updated, _ = case.save(case.submit)
         case.submit.update(updated)
+    elif fault == 'unknown_recovery_json':
+        # _journal_views intentionally ignores unregistered recovery JSON.
+        # Such unknown CREATE evidence must still block the first Master;
+        # a same-named directory cannot make the omitted producer trusted.
+        orphan = case.path.parent / 'recovery-unregistered.json'
+        orphan.write_text(json.dumps({'recovery_state': 'creating'}))
+        orphan_view = orphan.with_suffix('') / 'view'
+        orphan_view.mkdir(parents=True)
+        (orphan_view / 'MASTER_CREATE_INTENT.json').write_text(json.dumps({
+            'schema_version': 1, 'state': 'creating'}))
     else:
         (case.path.parent / 'submission-unknown-producer.json').write_text(json.dumps({
             'state': 'submitting', 'identity': {'platform_execution': {
@@ -192,7 +202,8 @@ def test_first_step2_requires_exact_predecessor_and_initial_owner(continuation, 
                 'generation': 1, 'request_hash': 'e' * 64},
                 'source_bundle': str(case.bundle),
                 'selected_bundle': str(case.path.parent / 'submission-unknown-producer' / 'view')}}))
-    with pytest.raises((RuntimeError, ValueError)):
+    expected_error = RuntimeError if fault == 'unknown_recovery_json' else (RuntimeError, ValueError)
+    with pytest.raises(expected_error):
         case.invoke()
     assert (case.state.creates, case.state.starts, case.state.deletes) == (0, 0, 0)
 

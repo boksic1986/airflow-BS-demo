@@ -36,6 +36,11 @@ Only `scripts/cce_paired_runtime.py` changes production behavior:
   New initial dispatch requires an empty UID and exact absent Job. Matching
   same-producer replay reuses its journal and allows only its proven bound UID.
   Other/unknown producers stay on the existing reconciliation/recovery path.
+- Independently inventory the bounded submission/recovery/resume artifacts
+  before a fresh initial CREATE. The legacy journal reader can skip entries
+  without platform identity, so only authenticated current-producer journal
+  and directory replay artifacts are allowed in this first-submission scope.
+  Other or orphan JSON/directories/intents block dispatch and remain intact.
 - Select downstream initial/recovery journals by the exact verified platform
   producer identity, then keep the existing native/receipt/owner validation.
   The presence of a recovery action does not determine journal type.
@@ -65,11 +70,14 @@ Local result/helper directory:
 | green | Collection RC4, no tests ran: incorrect parameter node IDs; no product change | a86d5407582f8194178cfe55ad14c8d3f889bb08114ba72e71f2d0fa0b65d45a |
 | green2 | 15passed/1failed: older WGS fixture lacked required runtime-root configuration | 2a292c0f692f30b090974c1d085b8955de1533ddffd89294d69b22a884c98d1a |
 | green3 | 16passed/RC0, 18.77s | b9e46d2f00ba40d358aa91e1c9733eb2737034867c0dc2767ab5aa965e4dfcc1 |
+| review-red | 1failed: unknown legacy recovery JSON plus native intent did not block CREATE | 07c6b935ff14e6974020e4a93b22e1c41f26bf198ce338e3855b8d2f4f96a57e |
+| green4 | Final affected delta 10passed/RC0, 7.59s | 1d25adfa7767b65ef644a7fe82666e8765abb460ae9e6f690552ca2d00146c14 |
 
-Nine new cases cover platformgen2/nativegen1 initial submission and replay,
+Ten new cases cover platformgen2/nativegen1 initial submission and replay,
 unknown CREATE/no second CREATE, late matching-Job reconciliation, foreign
 owner, failed/changed/wrong-generation predecessor, unknown journal rejection
-and carried-action reader reconstruction. Seven existing selected cases cover
+unregistered legacy recovery JSON/CREATE intent and carried-action reader
+reconstruction. Seven existing selected cases cover
 real WGS/GATK replacement, unknown/lost-response/bound-crash initial submission,
 normal GATK initial submission and recovery. The older `registered` fixture
 now supplies its synthetic runtime root; production validation was not relaxed.
@@ -78,9 +86,9 @@ actual SHA, instead of attempting to regress an immutable successful receipt.
 Only this minimum selection ran; no full-suite or repeated smoke was requested.
 
 Candidate platform SHA:
-`44f4b74b5049ba1c07a58ae6b650fe0e5fd944765e6efd948382556e8c916d07`.
+`981e7e82a0054a38d233a64c4120219094c34879b5820661d08907230806f588`.
 Final tested archive SHA:
-`d15829ea93d5402f250fce65eb9eeffbdaa40fb1bfa5832432609f3802054e0f`.
+`b536227d6a3e7240578970decd4f3c9806cdea20e36193ccc5fb9565172de2c3`.
 
 ## Production checkpoint and rollback plan
 
