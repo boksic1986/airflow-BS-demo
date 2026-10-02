@@ -144,3 +144,91 @@ Private original evidence is retained under the node operator-evidence task
 directory; existing durable cloud logs are the next evidence route to assess.
 Automatic monitoring remains stopped. No inputs/results, locks or old resources
 were deleted; no Step7 was run.
+
+## Single read-only path probe
+
+Coordinator accepted one existing-reader/exec probe after native confirmed no
+known persistent utility-log entry. Only biosan-clinical PVC and /workspace
+mount were read-only; original e481 image/UID/GID10001, supplemental groups520
+and10001, no fsGroup/env/init/OBS, backoff0/deadline180s. A short sleep kept the
+container alive while one exact owned Running/Ready Pod exec synchronously
+captured stdout/stderr into private node evidence. No mkdir/chmod or Resume.
+
+23:08:38.559019Z CREATE returned0, Job UID
+`369a0b24-3450-4d56-8171-17c58e85b75c`, document SHA
+`408cd3515d48fe3d1cedc9c6c591990f5fa5c29bae9f64d7e66faf1cbdc7b33a`.
+Pod UID `71bf8d89-655d-401f-b92b-260ec869c737` exec returned0 at23:09:03.848060Z;
+stdout SHA `840b70095839ed6241c6ea185fcf25eec7a5aa16dad8a161e421a51111dddb7a`,
+stderr empty. The top-level workDir matched the frozen run/work and yaml import
+was available. Run/config/work were real same-device directories10001:520/2775;
+tmp existed10001:10001/2775. The probe identity was10001:10001/groups520,10001.
+No unrelated configuration values or recursive content were retained.
+
+This resolves current path attributes only: original utility exit cause and
+creation actor remain unknown. Its extra GID520 assertion is not a frozen
+Master requirement. Existing tmp must not be changed to satisfy that assertion.
+Both probe guards are consumed; no third utility or additional exec. Results were
+handed to coordinator for the next recovery decision. No new action/generation
+or attempt has been registered; automatic monitoring remains stopped.
+
+## Same-attempt Resume stopped at native final-evidence validation
+
+Coordinator accepted current tmp attributes without further mutation. One normal
+same-attempt Step3 Resume returned200/queued23:14:24.043870Z, action
+`resume_ab7c8b403a0d60aa7f371012`, Step3generation2/execution
+`wse_acb2905b05475cf607ecaffd`, request hash
+`4fbaed1bcad243d400d50a95fb8c763dea798a98c37fa3ee1432c44efd370a03`.
+Original deadline2026-10-07T12:45:38.887362Z, release3f/attempt1/five inputs and
+successful Step2gen2 predecessor remained unchanged. The exclusive Resume guard
+is consumed; no repeat POST or new attempt.
+
+Native business failed23:15:34.119625Z, SHA
+`f41604d4d8c25b2454ae307dfa0fc08a863e32022457e73046dfec5562294967`;
+terminal `e9be230fe07342588be832a9044c5d5a9ddc034cb1e6d47198fb5d78c41f2ffb`
+confirmed failed with matching business hash and current identity. Airflow start
+task succeeded23:15:00, wait failed23:15:38; Dag and platform were both failed.
+Start-task success is not a native START receipt.
+
+The4755-byte private worker log SHA
+`bce0416eba8c1af3c0aba5ab5df4a70eed4693bbe9bc4d4e6740e748e196a5f7`
+ends at paired prepare_monitor_registered1255/resume_registered1161, native
+_recovery_final_evidence1877/require1865. Static source SHA
+`bfa1e15f75f83ebe816897e1e454225ca2f78128b1761a2212230d033cd3c3d1`
+confirmed RuntimeError literal: `native final recovery evidence is incomplete or inconsistent`.
+Specific missing evidence has not been established. Current tmp existence is
+still confirmed; this is not proof of another missing-tmp error. All recovery
+writes remain stopped pending coordinator's precise direction. No native/core,
+receipt/lock, directory or permission edits, extra utility, test or installation.
+Automatic monitoring stays stopped; original inputs, successful outputs and both
+utility resources/evidence remain protected. No Step7 or cleanup.
+
+## Exact recovery evidence gap
+
+Actual bfa1 native1877 checks `isinstance(values,dict)` after handoff schema2,
+job/pod UID and recovery-context checks have already passed. Values come from
+the selected source mirror with require_terminal=True/require_worker_manifest=False.
+The confirmed initial journal SHA863b41eb binds source to the submission-wse_c67
+view and old Master UIDeb02fef8. Its mirror marker SHA
+`4f0dcae47260afd8185b9ed15fc5310241e91358b4d2f37553e69e4d8e2258e8`
+is COMPLETE with matching run ID, but mtime2026-10-02T15:56:21Z. It lists only
+jobs.ndjson0B, analysis.log760828B, START_CONFIRMED.json1683B and master-job.json6150B;
+all four listed sizes/hashes match. No terminal marker is listed.
+
+The initial diagnostic name whitelist omitted START_CONFIRMED; its early
+unknown-name stop was a method limitation, not a native rejection. Actual native
+EVIDENCE_FILES was read and the full list verified; final diagnosis uses the
+unchanged native pure reader. At23:32:56.705407Z, marker SHA unchanged before/after:
+require_terminal=False returned dict, True returned None; RUN_FAILED/RUN_COMPLETE
+decoded as None, native_has_terminal_evidence=False/analysis_complete_marker=None.
+The gap is terminal evidence handoff into the selected old mirror, not corrupt
+files or tmp permissions. Presence of terminal data on SFS was not established.
+
+Actual normal producer is native Step3 collector3016 then mirror writer3066;
+the failed Resume stops before that evidence refresh. Coordinator accepted the
+precise diagnosis and delegated the existing trusted collection contract to the
+native owner. No collector, new cloud query/utility or mirror write was invoked
+by this diagnostic. Recovery writes stay stopped; no use of False to proceed,
+fabricated terminal, repeated Resume or lock/receipt/core edits. Automatic
+monitoring remains stopped. Node private evidence files:
+current-source-mirror-field.complete.safe.json and native-mirror-terminal-contract.safe.json
+under the same operator-evidence task root. No Step7 or cleanup.
