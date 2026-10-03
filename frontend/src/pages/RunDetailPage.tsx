@@ -33,7 +33,7 @@ import {WgsQcTab} from "../features/run-detail/WgsQcTab";
 import {NativeExecutionPanel} from "../features/run-detail/NativeExecutionPanel";
 import type {RulePage, RuleQuery} from "../api";
 import {Step4RepairPanel} from "../features/run-detail/Step4RepairPanel";
-import {ResumeStagePanel, monitorReconnectAvailable} from '../features/run-detail/ResumeStagePanel';
+import {ResumeStagePanel, monitorReconnectAvailable, legacyResumeAvailable} from '../features/run-detail/ResumeStagePanel';
 import {DataLifecyclePanel} from "../features/run-detail/DataLifecyclePanel";
 import {WgsTransfersTab} from "../features/run-detail/WgsTransfersTab";
 import {ExecutionTargetSelector} from "../features/wgs/ExecutionTargetSelector";
@@ -371,7 +371,7 @@ export function RunDetailPage() {
             {detail.dag_run_id && isActiveStatus(detail.status) ? <span className="muted">{lastAutoSyncedAt ? `Live snapshot / ${formatDate(lastAutoSyncedAt)}` : "Live snapshot active"}</span> : null}
             {canSubmit ? <button className="button primary" type="button" disabled={acting} onClick={() => void runAction("submit")}><Play size={15} />Submit to Airflow</button> : null}
             {detail.status === "needs_review" && session.hasRole("operator") ? <button className="button primary" type="button" disabled={acting} onClick={() => void runAction("revalidate")}><RefreshCw size={15} />Revalidate source</button> : null}
-            {detail.status === "failed" && canResume ? <button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("resume")}><RotateCcw size={15} />Resume</button> : null}
+            {detail.status === "failed" && legacyResumeAvailable(detail, canResume) ? <button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("resume")}><RotateCcw size={15} />Resume</button> : null}
             {detail.status === "failed" && canRerun ? <button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("rerun_failed")}><RotateCcw size={15} />Rerun failed</button> : null}
             {detail.pipeline !== "gatk" && isActiveStatus(detail.status) && !(detail.execution_dispatch?.desired_mode === "cce" && ["committed", "running"].includes(detail.execution_dispatch.dispatch_state)) ? <button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("cancel")}><Square size={15} />Cancel</button> : null}
           </div>
