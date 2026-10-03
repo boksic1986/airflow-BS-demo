@@ -1,5 +1,13 @@
 # Active test-branch tasks
 
+## 2026-10-03 22:30（Asia/Shanghai）— GIT-AF-3TARGET-20261003 COMPLETE
+
+- [x] 完成源码/已发布 legacy Resume 精确差量、协调26docs/ledger、gov导航/角色/skills按白名单归仓；当前合同与真实部署历史保留，QC4.2.x/SubmitStep2仍planned。
+- [x] main/production普通FF至7bc1326；test双亲merge3e6a893保留5c29d86/257931c及F1/F3独有内容，paired三者保持415a45be，无私有环境/数据库搬迁。
+- [x] 三目标原子non-force push RC0、ls-remote RC0且与本地逐条相等；全完成源包含矩阵PASS。最终doc-only收口按同一普通路径同步，最终SHA见私有final-readback。
+- [x] 精确13 local refs全三目标包含/无worktree→安全-d/absent；协调3已清理worktrees与3refs不重做；其余dirty/ignored/unique/活动/未完成保留。
+- 无新runtime test、部署、323D3F恢复、代码研发、自动monitor、Step7或数据清理。F1/F3生产统一需要后续独立范围及验收，不是本次未完成归仓动作。
+
 ## 2026-10-03 22:20（Asia/Shanghai）— GIT-AF-3TARGET-20261003 源收口
 
 - [x] e65834e 完成源/六文档、ab29e46 已发布 legacy Resume 精确差量、9e2a6f4 协调 26docs及 0290daa/75f90d3 ledger 归仓；现行协议和延期边界保留。

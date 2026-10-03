@@ -4,7 +4,7 @@
 
 - `W423-DTEST1-DOWNSTREAM-20261003` 已完成：`WGS_20261002_095408_323D3F` / `20260927D-test1` / attempt1 的 Step1–6、结果落地及 Airflow/public/workspace success 已有终验记录。自动监控已按人类要求停止，未重建；Step7 skipped，无后续恢复或自动清理待办。依据 [CURRENT_STATE 最新完成记录](../CURRENT_STATE.md) 与 [HANDOFF 2026-10-03 20:28 最终交接](../HANDOFF.md)，本次仅整理既有证据，未新做运行时检查。
 - 下方 `W423-A468E9-HOURLY-20261002` 是 **历史已取代（superseded）** 的 2026-10-02 快照。后续运行和最终范围以 323D3F 完成卡为准；旧失败、回执、once 和授权审计保持，不按旧“唯一活动运行”描述重建监控或重放动作。
-- Airflow 唯一产品 Git writer 当前承接 `GIT-AF-3TARGET-20261003`：负责将已完成的代码/文档普通同步至 main、production、test，核对远端 SHA 后按精确保护清单清理无用分支/worktree。Git 整合仍以最新状态文件为准；当前没有监控任务、产品新需求开发或生产部署。详见 [本轮整合记录](reviews/2026-10-03-repository-integration-and-cleanup.md)。
+- Airflow 唯一产品 Git writer 已完成 `GIT-AF-3TARGET-20261003`：完成源普通同步/push至 main、production、test并核对远端 SHA，安全删除13个local refs；协调3工作树/3refs处理结果已归仓。精确payload/最终doc-only收口与保护清单以最新状态文件及原receipt为准；test F1/F3未生产promote仍单独待决策。当前没有监控任务、产品新需求开发或生产部署。详见 [本轮整合记录](reviews/2026-10-03-repository-integration-and-cleanup.md)。
 - native owner 报告 main 已普通 push/readback 至 `96278362dae9fc412a87906f267efd13ec2c80c1`，包含已完成 `e0202c5` 源码与文档；这是 owner 报告的 Git 收口，未安装或部署运行时。旧 `NATIVE-MAIN-CONVERGENCE` 源码待核卡由此取代；当前安装/消费者身份不能由该 Git SHA 推断。出处为 [owner 报告汇总](reviews/2026-10-03-repository-integration-and-cleanup.md#results)。
 - QC 的 **WGS 4.2.x family 合同** 已记录，旧每 patch 单独注册设计已被用户决定取代；消费者实现/验收仍 pending。Submit Step2 简化复核需求已记录，仍 planned/pending；本轮不开发。见 [QC family 合同](2026-09-18-wgs-qc-two-source-contract.md) 与 [Step2 需求](06_FRONTEND_SPEC.md#submit-run-step2-compact-review-2026-10-03-planned)。merge prepare、QC2、CRAM、LIMS/delivery、options 与 English-copy 的延期/暂停边界继续有效。
 

@@ -1,5 +1,11 @@
 # Current state
 
+## 2026-10-03 22:30（Asia/Shanghai）— GIT-AF-3TARGET-20261003 COMPLETE
+
+完成源/合同已普通归仓并原子 push 三个实际目标，首次真实 ls-remote RC0 对齐：main 与 jiucheng/release/production = 7bc1326a61b589d2811585324eee15455c176017，jiucheng/test/wgs-local-main-sync-20260917 = 3e6a89362ea50af69cb4abaed5cec05aecf0dbb4。test 普通双亲 merge 保留 5c29d86/257931c；三者完整包含 owner e65834e、legacy Resume ab29e46、UE/Group/fd855934与治理/协调文档，paired 均原 SHA415a45befe816cd738385ebd4ba7b5502d7f209b1fd69448d0489fb9bf8bca9a。main/prod tree相同；test 仅保留原 F1/F3 两业务模块/其 tests、旧 P1 fixture/审计和历史附录。F1/F3 未做生产验收、未获生产推广范围，仍显式 pending，非环境私有差异；无本轮运行时测试/部署。
+
+13个已完成且未附工作树的 local branches 经准确 tip、全部三本地/远端目标包含核对后 non-forced -d成功，逐条 absent；原源码仍完整保留在三目标。协调此前3工作树/3local refs已精确清理，账本保留App archive ID与CLI结果；本线程无工作树/remote refs删除。dirty/ignored/unique、owner/gov/coord活动树及未合入候选保护。最终文档收口继续普通同步三目标，最终HEAD/readback见私有 git-af-3target-20261003/final-three-target-readback.safe.json；它是doc-only后续，不再开放产品改动。完整证据/逐项清单见 [归仓记录](docs/reviews/2026-10-03-repository-integration-and-cleanup.md)。323D3F真实Step1–6完成、自动monitor停止及Step7skipped保持；QC4.2.x/Step2新需求未开发。
+
 ## 2026-10-03 22:20（Asia/Shanghai）— Git 完成源与三目标整合检查点
 
 GIT-AF-3TARGET-20261003：main 已普通快进至 owner e65834e，吸收 cd6f2ab 完成运行/已验源码；历史已发布 legacy Resume 三个精确 hunk（原 BS10610 RED1/GREEN3/build、BS96 frontend-only 记录）归仓 ab29e46。协调 bf5f177 的 26 文档已收口为 9e2a6f4，8 冲突保留当前合同/真实发布并明确历史与新需求；协调精确清理账本 0586aec/e32358a 转为 0290daa/75f90d3，三原路径已由协调处理，本线程不重做。gov e1fe6cd 导航/角色/skill 与 dated SERVER_INFO inventory 按白名单纳入，旧活动 A468 状态由最终 323D3F COMPLETE 覆盖。
