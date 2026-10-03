@@ -81,7 +81,8 @@ If final checks or removal refuse, retain the workspace; no force fallback.
   and documentation. k8s main pushed/read back at
   `43e4a6cf74c48f98771c1f3828349a3de0c06c2a`; accepted source5ffcb07 was already
   included, new closeout is documentation only. No runtime install/deployment.
-- Airflow integration remains in progress; record final three target refs below.
+- Airflow completed-source integration and safe local-ref cleanup are complete;
+  exact payload push/readback and the subsequent documentation closure are below.
 - Coordinator archived `cce-recovery-design-20260922` through App; archived
   artifact `01a10215-968d-70b2-844e-c1bbd3174caa` is visible and path removed.
   Its local branch was safely deleted; original commit remains in retained refs
@@ -113,3 +114,62 @@ If final checks or removal refuse, retain the workspace; no force fallback.
 - No runtime tests or deployment were run. Prior test evidence is historical;
   the old P1 fixture is preserved without claiming it passes against new gates.
   Three target push/readback and final exact cleanup are pending below.
+
+## Airflow actual target push and cleanup results
+
+| Retained target | First confirmed payload HEAD | Push / remote readback |
+| --- | --- | --- |
+| `main` | `7bc1326a61b589d2811585324eee15455c176017` | atomic non-force push0 / ls-remote0, exact local match |
+| `jiucheng/release/production` | `7bc1326a61b589d2811585324eee15455c176017` | atomic non-force push0 / ls-remote0, exact local match |
+| `jiucheng/test/wgs-local-main-sync-20260917` | `3e6a89362ea50af69cb4abaed5cec05aecf0dbb4` | ordinary two-parent merge; atomic non-force push0 / ls-remote0 |
+
+All retain the completed owner/source, historical accepted frontend fix, UE,
+Group and performance source. Main/production trees match; paired source SHA256
+`415a45befe816cd738385ebd4ba7b5502d7f209b1fd69448d0489fb9bf8bca9a` matches
+all three. Test-only F1/F3, prior fixtures/audit and dated status appendices are
+retained. F1/F3 have no production acceptance/promotion authorization; current
+UE is not their equivalent replacement. This is an explicit follow-up decision,
+not a new requirement to maintain two architectures. No combined tests were run.
+
+The following exact local refs had no checkout and were confirmed contained in
+all three local and origin target refs before non-forced deletion. Each command
+returned0 and each ref is now absent; their original commits remain in retained
+targets. No remote refs, workspace directories or clinical data were removed.
+
+| Exact local ref removed | Retained original full SHA | Result |
+| --- | --- | --- |
+| `jiucheng/airflow/UE01-stage-execution-contract` | `eac84eab470c91b247e76053cc8cd9a5419da39d` | safe `-d` RC0 / absent |
+| `jiucheng/airflow/UE02-stage-executor-gates` | `3d5174ca7b53a6b304b39f5a74c76eff6af617c2` | safe `-d` RC0 / absent |
+| `jiucheng/airflow/UE03-inventory-probe` | `e8401370f6dae117b41046bd0cecf8426407e1d8` | safe `-d` RC0 / absent |
+| `jiucheng/airflow/UE04-unified-stage-execution` | `7976f25b1ac7ac3d77393f1e3b38a2383a1abd75` | safe `-d` RC0 / absent |
+| `jiucheng/airflow/UE05-native-recovery-consumers` | `a0666e58d342f914bc9db54cae5fab4444132462` | safe `-d` RC0 / absent |
+| `jiucheng/airflow/UE06-paired-installation` | `3c094fc4c8789444abbbd3aa939955d73c98fbe3` | safe `-d` RC0 / absent |
+| `jiucheng/airflow/GATK-PROD-COMPAT-gatk-runtime` | `dcd7390893e3d4b6e25b7c15d4b1de96dbf231ef` | safe `-d` RC0 / absent |
+| `jiucheng/airflow/W423-integration-20261001` | `827dc56004ddf7857644499c85835ded8ae93a85` | safe `-d` RC0 / absent |
+| `jiucheng/airflow/W423-test-group-release-20261001` | `d14e567eda23ceff87dadba92a19e9b802e90518` | safe `-d` RC0 / absent |
+| `jiucheng/backend/STEP7-PERF-20261002-release-fix` | `c727e8c62480860284c3c9fa465fe4397194360b` | safe `-d` RC0 / absent |
+| `jiucheng/backend/WGS-PANEL-20261002-release-config` | `58b4cae2f1799b7c3afe01b8314c91df73a9b3fc` | safe `-d` RC0 / absent |
+| `jiucheng/fix/analysis-batch-title-20260922` | `cdd5c80e76efa586e882a7c2f19e174ce5b1c810` | safe `-d` RC0 / absent |
+| `jiucheng/fix/upload-waiting-display-20260922` | `132b8a1b38f6f3f1baa6961fabd0d17a97ac738f` | safe `-d` RC0 / absent |
+
+Retain unmerged `ac2fc11` registration-lockfix, `7e936ea` transfer-wait and
+`eb1b8aa` TTL refs even though current-source ports exist. Also retain deferred
+prepare, unreleased candidates, active owner/governance/coordinator roots, and
+all dirty/ignored/unique-evidence roots. Coordinator's three workspace removals
+and three local-ref deletions were already recorded above; Airflow did not repeat
+them. The reused `step3-stage-lockfix` tree is the active Git closure workspace.
+
+Native owner additionally reports five safe local-ref removals:
+`cce-pipeline-extraction`, `cce-release-simple-088`, `cce-runtime-info-088`,
+`plugin-bs6-heavy-p0-20260923`, and `runtime/p02-worker-terminal-20260923`.
+Native remote refs remain; worktree removal was denied, so zero native worktrees
+were removed. Exact owner evidence:
+`D:/pipeline/WGS-noncoding-model/.codex-artifacts/git-main-consolidation-20261003/RECEIPT.md`.
+These are owner Git reports, not a new install/deployment acceptance.
+
+This final documentation-only closure is normally synchronized to the same three
+targets. Its final exact HEAD/remote receipt is saved by the Airflow owner under
+`.codex-artifacts/git-af-3target-20261003/final-three-target-readback.safe.json`,
+with the pre-cleanup plan, first push receipt and per-ref results retained there.
+No new runtime tests, product implementation, deployment, recovery, automatic
+monitoring, Step7 or clinical cleanup was performed in this Git task.

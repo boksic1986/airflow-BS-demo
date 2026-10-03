@@ -1,5 +1,17 @@
 # Handoff
 
+## 2026-10-03 22:30（Asia/Shanghai）— GIT-AF-3TARGET-20261003 完成/精确清理
+
+**结果/源：**人类01a10202的Git归仓范围已完成。main 与 production首次真push/readback7bc1326a61b589d2811585324eee15455c176017；test普通merge3e6a89362ea50af69cb4abaed5cec05aecf0dbb4（保留257931c/5c29d86）。git push --atomic origin三精确ref RC0；git ls-remote --heads三精确ref RC0，本地远端相同。e65834e、cd6f2ab、ab29e46及fd855934/UE01–06/d14e567/9e2a6f4/gov7bc完整包含；main/prod tree同。paired三目标SHA415a45befe816cd738385ebd4ba7b5502d7f209b1fd69448d0489fb9bf8bca9a不回退。legacy3hunk仅吸收历史已验已发布源，未新增实现/测试/部署。
+
+**test保留：**旧F1/F3 two modules、对应两backend tests、P1 six-scenario fixture/审计与三卡历史附录保留；registered-recovery保留test独立runtime root/digest，monitor fixture用main现代分离root/observation；F2旧首次CREATE改由现行strict实现。三cards main原文保留，test旧新增块只在末尾日期附录。F1/F3是通用P0但原授权/52pass仅旧test组合，未生产验收/获推广范围；UE无等效替代，不声明当前prod已覆盖，不在本轮开研发或测试。新的merged suite未执行，combo未全GREEN原限制保持。
+
+**清理/保护：**13条local-only exact refs列表/fullSHA与每项RC0/absent写入归仓ledger和private local-branch-cleanup-results.safe.json。删除前全部tip身份/无worktree/三本地与origin目标包含已核，普通git branch -d，无force/remote删refs。协调原3树/3refs已先单独清理，App archive01a10215-968d-70b2-844e-c1bbd3174caa和CLI不存在结果已归仓，本线程不重复。未合入ac2fc11/7e936ea/eb1b8aa（虽port已有）保留unique历史；08e4cbc deferred、a3c177a unreleased、owner/gov/coord树及所有dirty/ignored/private证据保护。13refs清理只删Git指针，未删目录/临床数据或runtime记录。
+
+**命令/证据：**git diff --check无问题、conflict marker0、Git source祖先/paired原文SHA/主产相同核对PASS；所有为静态/Git检查，无SSH runtime/tests。本地私有目录 .codex-artifacts/git-af-3target-20261003 保留planned guard、first-three-target-push-readback、13逐项cleanup结果；本次最终doc-only提交再ordinary sync/push，准确最后HEAD与ls-remote存 final-three-target-readback.safe.json，不在文档嵌入自身提交SHA造成同步循环。协调native main96278362/plugin43e4a6cf/WGS581f4f0收口及其local cleanup为owner报告，不推断安装变化。
+
+**任务/回退：**Git源归仓与已允许安全清理完成；无后续运行操作。323D3F Step1–6真实完成/结果落地、monitor已停/Step7skipped仍有效；QCfamily/SubmitStep2规划未实现。回退只能正常revert并重新普通同步，不force/reset、重放部署/恢复或丢弃test独有历史。精确删除ref可从ledger SHA重建；原dir数据未删。最终源状态/私有readback发协调与docsowner，无新授权请求。
+
 ## 2026-10-03 22:20（Asia/Shanghai）— GIT-AF-3TARGET-20261003 完成源整合
 
 **已完成源：**main 普通快进 e65834e，保留 cd6f2ab 完整 Step1–6 成功/实际部署及未全 GREEN combo 限制。ab29e46 仅原 coordinator 三 frontend 文件 legacy Resume 精确 hunk，保留 fd855934 最新生命周期/budget fencing；旧 accepted BS10610/BS96 证据在原 HANDOFF9086–9106/CURRENT2383–2402，未重新测试/部署。bf5f177 的 26docs 转 9e2a6f4，8 文档冲突逐块收口；五合同保留 owner 最新正文，AA W423 三文件保留实际 final/history并注明 QC4.2.x/Step2 新需求尚未实施。0586aec/e32358a ledger 转 0290daa/75f90d3，协调三路径/三 branch 精确清理已完成，不再并行操作。
