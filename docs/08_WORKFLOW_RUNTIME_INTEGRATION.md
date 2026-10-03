@@ -1,5 +1,22 @@
 # Workflow runtime integration
 
+## W423 ACK monitor reconnect (2026-10-03, source candidate)
+
+For WGS only, an authenticated new same-attempt Step3 observer may reconcile
+its exact previous producer's `created` recovery journal and native
+`START_SENT` handoff. It verifies original request registration/hash, frozen
+parent/view/context, unchanged compute deadline and exact directory owner.
+Existing writer registration/storage validation precedes assigning that verified
+owner. Native START_SENT confirmation consumes the real per-Job-UID ACK without
+resending START; guard and journal bytes/state remain unchanged. The existing
+selected read-only observer then preserves the original producer identity.
+Expected-source downstream observations reuse the same validation and the
+already held writer serialization. Selected-candidate errors stop, with no
+replacement fallback. Old terminal generations remain terminal; normal new
+observer registration retains their evidence. See
+`reviews/2026-10-03-ack-monitor-reconnect.md` for exact source pins, bounded
+BS10610 verification and the pending production checkpoint.
+
 ## W423 normal terminal registration selection (2026-10-03)
 
 For a normal native terminal callback, the current attempt's latest registered

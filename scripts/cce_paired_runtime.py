@@ -1010,6 +1010,110 @@ def _automatic_failure_evidence(payload, value, *, runtime, bundle, selected, co
         return None
 
 
+def _created_monitor_journal(root, payload, pipeline, runtime, bundle, contract, expected=None):
+    """Locate only the authenticated previous Step3 producer, never latest/mtime."""
+    if pipeline != 'wgs':
+        return None
+    producer = (expected or {}).get('platform_execution')
+    if producer is None:
+        previous = payload.get('resume_previous_execution') or {}
+        if payload.get('stage') != 'step3_monitor' or not previous:
+            return None
+        producer = dict(pipeline=pipeline, analysis_id=payload['analysis_id'], attempt=payload['attempt'],
+            stage='step3_monitor', **previous)
+    matches = [item for item in _journal_views(root, pipeline, runtime, bundle, contract)
+        if item[1].get('recovery_state') == 'created'
+        and item[3].get('execution_id') == producer.get('execution_id')]
+    if not matches:
+        return None
+    if len(matches) != 1 or matches[0][3] != producer or producer.get('stage') != 'step3_monitor':
+        raise RuntimeError('created monitor producer is ambiguous or changed')
+    return matches[0]
+
+
+def _confirmed_created_monitor_source(payload, gate, pipeline, runtime, bundle, contract, config, writer, expected=None,
+        serialized=False):
+    """Reconcile an existing START only; preserve its created journal and producer."""
+    path, request_raw = _registered_request(payload, gate, pipeline)
+    located = _created_monitor_journal(path.parent, payload, pipeline, runtime, bundle, contract, expected)
+    if located is None:
+        return None
+    journal_path, saved, selected, platform = located
+    journal_raw = _read_registered(journal_path)
+    if json.loads(journal_raw) != saved:
+        raise RuntimeError('created monitor journal changed')
+    evidence = _producer_registration(platform, gate, pipeline, payload['analysis_id'], payload['attempt'])
+    producer = json.loads(evidence[0][1])
+    parent = Path(saved.get('registered_source', str(bundle)))
+    allowed = [bundle, *[v[2] for v in _journal_views(path.parent, pipeline, runtime, bundle, contract)]]
+    if parent not in allowed or parent.resolve(strict=True) != parent or selected.resolve(strict=True) != selected:
+        raise RuntimeError('created monitor source is not registered or canonical')
+    original = runtime._handoff_binding(parent, contract)
+    old = runtime._read_master_handoff(parent, contract)
+    native = runtime._handoff_binding(selected, contract)
+    record = runtime._read_master_handoff(selected, contract)
+    frozen = runtime._handoff_binding(bundle, contract)
+    if not old or any(old.get(k) != v for k, v in original.items()):
+        raise RuntimeError('created monitor parent handoff changed')
+    context = dict(pipeline=pipeline, analysis_id=platform['analysis_id'], execution_id=platform['execution_id'],
+        generation=original['execution_generation'] + 1, action=producer.get('resume_action_id'))
+    if __package__:
+        from .cce_recovery_deadline import deadline_epoch
+    else:
+        from cce_recovery_deadline import deadline_epoch
+    deadline = deadline_epoch(producer)
+    recovery = dict(expected_job_uid=old['job_uid'], context=context, original=original,
+        view=str(selected), platform_execution=platform)
+    if deadline is not None:
+        recovery['compute_deadline'] = deadline
+    if (journal_path.name != 'recovery-' + str(context['action']) + '.json'
+            or saved.get('recovery_v2') != recovery or deadline_epoch(payload) != deadline
+            or native.get('platform_execution') != platform or native.get('recovery_context') != context
+            or any(original.get(k) != frozen[k] for k in ('attempt', 'config_sha256', 'files_sha256'))
+            or any(native.get(k) != frozen[k] for k in ('attempt', 'config_sha256', 'files_sha256'))
+            or not record or record.get('schema_version') != 2 or not record.get('pod_uid')
+            or record.get('job_uid') != saved.get('replacement_uid')
+            or record.get('deadline_epoch') != saved.get('recovery_handoff_deadline')
+            or record.get('state') not in {'START_SENT', 'START_CONFIRMED'}
+            or any(record.get(k) != v for k, v in native.items())):
+        raise RuntimeError('created monitor differs from its frozen producer')
+    owner = dict(generation=context['generation'], action=context['action'], master_uid=record['job_uid'])
+    with (nullcontext() if serialized else writer.serialize()):
+        # Validate the factory's authenticated registration/storage first. Its
+        # dynamic cloud resolver cannot require the new ACK before accepting it.
+        writer.validate()
+        writer.context.update(owner)
+        name, identity, _ = runtime._directory_lock_identity(contract, writer.context)
+        def check_owner():
+            current = runtime._recovery_query(config, 'configmap', name)
+            lock = json.loads(current['data']['lock']) if current else {}
+            if (lock.get('schema_version') != 2 or lock.get('state') != 'OWNED'
+                    or lock.get('identity') != identity or lock.get('owner') != owner):
+                raise RuntimeError('created monitor directory owner changed')
+        check_owner()
+        if record['state'] == 'START_SENT':
+            live = runtime._recovery_query(config, 'job', record['job_name'])
+            if (live is None or live.get('metadata', {}).get('uid') != record['job_uid']
+                    or live['metadata'].get('deletionTimestamp')):
+                raise RuntimeError('created monitor Master is missing or changed')
+            # Native handles the real ACK and its original deadline. START_SENT
+            # goes only to await; this never executes replacement or sends START.
+            token = runtime.CURRENT_WRITER.set(writer)
+            try:
+                runtime._finish_master_handoff(selected, contract, config, record['job_uid'])
+            finally:
+                runtime.CURRENT_WRITER.reset(token)
+        check_owner()
+        record = runtime._read_master_handoff(selected, contract)
+        exported = _exported_master(runtime, bundle, selected, contract, platform)
+        if expected is not None and exported != expected:
+            raise RuntimeError('created monitor receipt producer changed')
+        if (_read_registered(path) != request_raw or _read_registered(journal_path) != journal_raw
+                or any(_read_registered(p) != raw for p, raw in evidence)):
+            raise RuntimeError('created monitor registration changed during confirmation')
+    return selected, record, ((journal_path, journal_raw), *evidence)
+
+
 def _observe_registered_source(payload, binding, gate, pipeline, runtime, bundle, contract, config, modules, writer, operation=None,
         expected=None, evidence=()):
     """Reattach a new observer without relabelling the original Master producer."""
@@ -1018,7 +1122,12 @@ def _observe_registered_source(payload, binding, gate, pipeline, runtime, bundle
     with (nullcontext() if read_only else writer.serialize()):
         if not read_only:
             writer.validate()
-        if expected is None:
+        created = _confirmed_created_monitor_source(payload, gate, pipeline, runtime, bundle, contract,
+            config, writer, expected, serialized=not read_only)
+        if created is not None:
+            source, record, confirmed_evidence = created
+            evidence = (*evidence, *confirmed_evidence)
+        elif expected is None:
             source, record = _recovery_source(path.parent,payload,pipeline,runtime,bundle,contract,writer)
         else:
             matches=[v for v in _journal_views(path.parent,pipeline,runtime,bundle,contract)
@@ -1243,6 +1352,12 @@ def prepare_monitor_registered(payload, *, binding, gate, pipeline):
     runtime = load_runtime()
     bundle = Path(binding['cce_bundle'])
     contract, _, _ = runtime._load(bundle, None)
+    if _created_monitor_journal(path.parent, payload, pipeline, runtime, bundle, contract) is not None:
+        # A failed START observer already has a producer. This branch can only
+        # confirm that producer and observe it; errors never fall into Resume.
+        _selected_registered(payload, binding=binding, gate=gate, pipeline=pipeline,
+            runtime=runtime, operation=lambda *args: {})
+        return
     if any(saved.get('recovery_state') == 'started'
             and saved.get('recovery_v2', {}).get('context', {}).get('action') == payload['resume_action_id']
             for _, saved, _, _ in _journal_views(path.parent, pipeline, runtime, bundle, contract)):
