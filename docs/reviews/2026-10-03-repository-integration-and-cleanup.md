@@ -72,4 +72,25 @@ If final checks or removal refuse, retain the workspace; no force fallback.
 
 ## Results
 
-In progress. Owners report exact source/target/push evidence before completion.
+- WGS owner reports fresh HTTP remote before/after and normal push RC0/up to
+  date: `dev_CJC_4.2.3_cloud = 581f4f0c62594170b10d92988ef6c7d1ffd2c26c`.
+  Completed business source is clean; nine unfinished/private docs remain untouched.
+  Evidence: WGS_test/cce-evidence/wgs423-git-closeout-20261003/HANDOFF.md on BS10610.
+- Native owner reports main pushed/read back at
+  `96278362dae9fc412a87906f267efd13ec2c80c1`, including completed e0202c5 code
+  and documentation. k8s main pushed/read back at
+  `43e4a6cf74c48f98771c1f3828349a3de0c06c2a`; accepted source5ffcb07 was already
+  included, new closeout is documentation only. No runtime install/deployment.
+- Airflow integration remains in progress; record final three target refs below.
+- Coordinator archived `cce-recovery-design-20260922` through App; archived
+  artifact `01a10215-968d-70b2-844e-c1bbd3174caa` is visible and path removed.
+  Its local branch was safely deleted; original commit remains in retained refs
+  and the App archive supports restoration.
+- `gatk-slot-retry` and `wgs-submission-design-20260922` were removed using
+  non-forced Git commands; their local branches safely deleted. Fresh postcheck
+  confirms absent paths/branches. Their tracked contents remain in retained target
+  commits; they had no uncommitted or ignored files. No independent file backup
+  was created or needed. No remote branches deleted.
+- Preserve active, dirty, unique-commit and ignored-evidence trees. Native0.8.8
+  transport/selected-terminal legacy differences are not fully proven replaced;
+  retain the old branch rather than silently reintroduce or discard it.
