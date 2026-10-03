@@ -2186,3 +2186,17 @@ UID/resourceVersion delete preconditions, exact manifest/token checks, bounded
 polling and fail-closed DELETE_INTENT reconciliation remain unchanged. Cleanup
 must be confirmed before a storage identity probe authorizes the actual stage.
 This candidate does not imply shared installation or live smoke acceptance.
+## W423 ACK reconnection after native success and Master reclamation
+
+For an authenticated WGS created-source journal whose native handoff remains
+`START_SENT`, a missing live Master permits ACK reconciliation only when the
+existing `_recovery_final_evidence` verifies that exact producer's complete
+`SUCCEEDED` terminal. It includes the original native success, identity,
+startup deadline, inventory digest and workflow completion checks. Failed or
+missing evidence remains rejected; a live foreign UID or deleting Job remains
+rejected. The existing writer serialization, registration and owner checks
+surround the native `_finish_master_handoff` / persistent ACK read. This does
+not resend START or create a Master, rewrite the created journal, reopen the
+old observer terminal, or rerun successful rules. The normal new observer within
+the same attempt confirms Step3 and proceeds to Step4–6.
+

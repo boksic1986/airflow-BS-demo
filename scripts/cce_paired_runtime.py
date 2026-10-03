@@ -1093,7 +1093,11 @@ def _confirmed_created_monitor_source(payload, gate, pipeline, runtime, bundle, 
         check_owner()
         if record['state'] == 'START_SENT':
             live = runtime._recovery_query(config, 'job', record['job_name'])
-            if (live is None or live.get('metadata', {}).get('uid') != record['job_uid']
+            if live is None:
+                final = runtime._recovery_final_evidence(selected, contract, record['job_uid'])
+                if final['terminal']['state'] != 'SUCCEEDED':
+                    raise RuntimeError('created monitor reclaimed Master has no verified success')
+            elif (live.get('metadata', {}).get('uid') != record['job_uid']
                     or live['metadata'].get('deletionTimestamp')):
                 raise RuntimeError('created monitor Master is missing or changed')
             # Native handles the real ACK and its original deadline. START_SENT

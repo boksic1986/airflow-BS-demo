@@ -16,7 +16,8 @@ from cce_pipeline.assets import cce_writer_guard as guard
 
 @pytest.mark.parametrize('view_inputs', [
     {'pipeline': 'wgs', 'analysis_id': 'WGS_20261003_000000_AAAAAA'}], indirect=True)
-@pytest.mark.parametrize('fault', [None, 'ack', 'owner', 'journal', 'producer', 'deadline'])
+@pytest.mark.parametrize('fault', [None, 'ack', 'owner', 'journal', 'producer', 'deadline',
+                                 'retired_success', 'retired_failed'])
 def test_created_start_ack_reconnect_is_observer_only(registered, monkeypatch, fault):
     state, _, gate, producer, old_path, policy, bundle, harness = registered
     producer.update(stage='step3_monitor', execution_id=producer['analysis_id'] + '-a1-step3-g8')
@@ -47,7 +48,7 @@ def test_created_start_ack_reconnect_is_observer_only(registered, monkeypatch, f
     history.mkdir(parents=True, exist_ok=True)
     original_path = history / 'generation-8.json'
     original_path.write_bytes(path.read_bytes())
-    if fault is None:
+    if fault is None or fault in ('retired_success', 'retired_failed'):
         # Exercise the actual production guard's schema3/cloud branch, including
         # its START_CONFIRMED-only current-owner resolver. Only the directory
         # identity transport is synthetic; registration and resolver stay real.
@@ -107,6 +108,34 @@ def test_created_start_ack_reconnect_is_observer_only(registered, monkeypatch, f
         observer['cce_recovery_deadline'] = (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
         observer['request_hash'] = paired._request_digest(observer, 'wgs')
         path.write_text(json.dumps(observer))
+    elif fault in ('retired_success', 'retired_failed'):
+        from test_recovery_final import SubmissionManager, plugin_tests
+        confirmation['confirmed_epoch'] = harness.now
+        monkeypatch.setattr(runtime, '_master_input_context', lambda: record)
+        monkeypatch.setenv('CCE_RUN_ROOT', harness.contract['paths']['run_dir'])
+        monkeypatch.setenv('CCE_INPUT_ROOT', str(selected))
+        for phase in ('preflight', 'analysis'):
+            env = runtime._recovery_phase_start(phase)
+            root = Path(env['SNAKEMAKE_CCE_SUBMIT_EVIDENCE_DIR'])
+            context = json.loads(Path(env['SNAKEMAKE_CCE_SUBMIT_CONTEXT_FILE']).read_bytes())
+            SubmissionManager(context, root, plugin_tests.API(root, [])).claim_executor()
+            runtime._recovery_phase_finished(phase, 0)
+        success = fault == 'retired_success'
+        terminal = runtime._bind_master_terminal({'schema_version': 1,
+            'state': 'SUCCEEDED' if success else 'FAILED', 'exit_code': 0 if success else 1,
+            'finished_epoch': harness.now + 1, 'failed_stage': 'final_dryrun',
+            'exit_codes': {'preflight': 0, 'analysis': 0, 'final_dryrun': 0 if success else 1}})
+        assert terminal['submission_inventory_complete'] is True
+        evidence = {'START_CONFIRMED.json': confirmation,
+            'RUN_COMPLETE.json' if success else 'RUN_FAILED.json': terminal,
+            'recovery-final.json': json.loads((Path(harness.contract['paths']['run_dir']) /
+                'evidence' / record['run_id'] / 'recovery-final.json').read_bytes())}
+        if success:
+            evidence['workflow-completion.json'] = {'required': [{'path': 'ANALYSIS_COMPLETE',
+                'content': json.dumps({'schema_version': 1, 'status': 'PASS', **harness.contract['identity']})}]}
+        runtime._write_mirror_evidence(selected, record['run_id'], evidence,
+            project=record['project'], batch=record['batch'])
+        state.job = None
     transport = runtime._run
 
     def ack_transport(argv, *args, **kwargs):
@@ -125,7 +154,7 @@ def test_created_start_ack_reconnect_is_observer_only(registered, monkeypatch, f
         return finish(*args, **kwargs)
     monkeypatch.setattr(runtime, '_finish_master_handoff', producer_finish)
     preserved_journal = journal_path.read_bytes()
-    if fault:
+    if fault and fault != 'retired_success':
         with pytest.raises((RuntimeError, ValueError)):
             paired.prepare_monitor_registered(observer, binding=binding, gate=gate, pipeline='wgs')
         assert '_cce_master_result' not in observer

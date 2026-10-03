@@ -1,5 +1,69 @@
 # W423-ACK-RECONNECT-20261003
 
+## Combined progress / ACK / reclaimed-success checkpoint
+
+Direct human messages `01a1002b-4e31-7313-a2fc-95ef970c9011` and
+`01a1002d-e8cd-7910-84fd-7acaa36ca3eb` request the earlier display repair in the
+production switch and normal rerun. The necessary exact current-UID SFS read
+instead proved native **SUCCEEDED**, so successful analysis will be preserved
+and the normal same-attempt observer will continue Step4–6. Automatic monitoring
+remains stopped.
+
+The one readonly native reader c2917666 was created05:19:55Z; its current-cb75
+UID archive contained the real RUN_COMPLETE026e27ff, original START24a224,
+recovery-final689ab451 and workflow-completiond5535b41. Native mirror27535f90
+publication and complete `_recovery_final_evidence` / `_recovery_native_success`
+validation passed. The actual UID/RV foreground reader deletion was followed by
+an exact05:22:26Z Jobabsent/Pods0 readback. Local evidence files are
+`current-cb75-terminal-read.safe.jsonl` and `current-cb75-reader-readback.safe.jsonl`;
+raw bytes and once markers remain in the private node task directory.
+
+The final paired candidate includes already accepted progress commit4fc2999,
+ACK7a47440 and the sole new reclaimed-success condition. A START_SENT record with
+liveJobNone must pass `_recovery_final_evidence` with terminal.stateSUCCEEDED
+before the original native finish consumes its persistent ACK. Missing/failed
+evidence stays rejected; live foreign/deleting Jobs stay rejected. Existing
+registration, serialization, exact owner checks and CURRENT_WRITER boundaries
+remain. The created journal and producer identity are preserved; no CREATE,
+replacement fallback, START or successful rule rerun is added.
+
+Final paired SHA is
+`3fc179a9b99b2c69677ab1ed2756a7db41fecf7aed4cb49f19218e37336a79c9`.
+At05:28:16Z the actual BS10610 host/current/service mounts/gates and nativeaf05 /
+guarde993 were verified. The only additional combined check used the existing
+network-none pinned image and selected six cases: reclaimed success and failed
+terminal refusal using the real native terminal/snapshot producer and schema3
+guard, plus WGS/GATK healthy progress publication and unconfirmed snapshot
+retention. **6 passed, 6 deselected, 5.00s, RC0**; original raw
+`green-combined.log` SHA
+`6695e1a7ce89ba8621e1ea89f68b68274a18aa989177040485220c160ac9ab16`
+and XML are in the existing private BS10610 ACK test root. Current test SHA is
+`bfda24bc4ade1dafc23ccc42d88fa882ef8a76acf9ba5343cd9271da460cb420`.
+The earlier liveACK6, native11 and progress30 acceptance is reused; no full suite
+or repeated old acceptance was run.
+
+The old aa9/manifest6c73/policy5ada describes an ACK-only candidate and must not
+deploy this combined source. The new manifest changes only the same three files:
+nativeaf05, final paired3fc179a9 and matching policy writer hashes. The five
+wrappers temporarily close and restore original bytes under a quiet window;
+guard/bootstrap/UID/GID/modes/routes/services and already deployed55cb are
+preserved. There is no separate evidenced React payload, WES or Step7 package.
+Activation and the single normal observer API still await coordination review
+of this final source, pins, rollback and current successful producer. No new
+attempt, compute restart or automatic monitor is authorized.
+
+## 2026-10-03 05:04Z execution checkpoint: stopped before activation
+
+Coordination approved the exact deployment manifest `6c73db03c003d8d506836e2f9d846d85583998401f565eab28ed847dddfa858d`: native af05, paired aa9, policy5ada; temporarily close and restore the five original entry wrappers, preserve ownership/modes, guard/bootstrap/services/routes, then use the one existing normal same-attempt observer API. The approval explicitly requires stopping if the existing Master has disappeared or cannot satisfy the original ACK path.
+
+Fresh BS96 checks at 05:03:38–40Z verified the actual host/control/current, three service pins/mounts/environment, effective gates, terminal module55cb, and unchanged failed attempt1/action4d/five inputs/release/original deadline. At 05:04:06Z the exact Master GET returned absent and the complete corresponding Pod list returned zero; old host PID1303859 was absent. Both cloud commands completed successfully. The helper then failed its presence assertion (RC1), so the subsequent ACK and host quiet checks were not executed.
+
+No deployment staging, backup, entry closure, source/policy switch, new once marker or observer POST occurred. The intended API key `w423-323d3f-a1-step3-ack-observe-20261003` remains unused. Master absence does not establish successful or failed clinical completion. The current cloud terminal evidence and final results have not been read. Coordination and the authorized docs owner received the exact blocker and evidence; further reads and recovery writes are stopped pending a precise direction. Automatic hourly monitoring remains stopped. Source checkpoint7a47440 and the six passing tests remain complete and uninstalled; no tests were repeated.
+
+Evidence: `.codex-artifacts/wgs323d3f-tmp-recover-20261003/ack-activation-host-preflight.safe.jsonl` and `ack-activation-current-cloud.safe.jsonl`; node private operator evidence retains the exact Job/Pod stdout/stderr and `ack-activation-current-cloud-state.safe.json` created with O_EXCL/0600. All original inputs, successful outputs and prior receipts are preserved.
+
+Coordination subsequently limited diagnosis to existing local evidence for the current producer. The readonly 05:07:55Z check, with no remote writes or native execution import, found the exact cb75/6714/nativegeneration2 handoff still START_SENT (SHA df5fbb94) and the original created journal20525d29. The selected view's mirror marker, START, both terminals and recovery-final were all absent; the local per-cb75 archive four JSON files were also absent. Evidence is `ack-absent-current-local.safe.jsonl`. No old eb02 terminal was used. With no current Pod, the remaining minimal read proposal is one bounded existing native readonly SFS reader lifecycle for the exact current UID's four evidence JSON files. This proposal was sent to coordination for human scope confirmation; no reader/collector was created and no terminal result is assumed.
+
 ## Scope and current operating state
 
 Direct human authorization in the coordination thread: `01a0ffea-32b1-77a1-b7f0-4ee45758a933`, accepting the minimal startup ACK correction and reconnection of the existing cloud computation. The automatic hourly monitor remains stopped under the separate direct instruction `保持停止自动监控`.
