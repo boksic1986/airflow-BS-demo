@@ -100,3 +100,38 @@ frozen 17-file, 220435381955-byte result plan. Step6 and final landing are still
 pending at this operational checkpoint; this does not claim full completion.
 Evidence is task-private `.codex-artifacts/w423-dtest1-downstream-20261003/`,
 with exact original backups and new once guards on both owner directories.
+
+## Final production completion
+
+Step5 succeeded at 12:03:16Z with all 17 files / 220435381955 bytes downloaded.
+Business receipt `76a73d02` and typed terminal `4b99bb72` match the registered
+generation1 execution. Airflow wait and result-slot release succeeded.
+
+Step6 generation1 execution `wse_63ede6c84fa53e657f587ef0`, request hash
+`60823794978ed88719f163a9da001e3b122a32e314b469769a344f1ec54506a8`,
+succeeded at 12:17:26Z. Business receipt `004ec50c` and typed terminal `cdc18653`
+match; the original producer remains cb75 / native generation2 / platform
+generation3. Airflow wait, finalize_run and release_leases all succeeded.
+The 12:22Z public workspace reports all six stages successful and final 100%;
+the current DagRun and public run are both successful. Step7 tasks are skipped.
+
+The 12:27Z result read confirmed matching PASS DOWNLOAD_VERIFIED (`9a32351a`)
+and MATERIALIZED (`5939aba6`) markers in the original Clinical batch. Native
+materialization progress is complete / 100%, with 968 members and 84253000884
+uncompressed bytes; 18 real directories exist under the original batch root. The transfer projection's
+verification_status is still null; actual verification is established by the
+native DOWNLOAD_VERIFIED marker. Existing QC summary warn and historical failed
+rule/phase projections are preserved, with no claim of clinical QC acceptance.
+
+The first outcome checker incorrectly expected the temporary extraction journal
+to remain after completion and returned RC1. Native cce_delivery.py removes that
+workspace after writing the completion marker and progress. A targeted read of
+the retained native progress/markers and published directories corrected the
+checker assumption; no production code or record was changed. The original
+checker and failure evidence are retained and should not be replayed.
+
+Final evidence: `current-step6-once4.safe.jsonl`, `progress-final.safe.jsonl` and
+`final-results-corrected.safe.jsonl` in the task-private artifact directory.
+Requests and receipts retain their original runner-requests locations.
+Automatic monitoring remains stopped; no additional restore POST, test,
+migration, Step7 or data cleanup was performed.
