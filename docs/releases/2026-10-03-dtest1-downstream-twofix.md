@@ -67,3 +67,36 @@ af05 and all old/new execution evidence. Do not roll back run generations.
 
 At this source checkpoint production is not yet changed. Operational receipts
 will be recorded in CURRENT_STATE, TASKS and HANDOFF after actual deployment.
+
+## Actual production deployment and continuation
+
+Coordinator accepted exact manifest SHA256
+`3406f1941a1d31b288fad9f59ef5e2c3304447fb88cdc336a449a68ccd1acab6`.
+On 2026-10-03, the existing entries closed at 11:12:10Z after the shared
+consumer quiet check. Native guard switched under UID6708 at 11:12:31Z;
+paired/policy switched under UID6801 at 11:12:44Z. Actual pinned loading passed
+at 11:13:02Z; all five original entry bytes and modes returned at 11:13:16Z.
+No service restart, registration mutation or additional test was performed.
+
+Normal same-attempt Resume POST returned 200 at 11:14:25Z, exactly once, with
+key `w423-323d3f-a1-step3-twofix-20261003`. Current action is
+`resume_bc9f6186fc4f9571404e545b`; Step3 generation5 execution is
+`wse_0731b3c84b50d6d847d0376e`, request hash
+`205666d45806dc912bcd52cc0d85e35d60f0d847020b972d94a368c98a62cdb3`.
+The original five samples, attempt1, deadline and successful compute remain.
+
+Step3 actually succeeded at 11:16:13Z, business receipt SHA256
+`fd05284f844f9a3b847d7b5a5d7f49ccebe3dac90690b837960de090ff01c393`;
+typed terminal `b4b91e01` succeeded with the same registered identity and
+business hash. The binding remains original platform producer generation3 and
+native generation2 Master cb75.
+
+Step4 generation1 execution `wse_62cce319d45f62954e0574e7` naturally succeeded
+at 11:17:04Z, business receipt `89ea07a2`, typed terminal `aeb8ae3e`, matching
+the original producer. Both Airflow tasks passed.
+
+Step5 generation1 execution `wse_17fd84eacf72494cbdf587c3` is downloading the
+frozen 17-file, 220435381955-byte result plan. Step6 and final landing are still
+pending at this operational checkpoint; this does not claim full completion.
+Evidence is task-private `.codex-artifacts/w423-dtest1-downstream-20261003/`,
+with exact original backups and new once guards on both owner directories.
