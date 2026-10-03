@@ -1,0 +1,58 @@
+# 2026-10-03 repository integration and cleanup
+
+## Current authorization and owners
+
+The human requests commit/merge/push of completed work, then cleanup of unused
+branches/worktrees. This authorizes Git management, not deployment, installation,
+batch recovery, clinical-data deletion or implementing pending features.
+
+| Repository | Requested target | Sole product Git owner |
+| --- | --- | --- |
+| WGS | `dev_CJC_4.2.3_cloud` | WGS-pipeline |
+| cce-pipeline | `main` | WGS-cloud-plugins |
+| k8s plugin | `main` | WGS-cloud-plugins |
+| Airflow | `main`, existing production and test branches | airflow-agent |
+
+Coordinator preserves its mixed old source edits and only commits named
+documentation. Its worktree now uses `jiucheng/docs/coordination-snapshot-20261003`,
+freeing the actual test branch for the Airflow owner. Never merge this old
+product tree wholesale over the accepted current implementation.
+
+## Integration acceptance
+
+- Record actual repositories, target names, source/target SHAs and normal push
+  readback. Reuse prior runtime acceptance; do not claim a new test or deployment.
+- Preserve target-specific configuration and independent unfinished commits.
+- Pending QC4.2.x, compact Submit Step2, merge prepare and delivery controls remain
+  pending; documentation is not their implementation. D-test1 recovery is complete.
+- Update current state with the integrated result and point to original release
+  evidence. Long historical cards are audit records, not a queue to replay.
+
+## Cleanup gate
+
+Record exact targets before removal. Preserve main/production/test/WGS target,
+active owner/coordinator worktrees, dirty trees, unique commits and any ignored
+evidence/configuration not separately preserved. Prove containment in retained
+targets and recheck status immediately before removal. Use App archive for
+attached managed worktrees and non-forced Git removal for confirmed CLI trees.
+No broad recursive delete, force branch delete or deletion of clinical resources.
+
+Initial local candidates are not deletion results: `cce-recovery-design-20260922`,
+`gatk-slot-retry`, `wgs-submission-design` are clean with no ignored files. Other
+clean trees with ignored `.codex-runtime`/`.superpowers` remain protected until
+their contents are preserved. Actual removals and archive IDs must be appended.
+
+## Handoff simplification candidates (do not delete automatically)
+
+- Old UE-01-only/"not implemented" headers: superseded by later UE delivery
+  records and the current native/platform release. Keep dated provenance.
+- D-test1 intermediate Step3/5 snapshots: superseded operationally by the
+  2026-10-03 final Step1–6 success entry; retain failure/rollback audit evidence.
+- Prior per-patch QC registration design: superseded by the human's 4.2.x family
+  decision. The latest QC2 contract is authoritative; implementation is pending.
+- Repeated historical status paragraphs can later become links to dated records;
+  current task does not delete them or assert that historical failures disappeared.
+
+## Results
+
+In progress. Owners report exact source/target/push evidence before completion.

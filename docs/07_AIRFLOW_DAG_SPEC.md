@@ -50,6 +50,22 @@ budget across its invocations. DAG task retry counts, pools and leases remain
 unchanged. The node97 local path, Step7 and maintenance DAGs are outside this
 connection change.
 
+## WGS 4.2.3 prepare extension (2026-09-30; planned)
+
+The 2026-09-30 plan observed synchronous `prepare_analysis`; an existing wait
+task does not by itself make the node handler asynchronous. The deferred
+W423-03 extension proposes the shared executor's trusted prepare registration
+and short submit/current-execution observation described in
+[design section4](superpowers/specs/2026-09-30-wgs423-upgrade-integration-design.md).
+In that proposed contract, frozen preparation inputs authorize prepare before
+the final batch binding exists, and successful final outputs produce the
+binding. Step1 would wait for all merge/selection/bundle/receipt completion.
+Normal prepare deadlines would remain; merge-enabled new requests would freeze
+a configurable24h default business deadline independently of SSH budgets.
+Observation timeout is not proof of background failure or permission to
+dispatch again. This is a deferred design, not a change to the current DAG or
+its frozen requests; this documentation merge authorizes no implementation.
+
 ## SSH banner timeout trailer (2026-09-27)
 
 The earlier WGS pre-execution reconnect accepted the OpenSSH companion line

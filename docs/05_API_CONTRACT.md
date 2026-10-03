@@ -135,6 +135,54 @@ Step2 generation and receipt hash. GATK Airflow reconciliation accepts a
 same-attempt recovery DagRun only when it matches the persisted current
 authorized action; DagRun success alone never commits GATK business success.
 
+## WGS 4.2.3 deferred extension contract (2026-09-30 design)
+
+The [W423 design](superpowers/specs/2026-09-30-wgs423-upgrade-integration-design.md)
+records proposed asynchronous prepare evidence, QC2 source/policy reasons and
+manual delivery. The completed Group display retains its existing contract;
+these remaining extensions are deferred. Section6 proposes
+`POST /api/runs/{analysis_id}/delivery-actions`, required `Idempotency-Key`,
+attempt/revision/result/QC snapshot binding and review fields. This route is
+not yet implemented. Reviewer and delivery target/entry/credentials are server
+owned; unconfigured business policy rejects execution. A lifecycle status
+PATCH is not a real send. Uncertain receiver outcome must be reconciled before
+replay. No existing route or frozen historical run changes in this docs task.
+The remaining W423-03–05 requirements await a separately accepted task after
+the stated dependencies. This documentation merge authorizes no implementation.
+
+## WGS post-publish stage monotonicity (2026-09-29)
+
+No new route/field/schema. Repeated current Step4 receipts still update their
+stage evidence, but do not overwrite run stage/status when a same-attempt
+Step5/6 execution was registered later. Execution ID ordering also preserves
+a newer Step4 recovery over historical downstream records. WGS progress and
+Run Tracker can read-only select that later evidenced stage if a stored stage
+already regressed; existing measured transfer values and stale semantics remain.
+GATK adapter/transfer execution unchanged. The historical e634ca4 production
+overlay deployment on backend and observer and C dashboard Step5 acceptance
+are recorded in HANDOFF; this is not a fresh production fingerprint.
+
+## Step4 historical Resume fence (2026-09-28)
+
+No new endpoint or action-status mutation. Step4 registration/dispatch first
+validates the current recovery action and DagRun. A previous same-attempt manual
+resume_stage marked queued/confirmed no longer blocks that successor if an exact
+airflow_dag_failed audit record lies between the old and current action IDs.
+The failed record must match its attempt and DagRun; current/unknown/reserved/
+uncertain controls and maintenance still fence dispatch. Audit history stays
+unchanged. This only settles obsolete controller authority, not cloud workload
+termination; the successful Step3 receipt and all publish-budget gates remain.
+
+## WGS Tracker projection correction (2026-09-28, source verified)
+
+No new fields/routes. WGS progress uses a recognized current-DagRun Airflow task
+stage before a stored resume-entry stage, so Step3 exposes its existing rules
+units instead of Step2 success. Exact release wgs-4.2.2-441d5e7 now has audited
+phase definitions, including release-specific annotation additions. Unknown
+releases/rules remain Unknown; historical mappings are unchanged. The completed
+2026-09-28 production rollout and live API acceptance are recorded in
+[the release note](releases/2026-09-28-tracker-rule-phase.md).
+
 ## Configuration-only WGS release registration (2026-09-27)
 
 Release identities accept `wgs-X.Y.Z-<7 hex>[-configuration-revision]`.

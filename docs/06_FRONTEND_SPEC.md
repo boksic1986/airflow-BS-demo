@@ -44,6 +44,50 @@ slot wait or acquired-but-not-started. Registered running transfer progress,
 including missing telemetry, and terminal run views retain their existing
 presentation. No frontend rendering or scheduling behavior changes.
 
+## Submit Run Step2 compact review (2026-10-03; planned)
+
+- Keep one `复核样本与配置` heading; remove the inner duplicate
+  `Review samples and configuration` and redundant prepare/pending explanation.
+- Prominently show `候选样本 N 个` above the table. Use the complete candidate
+  snapshot returned by `getWgsSubmissionSnapshot`, not page total or the run's
+  selected sample count. The screenshot has 15 candidates, not 15 final selections.
+- Collapse full sampleinfo/target paths under `路径详情`; keep short source/target
+  names visible and full paths accessible for review/copy. Do not change saved paths.
+- Keep sample/family/relation/sequencing-batch details accessible, especially for
+  cross-batch candidates. Reference/resource selection and confirmation stay intact.
+- Step3 shows the actual final selected count after prepare/pending. While loading
+  or preparing, show pending confirmation rather than treating an empty array as
+  a confirmed zero. Reuse existing APIs; no selection, pending or execution change.
+
+QC compatibility follows the [4.2.x family contract](2026-09-18-wgs-qc-two-source-contract.md),
+not a separate policy for every patch. This entry records requirements only;
+implementation is pending and is not authorized by this documentation merge.
+
+## Remaining WGS 4.2.3 planned UI (2026-09-30 design; deferred)
+
+Follow [W423 design sections3–6](superpowers/specs/2026-09-30-wgs423-upgrade-integration-design.md)
+and the existing QC2 contract. The completed Group display follows its existing
+consumer contract below. Preserve single-rule columns; group association
+does not make all members running or supply missing times. Show real merge
+counts/freshness, not guessed percentages. QC keeps distinct routine and
+applicable rare-disease sources plus missing/unregistered/inapplicable/reference
+reasons. Result delivery uses `Review and send`, not a resource-release button;
+the server rejects execution until business policy/receipt contracts exist.
+English labels are a presentation requirement; the separate English-copy
+candidate remains paused under its existing user hold. These remaining
+W423-03–05 requirements are deferred and grant no implementation or deployment
+authority. This documentation revision changes no component or active run.
+
+## 2026-09-28 WGS CCE recovery entry
+
+Hide the legacy top Resume button for WGS CCE: that API creates a new attempt
+and re-enters preparation. Keep the existing confirmed same-attempt
+"继续当前阶段"/monitor-reconnect panel. Other pipelines/targets and Rerun failed
+are unchanged. No new API or runtime behavior is introduced by this UI change.
+The three frontend file changes were historically accepted on BS10610 and
+deployed on BS96 without a Git commit; the 2026-10-03 source synchronization
+retains those exact hunks alongside the newer Run Pages request lifecycle.
+
 ## Task6 monitor reconnect control (2026-09-25, source only)
 
 Existing same-attempt ResumeStagePanel also serves WGS/GATK CCE query attention

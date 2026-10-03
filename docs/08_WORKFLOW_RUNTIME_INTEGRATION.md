@@ -2216,3 +2216,238 @@ surround the native `_finish_master_handoff` / persistent ACK read. This does
 not resend START or create a Master, rewrite the created journal, reopen the
 old observer terminal, or rerun successful rules. The normal new observer within
 the same attempt confirms Step3 and proceeds to Step4–6.
+
+## 2026-09-29 selected Step3 terminal collection and Step4 digest correction
+
+This is the dated operator/overlay history. Current source and installation
+status follow the accepted UNIFIED089 and
+[2026-10-03 downstream release](releases/2026-10-03-dtest1-downstream-twofix.md).
+Old closure identifiers below are not a current rollback or deployment target.
+
+For paired-selected Masters, a workflow completion marker alone is not the
+native terminal. Reuse of an evidence mirror requires the selected Master UID's
+RUN_COMPLETE/RUN_FAILED; after Job TTL, read persistent SFS evidence through the
+existing bounded reader. Still validate full START/terminal identity and final
+worker evidence. Never infer success solely from completed rule count or Job404.
+Native stable0.8.8 commit377b3cb implements this collection correction;
+follow-up e5752ea permits one same-Pod read retry only for the reproduced kubectl
+error-stream transport signature within the existing remaining timeout. Missing
+START is reported as a read failure; actual foreign identity/invalid JSON never
+retry. Both were in the operator activated at that checkpoint; live status is in HANDOFF.
+The deployed GATK generic/non-selected path retains its existing semantics.
+
+Backend Step4 dispatch digest must match the producer: initial WGS appends
+orchestration_contract_version after hashing, whereas recovery WGS includes it
+before hashing. Commit9c7fc93 excludes it only for initial WGS while independently
+requiring contract version2. GATK hashing, action fences and original stage
+deadlines are unchanged. This fixes common registration/dispatch behavior, not
+individual batch records; no new API, field, stage or compatibility mode added.
+
+Follow-up57483541 compresses the unchanged complete Pod evidence JSON using
+standard zlib/base64 for exec transport, then strictly decodes/decompresses and
+parses before existing evidence/identity checks. This addresses reproduced
+large-output truncation without discarding logs or Worker/final evidence,
+changing global protocol, increasing timeouts, or accepting partial success.
+Both generic and selected readers share this source function; deploying only
+the selected operator does not retroactively replace an existing GATK bundle.
+Exact rollout/remaining WES boundary is recorded in HANDOFF and SERVER_INFO.
+
+## WGS 4.2.3 follow-on (2026-09-30; historical documentation proposal)
+
+The public prepare/merge-progress, QC2 and new delivery/CRAM increments in this
+proposal remain deferred or subject to their separate decisions. Accepted UE and
+Group/WGS423 release status is recorded in the
+[UNIFIED089 release](releases/2026-10-01-unified-native089-candidate.md); this dated
+proposal does not reopen completed UE work or declare these increments implemented.
+
+The [W423 integration design](superpowers/specs/2026-09-30-wgs423-upgrade-integration-design.md)
+extends the accepted UE architecture only after its current completion gates.
+W423-03 adds the pre-binding trusted prepare handler; it does not reopen
+UE-01–04 or add scope to UE-05. Runtime identity, mutual exclusion, durable
+terminal evidence and uncertain-dispatch observation remain shared contracts.
+The final Master must retain the verified executor logger options; existing
+Worker events and Rules API remain authoritative. Five Worker rebuilds are not
+a prerequisite. LIMS clinical Step2 is distinct from CCE Step2; CRAM delivery
+uses the existing Step5/6 consumer. See the latest UE plan for current progress;
+the dated implementation status below is historical, not a phase rollback.
+
+## Unified Step1–6 executor: planned revision (2026-09-28 historical snapshot)
+
+The following paragraphs retain the plan's status at that date. Accepted
+UE01–UE06 and subsequent release evidence supersede its early implementation and
+installation observations. The unapplied bulk-inventory/prestart-binding and
+legacy Resume proposals retain their own gates; they are not omissions to fill
+while synchronizing source history.
+
+Implementation is assigned to the two user-designated owners. GATK-PROD-COMPAT
+closed without patch: the installed GATK entry does not select the paired paths
+affected by recent WGS fixes. This is not acceptance of GATK's new P0. UE-01 only
+is now released: Airflow in a production-based worktree, native release0.8.9.
+No new protocol is deployed. Coordinator reviews each stage; UE test acceptance
+still does not authorize production rollout.
+
+UE-01 contract alignment preserves existing canceled as a read-only snapshot
+terminal (no new cancel capability) and does not introduce a universal deadline.
+Native CREATE/START, compute recovery, publish and Airflow observation retain
+their original timing authorities. New-protocol requests freeze the top-level
+stage_execution.protocol extension before their first hash; historical requests
+and native's exact seven-key platform_execution object remain unchanged.
+
+The [new design](superpowers/specs/2026-09-28-unified-stage-execution-design.md)
+and [UE implementation queue](superpowers/plans/2026-09-28-unified-stage-execution.md)
+now narrow implementation to extracting GATK's proven asynchronous dispatcher
+into the common executor, with WGS Step2/6 as the main migration. Retaining GATK's
+submit/wait graph is an evaluated scheduling choice, not a ban on GATK changes.
+Both DAGs' callables use common dispatch/observe/uncertainty semantics; GATK cannot
+keep an independent SSH-exit-based decision path merely because it is asynchronous.
+Business handlers are not rewritten. See spec3.2 for the three-way trade-off.
+Native business commands may stay synchronous inside the background worker.
+No legacy execution reader or retired Resume compatibility is developed; current
+P0 stage resume remains supported. Historical evidence/display stays untouched.
+GATK's existing wait owns Step2 startup confirmation; WGS alone uses a thin await
+wrapper over the same observation client to preserve its existing pool semantics.
+Only scheduling differs; lifecycle, identity, deadlines and recovery decisions do not.
+Future controls use execution identity and real quiescence, not the DAG task shape.
+Namespace query/probe changes
+belong in native shared interfaces,
+not platform private-call bypasses. This is a planned contract, not installed or
+deployed behavior. The bounded WGS repairs described below remain current.
+
+The same design/queue now incorporates the WGS/P0 coverage audit:
+verified current predecessors are reused, and missing/stale receipts are ingested
+on demand before current normal/P0 recovery Step3 registration, with locked identity
+recheck in both paths; a manual queued action's compute lifetime is distinct
+from downstream authorization;
+bulk inventory covers failure/active-wait consumers, not only WGS success; and
+unknown-observation fences cover all six stages. These remain pending code changes.
+Unrelated namespace workloads do not block a bound run; sufficient durable
+evidence remains valid after TTL without requiring an old live Master Pod.
+Preserve progress/phase, frozen deadlines/budgets, approved permissions and TTL100.
+Reuse accepted results, test only uncovered direct changes, and do not repeat a
+six-stage chain at UE-06. No new failure categories or production activation.
+
+## WGS final-release bulk workload observation (2026-09-28)
+
+Only successful WGS final writer release opts into bulk inventory. Cross-check
+complete run-label Job/Pod lists with complete namespace Job/Pod lists and one
+fresh exact Master GET. This proves bound-name absence even if labels changed,
+without one process/API request per TTL-reclaimed Worker. Validate all original
+UID, namespace, owner, terminal and cross-observation consistency checks; retain
+persisted terminal proof for reclaimed workloads. Partial lists, query errors,
+duplicate JSON/objects and oversized namespace responses fail closed. The total
+120s/individual30s budgets are unchanged. No cleanup or status mutation occurs in
+these readers; failed/active recovery and GATK keep their previous query path.
+
+## WGS synchronous dispatcher terminal evidence (2026-09-28 historical snapshot)
+
+This records the earlier dispatcher contract. Current marked stages use the
+accepted UE executor contract; this snapshot does not grant a new sidecar
+exemption to a current execution.
+
+Final writer release holds the existing launch and worker locks for other stages.
+WGS Step2 and Step6 run synchronously under worker.lock and do not create async
+worker.json. For these explicit stages only, absence of that sidecar is accepted
+with a canonical registered request, verified digest/control root and a matching
+contract-v2 terminal receipt (all six execution identity fields). Missing,
+nonterminal or mismatched evidence fails closed. Existing sidecars still require
+the original inactive-process proof; asynchronous stages and GATK are unchanged.
+Native final-success, complete workload inventory, materialization marker and
+directory-owner checks remain required before releasing the lifecycle lock.
+
+## Step4 successor probe before predecessor archival (2026-09-28)
+
+WGS manual Resume may register generation N+1 before its dispatcher archives
+generation N. The read-only publish probe recognizes only the explicitly bound
+resume_previous_execution: both sidecars must match it, its saved request and
+worker byte digest must verify, and it must be failed/canceled with no live
+worker/follower and a free executor lock. Only then report not_started for N+1.
+Missing, mixed, foreign or uncertain evidence never authorizes redispatch.
+The probe neither archives evidence nor starts a process; the existing bounded
+Airflow dispatcher and launch-locked runtime retain those responsibilities.
+GATK probe semantics and the original publish deadline remain unchanged.
+
+## WGS query-status progress retention (2026-09-28 historical source checkpoint)
+
+Its pending-deployment wording is historical. The later confirmed-observation,
+ACK and split-root corrections and their actual installation are recorded above
+and in the [downstream release](releases/2026-10-03-dtest1-downstream-twofix.md).
+
+P0 monitor query-budget writes retain existing nested master and top-level
+master_job/namespace/run_label from the exact current registered WGS status.
+These fields are required by the established rule-progress consumer. Existing
+monitor_reconnect unconfirmed fencing still prevents treating retained evidence
+as a fresh successful observation. No new receipt, recovery authorization,
+Master replacement or budget changes. GATK writer behavior is unchanged.
+Deployment/policy pin and existing observer process refresh remain pending.
+
+## Initial pre-START expiry recovery (2026-09-28 historical proposal)
+
+This proposal is not acceptance of an unapplied prestart-binding capability.
+Current initial-abort and START/ACK paths retain their separately reviewed
+producer/evidence contracts and recorded release boundaries.
+
+An authenticated manual Step2 Resume may replace an initial generation whose
+durable handoff is JOB_CREATED/POD_READY and whose immutable CREATE deadline has
+expired. Under the existing dispatcher/writer locks, validate the native intent,
+registered producer, unchanged inputs, directory owner and complete live Job/Pod
+inventories. The exact old Master must be failed or absent with no remaining Pods;
+unknown or active workloads block. START_SENT/START_CONFIRMED never use this path.
+Persist separate PRESTART_FAILURE evidence; never synthesize a Snakemake FINAL,
+START confirmation or Worker snapshot. Bind the old UID then use the existing
+next-generation native recovery primitive/CAS/CREATE journal. Original deadline
+and attempt remain immutable; no prepare/upload is repeated. A reclaimed initial
+Master is eligible because START was durably never sent, not merely because GET
+returned404. Registered pre-start ancestors contain no submitted Workers; later
+started generations continue to require genuine native FINAL evidence.
+The historical proposal described paired WGS recovery journals in the
+request directory. That locator statement is superseded by the accepted
+2026-10-03 split-root contract: initial submission journals remain in their
+registered spool, and WGS recovery journals use the authenticated control root.
+Existing journals and immutable registration bytes are not migrated.
+
+## Initial Master CREATE deadline authority (2026-09-28)
+
+The paired platform submission journal must reuse native Step2's validated
+MASTER_CREATE_INTENT deadline, persisted before its CREATE callback. It must not
+compute another time.time()+600: even milliseconds of difference invalidate the
+native handoff. Missing native intent rejects CREATE. Original deadline, UID and
+unknown-CREATE reconciliation protections remain unchanged. Existing malformed
+derived records require separately audited repair; this code does not rewrite
+history or extend an expired startup window. The targeted initial/resumed-upload
+regression now advances the clock to expose this race instead of freezing time.
+
+## Bounded P1 recovery corrections (2026-09-27 test source; promotion unresolved)
+
+Source `5c29d86` and its 52 focused BS10610 passes cover common P0 corrections,
+not private test-environment configuration. At the current main integration
+checkpoint, F1's node-attempt directory comparison and F3's monitor timeout
+independent of compute opt-in remain unpromoted: `cce_compute_dispatch.py` still
+compares control_workdir with AnalysisRun.workdir, and `cce_recovery_policy.py`
+still freezes/starts that timeout only when compute recovery is enabled. The
+reviewed UE paths do not replace these two policy/dispatch checks. Source
+synchronization preserves the test commits and leaves their integration decision
+explicit; it does not authorize a new core repair or claim production coverage.
+F2's first-Master continuation is superseded by the accepted stricter
+`_initial_step2_continuation` / `_submit_registered_locked` implementation.
+The following paragraphs retain the test-source behavior and its original gates.
+
+Automatic WGS dispatch validates frozen `control_workdir` against the configured
+node runtime root / runs / analysis ID / attempt-N, matching its request producer.
+`AnalysisRun.workdir` is platform results storage, not this control directory.
+Release/source, current receipt and budget checks remain unchanged.
+
+A same-attempt Step1 resume also carries its action to unfinished Step2. With
+schema3 initial generation, an exact OWNED pending directory owner, a successful
+registered Step1 predecessor, and no native submission/recovery journal or
+Master handoff, Step2 uses the existing initial CREATE implementation. Its
+request/action/hash are retained; it does not manufacture an old Master or advance
+the compute generation. Existing launch/worker/writer exclusion remains held.
+Any initial intent instead enters existing reconciliation, never a new CREATE;
+foreign owners, missing upload success and Step3 without a source stay rejected.
+
+New CCE attempts freeze the normal monitor timeout independently of automatic
+compute replacement authorization (WGS v2: stage contract; GATK: existing72h).
+First Step3 registration fixes the original deadline; replay does not extend it.
+`enabled=false` still denies automatic replacement and grants no recovery quota.
+Absent historical policy or disabled policy without a frozen timeout is not
+backfilled. No existing frozen request, running batch or legacy attempt is changed.

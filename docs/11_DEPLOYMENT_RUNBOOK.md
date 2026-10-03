@@ -1,5 +1,24 @@
 # Deployment runbook
 
+## 2026-10-03 scoped split-root/producer deployment and downstream completion
+
+The [scoped release](releases/2026-10-03-dtest1-downstream-twofix.md) records
+actual installation of native guard64438f44, paired415a45be and policy6c8617a3:
+five entries closed at11:12:10Z, three files switched under their original owners,
+pinned loading passed11:13:02Z, and original entries reopened11:13:16Z. Native
+af05, bootstrapb928 and the immutable registrations were retained; no service
+restart was part of this window. The affected combo did not reach full GREEN;
+its evidence and the human instruction stopping further tests remain explicit.
+
+The single normal same-attempt observer then completed Step3 and naturally
+continued Step4–6. The release records final real receipts, PASS native download
+and materialization markers, published results, and consistent Airflow/public
+success. This is an existing deployment/completion record, not permission to
+repeat a Resume, rebuild a runtime or recreate automatic monitoring. Step7 was
+skipped. A future source rollback requires the same quiet closed-entry window
+and the exact saved guard e993 / paired3fc / policya64 combination; preserve all
+successful generations, frozen inputs and old/new evidence.
+
 ## 2026-10-02 paired control-node mode
 
 Production uses the existing runner aliases as a pair: default200 means
@@ -149,6 +168,47 @@ Retain launchers/config/evidence/Python/flock/log. Backend-only binds cannot upd
 the loaded node core. The two private candidate/backups and PID/starttime maps
 are in the packet. Approved replacement requires loaded SHA and fresh snapshot;
 no new collector framework, Lease clearing or forced slot count.
+
+The following 2026-09-28/29 entries retain historical configuration and rollback
+provenance. Later accepted releases above supersede their current-path wording.
+Consult the latest release and actual consumer pins before any separately
+authorized deployment or rollback; do not replay old repair actions.
+
+## 2026-09-29 downstream-stage presentation rollout
+
+At the 2026-09-29 checkpoint, backend and WGS observer definitions were preserved in
+/data/airflow-WGS/downstream-stage-20260929-control. Both consume the corrected
+observer; only backend consumes corrected timing. Their rollback.json restores
+just these two consumers. All prior overlays, especially Step4 hash correction,
+are retained. Never use partial Compose orphan warnings to remove other services.
+Check actual dashboard stage and transfer values after health200/nginx reload;
+service health alone does not demonstrate corrected Run Tracker presentation.
+Native operator57483541 uses the same immutable-selector mechanism described
+below, keeping previouse5752ea closure for rollback; no Master rebuild/restart.
+
+## 2026-09-29 bounded Step3/Step4 production repair
+
+At that earlier checkpoint backend composition was publish-hash-20260929-control/compose.json;
+only the cce_publish_recovery.py read-only overlay changed (source9c7fc93).
+Use its private rollback.json for backend-only rollback, never whole-stack up.
+Current paths/hashes are in SERVER_INFO; current symlink is not authoritative.
+Preserve all scanner/auth/profile/env/other overlay pins. Existing nginx ACLs
+remain unchanged; if backend address changes, nginx-t then graceful reload.
+
+At that checkpoint, the native0.8.8 selected operator was installed in an immutable ctapa-owned code
+directory with matched native bootstrap/policy. Atomically switch only the
+private platform selector after pin validation, retaining previous closure for
+rollback. Do not overwrite files used by running workers or change Master
+images, business data permissions, dependencies or analysis inputs. A live
+monitor retry exposed a second reader transport issue; first operator rollout
+alone does not constitute full A acceptance. See latest HANDOFF before retry.
+
+## 2026-09-28 approved production client subnet
+
+BS96 gateway additionally allows172.20.13.0/24. When deploying the source nginx
+template, preserve other approved live rules: the active config also contains
+172.20.8.0/23 and172.21.4.221/32. Additive configuration update only; nginx-t and
+graceful reload, no Airflow/backend restart. See SERVER_INFO/HANDOFF for backup.
 
 ## 2026-09-27 BS10610 auxiliary DAG discovery release
 

@@ -1,5 +1,37 @@
 # WGS QC two-source contract
 
+## 2026-10-03 decision: WGS 4.2.x family compatibility (planned)
+
+The latest human requirement supersedes per-patch/per-commit QC registration
+for WGS 4.2.x. All 4.2 patch releases share one explicit family policy for
+columns, units, source identity, applicability and judgments. This means 4.2.x,
+not every 4.x release. A new patch or commit alone must not produce an unknown
+judgment or require another policy entry.
+
+Establish the family policy from the actual WGS QC scripts/config. Keep the
+run's exact release/commit and the family-policy revision as provenance, separate
+from policy selection. Real semantic changes require a policy update or explicit
+override; ordinary patch releases do not require repeat registration/acceptance.
+Do not implicitly use 4.1 thresholds, default to pass, or collapse missing data,
+unregistered family policy, inapplicable and informational values. The two-source
+separation below remains unchanged. This decision is not yet implemented.
+
+## 2026-09-30 continuation for WGS 4.2.3
+
+This existing QC2 work continues as W423-04, not a second implementation or
+test queue. [The approved integration design section5](superpowers/specs/2026-09-30-wgs423-upgrade-integration-design.md)
+extends the source separation below to the explicit 4.2.x family policy above.
+The V4.2.1 predicates and thresholds below remain version-specific evidence,
+not automatic family criteria. WGS owner provides the actual scripts/config
+for the initial family policy; this is not repeated for each patch. Keep existing
+columns/units/source aggregate and count
+supplementation; add explicit unavailable-policy/applicability/reference reasons
+and reuse one parsed snapshot. Four delta cases (ordinary, dual-source,
+supplement missing, policy unregistered) replace a redundant new test campaign.
+No implementation, historical-data migration or deployment is implied.
+For the4.2.3 UI, the old Chinese tag names below describe business semantics;
+render consistent English labels `Routine clinical` / `Rare disease` per W423.
+
 ## Decision
 
 The platform shall use two distinct batch-level QC sources for WGS V4.2.1.
