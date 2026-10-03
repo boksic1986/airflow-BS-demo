@@ -23,6 +23,7 @@ from app.models import (
     TransferJob,
     TransferFileState,
     WgsMaintenanceAction,
+    WgsStageExecution,
 )
 from app.wgs_evidence_binding import (
     CCE_RUN_LABEL_PATTERN,
@@ -637,6 +638,11 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                 message=str(payload.get("message") or "") or None,
                 evidence_key=str(resolved.relative_to(request_root)),
                 receipt_hash=terminal_receipt_hash,
+                allow_terminal_retry=bool(
+                    contract_v2
+                    and execution.generation > 1
+                    and status in {"accepted", "running", "success", "complete", "succeeded"}
+                ),
             )
         elif stage == "step2_master":
             upsert_stage_state(
@@ -654,22 +660,32 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
         elif stage == "step4_publish":
             if status not in {"accepted", "running", "success", "failed"}:
                 raise ValueError("Step4 publish status is invalid")
-            analysis.current_stage = stage
-            if status == "failed":
-                analysis.status = "failed"
-                analysis.error_summary = str(payload.get("message") or "") or None
-                analysis.ended_at = heartbeat
-                analysis.pipeline_finished_at = heartbeat
-            elif str(analysis.status or "").lower() not in {
-                "failed",
-                "cancelled",
-                "success",
-                "unknown_interrupted",
-            }:
-                analysis.status = "publishing"
-                analysis.error_summary = None
-                analysis.ended_at = None
-                analysis.pipeline_finished_at = None
+            downstream_started = bool(contract_v2 and session.scalar(
+                select(WgsStageExecution.id).where(
+                    WgsStageExecution.analysis_id == analysis_id,
+                    WgsStageExecution.attempt == attempt,
+                    WgsStageExecution.stage_code.in_(("step5_download", "step6_materialize")),
+                    WgsStageExecution.status.in_(("accepted", "running", "success", "failed", "canceled")),
+                    WgsStageExecution.id > execution.id,
+                ).limit(1)
+            ))
+            if not downstream_started:
+                analysis.current_stage = stage
+                if status == "failed":
+                    analysis.status = "failed"
+                    analysis.error_summary = str(payload.get("message") or "") or None
+                    analysis.ended_at = heartbeat
+                    analysis.pipeline_finished_at = heartbeat
+                elif str(analysis.status or "").lower() not in {
+                    "failed",
+                    "cancelled",
+                    "success",
+                    "unknown_interrupted",
+                }:
+                    analysis.status = "publishing"
+                    analysis.error_summary = None
+                    analysis.ended_at = None
+                    analysis.pipeline_finished_at = None
             upsert_stage_state(
                 session,
                 analysis_id=analysis_id,
@@ -1460,8 +1476,8 @@ def upsert_stage_state(
             # Terminal evidence is monotonic. A later file may refresh the same
             # terminal result, but it must never reverse success into failure
             # (or failure into success) or move the stage back to running.
-            # A restricted runtime retry is the only exception: its archived
-            # generation and positive retry_no prove this is newer execution.
+            # Only a caller that validated a newer execution generation or a
+            # restricted runtime retry may reopen a failed display row.
             if incoming_terminal is None or incoming_terminal != previous_terminal:
                 return row
         if retrying_failed_stage:

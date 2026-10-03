@@ -1,4 +1,5 @@
 import logging
+import hashlib
 import json
 from typing import Any
 import os
@@ -112,8 +113,10 @@ from app.wgs_auto_dispatch import dispatch_ready_wgs_intake
 from app.wgs_step4_service import request_step4_repair
 from app.wgs_step7_service import authorize_step7_runtime, request_step7_cleanup
 from app.wgs_stage_catalog import load_wgs_stage_contract
+from app.stage_execution_contract import STAGE_EXECUTION_EXTENSION, require_native_stage_success
 from app.wgs_stage_execution_service import (
     WgsStagePredecessorPending,
+    require_frozen_request_digest,
     register_stage_execution,
     validate_step3_dryrun_fencing,
 )
@@ -262,6 +265,59 @@ def _is_successful_runtime_stage(
     )
 
 
+def _read_wgs_stage_request(*, request_root: str, analysis_id: str, attempt: int, stage: str) -> dict | None:
+    path = Path(request_root) / analysis_id / f"attempt-{attempt}" / f"{stage}.json"
+    if path.is_symlink():
+        raise ValueError("WGS stage request is unsafe")
+    if not path.is_file():
+        return None
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if (not isinstance(value, dict) or value.get("analysis_id") != analysis_id
+            or value.get("attempt") != attempt or value.get("stage") != stage):
+        raise ValueError("WGS stage request identity differs")
+    return value
+
+
+def _require_current_native_step6_terminal(*, session, run: AnalysisRun, request_root: str,
+                                           frozen_request: dict, observation: dict | None) -> None:
+    from app.wgs_resume_service import _latest
+
+    stage = "step6_materialize"
+    execution = _latest(session, run, stage)
+    if (execution is None or execution.status != "success" or not execution.receipt_hash
+            or execution.evidence_type != "wgs-runtime.stage-status.v1"):
+        raise ValueError("current Step6 has no exact successful receipt")
+    expected = {
+        "orchestration_contract_version": 2,
+        "analysis_id": run.analysis_id, "attempt": run.attempt, "stage": stage,
+        "execution_id": execution.execution_id, "generation": execution.generation,
+        "request_hash": execution.request_hash,
+    }
+    if any(frozen_request.get(key) != value for key, value in expected.items()):
+        raise ValueError("current Step6 request differs from registered execution")
+    root = Path(request_root)
+    marker = root / run.analysis_id / f"attempt-{run.attempt}" / f"{stage}.status.json"
+    if marker.is_symlink() or not marker.is_file():
+        raise ValueError("current Step6 business receipt is unavailable")
+    raw = marker.read_bytes()
+    payload = json.loads(raw)
+    if (not isinstance(payload, dict)
+            or payload.get("schema_version") != "wgs-runtime.stage-status.v1"
+            or payload.get("status") != "success"
+            or any(payload.get(key) != value for key, value in expected.items())):
+        raise ValueError("current Step6 business receipt identity differs")
+    receipt_hash = hashlib.sha256(raw).hexdigest()
+    if (receipt_hash != execution.receipt_hash
+            or execution.evidence_key != str(marker.relative_to(root))):
+        raise ValueError("current Step6 business receipt differs from projection")
+    require_native_stage_success(
+        observation, pipeline="wgs", analysis_id=run.analysis_id,
+        attempt=run.attempt, stage=stage,
+        execution_id=execution.execution_id, generation=execution.generation,
+        request_hash=execution.request_hash, evidence_ref=receipt_hash,
+    )
+
+
 def require_internal_service_token(
     x_airflow_demo_token: str | None = Header(default=None, alias="X-Airflow-Demo-Token"),
 ) -> None:
@@ -341,6 +397,7 @@ class WgsRuntimeStageRequest(BaseModel):
     resume_action_id: str | None = Field(default=None, max_length=128)
     dag_run_id: str | None = Field(default=None, min_length=1, max_length=250)
     worker_observation: dict[str, Any] | None = None
+    native_stage_observation: dict[str, Any] | None = None
     publish_operation: str | None = Field(default=None, pattern='^(begin|finish|poll|check)$')
     publish_execution_id: str | None = Field(default=None, max_length=128)
     publish_sequence: int | None = Field(default=None, ge=0, le=2)
@@ -354,6 +411,7 @@ class GatkRuntimeStageRequest(BaseModel):
     dag_run_id: str | None = Field(default=None, min_length=1, max_length=250)
     resume_action_id: str | None = Field(default=None, min_length=1, max_length=128)
     worker_observation: dict[str, Any] | None = None
+    native_stage_observation: dict[str, Any] | None = None
     publish_operation: str | None = Field(default=None, pattern='^(begin|finish|poll|check)$')
     publish_execution_id: str | None = Field(default=None, max_length=128)
     publish_sequence: int | None = Field(default=None, ge=0, le=2)
@@ -366,12 +424,14 @@ class GatkDagTerminalRequest(BaseModel):
     status: str = Field(pattern="^failed$")
     failed_task_ids: list[str] = Field(default_factory=list, max_length=64)
     dag_run_id: str | None = Field(default=None, min_length=1, max_length=250)
+    native_stage_observation: dict[str, Any] | None = None
 
 
 class WgsObserverLifecycleRequest(BaseModel):
     attempt: int = Field(ge=1)
     dag_run_id: str | None = Field(default=None, min_length=1, max_length=250)
     resume_action_id: str | None = Field(default=None, max_length=128)
+    native_stage_observation: dict[str, Any] | None = None
 
 
 class WgsDagTerminalRequest(BaseModel):
@@ -381,6 +441,7 @@ class WgsDagTerminalRequest(BaseModel):
     failed_task_ids: list[str] = Field(default_factory=list, max_length=64)
     dag_run_id: str | None = None
     resume_action_id: str | None = None
+    native_stage_observation: dict[str, Any] | None = None
 
 
 class WgsResumeStageRequest(BaseModel):
@@ -394,19 +455,45 @@ class WgsResumeStageRequest(BaseModel):
 def resume_wgs_stage(analysis_id: str, request: WgsResumeStageRequest,
                      user: AuthenticatedUser = Depends(operator_user)):
     try:
-        with get_sessionmaker()() as session:
-            pipeline = session.scalar(select(AnalysisRun.pipeline_name).where(AnalysisRun.analysis_id == analysis_id))
-            if pipeline is None:
-                raise ValueError('unknown analysis')
-            if pipeline == 'wgs' and (not _wgs_platform_execution_enabled() or not _wgs_runtime_adapter_enabled()):
-                raise ValueError('WGS execution is disabled')
-            settings = get_settings()
-            adapter = get_pipeline_registry(settings).require(pipeline, capability='resume').adapter
-            if adapter.resume_stage is None:
-                raise ValueError('Pipeline does not provide same-attempt Resume')
-            return adapter.resume_stage(session=session, settings=settings, airflow_client=get_airflow_client(),
-                analysis_id=analysis_id, attempt=request.attempt, stage=request.stage,
-                idempotency_key=request.idempotency_key, requested_by=user.username)
+        observed_identity: dict[str, tuple[int, str | None, str | None]] = {}
+        for ingestion_round in range(2):
+            try:
+                with get_sessionmaker()() as session:
+                    pipeline = session.scalar(select(AnalysisRun.pipeline_name).where(AnalysisRun.analysis_id == analysis_id))
+                    if pipeline is None:
+                        raise ValueError('unknown analysis')
+                    if pipeline == 'wgs' and (not _wgs_platform_execution_enabled() or not _wgs_runtime_adapter_enabled()):
+                        raise ValueError('WGS execution is disabled')
+                    settings = get_settings()
+                    adapter = get_pipeline_registry(settings).require(pipeline, capability='resume').adapter
+                    if adapter.resume_stage is None:
+                        raise ValueError('Pipeline does not provide same-attempt Resume')
+                    identity_kwargs = {}
+                    if pipeline == 'wgs' and request.stage == 'step3_monitor':
+                        identity_kwargs = (
+                            {'observed_identity': observed_identity}
+                            if ingestion_round == 0 else
+                            {'expected_identity': observed_identity['value']}
+                        )
+                    return adapter.resume_stage(session=session, settings=settings, airflow_client=get_airflow_client(),
+                        analysis_id=analysis_id, attempt=request.attempt, stage=request.stage,
+                        idempotency_key=request.idempotency_key, requested_by=user.username,
+                        **identity_kwargs)
+            except WgsStagePredecessorPending:
+                if request.stage != 'step3_monitor' or ingestion_round:
+                    raise
+                if 'value' not in observed_identity:
+                    raise ValueError('WGS Resume predecessor observation lacks current identity')
+                # A new recovery action has not committed yet. Close its locked
+                # session before the observer ingests the exact Step2 receipt.
+                sync_runtime_stage_artifacts(
+                    session_factory=get_sessionmaker(),
+                    request_root=Path(settings.wgs_runtime_request_root),
+                    transfer_spool_root=Path(settings.wgs_transfer_spool_root),
+                    analysis_id=analysis_id,
+                    attempt=request.attempt,
+                    stage='step2_master',
+                )
     except (ValueError, OSError) as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
 
@@ -1785,21 +1872,13 @@ def sync_run_airflow(analysis_id: str) -> dict[str, object]:
 def run_detail(analysis_id: str) -> dict[str, object]:
     try:
         with get_sessionmaker()() as session:
-            payload = get_run_detail(session=session, analysis_id=analysis_id)
             run = session.scalar(
                 select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
             )
-            if run is not None:
-                definition = require_pipeline(get_settings(), run.pipeline_name)
-                if definition.adapter.project_run_detail is not None:
-                    payload.update(
-                        definition.adapter.project_run_detail(
-                            session=session,
-                            settings=get_settings(),
-                            run=run,
-                        )
-                        or {}
-                    )
+            payload = (
+                _build_read_run_detail(session=session, settings=get_settings(), run=run)
+                if run is not None else None
+            )
     except PipelineRegistryError as exc:
         raise _pipeline_http_exception(exc) from exc
     if payload is None:
@@ -1807,6 +1886,16 @@ def run_detail(analysis_id: str) -> dict[str, object]:
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
         )
+    return payload
+
+
+def _build_read_run_detail(*, session, settings, run: AnalysisRun) -> dict[str, object]:
+    payload = get_run_detail(session=session, analysis_id=run.analysis_id, run=run)
+    definition = require_pipeline(settings, run.pipeline_name)
+    if definition.adapter.project_run_detail is not None:
+        payload.update(definition.adapter.project_run_detail(
+            session=session, settings=settings, run=run,
+        ) or {})
     return payload
 
 
@@ -1861,34 +1950,37 @@ def run_workspace(analysis_id: str) -> dict[str, object]:
     # Reuse the public run-detail projection while keeping the browser's first
     # paint to one HTTP resource. Only a pre-download queue candidate additionally
     # reads current Airflow task evidence; numeric progress remains DB-backed.
-    detail = run_detail(analysis_id)
-    with get_sessionmaker()() as session:
-        run = session.scalar(
-            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
-        )
-        if run is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
+    try:
+        with get_sessionmaker()() as session:
+            run = session.scalar(
+                select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
             )
-        settings = get_settings()
-        require_pipeline(settings, run.pipeline_name, capability="rules")
-        if run.pipeline_name == "gatk":
-            return build_gatk_workspace(
+            if run is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
+                )
+            settings = get_settings()
+            detail = _build_read_run_detail(session=session, settings=settings, run=run)
+            require_pipeline(settings, run.pipeline_name, capability="rules")
+            if run.pipeline_name == "gatk":
+                return build_gatk_workspace(
+                    session=session,
+                    run=run,
+                    run_payload=detail,
+                )
+            return build_wgs_workspace(
                 session=session,
                 run=run,
                 run_payload=detail,
+                heavy_slot_limit=int(getattr(settings, "wgs_heavy_slot_limit", 25)),
+                heavy_slot_mode=str(getattr(settings, "wgs_heavy_slot_mode", "monitor-only")),
+                evidence_root=str(getattr(settings, "wgs_evidence_root", "") or ""),
+                settings=settings,
+                airflow_client=get_airflow_client(),
             )
-        return build_wgs_workspace(
-            session=session,
-            run=run,
-            run_payload=detail,
-            heavy_slot_limit=int(getattr(settings, "wgs_heavy_slot_limit", 25)),
-            heavy_slot_mode=str(getattr(settings, "wgs_heavy_slot_mode", "monitor-only")),
-            evidence_root=str(getattr(settings, "wgs_evidence_root", "") or ""),
-            settings=settings,
-            airflow_client=get_airflow_client(),
-        )
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
 
 
 @app.get("/api/runs/{analysis_id}/families")
@@ -2111,6 +2203,49 @@ def revalidate_run(analysis_id: str, user: AuthenticatedUser = Depends(operator_
 
 @app.post("/api/internal/wgs/runs/{analysis_id}/stages/{stage_name}", dependencies=[Depends(require_internal_service_token)])
 def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRuntimeStageRequest) -> dict[str, object]:
+    observed_identity: dict[str, tuple[int, str | None, str | None]] = {}
+    try:
+        return _internal_wgs_runtime_stage_once(
+            analysis_id, stage_name, request, observed_identity=observed_identity)
+    except WgsStagePredecessorPending as exc:
+        if stage_name != "step3_monitor":
+            raise HTTPException(status_code=409, detail={
+                "code": "WGS_STAGE_PREDECESSOR_PENDING", "message": str(exc),
+            }) from exc
+    # The first registration session has closed and released its run lock.
+    # The existing observer owns its own write session for the Step2 receipt.
+    settings = get_settings()
+    try:
+        sync_runtime_stage_artifacts(
+            session_factory=get_sessionmaker(),
+            request_root=Path(settings.wgs_runtime_request_root),
+            transfer_spool_root=Path(settings.wgs_transfer_spool_root),
+            analysis_id=analysis_id,
+            attempt=request.attempt,
+            stage="step2_master",
+        )
+        return _internal_wgs_runtime_stage_once(
+            analysis_id, stage_name, request,
+            expected_identity=observed_identity["value"],
+        )
+    except WgsStagePredecessorPending as exc:
+        raise HTTPException(status_code=409, detail={
+            "code": "WGS_STAGE_PREDECESSOR_PENDING", "message": str(exc),
+        }) from exc
+    except (OSError, ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=400, detail={
+            "code": "WGS_RUNTIME_STAGE_FAILED", "message": str(exc),
+        }) from exc
+
+
+def _internal_wgs_runtime_stage_once(
+    analysis_id: str,
+    stage_name: str,
+    request: WgsRuntimeStageRequest,
+    *,
+    observed_identity: dict[str, tuple[int, str | None, str | None]] | None = None,
+    expected_identity: tuple[int, str | None, str | None] | None = None,
+) -> dict[str, object]:
     local_stage = stage_name in {"local_analysis", "finalize_local_run"}
     expected_adapter = "wgs-runtime-node97" if local_stage else "wgs-runtime-200"
     if request.adapter != expected_adapter or not _wgs_runtime_adapter_enabled():
@@ -2118,6 +2253,75 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
     if stage_name == "step7_cleanup" and not _wgs_platform_execution_enabled():
         raise HTTPException(status_code=409, detail={"code": "WGS_RUNTIME_DISABLED", "message": "WGS execution is disabled; Step7 was not registered."})
     try:
+        pre_sync_contract_v2 = None
+        if not request.resume_action_id and (
+            request.force_new_generation or stage_name == "step3_monitor"
+        ):
+            settings = get_settings()
+            with get_sessionmaker()() as preflight_session:
+                preflight_run = preflight_session.scalar(
+                    select(AnalysisRun)
+                    .where(
+                        AnalysisRun.analysis_id == analysis_id,
+                        AnalysisRun.pipeline_name == "wgs",
+                    )
+                    .execution_options(populate_existing=True)
+                )
+                if preflight_run is None or preflight_run.attempt != request.attempt:
+                    raise ValueError("unknown active WGS attempt")
+                preflight_params = dict(preflight_run.params_json or {})
+                if (
+                    stage_name != "step7_cleanup"
+                    and preflight_params.get("resume_action_id")
+                ):
+                    raise ValueError(
+                        "stage registration requires the current recovery identity"
+                    )
+                pre_sync_contract_v2 = bool(
+                    getattr(settings, "wgs_contract_v2_enabled", False)
+                ) and int(preflight_params.get("orchestration_contract_version") or 1) == 2
+                if (
+                    pre_sync_contract_v2
+                    and request.force_new_generation
+                    and stage_name == "step7_cleanup"
+                    and stage_name in SUPPORTED_RUNTIME_SYNC_STAGES
+                ):
+                    authorize_step7_runtime(
+                        session=preflight_session,
+                        run=preflight_run,
+                        action_id=str(request.maintenance_action_id or ""),
+                    )
+            if pre_sync_contract_v2:
+                sync_stages = []
+                if (
+                    request.force_new_generation
+                    and stage_name in SUPPORTED_RUNTIME_SYNC_STAGES
+                ):
+                    sync_stages.append(stage_name)
+                if stage_name == "step3_monitor":
+                    sync_stages.append("step2_master")
+                if sync_stages:
+                    command_prefix = (
+                        "wgs-local-runtime"
+                        if stage_name == "local_analysis"
+                        else "wgs-runtime"
+                    )
+                    expected_command = (
+                        f"{command_prefix} {analysis_id} {request.attempt} {stage_name}"
+                    )
+                    if request.command != expected_command:
+                        raise ValueError(
+                            "runtime command does not match the registered stage"
+                        )
+                    for sync_stage in dict.fromkeys(sync_stages):
+                        sync_runtime_stage_artifacts(
+                            session_factory=get_sessionmaker(),
+                            request_root=Path(settings.wgs_runtime_request_root),
+                            transfer_spool_root=Path(settings.wgs_transfer_spool_root),
+                            analysis_id=analysis_id,
+                            attempt=request.attempt,
+                            stage=sync_stage,
+                        )
         with get_sessionmaker()() as session:
             if stage_name == 'publish_recovery':
                 from app.cce_publish_recovery import control_publish_dispatch
@@ -2132,17 +2336,34 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                     airflow_client=get_airflow_client(), analysis_id=analysis_id, attempt=request.attempt,
                     pipeline='wgs', dag_run_id=request.dag_run_id,
                     resume_action_id=request.resume_action_id, now=datetime.now(timezone.utc),
-                    worker_observation=request.worker_observation)
+                    worker_observation=request.worker_observation,
+                    native_stage_observation=request.native_stage_observation)
             if stage_name in {"release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
                 from app.cce_recovery_budget import require_current_dag_cleanup
                 run = require_current_dag_cleanup(session=session, analysis_id=analysis_id,
                     attempt=request.attempt, pipeline='wgs', dag_run_id=request.dag_run_id,
-                    resume_action_id=request.resume_action_id)
+                    resume_action_id=request.resume_action_id,
+                    native_stage_observation=request.native_stage_observation,
+                    settings=get_settings(), cleanup_stage=stage_name)
             else:
                 run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs")
                     .with_for_update().execution_options(populate_existing=True))
             if run is None or run.attempt != request.attempt:
                 raise ValueError("unknown active WGS attempt")
+            if stage_name == "step3_monitor":
+                from app.cce_recovery_budget import STOPPED
+                if run.status in STOPPED:
+                    raise ValueError("Step3 registration is blocked by current control state")
+                if request.dag_run_id is not None and request.dag_run_id != run.dag_run_id:
+                    raise ValueError("Step3 registration requires the current DagRun")
+                current_identity = (
+                    run.attempt, run.dag_run_id,
+                    (run.params_json or {}).get("resume_action_id"),
+                )
+                if expected_identity is not None and current_identity != expected_identity:
+                    raise ValueError("Step3 registration identity changed during predecessor ingestion")
+                if observed_identity is not None:
+                    observed_identity["value"] = current_identity
             if stage_name == 'step4_publish':
                 from app.cce_publish_recovery import authorize_publish_registration
                 authorize_publish_registration(session=session,run=run,dag_run_id=request.dag_run_id,
@@ -2160,7 +2381,9 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                         run.current_stage = stage_name
                     session.commit()
                     return {'analysis_id': analysis_id, 'attempt': request.attempt, 'stage': stage_name,
-                        'status': 'accepted', 'generation': payload['generation'], 'execution_id': payload['execution_id']}
+                        'status': 'accepted', 'generation': payload['generation'], 'execution_id': payload['execution_id'],
+                        'request_hash': payload['request_hash'],
+                        **({'stage_execution': payload['stage_execution']} if 'stage_execution' in payload else {})}
             elif stage_name != 'step7_cleanup' and (run.params_json or {}).get('resume_action_id'):
                 raise ValueError('stage registration requires the current recovery identity')
             dispatch = session.scalar(
@@ -2240,7 +2463,9 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                         # before projecting retained-slot state onto the run.
                         run = require_current_dag_cleanup(session=session, analysis_id=analysis_id,
                             attempt=request.attempt, pipeline='wgs', dag_run_id=request.dag_run_id,
-                            resume_action_id=request.resume_action_id)
+                            resume_action_id=request.resume_action_id,
+                            native_stage_observation=request.native_stage_observation,
+                            settings=get_settings(), cleanup_stage=stage_name)
                     mark_execution_needs_recovery(
                         session=session,
                         analysis_id=analysis_id,
@@ -2262,11 +2487,35 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                     **release_result,
                 }
             if stage_name == "finalize_run":
-                if not _is_successful_runtime_stage(
-                    request_root=get_settings().wgs_runtime_request_root,
-                    analysis_id=analysis_id,
-                    attempt=request.attempt,
-                    stage="step6_materialize",
+                if request.dag_run_id != run.dag_run_id:
+                    raise ValueError("finalize requires the current WGS DagRun")
+                from app.cce_recovery_budget import STOPPED
+                if str(run.status or "").lower() in STOPPED - {"success"}:
+                    raise ValueError("WGS current run does not permit finalization")
+                request_root = get_settings().wgs_runtime_request_root
+                frozen_step6 = _read_wgs_stage_request(
+                    request_root=request_root, analysis_id=analysis_id,
+                    attempt=request.attempt, stage="step6_materialize",
+                )
+                contract_v2 = int((run.params_json or {}).get("orchestration_contract_version") or 1) == 2
+                if contract_v2 and frozen_step6 is None:
+                    raise ValueError("current Step6 request is unavailable")
+                if contract_v2:
+                    from app.wgs_resume_service import _latest
+                    require_frozen_request_digest(
+                        frozen_step6, _latest(session, run, "step6_materialize"),
+                    )
+                marker = frozen_step6.get("stage_execution") if frozen_step6 is not None else None
+                if frozen_step6 is not None and "stage_execution" in frozen_step6:
+                    if marker != STAGE_EXECUTION_EXTENSION:
+                        raise ValueError("Step6 native execution marker is invalid")
+                    _require_current_native_step6_terminal(
+                        session=session, run=run, request_root=request_root,
+                        frozen_request=frozen_step6, observation=request.worker_observation,
+                    )
+                elif request.worker_observation is not None or not _is_successful_runtime_stage(
+                    request_root=request_root, analysis_id=analysis_id,
+                    attempt=request.attempt, stage="step6_materialize",
                 ):
                     raise ValueError("Step6 materialization is not complete")
                 already_successful = str(run.status or "").lower() == "success"
@@ -2591,6 +2840,13 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
             contract_v2 = bool(getattr(settings, "wgs_contract_v2_enabled", False)) and int(
                 params.get("orchestration_contract_version") or 1
             ) == 2
+            if (
+                pre_sync_contract_v2 is not None
+                and contract_v2 != pre_sync_contract_v2
+            ):
+                raise ValueError(
+                    "WGS orchestration contract changed during stage registration"
+                )
             if contract_v2:
                 contract = load_wgs_stage_contract(
                     Path(settings.wgs_stage_contract_path)
@@ -2601,27 +2857,6 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                         "mode": contract.heavy_io.mode,
                         "unit": "work_pod",
                     }
-                if (
-                    request.force_new_generation
-                    and stage_name in SUPPORTED_RUNTIME_SYNC_STAGES
-                ):
-                    sync_runtime_stage_artifacts(
-                        session_factory=get_sessionmaker(),
-                        request_root=Path(settings.wgs_runtime_request_root),
-                        transfer_spool_root=Path(settings.wgs_transfer_spool_root),
-                        analysis_id=analysis_id,
-                        attempt=request.attempt,
-                        stage=stage_name,
-                    )
-                if stage_name == "step3_monitor":
-                    sync_runtime_stage_artifacts(
-                        session_factory=get_sessionmaker(),
-                        request_root=Path(settings.wgs_runtime_request_root),
-                        transfer_spool_root=Path(settings.wgs_transfer_spool_root),
-                        analysis_id=analysis_id,
-                        attempt=request.attempt,
-                        stage="step2_master",
-                    )
                 execution = register_stage_execution(
                     session=session,
                     run=run,
@@ -2740,15 +2975,11 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 "request_path": str(path),
                 "execution_id": execution.execution_id if contract_v2 else None,
                 "generation": execution.generation if contract_v2 else None,
+                "request_hash": execution.request_hash if contract_v2 else None,
+                **({'stage_execution': payload['stage_execution']} if 'stage_execution' in payload else {}),
             }
-    except WgsStagePredecessorPending as exc:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "code": "WGS_STAGE_PREDECESSOR_PENDING",
-                "message": str(exc),
-            },
-        ) from exc
+    except WgsStagePredecessorPending:
+        raise
     except (OSError, ValueError, RuntimeError) as exc:
         message = str(exc)
         if message.startswith("release_unavailable:"):
@@ -2790,7 +3021,8 @@ def internal_gatk_runtime_stage(
                     airflow_client=get_airflow_client(), analysis_id=analysis_id, attempt=request.attempt,
                     pipeline='gatk', dag_run_id=request.dag_run_id,
                     resume_action_id=request.resume_action_id, now=datetime.now(timezone.utc),
-                    worker_observation=request.worker_observation)
+                    worker_observation=request.worker_observation,
+                    native_stage_observation=request.native_stage_observation)
             def authorize():
                 from app.cce_resume_dispatch import authorize_recovery_stage
                 run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
@@ -2833,7 +3065,9 @@ def internal_gatk_runtime_stage(
                 from app.cce_recovery_budget import require_current_dag_cleanup
                 require_current_dag_cleanup(session=session, analysis_id=analysis_id,
                     attempt=request.attempt, pipeline='gatk', dag_run_id=request.dag_run_id,
-                    resume_action_id=request.resume_action_id)
+                    resume_action_id=request.resume_action_id,
+                    native_stage_observation=request.native_stage_observation,
+                    settings=settings, cleanup_stage=stage_name)
                 transfer_kind = None
                 if stage_name == "release_input_transfer_slot":
                     transfer_kind = "input"
@@ -2859,6 +3093,7 @@ def internal_gatk_runtime_stage(
                     attempt=request.attempt,
                     resume_action_id=request.resume_action_id,
                     dag_run_id=request.dag_run_id,
+                    worker_observation=request.worker_observation,
                 )
             return register_gatk_stage(
                 session=session,
@@ -2916,6 +3151,8 @@ def internal_gatk_dag_terminal(
                 attempt=request.attempt,
                 failed_task_ids=request.failed_task_ids,
                 dag_run_id=request.dag_run_id,
+                native_stage_observation=request.native_stage_observation,
+                settings=get_settings(),
             )
     except ValueError as exc:
         raise HTTPException(
@@ -2961,7 +3198,9 @@ def internal_wgs_observer_deactivate(
             from app.cce_recovery_budget import require_current_dag_cleanup
             require_current_dag_cleanup(session=session, analysis_id=analysis_id,
                 attempt=request.attempt, pipeline='wgs', dag_run_id=request.dag_run_id,
-                resume_action_id=request.resume_action_id)
+                resume_action_id=request.resume_action_id,
+                native_stage_observation=request.native_stage_observation,
+                settings=get_settings(), cleanup_stage='observer_deactivate')
             state = request_observer_drain(
                 session, analysis_id=analysis_id, attempt=request.attempt
             )
@@ -3000,6 +3239,8 @@ def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=
         stage=stage,
     )
     marker = Path(settings.wgs_runtime_request_root) / analysis_id / f"attempt-{attempt}" / f"{stage}.status.json"
+    if marker.is_symlink():
+        raise HTTPException(status_code=500, detail={"code": "WGS_STAGE_STATUS_INVALID", "message": "stage status path is unsafe"})
     payload = json.loads(marker.read_text(encoding="utf-8")) if marker.is_file() else {}
     if payload and (
         payload.get("schema_version") != "wgs-runtime.stage-status.v1"
@@ -3014,9 +3255,51 @@ def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=
         with get_sessionmaker()() as session:
             run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.attempt == attempt))
             current = _latest(session, run, stage) if run else None
-            if current and any(payload.get(key) != getattr(current, key) for key in ('execution_id', 'generation', 'request_hash')):
+            if current is None or any(payload.get(key) != getattr(current, key) for key in ('execution_id', 'generation', 'request_hash')):
                 payload = {}
                 status_value = 'pending'
+    from app.wgs_resume_service import STAGES as WGS_EXECUTION_STAGES
+    stage_execution_marker = None
+    if stage in WGS_EXECUTION_STAGES:
+        try:
+            frozen = _read_wgs_stage_request(
+                request_root=settings.wgs_runtime_request_root,
+                analysis_id=analysis_id, attempt=attempt, stage=stage,
+            )
+            from app.wgs_resume_service import _latest
+            with get_sessionmaker()() as session:
+                run = session.scalar(select(AnalysisRun).where(
+                    AnalysisRun.analysis_id == analysis_id,
+                    AnalysisRun.attempt == attempt,
+                ))
+                current = _latest(session, run, stage) if run else None
+                contract_v2 = run is not None and int(
+                    (run.params_json or {}).get("orchestration_contract_version") or 1
+                ) == 2
+                if frozen is not None and (
+                    current is not None or contract_v2
+                    or frozen.get("orchestration_contract_version") == 2
+                ):
+                    require_frozen_request_digest(frozen, current)
+                elif current is not None:
+                    raise ValueError("current WGS stage request is unavailable")
+        except (OSError, ValueError) as exc:
+            raise HTTPException(status_code=500, detail={
+                "code": "WGS_STAGE_STATUS_INVALID", "message": "stage request identity is invalid",
+            }) from exc
+        if frozen is not None:
+            stage_execution_marker = frozen.get("stage_execution")
+            if stage_execution_marker is not None and stage_execution_marker != STAGE_EXECUTION_EXTENSION:
+                raise HTTPException(status_code=500, detail={
+                    "code": "WGS_STAGE_STATUS_INVALID", "message": "stage execution marker is invalid",
+                })
+            if stage_execution_marker is not None and payload and (
+                payload.get("orchestration_contract_version") != 2
+                or any(payload.get(key) != frozen.get(key)
+                       for key in ("execution_id", "generation", "request_hash"))
+            ):
+                payload = {}
+                status_value = "pending"
     artifact_pending = False
     if stage in {"prepare", "prepare_sampleinfo", "prepare_analysis"} and status_value in {"success", "complete", "succeeded"}:
         with get_sessionmaker()() as session:
@@ -3025,7 +3308,7 @@ def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=
                 params = dict(run.params_json or {})
                 handoff_receipt = payload.get("prepare_handoff_receipt")
                 handoff_required = (
-                    str(params.get("wgs_version") or "") in {"V4.2.0", "V4.2.1", "V4.2.2"}
+                    str(params.get("wgs_version") or "") in {"V4.2.0", "V4.2.1", "V4.2.2", "V4.2.3"}
                     and stage in {"prepare_sampleinfo", "prepare_analysis"}
                 )
                 if handoff_required and not isinstance(handoff_receipt, dict):
@@ -3085,6 +3368,10 @@ def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=
         "status": status_value,
         "updated_at": payload.get("updated_at"),
         "retry_no": payload.get("retry_no"),
+        "execution_id": payload.get("execution_id"),
+        "generation": payload.get("generation"),
+        "request_hash": payload.get("request_hash"),
+        **({"stage_execution": stage_execution_marker} if stage in WGS_EXECUTION_STAGES else {}),
         "message": payload.get("message", ""),
         "master": payload.get("master"),
     }
@@ -3126,6 +3413,8 @@ def internal_wgs_dag_terminal(
                 failed_task_ids=request.failed_task_ids,
                 dag_run_id=request.dag_run_id,
                 resume_action_id=request.resume_action_id,
+                native_stage_observation=request.native_stage_observation,
+                settings=get_settings(),
             )
     except ValueError as exc:
         raise HTTPException(

@@ -1,10 +1,17 @@
 import {fireEvent, render, screen, waitFor} from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import {afterEach, expect, it, vi} from 'vitest';
-import {ResumeStagePanel, monitorReconnectAvailable} from './ResumeStagePanel';
+import {ResumeStagePanel, monitorReconnectAvailable, legacyResumeAvailable} from './ResumeStagePanel';
 import * as api from '../../api';
 
 afterEach(() => vi.restoreAllMocks());
+it('does not offer new-attempt Resume for WGS CCE, without removing other pipeline recovery', () => {
+  const detail = {pipeline:'wgs', execution_mode:'cce', status:'failed'} as api.RunDetail;
+  expect(legacyResumeAvailable(detail, true)).toBe(false);
+  expect(legacyResumeAvailable({...detail, execution_mode:'local'}, true)).toBe(true);
+  expect(legacyResumeAvailable({...detail, pipeline:'gatk'}, true)).toBe(true);
+  expect(legacyResumeAvailable({...detail, pipeline:'gatk'}, false)).toBe(false);
+});
 it('requires explicit same-attempt confirmation and retains the idempotency key after an uncertain response', async () => {
   vi.spyOn(crypto,'randomUUID').mockImplementation(() => {throw new Error('insecure HTTP context');});
   const submit=vi.spyOn(api,'resumeStage').mockRejectedValueOnce(new Error('uncertain')).mockResolvedValue({analysis_id:'mock',attempt:1,stage:'step3_monitor',generation:2,action_id:'resume-mock',status:'queued'});

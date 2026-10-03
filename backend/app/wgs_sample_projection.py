@@ -96,17 +96,33 @@ def get_wgs_sample_projection(*, session, settings, run: AnalysisRun, include_sa
     return {"manifest": manifest, "manifest_summary": manifest_summary, "items": items}
 
 
-def get_wgs_batch_qc_status(*, session, settings, run: AnalysisRun) -> str:
-    """Aggregate the same controlled QCstat projection used by Samples/QC."""
+def get_wgs_batch_qc_status(*, session, settings, run: AnalysisRun, samples: list[Sample] | None = None) -> str:
+    """Aggregate source QCstat status without enriching metric judgments."""
 
     batch_root = _batch_root(settings=settings, run=run)
-    qc = _read_qc(batch_root) if batch_root else {}
-    samples = session.scalars(
-        select(Sample).where(Sample.analysis_id == run.analysis_id, selected_clause()).order_by(Sample.sample_id)
-    ).all()
+    qc = _read_qc_statuses(batch_root) if batch_root else {}
+    if samples is None:
+        samples = session.scalars(
+            select(Sample).where(Sample.analysis_id == run.analysis_id, selected_clause()).order_by(Sample.sample_id)
+        ).all()
     return aggregate_qc_status(
         [_qc_value_for_sample(sample=sample, qc=qc).get("status") for sample in samples]
     )
+
+
+def _read_qc_statuses(batch_root: Path) -> dict[str, dict[str, Any]]:
+    qc_path = select_batch_qcstat(batch_root)
+    if qc_path is None:
+        return {}
+    output: dict[str, dict[str, Any]] = {}
+    with qc_path.open(encoding="utf-8-sig", newline="") as handle:
+        for source in csv.DictReader(handle, delimiter="\t"):
+            identifiers = {_text(source.get("Sample_ID")), _text(source.get("Name"))}
+            identifiers.discard(None)
+            value = {"status": _qc_status(_text(source.get("是否通过质控")))}
+            for identifier in identifiers:
+                output[str(identifier)] = value
+    return output
 
 
 def _display_batch(value: Any) -> str | None:

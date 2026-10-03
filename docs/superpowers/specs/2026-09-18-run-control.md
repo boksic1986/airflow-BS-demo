@@ -1,5 +1,22 @@
 # CCE run pause, resume and project deletion
 
+## 2026-09-28 execution foundation dependency (design only)
+
+The [unified Step1–6 executor design](2026-09-28-unified-stage-execution-design.md)
+and [UE-01–UE-06 queue](../plans/2026-09-28-unified-stage-execution.md) are the
+shared execution foundation for these controls. They replace maintaining separate
+WGS synchronous and GATK asynchronous dispatchers for new executions. Stopping
+an observer does not pause cloud computation; every control must prove actual
+workload quiescence. The latest scope retains only documented future control
+semantics and existing P0 fences: no new control handlers, synthetic control
+suite, third-adapter demonstration, public APIs, database migrations or UI actions.
+GATK's existing async flow stays the baseline; WGS is the main migration.
+Retired Resume compatibility is excluded; current P0 stage resume is not retired.
+Those remain separate RC work; no implementation or deployment is claimed here.
+Current WGS business modes are 2775/0664/0775 as subsequently requested by the
+user; that supersedes the early WGS 0755/0644 proposal below. Other adapters keep
+their approved modes, and credentials/private control evidence remain private.
+
 ## 2026-09-26 lifecycle revision (current design, not implemented)
 
 The user confirmed the [P0 lifecycle revision](2026-09-17-wgs-gatk-cce-connection-recovery-design.md)

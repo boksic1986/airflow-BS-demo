@@ -33,3 +33,11 @@ Include:
 ## Quality bar
 
 A good handoff lets the next agent continue without rediscovering the same state.
+
+## Cross-repository status handoff
+
+- Link the relevant card in `docs/36_CROSS_REPO_DEVELOPMENT_BACKLOG.md` and route through `docs/15_MULTI_AGENT_BOUNDARIES.md`.
+- Distinguish a local documentation snapshot from source-repository HEAD, installed version, test runtime, and production release. State observation time and evidence freshness.
+- Record only material status changes; preserve quiet-monitor intent for unchanged state. On continuation, revalidate active run/attempt, target host, permissions, mounts, and gates before any remote/runtime action; documentation-only edits require no remote preflight.
+- Do not turn historical unchecked items, candidate rankings, or an owner suggestion into authorized implementation/deployment work.
+- For material changes, have the technical owner report task ID, repo/worktree/branch/commit, implementation/acceptance/deployment states, delta, exact evidence and remaining checks, blocker/next step/decision owner, and observation time to both coordinator and documentation owner. The documentation owner records/routes status but does not approve technical work. Preserve old records; mark an evidenced superseded card with a link, and escalate conflicting/incomplete evidence to coordinator plus original owner.

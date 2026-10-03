@@ -42,16 +42,31 @@ def freeze_publish_request(*, run, request, latest, now, timeout_seconds):
 def _controls(session, run, resume_action_id):
     if (run.params_json or {}).get('resume_action_id') != resume_action_id:
         raise ValueError('Step4 recovery caller was superseded')
+    current = None
     if resume_action_id:
         from app.cce_resume_dispatch import authorize_recovery_stage
-        authorize_recovery_stage(session=session,run=run,action_id=resume_action_id,
+        current = authorize_recovery_stage(session=session,run=run,action_id=resume_action_id,
             dag_run_id=run.dag_run_id,stage='step4_publish')
-    for row in session.scalars(select(RunAction).where(RunAction.analysis_id==run.analysis_id)):
+    actions = session.scalars(select(RunAction).where(RunAction.analysis_id==run.analysis_id)).all()
+    for row in actions:
         data=row.payload_json or {}
         if data.get('attempt') not in {None,run.attempt}:continue
         if row.action in CONTROL_ACTIONS | {'cce_compute_recovery'} and row.result_status not in FINISHED_ACTIONS:
             if (row.action in {'resume_stage','cce_compute_recovery'}
                     and data.get('action_id')==resume_action_id and resume_action_id):continue
+            # queued records confirmed dispatch, not continued authority. An old
+            # failed DagRun is fenced by the validated successor above. Keep the
+            # audit row intact: this is not proof of remote compute termination.
+            if (current is not None and row.action == 'resume_stage'
+                    and row.result_status == 'queued' and data.get('dispatch_state') == 'confirmed'
+                    and data.get('attempt') == run.attempt and data.get('action_id')
+                    and data.get('dag_run_id') and data['dag_run_id'] != run.dag_run_id
+                    and any(item.action == 'airflow_dag_failed' and item.result_status == 'failed'
+                        and row.id < item.id < current.id
+                        and (item.payload_json or {}).get('attempt') == run.attempt
+                        and (item.payload_json or {}).get('dag_run_id') == data['dag_run_id']
+                        for item in actions)):
+                continue
             raise ValueError('active control or recovery action blocks Step4 dispatch')
     if any(row.status not in FINISHED_ACTIONS for row in session.scalars(select(WgsMaintenanceAction)
             .where(WgsMaintenanceAction.analysis_id==run.analysis_id,WgsMaintenanceAction.attempt==run.attempt))):
@@ -88,16 +103,20 @@ def control_publish_dispatch(*, session, settings, pipeline, analysis_id, attemp
     if not path.resolve().is_relative_to(root) or path.is_symlink() or path.stat().st_size>2*1024*1024:
         raise ValueError('invalid registered Step4 request path')
     request=json.loads(path.read_bytes())
-    excluded={'request_hash'} if pipeline=='gatk' else {'execution_id','generation','request_hash',
-        'predecessor_execution_id','predecessor_generation','predecessor_receipt_hash'}
-    digest=hashlib.sha256(json.dumps({k:v for k,v in request.items() if k not in excluded},
-        sort_keys=True,separators=(',',':')).encode()).hexdigest()
     if (request.get('analysis_id')!=analysis_id or request.get('attempt')!=attempt
             or request.get('stage')!='step4_publish' or request.get('orchestration_contract_version')!=2
             or type(request.get('publish_dispatch_version')) is not int or request['publish_dispatch_version']!=1
             or any(request.get(k)!=getattr(row,k) for k in ('execution_id','generation','request_hash'))
-            or digest!=row.request_hash or request.get('publish_deadline')!=(run.params_json or {}).get('cce_publish_deadline')):
+            or request.get('publish_deadline')!=(run.params_json or {}).get('cce_publish_deadline')):
         raise ValueError('registered Step4 dispatch authority differs')
+    if pipeline=='wgs':
+        from app.wgs_stage_execution_service import require_frozen_request_digest
+        require_frozen_request_digest(request, row)
+    else:
+        digest=hashlib.sha256(json.dumps({k:v for k,v in request.items() if k!='request_hash'},
+            sort_keys=True,separators=(',',':')).encode()).hexdigest()
+        if digest!=row.request_hash:
+            raise ValueError('registered Step4 dispatch authority differs')
     deadline=_date(request['publish_deadline'])
     args=dict(session=session,analysis_id=analysis_id,attempt=attempt,dag_run_id=dag_run_id,
         execution_id=row.execution_id,now=now)

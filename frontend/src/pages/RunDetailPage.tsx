@@ -33,7 +33,7 @@ import {WgsQcTab} from "../features/run-detail/WgsQcTab";
 import {NativeExecutionPanel} from "../features/run-detail/NativeExecutionPanel";
 import type {RulePage, RuleQuery} from "../api";
 import {Step4RepairPanel} from "../features/run-detail/Step4RepairPanel";
-import {ResumeStagePanel, monitorReconnectAvailable} from '../features/run-detail/ResumeStagePanel';
+import {ResumeStagePanel, monitorReconnectAvailable, legacyResumeAvailable} from '../features/run-detail/ResumeStagePanel';
 import {DataLifecyclePanel} from "../features/run-detail/DataLifecyclePanel";
 import {WgsTransfersTab} from "../features/run-detail/WgsTransfersTab";
 import {ExecutionTargetSelector} from "../features/wgs/ExecutionTargetSelector";
@@ -62,6 +62,12 @@ type Bundle = {
 };
 
 const emptyBundle: Bundle = {detail: null, samples: [], manifest: [], manifestSummary: null, rules: [], artifacts: [], progress: null, pods: [], transfers: [], validationIssues: [], slotUsage: null, snapshotAt: null};
+
+function assertAttempt(actual: number | null | undefined, expected: number | null | undefined) {
+  if (actual != null && expected != null && actual !== expected) {
+    throw new Error(`Returned attempt ${actual} does not match selected attempt ${expected}. Refresh run detail before loading this tab.`);
+  }
+}
 
 export function RunDetailPage() {
   const {analysisId = ""} = useParams();
@@ -95,17 +101,22 @@ export function RunDetailPage() {
   const [lastAutoSyncedAt, setLastAutoSyncedAt] = useState<string | null>(null);
   const currentRoute = useRef(analysisId);
   currentRoute.current = analysisId;
+  const manualLogController = useRef<AbortController | null>(null);
 
-  const loadDetail = useCallback(async (_showSpinner = false, current?: () => boolean) => {
+  const loadDetail = useCallback(async (current?: () => boolean, signal?: AbortSignal) => {
     if (!analysisId) return;
     const isCurrent = current || (() => currentRoute.current === analysisId);
+    const options = {signal};
       let detail: RunDetail;
       let progress: RunProgressResponse | null;
       let validationIssues: WgsValidationIssue[];
       let slotUsage: Bundle["slotUsage"];
       try {
-        const workspace = await getRunWorkspace(analysisId);
+        const workspace = await getRunWorkspace(analysisId, options);
         if (!isCurrent()) return;
+        if (workspace.run.analysis_id !== analysisId || workspace.progress && workspace.progress.analysis_id !== analysisId) {
+          throw new Error("The workspace response belongs to a different run.");
+        }
         detail = workspace.run;
         progress = workspace.progress;
         validationIssues = workspace.validation_issues || [];
@@ -121,16 +132,26 @@ export function RunDetailPage() {
           return {...current, transfers, snapshotAt: workspace.snapshot_at || new Date().toISOString()};
         });
       } catch (workspaceError) {
+        if (!isCurrent() || signal?.aborted) return;
         if (!(workspaceError instanceof ApiError) || workspaceError.status !== 404) throw workspaceError;
         const [legacyDetail, legacyProgress, samples, rules, failedRules, issues] = await Promise.all([
-          getRunDetail(analysisId),
-          getRunProgress(analysisId),
-          getRunSamples(analysisId),
-          getRunRules(analysisId, {limit: 1}),
-          getRunRules(analysisId, {limit: 1, status: "failed"}),
-          getRunValidationIssues(analysisId).catch(() => ({items: []})),
+          getRunDetail(analysisId, options),
+          getRunProgress(analysisId, options),
+          getRunSamples(analysisId, options),
+          getRunRules(analysisId, {limit: 1}, options),
+          getRunRules(analysisId, {limit: 1, status: "failed"}, options),
+          getRunValidationIssues(analysisId, options).catch((failure) => {
+            if (signal?.aborted || failure instanceof Error && (failure.name === "AbortError" || failure.name === "TimeoutError")) throw failure;
+            return {items: []};
+          }),
         ]);
         if (!isCurrent()) return;
+        if (legacyDetail.analysis_id !== analysisId || legacyProgress.analysis_id !== analysisId) {
+          throw new Error("The run response belongs to a different run.");
+        }
+        samples.items.forEach((sample) => assertAttempt(sample.selection_attempt, legacyDetail.attempt));
+        assertAttempt(rules.attempt, legacyDetail.attempt);
+        assertAttempt(failedRules.attempt, legacyDetail.attempt);
         detail = legacyDetail;
         progress = legacyProgress;
         validationIssues = issues.items;
@@ -147,12 +168,18 @@ export function RunDetailPage() {
 
   async function loadLog(stream: LogStream, key?: string | null) {
     if (!analysisId) return;
+    manualLogController.current?.abort();
+    const controller = new AbortController();
+    manualLogController.current = controller;
+    const isCurrent = () => currentRoute.current === analysisId && manualLogController.current === controller;
     setLogError(null);
     try {
-      const result = await getRunLog(analysisId, stream, key || undefined);
-      if (currentRoute.current === analysisId) setLog(result);
+      const result = await getRunLog(analysisId, stream, key || undefined, undefined, 0, {signal: controller.signal});
+      if (isCurrent()) setLog(result);
     } catch (loadError) {
-      setLogError(errorMessage(loadError));
+      if (isCurrent()) setLogError(errorMessage(loadError));
+    } finally {
+      if (manualLogController.current === controller) manualLogController.current = null;
     }
   }
 
@@ -165,6 +192,10 @@ export function RunDetailPage() {
     setLogMatchIndex(0);
     setRuleQuery({...DEFAULT_RULE_QUERY});
     setRulePage(undefined);
+    return () => {
+      manualLogController.current?.abort();
+      manualLogController.current = null;
+    };
   }, [analysisId]);
 
   function handleLogKeyChange(nextKey: string) {
@@ -186,39 +217,68 @@ export function RunDetailPage() {
   useEffect(() => {
     if (activeTab !== "Logs" || !analysisId || !logKey || !logQuery) return;
     let current = true;
+    const controller = new AbortController();
     setLogError(null);
-    void getRunLog(analysisId, logStream, logKey, logQuery, logMatchIndex).then(
-      (result) => { if (current) setLog(result); },
-      (failure) => { if (current) setLogError(errorMessage(failure)); },
-    );
-    return () => { current = false; };
+    void (async () => {
+      try {
+        const freshDetail = await loadDetail(() => current, controller.signal);
+        if (!current || !freshDetail || freshDetail.attempt !== detail?.attempt) return;
+        const result = await getRunLog(analysisId, logStream, logKey, logQuery, logMatchIndex, {signal: controller.signal});
+        if (current) setLog(result);
+      } catch (failure) {
+        if (current) setLogError(errorMessage(failure));
+      }
+    })();
+    return () => { current = false; controller.abort(); };
   }, [analysisId, activeTab, detail?.attempt, logKey, logStream, logQuery, logMatchIndex]);
 
-  const {loading, error, refresh: refreshDetail} = useSilentRefresh(async ({isCurrent}) => {
-    const freshDetail = await loadDetail(false, isCurrent);
-    if (!freshDetail || !isCurrent()) return;
-    if (freshDetail.params?.native_monitor_only) return;
+  const {loading, error, refresh: refreshWorkspace} = useSilentRefresh(async ({isCurrent, signal}) => {
+    const freshDetail = await loadDetail(isCurrent, signal);
+    if (freshDetail && isCurrent()) setLastAutoSyncedAt(new Date().toISOString());
+  }, JSON.stringify([analysisId, capabilityKey]), !capabilities.loading && Boolean(analysisId) && !detail?.params?.native_monitor_only);
+
+  const {refresh: refreshTab} = useSilentRefresh(async ({isCurrent, signal}) => {
+    let freshDetail = detail;
+    if (!freshDetail || freshDetail.analysis_id !== analysisId || freshDetail.params?.native_monitor_only) return;
     const currentAttempt = freshDetail.attempt;
+    const options = {signal};
     const publish = (update: (current: Bundle) => Bundle) => {
       if (isCurrent()) setBundle((current) => current.detail?.attempt === currentAttempt ? update(current) : current);
     };
       setTabError(null);
       try {
+        if (activeTab === "Logs") {
+          // Log responses have no attempt field; retain the successful-summary ordering.
+          const refreshed = await loadDetail(isCurrent, signal);
+          if (!refreshed || !isCurrent() || refreshed.attempt !== currentAttempt) return;
+          freshDetail = refreshed;
+        }
         if (activeTab === "Overview" || activeTab === "Samples" || activeTab === "QC") {
-          const result = await getRunSamples(analysisId);
+          const result = await getRunSamples(analysisId, options);
+          result.items.forEach((sample) => assertAttempt(sample.selection_attempt, currentAttempt));
           publish((current) => ({...current, samples: result.items, manifest: result.manifest || [], manifestSummary: result.manifest_summary || null}));
         } else if (activeTab === "Rules") {
-          const result = await getRunRules(analysisId, {...DEFAULT_RULE_QUERY, ...ruleQuery});
+          const selectedAttempt = ruleQuery.attempt ?? currentAttempt ?? undefined;
+          const result = await getRunRules(analysisId, {...DEFAULT_RULE_QUERY, ...ruleQuery, attempt: selectedAttempt}, options);
+          assertAttempt(result.attempt, selectedAttempt);
+          result.items.forEach((rule) => assertAttempt(rule.attempt, selectedAttempt));
           if (isCurrent()) setRulePage(result);
           publish((current) => ({...current, rules: result.items}));
         } else if (activeTab === "Master") {
-          const result = await getRunPods(analysisId);
+          const result = await getRunPods(analysisId, options);
+          result.items.forEach((pod) => assertAttempt(pod.attempt, currentAttempt));
           publish((current) => ({...current, pods: result.items}));
         } else if (activeTab === "Transfers") {
-          const result = await getRunTransfers(analysisId);
+          const result = await getRunTransfers(analysisId, options);
+          // Transfers include labeled history; a newer attempt needs a newer summary.
+          result.items.forEach((transfer) => {
+            if (currentAttempt != null && transfer.attempt != null && transfer.attempt > currentAttempt) {
+              assertAttempt(transfer.attempt, currentAttempt);
+            }
+          });
           publish((current) => ({...current, transfers: result.items}));
         } else if (activeTab === "Logs") {
-          const result = await getRunLogIndex(analysisId);
+          const result = await getRunLogIndex(analysisId, options);
           if (isCurrent()) {
             setLogSources(result.items);
             setLogArchive(result.archive ? {identity: `${analysisId}:${currentAttempt}`, value:result.archive} : null);
@@ -229,7 +289,7 @@ export function RunDetailPage() {
             }
             if (logKey && !logQuery) {
               const identity = logSearchIdentity.current;
-              const nextLog = await getRunLog(analysisId, logStream, logKey);
+              const nextLog = await getRunLog(analysisId, logStream, logKey, undefined, 0, options);
               if (isCurrent() && identity === logSearchIdentity.current) setLog(nextLog);
             }
           }
@@ -239,7 +299,13 @@ export function RunDetailPage() {
         if (isCurrent()) setTabError(errorMessage(loadError));
         throw loadError;
       }
-  }, JSON.stringify([analysisId, activeTab, detail?.attempt, capabilityKey, logKey, logStream, Boolean(logQuery), ruleQuery]), !capabilities.loading && Boolean(analysisId) && !detail?.params?.native_monitor_only);
+  }, JSON.stringify([analysisId, activeTab, detail?.attempt, capabilityKey, logKey, logStream, Boolean(logQuery), ruleQuery]),
+  !capabilities.loading && detail?.analysis_id === analysisId && !detail?.params?.native_monitor_only);
+
+  const refreshDetail = useCallback(async () => {
+    await refreshWorkspace();
+    await refreshTab();
+  }, [refreshWorkspace, refreshTab]);
 
   const failedRule = bundle.rules.find((rule) => isFailedStatus(rule.status));
   const diagnosis = parseErrorSummary(
@@ -305,7 +371,7 @@ export function RunDetailPage() {
             {detail.dag_run_id && isActiveStatus(detail.status) ? <span className="muted">{lastAutoSyncedAt ? `Live snapshot / ${formatDate(lastAutoSyncedAt)}` : "Live snapshot active"}</span> : null}
             {canSubmit ? <button className="button primary" type="button" disabled={acting} onClick={() => void runAction("submit")}><Play size={15} />Submit to Airflow</button> : null}
             {detail.status === "needs_review" && session.hasRole("operator") ? <button className="button primary" type="button" disabled={acting} onClick={() => void runAction("revalidate")}><RefreshCw size={15} />Revalidate source</button> : null}
-            {detail.status === "failed" && canResume ? <button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("resume")}><RotateCcw size={15} />Resume</button> : null}
+            {detail.status === "failed" && legacyResumeAvailable(detail, canResume) ? <button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("resume")}><RotateCcw size={15} />Resume</button> : null}
             {detail.status === "failed" && canRerun ? <button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("rerun_failed")}><RotateCcw size={15} />Rerun failed</button> : null}
             {detail.pipeline !== "gatk" && isActiveStatus(detail.status) && !(detail.execution_dispatch?.desired_mode === "cce" && ["committed", "running"].includes(detail.execution_dispatch.dispatch_state)) ? <button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("cancel")}><Square size={15} />Cancel</button> : null}
           </div>

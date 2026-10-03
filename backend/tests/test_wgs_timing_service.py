@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.models import AnalysisRun, Base, KubernetesWorkload, RuleState, RunStageState
+from app.models import AnalysisRun, Base, KubernetesWorkload, RuleState, RunStageState, TransferJob, WgsStageExecution
 from app.wgs_timing_service import enrich_progress, serialize_rule_states
 
 
@@ -252,6 +252,89 @@ def test_wgs_progress_does_not_fabricate_numeric_progress_for_step4() -> None:
     assert payload["speed_bps"] is None
     assert payload["eta_seconds"] is None
     assert payload["percent"] is None
+
+
+@pytest.mark.parametrize("new_step4_generation,downstream_status", [
+    (False, "running"), (False, "canceled"), (True, "running"),
+])
+def test_wgs_progress_uses_only_downstream_execution_after_latest_step4(
+    new_step4_generation: bool, downstream_status: str,
+) -> None:
+    engine = create_engine("sqlite+pysqlite://")
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as session:
+        run = AnalysisRun(
+            analysis_id="WGS_SYNTHETIC_STAGE_ORDER",
+            pipeline_name="wgs",
+            dag_id="bio_wgs",
+            execution_mode="cce",
+            status="running",
+            attempt=1,
+            current_stage="step4_publish",
+            workdir="/synthetic",
+            params_json={"orchestration_contract_version": 2},
+        )
+        session.add(run)
+        session.flush()
+        session.add(WgsStageExecution(
+            execution_id="step4-original", analysis_id=run.analysis_id,
+            attempt=1, stage_code="step4_publish", generation=1,
+            status="success", request_hash="a" * 64, release_id="synthetic",
+        ))
+        session.flush()
+        session.add(WgsStageExecution(
+            execution_id="step5-current", analysis_id=run.analysis_id,
+            attempt=1, stage_code="step5_download", generation=1,
+            status=downstream_status, request_hash="b" * 64, release_id="synthetic",
+        ))
+        session.flush()
+        if new_step4_generation:
+            session.add(WgsStageExecution(
+                execution_id="step4-recovery", analysis_id=run.analysis_id,
+                attempt=1, stage_code="step4_publish", generation=2,
+                status="success", request_hash="c" * 64, release_id="synthetic",
+            ))
+        session.add_all([
+            RunStageState(
+                analysis_id=run.analysis_id, attempt=1,
+                stage_code="step4_publish", step_number=4,
+                stage_label="Publishing WGS results", stage_status="success",
+                progress_available=False, progress_source="synthetic",
+            ),
+            RunStageState(
+                analysis_id=run.analysis_id, attempt=1,
+                stage_code="step5_download", step_number=5,
+                stage_label="Downloading WGS results", stage_status=downstream_status,
+                progress_available=False, progress_source="synthetic",
+            ),
+            TransferJob(
+                analysis_id=run.analysis_id, attempt=1,
+                transfer_id="synthetic-download", transfer_type="result_download",
+                direction="download", status=downstream_status,
+                progress_detail_available=True, bytes_total=1000,
+                bytes_transferred=160, speed_bps=0, eta_seconds=None,
+            ),
+        ])
+        session.commit()
+
+        payload = enrich_progress(
+            session=session, run=run,
+            payload={"current_source": "snakemake_events", "current_step": "step4_publish"},
+        )
+
+        assert payload["stage_code"] == (
+            "step4_publish" if new_step4_generation else "step5_download"
+        )
+        if not new_step4_generation:
+            assert payload["stage_status"] == downstream_status
+        if downstream_status == "running" and not new_step4_generation:
+            assert payload["progress_percent"] == 16.0
+            assert payload["completed_units"] == 160
+            assert payload["speed_bps"] == 0
+            assert payload["eta_seconds"] is None
+        assert run.current_stage == "step4_publish"
+        assert not session.dirty
 
 
 def test_historical_success_projects_all_six_orchestration_stages_as_success() -> None:

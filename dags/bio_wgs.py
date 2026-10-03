@@ -20,6 +20,17 @@ from airflow.sensors.python import PythonSensor
 from airflow.utils.task_group import TaskGroup
 from airflow.utils.trigger_rule import TriggerRule
 
+from common.stage_execution import (
+    DispatchUncertain,
+    execution_ref_from_registration,
+    observe_stage,
+    latest_started_stage,
+    native_callback_observation,
+    submit_and_await,
+    submit_stage,
+)
+from common.ssh_transport import SSHCallBudget, pre_session_failure, run_ssh
+
 
 ANALYSIS_ID_RE = re.compile(r"^WGS_[0-9]{8}_[0-9]{6}_[A-F0-9]{6}$")
 RUNNER_STAGES = {
@@ -59,31 +70,6 @@ STAGE_GENERATION_VISIBILITY_TIMEOUT_SECONDS = 120.0
 STAGE_PREDECESSOR_VISIBILITY_ATTEMPTS = 5
 STAGE_PREDECESSOR_VISIBILITY_DELAY_SECONDS = 5.0
 FAILED_STAGE_SYNC_TIMEOUT_SECONDS = 30.0
-SSH_RECONNECT_DELAYS_SECONDS = (5.0, 10.0)
-
-
-def _ssh_failed_before_execution(completed: subprocess.CompletedProcess[str]) -> bool:
-    """Fail closed: only known pre-session OpenSSH diagnostics permit replay."""
-    if completed.returncode != 255 or (completed.stdout or "").strip():
-        return False
-    lines = [line.strip() for line in (completed.stderr or "").splitlines() if line.strip()]
-    primary = (
-        r"Connection timed out during banner exchange",
-        r"ssh: connect to host \S+ port \d+: (?:Connection timed out|Connection refused|No route to host)",
-        r"(?:kex_exchange_identification|ssh_exchange_identification): (?:read: Connection reset(?: by peer)?|Connection closed by remote host)",
-    )
-    trailer = (
-        r"(?:Connection (?:closed|reset) by \S+ port \d+|"
-        r"Connection to \S+ port \d+ timed out)"
-    )
-    return bool(lines) and any(
-        re.fullmatch(pattern, line) for line in lines for pattern in primary
-    ) and all(
-        any(re.fullmatch(pattern, line) for pattern in (*primary, trailer))
-        for line in lines
-    )
-
-
 def _runner_request_not_yet_visible(completed: subprocess.CompletedProcess[str]) -> bool:
     if completed.returncode == 0:
         return False
@@ -244,10 +230,24 @@ def register_stage(stage: str, **context: Any) -> dict[str, Any]:
         "maintenance_action_id": conf.get("maintenance_action_id"),
         "resume_action_id": conf.get("resume_action_id"),
     }
-    if conf.get('resume_action_id') or stage in {"step4_publish", "release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
+    if conf.get('resume_action_id') or stage in {"step4_publish", "finalize_run", "release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
         request_payload["dag_run_id"] = context["dag_run"].run_id
+    if stage == "finalize_run":
+        terminal = _step6_finalization_observation(conf, context)
+        if terminal is not None:
+            request_payload["worker_observation"] = terminal
+    cleanup_target = {"release_input_transfer_slot": "step1_upload",
+                      "release_result_transfer_slot": "step5_download"}.get(stage)
+    if cleanup_target:
+        observation = _callback_observation(conf, cleanup_target)
+        if observation is not None:
+            request_payload["native_stage_observation"] = observation
     task_instance = context.get("ti") or context.get("task_instance")
-    if int(getattr(task_instance, "try_number", 1) or 1) > 1:
+    # A retried Step1-6 task must reattach its registered execution. A new
+    # generation is authorized by the explicit recovery API, not try_number.
+    if (int(getattr(task_instance, "try_number", 1) or 1) > 1
+            and (stage not in RECOVERY_STAGES or conf.get("maintenance_mode") is not None
+                 or runner_stage != stage)):
         request_payload["force_new_generation"] = True
     path = f"/api/internal/wgs/runs/{conf['analysis_id']}/stages/{runner_stage}"
     for registration_attempt in range(
@@ -281,6 +281,33 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
     from cce_publish_dispatch import enabled, start_publish
     if runner_stage == 'step4_publish' and enabled(conf):
         return start_publish(_stage_query_json,pipeline='wgs',conf=conf,dag_run_id=context['dag_run'].run_id)
+    marker = registered.get("stage_execution")
+    if marker is not None:
+        if marker != {"protocol": "cce.stage-execution.v1"} or runner_stage not in RECOVERY_STAGES:
+            raise AirflowFailException("unsupported registered WGS stage execution")
+        initial = _native_observe_stage(conf, runner_stage, registered)
+        ref = execution_ref_from_registration(
+            initial, registered, pipeline="wgs", stage=runner_stage
+        )
+        dispatch = lambda exact: _native_dispatch_stage(conf, runner_stage, exact)
+        observe = lambda current: _native_observe_stage(conf, runner_stage, current)
+        if runner_stage == "step2_master":
+            result = submit_and_await(
+                execution_ref=ref, dispatch=dispatch, observe=observe,
+                deadline=None,
+            )
+        else:
+            result = submit_stage(
+                execution_ref=ref, dispatch=dispatch, observe=observe, deadline=None
+            )
+        if result["state"] in {"failed", "canceled"}:
+            raise AirflowFailException(f"registered WGS stage {runner_stage} ended {result['state']}")
+        if runner_stage == "step3_monitor" and result["state"] != "unknown":
+            _backend_json(
+                f"/api/internal/wgs/runs/{conf['analysis_id']}/observer/activate",
+                method="POST", payload={"attempt": conf["attempt"]},
+            )
+        return result
     command = [
         "ssh",
         "-tt",
@@ -296,21 +323,38 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
         str(conf["attempt"]),
         runner_stage,
     ]
+    # The current Step1–6 path shares one connection and wall-time allowance
+    # across the separate request-visibility invocations below. Historical
+    # prepare/Step7 retain their existing runner behavior.
+    ssh_budget = SSHCallBudget.start(120) if runner_stage in RECOVERY_STAGES else None
     connection_failures = 0
     invocation = 1
     while True:
-        completed = subprocess.run(
-            command,
-            check=False,
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-        )
-        if _ssh_failed_before_execution(completed):
-            if connection_failures >= len(SSH_RECONNECT_DELAYS_SECONDS):
+        try:
+            if ssh_budget is None:
+                completed = subprocess.run(
+                    command, check=False, stdin=subprocess.DEVNULL,
+                    capture_output=True, text=True,
+                )
+            else:
+                completed = run_ssh(command, timeout_seconds=120, budget=ssh_budget)
+        except (OSError, subprocess.SubprocessError) as error:
+            if ssh_budget is None:
+                raise
+            _wait_for_terminal_stage_projection(
+                analysis_id=str(conf["analysis_id"]), attempt=int(conf["attempt"]),
+                stage=runner_stage,
+                expected_retry_no=(
+                    int(registered["generation"]) - 1
+                    if isinstance(registered.get("generation"), int) else None
+                ),
+            )
+            raise RuntimeError("restricted node200 WGS stage SSH outcome is uncertain") from error
+        if ssh_budget is None and pre_session_failure(completed):
+            if connection_failures >= 2:
                 LOG.warning("WGS SSH pre-execution connection attempts exhausted (3/3)")
                 break
-            delay = SSH_RECONNECT_DELAYS_SECONDS[connection_failures]
+            delay = (5.0, 10.0)[connection_failures]
             connection_failures += 1
             LOG.warning(
                 "WGS SSH pre-execution connection failure; reconnecting (%s/3) in %ss",
@@ -322,6 +366,8 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
             break
         if invocation == RUNNER_REQUEST_VISIBILITY_ATTEMPTS:
             break
+        if ssh_budget is not None and ssh_budget.remaining() <= RUNNER_REQUEST_VISIBILITY_DELAY_SECONDS:
+            break
         LOG.warning(
             "registered WGS runtime request is not visible on node200 yet; "
             "retrying restricted runner invocation (%s/%s)",
@@ -331,7 +377,7 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
         time.sleep(RUNNER_REQUEST_VISIBILITY_DELAY_SECONDS)
         invocation += 1
     if completed.returncode != 0:
-        if completed.returncode == 255 and not _ssh_failed_before_execution(completed):
+        if completed.returncode == 255 and not pre_session_failure(completed):
             LOG.warning(
                 "WGS SSH failure is not proven pre-execution; command will not be "
                 "replayed. Checking the registered generation's terminal evidence."
@@ -456,6 +502,158 @@ def _runner_reply(stdout: str) -> dict[str, Any]:
     return {}
 
 
+_NATIVE_SUBMIT_TASK = {
+    "step1_upload": "input_transfer.start_step1_upload",
+    "step2_master": "submit_step2_master",
+    "step3_monitor": "start_step3_monitor",
+    "step4_publish": "start_step4_publish",
+    "step5_download": "result_transfer.start_step5_download",
+    "step6_materialize": "materialize_step6_results",
+}
+
+
+def _callback_stage(dag_run) -> str | None:
+    return latest_started_stage(dag_run, task_stages={
+        task_id.split(".")[-1]: stage for stage, task_id in _NATIVE_SUBMIT_TASK.items()})
+
+
+def _callback_observation(conf: dict, stage: str | None) -> dict | None:
+    return native_callback_observation(pipeline="wgs", conf=conf, stage=stage,
+        backend_json=_backend_json, native_observe=_native_observe_stage)
+
+
+def _native_ssh_command(*arguments: str) -> list[str]:
+    return [
+        "ssh", "-tt", "-F",
+        os.getenv("WGS_SSH_CONFIG_PATH", "/opt/airflow/ssh/config"),
+        os.getenv("WGS_RUNNER_200_ALIAS", "wgs-node200"),
+        os.getenv("WGS_RUNNER_200_COMMAND", "/home/ctapa/.config/airflow-wgs/forced-command.sh"),
+        *arguments,
+    ]
+
+
+def _native_observe_stage(conf: dict, stage: str, identity: dict) -> dict:
+    if (identity.get("analysis_id") != conf["analysis_id"]
+            or identity.get("attempt") != conf["attempt"]
+            or identity.get("stage") != stage):
+        raise AirflowFailException("native WGS observation identity differs")
+    generation = identity.get("stage_generation", identity.get("generation"))
+    command = _native_ssh_command(
+        "--native-observe", str(conf["analysis_id"]), str(conf["attempt"]), stage,
+        str(identity.get("execution_id")), str(generation), str(identity.get("request_hash")),
+    )
+    ssh_budget = SSHCallBudget.start(120)
+    for attempt in range(1, RUNNER_REQUEST_VISIBILITY_ATTEMPTS + 1):
+        try:
+            completed = run_ssh(command, timeout_seconds=120, budget=ssh_budget)
+        except (OSError, subprocess.SubprocessError) as error:
+            raise BackendTransportUnavailable("native WGS observation transport unavailable") from error
+        if completed.returncode == 0:
+            return _runner_reply(completed.stdout)
+        if not _runner_request_not_yet_visible(completed) or attempt == RUNNER_REQUEST_VISIBILITY_ATTEMPTS:
+            break
+        if ssh_budget.remaining() <= RUNNER_REQUEST_VISIBILITY_DELAY_SECONDS:
+            raise BackendTransportUnavailable("native WGS observation time budget exhausted")
+        time.sleep(RUNNER_REQUEST_VISIBILITY_DELAY_SECONDS)
+    if completed.returncode == 255:
+        raise BackendTransportUnavailable("native WGS observation transport unavailable")
+    raise AirflowFailException("native WGS observation rejected the registered identity")
+
+
+def _native_dispatch_stage(conf: dict, stage: str, identity: dict) -> dict:
+    if (identity.get("analysis_id") != conf["analysis_id"]
+            or identity.get("attempt") != conf["attempt"]
+            or identity.get("stage") != stage):
+        raise AirflowFailException("native WGS dispatch identity differs")
+    command = _native_ssh_command(
+        "--native-submit", str(conf["analysis_id"]), str(conf["attempt"]), stage,
+        str(identity["execution_id"]), str(identity["stage_generation"]),
+        str(identity["request_hash"]),
+    )
+    try:
+        completed = run_ssh(command, timeout_seconds=120)
+    except (OSError, subprocess.SubprocessError) as error:
+        raise DispatchUncertain("native WGS dispatch outcome requires exact observation") from error
+    if completed.returncode:
+        raise DispatchUncertain("native WGS dispatch outcome requires exact observation")
+    result = _runner_reply(completed.stdout)
+    if result.get("schema") != "cce.stage-execution.snapshot.v1":
+        raise DispatchUncertain("native WGS dispatch reply lacks a full snapshot")
+    return result
+
+
+def _native_submitted_snapshot(stage: str, context: dict) -> dict | None:
+    task = _NATIVE_SUBMIT_TASK.get(stage)
+    ti = context.get("ti") or context.get("task_instance")
+    if task is None or ti is None:
+        return None
+    value = ti.xcom_pull(task_ids=task)
+    if isinstance(value, dict) and value.get("schema") == "cce.stage-execution.snapshot.v1":
+        return value
+    if isinstance(value, dict) and ("execution_ref" in value or "schema" in value):
+        raise AirflowFailException("WGS submit XCom contains an invalid native snapshot")
+    return None
+
+
+def _status_matches_native_ref(payload: dict, ref: dict) -> bool:
+    return (
+        payload.get("stage_execution") == {"protocol": "cce.stage-execution.v1"}
+        and ref.get("pipeline") == "wgs"
+        and payload.get("analysis_id") == ref.get("analysis_id")
+        and payload.get("attempt") == ref.get("attempt")
+        and payload.get("stage") == ref.get("stage")
+        and payload.get("execution_id") == ref.get("execution_id")
+        and payload.get("generation") == ref.get("stage_generation")
+        and payload.get("request_hash") == ref.get("request_hash")
+    )
+
+
+def _step6_finalization_observation(conf: dict, context: dict) -> dict | None:
+    """Read the current Step6 native terminal even when this DagRun reused Step6."""
+    stage = "step6_materialize"
+    query = urlencode({"attempt": conf["attempt"], "stage": stage})
+    status = _stage_query_json(
+        f"/api/internal/wgs/runs/{conf['analysis_id']}/stage-status?{query}"
+    )
+    if status is None:
+        raise AirflowFailException("Step6 status is unavailable for finalization")
+    submitted = _native_submitted_snapshot(stage, context)
+    marker = status.get("stage_execution")
+    if marker is None:
+        if submitted is not None:
+            raise AirflowFailException("Step6 native registration is unavailable")
+        return None
+    if marker != {"protocol": "cce.stage-execution.v1"}:
+        raise AirflowFailException("Step6 native registration differs")
+    if status.get("ready") is not True or status.get("failed") is True:
+        raise AirflowFailException("Step6 business receipt is not ready")
+    identity = {
+        "analysis_id": conf["analysis_id"],
+        "attempt": conf["attempt"],
+        "stage": stage,
+        "execution_id": status.get("execution_id"),
+        "stage_generation": status.get("generation"),
+        "request_hash": status.get("request_hash"),
+    }
+    if submitted is None:
+        observed = _native_observe_stage(conf, stage, identity)
+        ref = observed.get("execution_ref") if isinstance(observed, dict) else None
+        if not isinstance(ref, dict) or not _status_matches_native_ref(status, ref):
+            raise AirflowFailException("Step6 native terminal identity differs")
+        terminal = observe_stage(execution_ref=ref, observe=lambda _ref: observed)
+    else:
+        ref = submitted.get("execution_ref")
+        if not isinstance(ref, dict) or not _status_matches_native_ref(status, ref):
+            raise AirflowFailException("Step6 submitted identity differs from current receipt")
+        terminal = observe_stage(
+            execution_ref=ref,
+            observe=lambda exact: _native_observe_stage(conf, stage, exact),
+        )
+    if terminal["state"] != "succeeded":
+        raise AirflowFailException("Step6 native terminal is not successful")
+    return terminal
+
+
 def stage_ready(stage: str, **context: Any) -> bool:
     conf = dict(context["dag_run"].conf or {})
     if not stage_should_run(stage, conf):
@@ -470,21 +668,89 @@ def stage_ready(stage: str, **context: Any) -> bool:
     if payload is None:
         return False
     policy = dict(dict(conf.get('params') or {}).get('cce_recovery_policy') or {})
+    recovery_policy_enabled = policy.get('enabled') is True and policy.get('attempt') == conf['attempt']
     if runner_stage == 'step4_publish' and policy.get('enabled') is True and policy.get('attempt') == conf['attempt']:
         from cce_publish_dispatch import poll_publish
         recovery = poll_publish(_stage_query_json,pipeline='wgs',conf=conf,dag_run_id=context['dag_run'].run_id)
         if recovery.get('status') != 'success':
             return False
-    if runner_stage == 'step3_monitor' and policy.get('enabled') is True and policy.get('attempt') == conf['attempt']:
+    preobserved = None
+    if runner_stage == 'step3_monitor' and recovery_policy_enabled:
+        # The recovery poll must see this invocation's exact native observation
+        # before it can treat a queued compute action as terminal. A failed
+        # sidecar or lost submit XCom alone is not that evidence.
+        marker = payload.get('stage_execution')
+        if marker is not None:
+            if marker != {'protocol': 'cce.stage-execution.v1'}:
+                raise AirflowFailException('WGS sensor stage execution marker is invalid')
+            try:
+                preobserved = _native_observe_stage(conf, runner_stage, payload)
+            except BackendTransportUnavailable:
+                return False
+            ref = preobserved.get('execution_ref') if isinstance(preobserved, dict) else None
+            if not isinstance(ref, dict) or not _status_matches_native_ref(payload, ref):
+                raise AirflowFailException('WGS recovery native execution identity differs')
+            preobserved = observe_stage(execution_ref=ref, observe=lambda _exact: preobserved)
         # Also reconcile after a lost response: the latest monitor may already
         # belong to the replacement, not to this sensor's DagRun.
         from cce_worker_wait import poll_recovery
         recovery = poll_recovery(_stage_query_json,pipeline='wgs',conf=conf,
-            dag_run_id=context['dag_run'].run_id)
+            dag_run_id=context['dag_run'].run_id,
+            native_stage_observation=preobserved)
         if recovery.get('status') in {'waiting', 'uncertain'}:
             return False
         if recovery.get('status') in {'delegated', 'superseded'}:
             raise AirflowSkipException('Compute recovery delegated to the current DagRun')
+    current = None
+    submitted = _native_submitted_snapshot(runner_stage, context)
+    fresh_without_xcom = preobserved
+    marker = payload.get("stage_execution")
+    if submitted is None and marker is not None:
+        if marker != {"protocol": "cce.stage-execution.v1"} or runner_stage not in RECOVERY_STAGES:
+            raise AirflowFailException("WGS sensor stage execution marker is invalid")
+        if fresh_without_xcom is not None:
+            submitted = fresh_without_xcom
+        elif payload.get("ready") is True or payload.get("failed") is True:
+            identity = {
+                "analysis_id": conf["analysis_id"], "attempt": conf["attempt"],
+                "stage": runner_stage, "execution_id": payload.get("execution_id"),
+                "stage_generation": payload.get("generation"),
+                "request_hash": payload.get("request_hash"),
+            }
+            try:
+                fresh_without_xcom = _native_observe_stage(conf, runner_stage, identity)
+            except BackendTransportUnavailable:
+                return False
+            ref = (fresh_without_xcom.get("execution_ref")
+                   if isinstance(fresh_without_xcom, dict) else None)
+            if not isinstance(ref, dict) or not _status_matches_native_ref(payload, ref):
+                raise AirflowFailException("WGS sensor native execution identity differs")
+            submitted = fresh_without_xcom
+    if submitted is not None:
+        ref = submitted["execution_ref"]
+        if (ref.get("pipeline") != "wgs" or ref.get("analysis_id") != conf["analysis_id"]
+                or ref.get("attempt") != conf["attempt"] or ref.get("stage") != runner_stage):
+            raise AirflowFailException("WGS sensor native execution identity differs")
+        try:
+            current = observe_stage(
+                execution_ref=ref,
+                observe=lambda exact: (fresh_without_xcom if fresh_without_xcom is not None
+                                       else _native_observe_stage(conf, runner_stage, exact)),
+            )
+        except BackendTransportUnavailable:
+            return False
+        if current["state"] == "succeeded":
+            if payload.get("failed"):
+                raise AirflowFailException("WGS business failure conflicts with native success")
+            visible = (payload.get("retry_no") == ref["stage_generation"] - 1
+                       and payload.get("ready") is True
+                       and _status_matches_native_ref(payload, ref))
+            payload = {**payload, "ready": visible, "failed": False}
+        elif current["state"] in {"failed", "canceled"}:
+            payload = {**payload, "ready": False, "failed": True,
+                       "message": f"registered WGS stage {runner_stage} ended {current['state']}"}
+        else:
+            return False
     if runner_stage == "step3_monitor" and (
         payload.get("failed") or payload.get("ready")
     ):
@@ -493,7 +759,8 @@ def stage_ready(stage: str, **context: Any) -> bool:
                 f"/api/internal/wgs/runs/{conf['analysis_id']}/observer/deactivate",
                 method="POST",
                 payload={"attempt": conf["attempt"], "dag_run_id": context["dag_run"].run_id,
-                         "resume_action_id": conf.get("resume_action_id")},
+                         "resume_action_id": conf.get("resume_action_id"),
+                         "native_stage_observation": current},
             )
         except Exception as error:
             raise AirflowFailException('Observer deactivation outcome requires reconciliation') from error
@@ -706,18 +973,22 @@ def release_leases(**context: Any) -> dict[str, Any]:
     conf = dict(context["dag_run"].conf or {})
     if not _runtime_enabled():
         return {"released": False, "reason": "runtime adapter disabled"}
+    observation = _callback_observation(conf, _callback_stage(context["dag_run"]))
     released = _backend_json(
         f"/api/internal/wgs/runs/{conf['analysis_id']}/stages/release_leases",
         method="POST",
         payload={"attempt": conf["attempt"], "adapter": "wgs-runtime-200",
-                 "dag_run_id": context["dag_run"].run_id, "resume_action_id": conf.get('resume_action_id')},
+                 "dag_run_id": context["dag_run"].run_id, "resume_action_id": conf.get('resume_action_id'),
+                 "native_stage_observation": observation},
     )
     _raise_if_transfer_lease_retained(stage="release_leases", response=released)
+    observer_observation = _callback_observation(conf, "step3_monitor")
     observer = _backend_json(
         f"/api/internal/wgs/runs/{conf['analysis_id']}/observer/deactivate",
         method="POST",
         payload={"attempt": conf["attempt"], "dag_run_id": context["dag_run"].run_id,
-                 "resume_action_id": conf.get("resume_action_id")},
+                 "resume_action_id": conf.get("resume_action_id"),
+                 "native_stage_observation": observer_observation},
     )
     failed_tasks = _upstream_failure_task_ids(context)
     if failed_tasks:
@@ -776,6 +1047,7 @@ def report_dag_failure(context: dict[str, Any]) -> None:
         failed_task_ids.remove("release_leases")
 
     try:
+        observation = _callback_observation(conf, _callback_stage(dag_run))
         _backend_json(
             f"/api/internal/wgs/runs/{analysis_id}/dag-terminal",
             method="POST",
@@ -785,6 +1057,7 @@ def report_dag_failure(context: dict[str, Any]) -> None:
                 "failed_task_ids": failed_task_ids,
                 "dag_run_id": dag_run.run_id,
                 "resume_action_id": conf.get('resume_action_id'),
+                "native_stage_observation": observation,
             },
         )
     except Exception:

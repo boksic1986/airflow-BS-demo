@@ -13,6 +13,7 @@ from test_cce_recovery_projection import execution, view
 from test_cce_monitor_reconnect import monitor_fixture, native, CONFIG, REAL_QUERY
 from scripts.cce_query_reconnect import QueryReconnectStopped
 import subprocess
+import json
 
 
 def setup_case(run_store, tmp_path, monkeypatch):
@@ -91,3 +92,42 @@ def test_waiting_and_confirmed_observation_project_without_new_compute(run_store
     with run_store() as s:
         run = s.scalar(select(AnalysisRun))
         assert run.status == 'running' and view(s, run) is None
+
+
+def test_query_control_advances_without_refreshing_old_rule_observation(run_store, tmp_path, monkeypatch):
+    from app.models import RunStageState, WgsStageExecution, PipelineStageExecution
+    from app.cce_monitor_observation import query_unconfirmed
+    from test_cce_monitor_reconnect import confirmed_monitor_result
+    case, pipeline, ingest = setup_case(run_store, tmp_path, monkeypatch)
+    binding_path = case.root.parent / 'runs' / case.payload['analysis_id'] / 'attempt-1' / 'batch-binding.json'
+    binding_path.parent.mkdir(parents=True, exist_ok=True)
+    binding_path.write_text(json.dumps({'schema_version': 'wgs-runtime.batch-binding.v2',
+        'analysis_id': case.payload['analysis_id'], 'attempt': 1,
+        'master_job': 'cce-master-synthetic', 'namespace': 'synthetic'}))
+    case.write('running', master={'master_state': 'RUNNING', 'completed': 6, 'total': 333, 'percent': 1.8},
+        master_job='cce-master-synthetic', namespace='synthetic', run_label='cce-run-aaaaaaaaaaaaaaaa',
+        completed_units=6, total_units=333, progress_percent=1, unit='rules')
+    ingest()
+    with run_store() as s:
+        measured = s.scalar(select(RunStageState))
+        old_business_time = measured.updated_at
+        assert measured.completed_units == 6 and measured.total_units == 333
+    owner = case.owner()
+    owner.sleep = lambda seconds: (_ for _ in ()).throw(SystemExit('interrupt before reserved retry'))
+    with pytest.raises(SystemExit):
+        owner.run(lambda timeout: (_ for _ in ()).throw(native.RecoveryQueryError('TRANSPORT')))
+    ingest()
+    model = WgsStageExecution if pipeline == 'wgs' else PipelineStageExecution
+    with run_store() as s:
+        assert query_unconfirmed(s.scalar(select(model)))
+        measured = s.scalar(select(RunStageState))
+        assert measured.updated_at == old_business_time
+        assert measured.completed_units == 6  # Retained progress is not a new measurement.
+    confirmed_monitor_result(case, monkeypatch, {'master_state': 'RUNNING', 'completed': 7,
+        'total': 333, 'percent': 2.1, 'current_rule': 'synthetic-rule', 'message': 'workflow running'})
+    ingest()
+    with run_store() as s:
+        assert not query_unconfirmed(s.scalar(select(model)))
+        measured = s.scalar(select(RunStageState))
+        assert measured.completed_units == 7 and measured.total_units == 333
+        assert measured.updated_at > old_business_time

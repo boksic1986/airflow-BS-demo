@@ -2,6 +2,12 @@
 
 本文件是 airflow-demo 仓库的 Codex/agent 项目指令。任何 agent 在执行任务前必须先阅读本文件、`docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md`、`CURRENT_STATE.md`、`TASKS.md`、相关 `docs/` 文档和最近的 `HANDOFF.md`。
 
+跨仓库状态与建议优先级以 [`docs/36_CROSS_REPO_DEVELOPMENT_BACKLOG.md`](docs/36_CROSS_REPO_DEVELOPMENT_BACKLOG.md) 为导航；角色和线程路由见 [`docs/15_MULTI_AGENT_BOUNDARIES.md`](docs/15_MULTI_AGENT_BOUNDARIES.md)。两者不是代码/部署授权，源仓库、当前环境边界和当次用户指令优先。
+
+## 本轮文档治理入口
+
+本轮 backlog/status 文档的规范工作区为 `C:\Users\11217\.codex\worktrees\gov-backlog-20261002\airflow-demo`；索引、角色路由及 planning/handoff skill 更新均以该 worktree 为准。此 D: 工作区存在其他历史 ops 分支及 dirty 文件，不代表当前主线；不得续做旧 2026-09-28 镜像/清理任务。始终以最新人类任务和明确授权为准。
+
 ## 1. 项目目标
 
 构建一个可在华为云和服务器本地部署的 NGS 在线分析平台。平台核心通过 Pipeline Registry 与 adapter 接入流程，生产范围为 WGS 与经独立门禁启用的手动 GATK；实际部署状态以环境边界和最新发布记录为准。主要能力包括：
@@ -92,6 +98,8 @@ agent 不得执行以下操作，除非用户明确授权且已在 `HANDOFF.md` 
 7. 运行与改动匹配的最小测试。
 8. 更新 `CURRENT_STATE.md`、`TASKS.md`、`HANDOFF.md`。
 
+遇到新会话、压缩摘要或交接时，先重新核对这三份状态文件和最近 handoff 的最新条目，再确认当前任务 ID、环境、分支、HEAD、dirty state、唯一 owner、授权、运行身份及未完成门槛；不得把历史记录的成功/失败动作重放。状态文档里的时间快照不能替代实时运行或部署读数。
+
 推荐分支命名：
 
 ```text
@@ -137,6 +145,8 @@ Workflow runtime 改动: mock/dry-run、logger/receipt contract test 或受控 c
 - 未运行的命令。
 - 未运行原因。
 - 需要下一位 agent 或用户补充的环境条件。
+
+纯文档/规划任务仅做本地静态检查，不因通用规划流程而自动连接远端或读取运行时数据。若任务要求环境验证，仍须先按 `docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md` 核对具体授权、hostname、control root、release、挂载与门禁；优先级排序或历史任务状态不能代替授权。
 
 ## 8. 命令约定
 

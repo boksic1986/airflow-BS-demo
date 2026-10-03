@@ -3052,6 +3052,92 @@ def test_prepare_stage_status_records_contract_v2_success_receipt(
         assert len(execution.receipt_hash) == 64
 
 
+@pytest.mark.parametrize("new_step4_generation,downstream_status", [
+    (False, "running"), (False, "canceled"), (True, "running"),
+])
+def test_step4_receipt_does_not_regress_newer_downstream_execution(
+    tmp_path: Path, new_step4_generation: bool, downstream_status: str,
+) -> None:
+    sessions = make_sessionmaker()
+    analysis_id = "WGS_SYNTHETIC_STAGE_ORDER"
+    request_root = tmp_path / "runtime" / "runner-requests"
+    status_path = request_root / analysis_id / "attempt-1" / "step4_publish.status.json"
+    status_path.parent.mkdir(parents=True)
+    with sessions.begin() as session:
+        session.add(AnalysisRun(
+            analysis_id=analysis_id, pipeline_name="wgs", dag_id="bio_wgs",
+            execution_mode="cce", attempt=1, workdir=str(tmp_path),
+            status=downstream_status, current_stage="step5_download",
+            params_json={"orchestration_contract_version": 2},
+        ))
+        session.flush()
+        session.add(WgsStageExecution(
+            execution_id="step4-original", analysis_id=analysis_id,
+            attempt=1, stage_code="step4_publish", generation=1,
+            status="success", request_hash="a" * 64, release_id=RELEASE_ID,
+        ))
+        session.flush()
+        session.add(WgsStageExecution(
+            execution_id="step5-current", analysis_id=analysis_id,
+            attempt=1, stage_code="step5_download", generation=1,
+            status=downstream_status, request_hash="b" * 64, release_id=RELEASE_ID,
+        ))
+        session.flush()
+        if new_step4_generation:
+            session.add(WgsStageExecution(
+                execution_id="step4-recovery", analysis_id=analysis_id,
+                attempt=1, stage_code="step4_publish", generation=2,
+                status="accepted", request_hash="c" * 64, release_id=RELEASE_ID,
+            ))
+        session.add_all([
+            RunStageState(
+                analysis_id=analysis_id, attempt=1, stage_code="step4_publish",
+                step_number=4, stage_label="Publishing WGS results",
+                stage_status="success", progress_available=False,
+                progress_source="synthetic",
+            ),
+            RunStageState(
+                analysis_id=analysis_id, attempt=1, stage_code="step5_download",
+                step_number=5, stage_label="Downloading WGS results",
+                stage_status=downstream_status, progress_available=False,
+                progress_source="synthetic",
+            ),
+        ])
+
+    status_path.write_text(json.dumps({
+        "schema_version": "wgs-runtime.stage-status.v1",
+        "orchestration_contract_version": 2,
+        "analysis_id": analysis_id, "attempt": 1,
+        "stage": "step4_publish", "status": "success",
+        "updated_at": "2026-09-29T05:00:00Z",
+        "execution_id": "step4-recovery" if new_step4_generation else "step4-original",
+        "generation": 2 if new_step4_generation else 1,
+        "request_hash": ("c" if new_step4_generation else "a") * 64,
+        "retry_no": 1 if new_step4_generation else 0,
+    }), encoding="utf-8")
+
+    result = sync_runtime_stage_artifacts(
+        session_factory=sessions, request_root=request_root,
+        transfer_spool_root=tmp_path / "runtime" / "transfer-progress",
+        analysis_id=analysis_id, attempt=1, stage="step4_publish",
+    )
+
+    assert result == {"files": 1, "events_ingested": 1}
+    with sessions() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        assert run.current_stage == (
+            "step4_publish" if new_step4_generation else "step5_download"
+        )
+        assert run.status == (
+            "publishing" if new_step4_generation else downstream_status
+        )
+        step4 = session.scalar(select(RunStageState).where(
+            RunStageState.analysis_id == analysis_id,
+            RunStageState.stage_code == "step4_publish",
+        ))
+        assert step4.stage_status == "success"
+
+
 def test_step2_stage_status_records_contract_v2_success_receipt(
     tmp_path: Path,
 ) -> None:

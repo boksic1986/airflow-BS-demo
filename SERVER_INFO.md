@@ -1,5 +1,383 @@
 # SERVER_INFO.md
 
+## 2026-10-02 BS10610 Docker image read-only inventory (historical snapshot)
+
+Preserved from governance source e1fe6cd during 2026-10-03 Git integration.
+These are dated inventory readings, not current live checks or deletion authority.
+
+Read-only preflight at 2026-10-02T10:10:49+08:00 confirmed `ssh BS10610`
+reached `server10610` as `chenjc` (uid 6708, docker group); test control root
+exists and `current` resolves to `releases/20260912-opt-4d3d24e6`. Compose
+project is `airflow-wgs`. No BS96 access or Docker mutation occurred.
+
+`docker system df` reported 84 images / 27.39 GB, with 25.43 GB marked
+reclaimable; Build Cache was 10.43 GB (1,514 records), separate from images.
+Ten containers were running and one unrelated, unlabeled container was exited.
+The current backend image `airflow-demo/backend:t235-232154f` (ID
+`8491604ee01d`) is referenced by three running services; Airflow
+`airflow-demo/airflow:bs-control-841eb55` (ID `58195672af68`) by four; current
+frontend `airflow-demo/frontend:main-359df11` (ID `c4225c70fe3e`) by one.
+Keep the lock-bound Node builder, nginx runtime base, Postgres/Redis bases, and
+all non-`airflow-demo/*` pipeline/Master candidates under the existing image
+policy; no build cache, volume, network or unrelated container cleanup is
+authorized by this inventory.
+
+Two unreferenced `airflow-demo/frontend` tags were identified:
+`resume-entry-20260928` (ID `05cf5152f9e8`, logical 63.1 MB, unique 498 kB)
+and `shared-handoff-final-fix` (ID `873625300723`, logical 63.1 MB, unique
+480.8 kB). Their combined unique layer estimate is under 1 MB. They are
+cleanup candidates only, not deleted. The private test rollback manifest
+`candidates/main-359df11-control/rollback.json` names
+`airflow-demo/frontend:panel-1fb971b`, which was absent from the complete
+local `airflow-demo/*` tag inventory. A read-only provenance check of local
+dangling images around the frontend size found only generic nginx-maintainer
+labels, not a verifiable `panel-1fb971b` image ID. Resolve this rollback-pin
+drift and reconfirm the keep set before any image removal; do not infer that
+either candidate is disposable from its age or zero container references.
+
+Commands were inventory-only (`hostname`, `id`, control-root `readlink`,
+`docker ps -a`, running-container mount inspection, `docker image ls`,
+`docker system df[-v]`, and a filtered rollback-tag read). An attempted
+read-only Python JSON-field extraction returned `python: command not found`;
+no file or runtime state changed, and a filtered text read confirmed the
+rollback image tags. No image/container/volume/database/Airflow change was
+made. See the matching current-state and handoff entries for next steps.
+
+
+## 2026-10-02 14:15Z paired temporary96 control route
+
+server96 /data/airflow-WGS: actual worker c92ad8fe4b2b1bc9e197fca8f47da90b59638d6b9266bd97c705758584021342;
+scheduler24301f4b730fa65a42018d3477444ee8bbe356bb613f5b1b0ac68ba082d7e0a4.
+Both WGS/GATK_RUNNER_200_ALIAS=wgs-cce-node96; SSH .96/ctapa/stricttrue.
+Only the two GATKalias env fields changed; image58195672, all otherenv/mount/user/
+command/SSHconfigdf94468a/other service IDs remained. Existing native/shared pair
+andb861 Step2 repair retained. Default policy remains paired200;96 is temporary,
+97 not a fallback.323D3F/a1 Step3wseb7f6 remains its original native944075/bootef1f/
+start4483218750.14:17:53 naturalwaitreschedule and public/AF/native running proved.
+See [actual release and rollback](docs/releases/2026-10-02-common-control-node-bs96.md).
+
+## 2026-10-02 W423 prepare permission correction
+
+PROD current wgs-4.2.3-3f98682-perm2775; r1 raw26b6fb15/canonicalc23869c4,
+correct modes2775/0664/0775. Backenda70599bd/observere5c018a5 consume policybeff4422
+at /data/airflow-WGS/wgs-permissions-20261002-3f98682-control; original fd855934
+code/images/Env and ten unrelated service IDs retained. Gates/options unchanged.
+Original 6C78D5 remains failed; corrected-label new run awaits human approval.
+
+## 2026-10-02 WGS DNAscope panel configuration release
+
+TEST/BS96 catalog select `wgs-4.2.3-3f98682`, source `3f986821…`.
+Original profile `wgs-4.2.3@r1` raw SHA `f0150c60…`, build SHA `051371a9…`.
+AF policy source `fd0a01b591280963e03380ac06df4c991a591d5c`, policy SHA `b5707e9e…`.
+PROD `/data/airflow-WGS/wgs-panel-20261002-3f98682-control/wgs_phases_cc9bde3.json`
+is bound read-only at `/app/app/policies/wgs_phases_cc9bde3.json` in both consumers.
+Backend `0c9914ab…`/observer `2dac00a9…` refreshed; ten other service IDs unchanged.
+Original fd855934 backend and inherited observer code mounts remain; nginx/Airflow unchanged.
+Options stay disabled; execution, scanner, effective-auto and watermark remain unchanged.
+Catalog/release and formal health/index GETs200, unauthenticated API401.
+Native bindings reached node200/t640 and retain old mappings; no analysis or data action.
+Pipeline-only PASS is AF configuration-handoff evidence, not joint execution acceptance.
+Exact TEST paths, hashes, receipts and rollback: [release record](docs/releases/2026-10-02-wgs-dnascope-panel.md).
+## 2026-10-02 STEP7-PERF completed TEST and BS96 release
+
+Product source `fd8559347dc71ddd015e8c3c757d1805d33260f7` was synchronized
+by normal atomic fast-forward to main and `jiucheng/release/production`.
+Both coordinator gates accepted the source/tests and exact deployment packet.
+BS10610/server10610 and BS96/server96 check/apply/read-only acceptance passed.
+Only backend and frontend-nginx were recreated; no original Step7 retry or
+clinical/SFS/OBS deletion occurred.
+
+| Target | Apply UTC | Backend ID | Frontend-nginx ID | Other services |
+| --- | --- | --- | --- | --- |
+| BS10610 | 2026-10-01T17:32:10Z | `8f223ceaca15584a7f79356f054601d711da99ff23e8952b5a0ecfeb56b2d5ef` | `49bbc7078a8c0c3333f74687a86e196c6738b2f7d42120c438ee749cf73f04fc` | 8 IDs unchanged |
+| BS96 | 2026-10-01T17:36:40Z | `ef698b65b3ac07e75653976b1b1b1344acd2bd8d201eebd8eb73fe972dbd8640` | `04811cf1d3bbaffc9cc9dcddb44687f775a3812c2189d3ff49027ffcd075e6e9` | 10 IDs unchanged |
+
+PROD control root is `/data/airflow-WGS/step7-perf-20261002-fd85593-control`;
+TEST root is `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/step7-perf-20261002-fd85593-control`.
+Each binds `merged/backend` read-only to `/app/app` and
+`source/frontend/dist` read-only to `/usr/share/nginx/html`. All110 backend
+hashes match the packet, with nine reviewed increments over the accepted actual
+parent. Inherited Heavy `dd4fb66…`, observer's ten source differences and all
+Airflow/node layers remain preserved. Original image/Env/network/policy/other
+mounts are unchanged. Control `current` links remain
+`releases/20260912-panel-opt-4d3d24e6` on PROD and
+`releases/20260912-opt-4d3d24e6` on TEST; actual binds identify the new services.
+
+PROD packet SHA256 `26ba1e4d0e21b6356c2070e563b8466de26788abaf643037e7df21bbf32275c0`;
+TEST packet `b87597374ff13a5228a45b9781901c778cb230f8f26b1e6118192f832c66a24f`.
+Both formal gateways returned health/index200 with exact built-index bytes;
+unauthenticated API returned401. Catalog remains `wgs-4.2.3-bafd27c`, WGS/GATK
+execution true. TEST scan/auto false and seven runs terminal (4/2/1).
+PROD scan true, auto env true but inherited policy keeps **effective auto false**,
+watermark `2026-09-17T09:34:19.655673+00:00`,27 runs terminal (23/2/2).
+
+Each root retains pinned `backend.rollback.json` and
+`frontend-nginx.rollback.json`. Recovery verifies original source/config hashes,
+apply scope/journal and exact current instance ownership, failing closed on
+missing evidence or a foreign subsequent deployment; rollback was not executed.
+Exact images, original paths and limits are in the
+[completed release record](docs/releases/2026-10-02-step7-run-pages-fix.md).
+Single internal default20 runs GET changed2.278426s→0.166185s; GATK detail
+0.483357s→0.067499s. Warm cache is possible; browser timing/P95 was not measured.
+
+## 2026-10-02 STEP7-20260927C precise read-only observation
+
+At16:05:57Z BS96 backend7aadaf93/frontend4df1/worker e483a853 retained the
+final restored IDs/images/env/mounts. At16:09:14Z node200 verified t640,
+ctapa6801:520 and enabled WGS production gate; runtime.env SHA2567c7d7a1b...,
+forced-command.sh71ff6eac..., common wgs_runtime_gate.pyfd9689cd... .
+Exact original Step7 worker5143/start3078275130 was absent on the same boot.
+Its request held cce.stage-execution.v1 for step7_cleanup, which the installed
+gate rejects before normal execution. No deployment, gate/lock/resource change
+or cloud cleanup ran in this diagnosis. See the
+[Step7 report](docs/diagnostics/2026-10-02-step7-20260927C-readonly.md).
+
+## 2026-10-01 PERF-RUN-PAGES read-only observation
+
+At15:44:37Z BS96/server96 retained actual backend7aadaf93/frontend4df1,
+their final restored images and complete mounts. Current control symlink and
+eleven relevant mounted backend/three frontend dist hashes matched the final
+release record. Auth/WGS/GATK and effective scan remain enabled; inherited
+policy leaves effective auto false with the unchanged activation watermark.
+One15:47:23Z stats snapshot showed backend CPU0.16%/565.4MiB and nginx
+CPU0%/108.8MiB. Existing nginx main access format has no request_time or
+upstream_response_time. This is bounded observation, not a new release or
+an intermittent-resource exclusion. See
+[timing report](docs/diagnostics/2026-10-01-run-pages-readonly.md) for API
+measurements, rejected gateway403 evidence and browser/session limitations.
+
+## 2026-10-01 UNIFIED089 final selected state and gate restoration
+
+BS96 `server96`: PROD current release is `wgs-4.2.3-bafd27c` after the genuine
+14:52:31Z receipt registration and CAS from `wgs-4.2.2-441d5e7`. Catalog
+transaction receipt `gate3-prod-catalog-result.json` SHA256
+`0856802d8308b4002e002a5061ac5553785ee67b5837bd8faa3d125c53fc3c34`;
+catalog-after SHA256
+`35c53a2e396009357fd85cc39ce8b7ce6f9d3347b1aae2fe472eb4564912433c`.
+Six selected services passed 60 exact mounts, 18 Airflow imports with zero
+errors, loaded gates and four external HTTP 200 checks. PROD mount/HTTP receipts
+SHA256 are `c9d26e8824eb9201b674d40f6332a87dcc0dc99087c98297a8735b060930d32f`
+and `7b80cb64422b1ac79ae0b8eb931d054fd76e9a465604b7eae8c2a4818d603689`.
+
+BS96 original backend gates were restored at 14:57:18Z. The final read-only
+closure at 15:05:16Z (`gate4-BS96-final-readback-result.json`, SHA256
+`18ff3d914f5f2f319f8d9489f05f728050fdb4c225ee27e7295a0e3c31ca9f6f`)
+confirmed WGS/GATK execution true, effective scan true, auth true, current423,
+and the original watermark literal `2026-09-17T09:34:19.655673+00:00`. Restored
+env `WGS_AUTO_DISPATCH_ENABLED=true` is constrained by inherited
+`/af05-config/intake.json` policy `auto_dispatch_enabled=false`, so **effective
+auto remains false**. That read-only source is mounted from
+`/data/airflow-WGS/auto-intake-20260917-config/intake.json`, observed SHA256
+`7df771bcae6257893d098d6f29cd4a697f1cec0aa9cd7bb802bb465dbc08194b`;
+project YAML SHA256 is `20cb6f432a6fa9a74b130ae0a230ff34310e6119344d647138cfad44926096d8`.
+Original policy historical bytes were not archived, so this observed hash is
+not a before/after byte comparison. Original source config/policy parser hashes
+were retained; no policy modification, duplicate POST, gate apply replay or
+new analysis was performed. The initial restore checker exited5 because it
+equated env auto and effective auto; the final policy readback accepted the
+original protection without rerunning mutation.
+
+BS10610 `server10610`: TEST original WGS/GATK execution gates restored true at
+14:56:34Z, scan/auto false and watermark empty. Final read-only closure at
+15:04:56Z (`gate4-BS10610-final-readback-result.json`, SHA256
+`d7093fad978a7d93f88c7172eaf10a111f962217d85722c8d0ad7d64be921898`)
+confirmed health200, unchanged service identities and no apply replay/POST.
+Both external gateway `/api/health` checks returned 200. Shared native089,
+four private envs/five wrappers and selected Heavy pairs remain accepted;
+historical WGS422 is frozen for rollback only.
+
+## 2026-10-01 UNIFIED089 PROD selected components; acceptance ongoing (prior Gate3 checkpoint)
+
+BS96 `server96`: the coordinator granted complete PROD GO. The initial
+read-only runs page-size-200 request timed out; a bounded five-run-page refresh
+then covered six pages, 27 runs, 50 transfers and related DAG/TI state with
+nonterminal counts zero. `gate3-prod-activity-v2-result.json` SHA256
+`674720db7330e03d211cd186cff52ab1af3ddb3d09ae8db52d50d5c9004ddeaf`
+records complete coverage, exit0, mutation=false. This was an activity gate,
+not installed gateway acceptance.
+
+Node200 `t640` PROD Heavy has entry SHA `dc5c1d34...`, core
+`554f3edc...`, launcher `5f2a8190...`, all mode0644. New flock PID190070/
+starttime3077813668 and Python PID190480/starttime3077813775 were accepted.
+Payloads at 14:42:24.369308Z and 14:43:30.797281Z were complete; each had
+one actual Lease GET returning25 names, held/used/waiting0, limit25 and idle.
+`gate3-heavy-accept-result.json` SHA256
+`51b871640e54603d2917015357f35e875d7cd541edb341f8438f1e12514db46f`;
+21-file actual index SHA256
+`2c3e826c9c3a951a505fb5a19c2d4e32670ae594da2608e24d72e8c471da232c`.
+Only the old Python received one TERM; flock exited naturally. The finish
+invoker exit1 occurred in the final new-pair check after entry/core selection
+and one original-launcher call. Initial flock establishment is a possible
+cause, but fail-moment rows were not captured. Subsequent read-only matching
+pair/snapshot acceptance passed; no further signal or launcher replay.
+
+PROD gateway selected six reviewed services from 14:46:19 to 14:46:52Z:
+backend `dfca6fe5...`, wgs-run-observer `c21e8c41...`, airflow-api-server
+`5339e3f9...`, airflow-scheduler `a66f8604...`, airflow-worker `e483a853...`,
+frontend-nginx `4df1c67c...`. Infra minimum installed checks remain in
+progress. PROD catalog has not been POSTed; execution/auto gates remain closed
+and final `v2.paired` restoration is pending. The earlier shared089/private
+env/wrapper selection remains in effect. No final release or new analysis is
+claimed. See the [candidate phase record](docs/releases/2026-10-01-unified-native089-candidate.md).
+
+## 2026-10-01 UNIFIED089 TEST accepted; PROD GO granted (prior Gate2 checkpoint)
+
+Native owner installed shared nipttest0.8.9/source1f5/wheelf843 and bootstrap
+on node200 `t640` under its independent GO (installed receipt SHA256
+`1727e1f475d0f1c675fbb4676639ad739c58e7111c78d0989207fd48aeb39c17`).
+AF's node-pair result SHA256
+`2d5164f94b8e0860276858860362294e048a9736c640bf142825f4b00fec62a2`
+records common16/policy plus four private runtime.env and five wrappers selected;
+`rootselect.log` reports four imports, four CLI calls and installed profiles
+passing. Actual four effective node selectors matched the same PVC/PV, 4/4 PASS.
+These selections include **PROD** private WGS/GATK env/wrappers; it is inaccurate
+to call this phase free of production configuration changes. No admission opened.
+
+BS10610 `server10610`: six TEST gateway services selected from the reviewed
+paired variants, backend `backend.v2.paired-frozen.json` and execution/scan/auto
+still false. Six required DAG/module imports in each of three Airflow services,
+zero DAG import errors, API health 200 and loaded auth/gates passed.
+Complete mounts across all six services matched expected source/destination/RW
+contract, including no duplicate destinations. WGS/GATK Rules GET returned200
+with zero rows in the checked historical runs; no real Group replay was claimed.
+Apply/accept/mount receipts SHA256: `8ca5a037...`, `5439a205...`, `30461ce6...`.
+TEST catalog now selects `wgs-4.2.3-bafd27c` after the genuine receipt and CAS;
+the prior current was `wgs-4.2.2-3b1dae5`. Closed readback catalog SHA256 is
+`342d4e073d2ac3d201ad4028016449daf550a7d88e4da5a2dcd9439754b16069`.
+The first transaction's POSTs passed but its final raw-vs-canonical profile SHA
+assertion exited1; a read-only GET closed it without repeated POST. TEST gates
+remain closed.
+
+TEST Heavy only: core SHA256 `554f3edc1c8f3fe656600a2417532087f9f96ec0b1df07b894c63a0823e4cd87`,
+entry `dc5c1d...` and launcher `65991c5...` retained; new flock/Python PIDs
+113056/113067. Complete snapshots at 13:55:05.298335Z and 13:56:24.895783Z
+each used one Lease GET returning25 exact names, held/used/waiting0, limit25
+and idle. The
+first mtime-based checker timed out on a 599/604-second SFS/node clock-source
+offset; payload timestamp and exact hash/Lease checks passed. No PROD Heavy
+process was replaced.
+
+BS96 `server96`: backend remains on old-source `v3.freeze` with execution/auto
+closed, scan true and original watermark literal unchanged. PROD gateway source,
+catalog and Heavy remain prior. Coordinator granted the complete PROD gate GO,
+but active-use preflight has not finished: a read-only page-size-200 runs request
+timed out, health/page 1 passed, and Infra is using smaller pages for the full
+refresh. Page 1 is not an idle certificate. No PROD source/catalog/Heavy
+mutation is claimed. Final bounded acceptance and `v2.paired` gate restoration
+LAST remain pending; neither PROD release completion nor a new analysis is
+claimed. See the
+[Gate2 phase record](docs/releases/2026-10-01-unified-native089-candidate.md).
+
+## 2026-10-01 UNIFIED089 first-gate effective backend state
+
+Only backend admission closure applied, original code/image/mounts retained.
+PROD backend2d117abbc899714c428251a469cda26f2c3c666cb887fdbad62aac74869c0486
+running/health ok at13:17:25Z; executionWGS/GATK/auto=false, scan=true,
+watermark original literal2026-09-17T09:34:19.655673+00:00.
+TEST backend4a0a528cc9b0b5a1369ada69e68e36fafd34f27bc745886af40dba14f5108b2f
+running/health ok at13:18:07Z; executionWGS/GATK=false, scan/auto=false.
+Original109 app files and full mount fields compare equal; other service IDs
+unchanged. Effective Compose for each backend is its final private control/
+backend.v3.freeze.json, with original project name/directory. Its exact old
+rollback remains backend.v2.rollback.json. Native independent install GO issued;
+AF source/node consumers/catalog/collector not selected by this closure.
+
+## 2026-10-01 UNIFIED089 final snapshots and inactive candidates
+
+User selected shared nipttest089, separate TEST/PROD credentials/control roots,
+final WGS423/bafd and GATKr5; this supersedes earlier pending-location/scope
+notes. AF80abdfc(parent0afd) is candidate source, not a deployed source claim.
+Maintenance window CLOSED; no pip, active selector or service/process restart.
+
+BS96/server96/chenjc6708:520 private control:
+`/data/airflow-WGS/unified089-wgs423-0afd253-20261001-control` (2700).
+BS10610/server10610/chenjc6708:520 private control:
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/unified089-wgs423-0afd253-20261001-control` (0700).
+Actual IDs/mounts/images and private original Compose/env/catalog/parent snapshots
+remain there. V2 candidates preserve actual source with minimal merged-parent
+deltas. All IDs were unchanged during staging; config checks did not deploy.
+
+Node200=t640/ctapa6801:520 via NGS jump/key. Common16 files, four envs/five
+wrappers/two private423 prepares and two Heavy wiring candidates are inactive.
+Heavy PID/starttime/flock evidence corrects the earlier narrow six-process probe.
+See [final candidate record](docs/releases/2026-10-01-unified-native089-candidate.md)
+for complete file/hash/backups and required next-window acceptance.
+
+## 2026-10-01 W423 Group TEST preflight and consumer audit
+
+Fresh checks supersede the source-only observation below. BS10610 is
+server10610/chenjc6708:520, current20260912-opt-4d3d24e6 but actual backend/
+Airflow mounts use P0/current discovery overlays; test run/transfer/DagRun/
+TaskInstance active counts0, scanner/auto false. Isolated tests and a temporary
+synthetic browser harness used approved task roots; existing services untouched.
+
+Actual node200 route: NGS jump plus ctapa key to172.17.61.200, hostname t640,
+ctapa6801:520. Production WGS traced import/paired assets are private088;
+GATK frozen delivery has a shared package metadata import through unchanged
+permissions, while its latest prepare uses separate WGSenv088. TEST consumers
+still select shared code; old writer pins and WGS profile/catalog digest drift.
+User choice of proposed TEST private prefix vs requested shared install is
+pending. No package install, selector/service switch or BS96 access occurred.
+Exact observed paths, hashes and pending pairing/rollback:
+[W423 Group audit](docs/releases/2026-10-01-w423-group-test-consumer-audit.md).
+
+## 2026-10-01 W423 source integration only
+
+Fresh remote main and jiucheng/release/production both ce497d61; no runtime
+environment has been accessed or switched by this source integration. Prior
+BS10610/node200 test and BS96 records below are historical observations; a new
+boundary/active-use/consumer/pin preflight is required before test cutover.
+Shared nipttest and test selectors remain pending coordinated installation,
+not safely isolated by the absence of /home/ctapa on BS10610. BS96 scope answer
+is pending; retain existing production frozen artifacts and gates.
+
+## 2026-09-28 BS96 Tracker and GATK waiting display overlays
+
+Coordinator-reported `ssh BS96` target: `server96`, account `chenjc`
+(`6708:520`). Source `a8ae5fe`; effective base `84510df` and existing overlays
+remain. Historical `current` symlink was not moved. New read-only release root:
+`/data/airflow-WGS/releases/20260928-tracker-wait-a8ae5fe`. Private control:
+`/data/airflow-WGS/tracker-wait-a8ae5fe-control`; its `rollback.json` retains
+the prior complete backend/observer Compose configurations, including private
+environment values, and is not copied into Git. Selected backend overlays are
+`gatk_workspace_service.py`, `pipeline_registry_service.py`,
+`diagnostics_service.py`, `wgs_observer.py`; observer receives only the latter
+two. The Step3 `main.py` lock fix was already active and was not overlaid again.
+
+Only backend `0d69172001b2 -> 6718484b355c` and wgs-run-observer
+`442874a2b576 -> 4d27b967e20d` were recreated with `--no-deps --pull never`.
+Both retain image ID prefix `0e2d6f0c`, restart count zero; all other container
+IDs were preserved. Compose config, nginx syntax/reload and LAN port 12959
+`/api/health` passed (200). Scanner enabled=true; auto-dispatch=false.
+Release evidence and rollback scope:
+[2026-09-28 release record](docs/releases/2026-09-28-tracker-wait-bs96.md).
+
+## 2026-09-30 UE-06 BS10610 isolated pairing, no activation
+
+Host server10610, chenjc6708:520, Compose airflow-wgs. Current remains
+releases/20260912-opt-4d3d24e6; backend/WGS mounts e358aad, GATK/common359df11,
+auxiliary DAGs4fe71cb. Existing backend2fd88c26761b and Worker5d7a7d8ba65c,
+schedulerdb2d15475746, API01fe4509273d and all other service IDs are retained in
+AF preflight/native post-install evidence. Scan/auto-dispatch remain false.
+Images remain backend8491604e and Airflow58195672; Worker identity50000:0.
+
+AF source03bab6c isolated candidate:
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/ue06-platform-03bab6c-20260930`.
+Native7172573/0.8.9 isolated install:
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/ue06-native-089-20260930/install/site`.
+No service points to these candidates. Approved nipttest Python3.9.23 remains
+`/sg2/33.chenjiucheng/software/miniforge3/envs/nipttest/bin/python` -> python3.9;
+shared0.8.8/source417de59, dependencies and old bootstrap are byte-identical
+before/after installation. Candidate policy45847251 has bindings[] and both
+code-adjacent bootstraps8e47ad3f select the same exact roots/pins.
+
+Real ordinary/P0/shared-SSH loading evidence accepted by coordinator; stage/cloud
+calls0. AF raw logs live under WGS_test/cce-evidence/ue06-platform-03bab6c-20260930.
+Current rollback preserves existing services/shared pins. Accurate old wheel
+45c99c0c remains readable. Old shared policy points under /home/ctapa, absent
+on BS10610 (ENOENT); old paired loading/actual switch rollback is unverified.
+See latest HANDOFF for exact hashes, commands, first inspection failure and limits.
+
 ## 2026-09-27 paired request validator deployment
 
 BS96 services unchanged. Node200/t640 ctapa private airflow-wgs paired module

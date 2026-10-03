@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import hashlib
 import json
 from pathlib import Path
 
@@ -8,6 +9,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.models import AnalysisRun, Base, RunStageState, WgsStageExecution
+from app.stage_execution_contract import freeze_stage_execution_protocol
 from app.wgs_observer import upsert_stage_state
 from app.wgs_stage_catalog import StageContractError, load_wgs_stage_contract
 from app.wgs_stage_execution_service import (
@@ -31,6 +33,120 @@ def add_run(factory):
 
 def contract_path() -> Path:
     return Path(__file__).parents[2] / "config" / "wgs_stage_contract.yaml"
+
+
+@pytest.mark.parametrize("stage, marked", [
+    ("step1_upload", True),
+    ("step2_master", True),
+    ("step3_monitor", True),
+    ("step4_publish", True),
+    ("step5_download", True),
+    ("step6_materialize", True),
+    ("step7_cleanup", False),
+    ("prepare_analysis", False),
+])
+def test_protocol_scope_freezer_marks_only_step1_to_step6(stage, marked) -> None:
+    request = {"stage": stage, "batch": "synthetic"}
+    expected = dict(request)
+    if marked:
+        expected["stage_execution"] = {"protocol": "cce.stage-execution.v1"}
+
+    freeze_stage_execution_protocol(request)
+
+    assert request == expected
+
+
+@pytest.mark.parametrize("marker", [
+    None,
+    {"protocol": "cce.stage-execution.v0"},
+    {"protocol": "cce.stage-execution.v1"},
+])
+def test_protocol_scope_freezer_rejects_explicit_step7_marker(marker) -> None:
+    request = {"stage": "step7_cleanup", "stage_execution": marker}
+    original = json.dumps(request, sort_keys=True)
+
+    with pytest.raises(ValueError, match="stage execution"):
+        freeze_stage_execution_protocol(request)
+
+    assert json.dumps(request, sort_keys=True) == original
+
+
+@pytest.mark.parametrize("stage, predecessor, marked", [
+    ("step1_upload", "prepare", True),
+    ("step2_master", "step1_upload", True),
+    ("step3_monitor", "step2_master", True),
+    ("step4_publish", "step3_monitor", True),
+    ("step5_download", "step4_publish", True),
+    ("step6_materialize", "step5_download", True),
+    ("step7_cleanup", None, False),
+])
+def test_protocol_scope_wgs_registration_freezes_only_native_stages(
+    stage, predecessor, marked,
+) -> None:
+    factory = sessions()
+    add_run(factory)
+    contract = load_wgs_stage_contract(contract_path())
+    with factory.begin() as session:
+        run = session.scalar(select(AnalysisRun))
+        if predecessor:
+            session.add(WgsStageExecution(
+                execution_id="wse_synthetic_predecessor",
+                analysis_id=run.analysis_id, attempt=1, stage_code=predecessor,
+                generation=1, status="success", request_hash="a" * 64,
+                receipt_hash="b" * 64, release_id="wgs-4.1.1-6c98281",
+            ))
+            session.flush()
+        request = {"stage": stage, "batch": "synthetic"}
+        if stage == "step7_cleanup":
+            request.update(
+                maintenance_action_id="step7-sfs-synthetic",
+                cce_pipeline_version="0.8.8",
+                step7_target_snapshot={"cce_bundle": "/approved/synthetic/frozen-cce"},
+            )
+        expected = dict(request)
+        if marked:
+            expected["stage_execution"] = {"protocol": "cce.stage-execution.v1"}
+
+        execution = register_stage_execution(
+            session=session, run=run, contract=contract,
+            stage_code=stage, request_payload=request,
+        )
+
+        assert request == expected
+        assert execution.request_hash == hashlib.sha256(
+            json.dumps(expected, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        assert execution.generation == 1
+
+
+@pytest.mark.parametrize("stage", ["step1_upload", "step7_cleanup"])
+def test_protocol_scope_wgs_reuses_unmarked_request_without_changing_hash(stage) -> None:
+    factory = sessions()
+    add_run(factory)
+    contract = load_wgs_stage_contract(contract_path())
+    request = {"stage": stage, "batch": "synthetic"}
+    original = json.dumps(request, sort_keys=True, separators=(",", ":")).encode()
+    original_hash = hashlib.sha256(original).hexdigest()
+    with factory.begin() as session:
+        run = session.scalar(select(AnalysisRun))
+        old = WgsStageExecution(
+            execution_id="wse_synthetic_legacy", analysis_id=run.analysis_id,
+            attempt=1, stage_code=stage, generation=1, status="accepted",
+            request_hash=original_hash, release_id="wgs-4.1.1-6c98281",
+        )
+        session.add(old)
+        session.flush()
+
+        execution = register_stage_execution(
+            session=session, run=run, contract=contract,
+            stage_code=stage, request_payload=request,
+        )
+
+        assert execution.execution_id == old.execution_id
+        assert execution.request_hash == original_hash
+        assert execution.generation == 1
+        assert json.dumps(request, sort_keys=True, separators=(",", ":")).encode() == original
+        assert session.scalars(select(WgsStageExecution)).all() == [old]
 
 
 def test_heavy_slot_waiting_count_uses_only_fresh_waiting_snapshots(tmp_path) -> None:

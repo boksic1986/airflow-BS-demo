@@ -1,5 +1,20 @@
 # QC, logging, and reporting
 
+## WGS 4.2.3 QC continuation (2026-09-30; planned)
+
+[W423 section5](superpowers/specs/2026-09-30-wgs423-upgrade-integration-design.md)
+continues [QC2](2026-09-18-wgs-qc-two-source-contract.md), not a replacement QC
+implementation. Preserve existing columns/units/count supplementation and
+source aggregate status. The 2026-10-03 human decision selects one explicit
+4.2.x family policy, established from actual native scripts/config, instead of
+per-patch/per-commit registration; exact release remains provenance. Do not
+implicitly copy4.1 thresholds or default to pass. Batch QCstat and applicable
+rare-disease multi.QCstat stay separate. Parse one evidence version once and
+reuse projections/list summaries. Missing data, missing policy, inapplicable
+and informational values are distinct. Screenshot441d5e7 is absent from the
+inspected policy registration; production mounts were not verified here.
+No native threshold or GATK QC changes, and no code/test/deployment in this round.
+
 Task6 source checkpoint (2026-09-25): exact Worker CREATE storage RPC failure
 evidence records category WORKER_CREATE_STORAGE_RPC_UNAVAILABLE and fixed
 operation/http_status/status_reason/transient_reason fields documented in docs08.

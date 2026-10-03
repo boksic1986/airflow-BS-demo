@@ -8,13 +8,16 @@ This module neither emits a terminal seal nor authorizes automatic recovery.
 """
 import hashlib
 import json
+import math
 import re
+import time
+from dataclasses import dataclass
 from pathlib import Path
 
 if __package__:
-    from .cce_recovery_workloads import DNS, UID, probe_bound_workloads, probe_final_workloads
+    from .cce_recovery_workloads import DNS, UID, probe_bound_workloads, probe_final_workloads, probe_initial_workloads
 else:
-    from cce_recovery_workloads import DNS, UID, probe_bound_workloads, probe_final_workloads
+    from cce_recovery_workloads import DNS, UID, probe_bound_workloads, probe_final_workloads, probe_initial_workloads
 
 
 IDENTITY = ("pipeline", "analysis_id", "attempt", "execution_id", "generation",
@@ -278,11 +281,14 @@ def probe_submission_inventory(*, runtime, config, master_job, expected_context,
                                journal_bytes, checkpoint_bytes, candidate_bytes,
                                manifest_bytes, timeout_seconds=120):
     """Reconcile all validated intents, never a caller-chosen subset of Workers."""
+    from cce_pipeline.master_job import run_label as native_run_label
     inventory = validate_submission_inventory(expected_context=expected_context,
         journal_bytes=journal_bytes, checkpoint_bytes=checkpoint_bytes,
         candidate_bytes=candidate_bytes, manifest_bytes=manifest_bytes)
     observation = probe_bound_workloads(runtime=runtime, config=config,
-        namespace=expected_context["namespace"], master_job=master_job,
+        namespace=expected_context["namespace"],
+        run_label=native_run_label(expected_context["run_id"]),
+        master_job=master_job,
         master_job_uid=expected_context["master_job_uid"], master_pod_uid=expected_context["master_pod_uid"],
         workers=inventory["workers"], timeout_seconds=timeout_seconds)
     return dict(inventory=inventory, observation=observation)
@@ -339,29 +345,60 @@ def master_receipt_fields(payload, *, pipeline, details):
     return fields
 
 
+@dataclass(frozen=True)
+class InitialAbortAncestor:
+    """An authenticated child journal's digest reference, never compute FINAL."""
+    bundle: Path
+    initial_abort_sha256: str
+
+
 def lineage_workers(runtime, contract, bundle, value, ancestors=()):
-    """Reconcile retained historical Workers from sealed native generations.
+    """Reconcile retained Workers from final generations or bound initial aborts.
 
     Current journals remain generation-local. Historical bindings supplement
     full live inventory checks; they never excuse an unknown or active workload.
+    An initial-abort reference requires native revalidation and the authenticated
+    child journal's exact digest. It contributes no Workers or compute FINAL.
     """
     frozen=runtime._handoff_binding(bundle,contract)
     workers=validate_final_submission_snapshot(value['snapshot'])
     combined={w['name']:w for w in workers}
     previous=frozen['execution_generation']
-    for ancestor in ancestors:
-        ancestor=Path(ancestor)
+    for source in ancestors:
+        initial=isinstance(source,InitialAbortAncestor)
+        ancestor=Path(source.bundle if initial else source)
         _require(ancestor.is_absolute() and ancestor.resolve(strict=True)==ancestor)
         bound=runtime._handoff_binding(ancestor,contract)
         _require(bound['execution_generation']<previous
             and all(bound[k]==frozen[k] for k in ('attempt','files_sha256','config_sha256')))
         record=runtime._read_master_handoff(ancestor,contract)
         _require(record and all(record.get(k)==v for k,v in bound.items()))
-        historical=runtime._recovery_final_evidence(ancestor,contract,record['job_uid'])
-        _require(historical['snapshot']['canonical_directory']==value['snapshot']['canonical_directory'])
-        for worker in validate_final_submission_snapshot(historical['snapshot']):
-            _require(worker['name'] not in combined or combined[worker['name']]==worker)
-            combined[worker['name']]=worker
+        if initial:
+            path=runtime._master_handoff_path(ancestor,contract).with_name('INITIAL_SUBMISSION_ABORT.json')
+            _require(path.is_absolute() and not path.is_symlink() and path.is_file())
+            raw=path.read_bytes()
+            _require(len(raw)<=LIMIT)
+            abort=_json(raw)
+            actual=runtime._validate_initial_submission_abort(abort)
+            encoded=runtime._recovery_encoded(actual)
+            _require(actual==abort and raw==encoded
+                and actual.get('schema')=='cce-pipeline.initial-submission-abort.v1'
+                and actual['bundle']==str(ancestor) and actual['binding']==bound
+                and actual['job_uid']==record['job_uid']
+                and actual['job_name']==record['job_name']==contract['kubernetes']['master_job']
+                and actual['run_id']==record['run_id']==contract['identity']['run_id']
+                and record.get('state')=='JOB_CREATED' and not record.get('pod_uid')
+                and actual['pending_owner']==dict(generation=bound['execution_generation'],
+                    action=bound['recovery_context']['action'],master_uid='')
+                and isinstance(source.initial_abort_sha256,str)
+                and re.fullmatch(r'[a-f0-9]{64}',source.initial_abort_sha256) is not None
+                and hashlib.sha256(encoded).hexdigest()==source.initial_abort_sha256)
+        else:
+            historical=runtime._recovery_final_evidence(ancestor,contract,record['job_uid'])
+            _require(historical['snapshot']['canonical_directory']==value['snapshot']['canonical_directory'])
+            for worker in validate_final_submission_snapshot(historical['snapshot']):
+                _require(worker['name'] not in combined or combined[worker['name']]==worker)
+                combined[worker['name']]=worker
         previous=bound['execution_generation']
     return list(combined.values())
 
@@ -373,16 +410,19 @@ class RecoveryCapability:
     callbacks. This consumer independently verifies native bytes and live work;
     callbacks cannot assert Worker finality in place of those checks.
     """
-    def __init__(self, *, bundle, expected_job_uid, context, authorize, verify_lock, platform_execution=None, origin_bundle=None, history_bundles=(), compute_deadline=None):
+    initial_abort = None
+
+    def __init__(self, *, bundle, expected_job_uid, context, authorize, verify_lock, platform_execution=None, origin_bundle=None, history_bundles=(), compute_deadline=None, initial_abort=None):
         _require(callable(authorize) and callable(verify_lock) and _text(expected_job_uid,UID))
         self.bundle=Path(bundle)
         _require(self.bundle.is_absolute() and self.bundle.resolve(strict=True)==self.bundle)
         self.origin_bundle=Path(origin_bundle) if origin_bundle is not None else self.bundle
-        self.history_bundles=tuple(Path(p) for p in history_bundles)
+        self.history_bundles=tuple(p if isinstance(p,InitialAbortAncestor) else Path(p) for p in history_bundles)
         self.expected_job_uid=expected_job_uid
         self.context=_json(json.dumps(context))
         self.platform_execution=_json(json.dumps(platform_execution)) if platform_execution is not None else None
         self.compute_deadline=compute_deadline
+        self.initial_abort=_json(json.dumps(initial_abort)) if initial_abort is not None else None
         self.authorize=authorize
         self.verify_lock=verify_lock
         self._scope=None
@@ -440,37 +480,104 @@ class RecoveryCapability:
         return VerifiedMasterResult(result, exported, self.platform_execution)
 
     def _authorized(self):
-        value=self.runtime._recovery_final_evidence(self.bundle,self.contract,self.expected_job_uid)
-        terminal=value['terminal']
-        _require(terminal['recovery_context']['pipeline']==self.context['pipeline']
-                 and terminal['recovery_context']['analysis_id']==self.context['analysis_id']
-                 and terminal['execution_generation']+1==self.context['generation'])
+        if self.initial_abort is not None:
+            abort=self.runtime._initial_submission_abort_evidence(self.bundle,self.contract,
+                submission_journal=self.initial_abort['submission_journal'],
+                dispatch_proof=self.initial_abort['dispatch_proof'])
+            _require(abort==self.initial_abort
+                and abort.get('schema')=='cce-pipeline.initial-submission-abort.v1'
+                and abort['bundle']==str(self.bundle) and abort['binding']==self.original
+                and abort['job_uid']==self.expected_job_uid
+                and abort['run_id']==self.contract['identity']['run_id']
+                and abort['job_name']==self.contract['kubernetes']['master_job']
+                and not self.history_bundles)
+            value={'initial_abort':abort}
+            bound=abort['binding']
+            native_directory=self.contract['paths']['run_dir']
+            run_id=abort['run_id']
+        else:
+            value=self.runtime._recovery_final_evidence(self.bundle,self.contract,self.expected_job_uid)
+            bound=value['terminal']
+            native_directory=value['snapshot']['canonical_directory']
+            run_id=bound['run_id']
+        _require(bound['recovery_context']['pipeline']==self.context['pipeline']
+                 and bound['recovery_context']['analysis_id']==self.context['analysis_id']
+                 and bound['execution_generation']+1==self.context['generation'])
         facts={'context':dict(self.context),'old_job_uid':self.expected_job_uid,
-            'old_request_hash':terminal['request_hash'],'config_digest':terminal['config_sha256'],
-            'native_directory':value['snapshot']['canonical_directory'],'run_id':terminal['run_id']}
+            'old_request_hash':bound['request_hash'],'config_digest':bound['config_sha256'],
+            'native_directory':native_directory,'run_id':run_id}
         proof=self.authorize(facts)
         _require(isinstance(proof,dict) and type(proof.get('writers_protocol')) is int and proof['writers_protocol']==2
                  and proof.get('dispatcher_inactive') is True
                  and proof.get('native_directory')==facts['native_directory']
-                 and (terminal['state']=='SUCCEEDED' or proof.get('recovery_allowed') is True))
+                 and ((self.initial_abort is None and bound['state']=='SUCCEEDED')
+                      or proof.get('recovery_allowed') is True))
         scope={k:proof.get(k) for k in ('native_directory','canonical_directory','writers_protocol')}
         _require(self._scope is None or self._scope==scope)
         context={'writers_protocol':2,'canonical_directory':scope['canonical_directory'],
             'pipeline':self.context['pipeline'],'analysis_id':self.context['analysis_id'],
-            'attempt':str(terminal['attempt']),'run_id':terminal['run_id'],
-            'config_digest':terminal['config_sha256'],'generation':self.context['generation'],
+            'attempt':str(bound['attempt']),'run_id':run_id,
+            'config_digest':bound['config_sha256'],'generation':self.context['generation'],
             'action':self.context['action'],'master_uid':''}
         self.runtime._directory_lock_identity(self.contract,context)  # Validates canonical storage form.
         self._scope,self._lock_context=scope,context
         return value
 
-    def inspect(self):
+    def inspect(self, *, journal=None, destination=None):
         value=self._authorized()
-        workers=lineage_workers(self.runtime,self.contract,self.bundle,value,self.history_bundles)
-        observation=probe_final_workloads(runtime=self.runtime,config=self.config,
+        replacement=None
+        if self.initial_abort is not None and journal is not None:
+            _require(isinstance(journal,dict))
+            if journal.get('recovery_state') in {'submitting','created'}:
+                _require(destination is not None)
+                selected=Path(destination)
+                _require(selected.is_absolute() and selected.is_dir()
+                    and selected.resolve(strict=True)==selected)
+                expected={'expected_job_uid':self.expected_job_uid,'context':self.context,
+                    'original':self.original,'view':str(selected),'recovery_kind':'initial_abort',
+                    'initial_abort_sha256':hashlib.sha256(
+                        self.runtime._recovery_encoded(value['initial_abort'])).hexdigest()}
+                if self.platform_execution is not None:
+                    expected['platform_execution']=self.platform_execution
+                if self.compute_deadline is not None:
+                    expected['compute_deadline']=self.compute_deadline
+                _require(journal.get('recovery_v2')==expected)
+                # An existing canonical directory forces the native helper's
+                # read-only marker/input validation path, never view creation.
+                _require(self.runtime._prepare_recovery_view(self.bundle,selected,self.contract,
+                    context=self.context,platform_execution=self.platform_execution)==selected)
+                binding=self.runtime._handoff_binding(selected,self.contract)
+                _require(all(binding.get(k)==self.original[k]
+                    for k in ('attempt','files_sha256','config_sha256'))
+                    and binding.get('execution_generation')==self.context['generation']
+                    and binding.get('recovery_context')==self.context
+                    and binding.get('platform_execution')==self.platform_execution)
+                replacement=self.runtime._recovery_query(self.config,'job',
+                    self.contract['kubernetes']['master_job'])
+                metadata=(replacement or {}).get('metadata',{})
+                uid=metadata.get('uid')
+                _require(_text(uid,UID) and uid!=self.expected_job_uid
+                    and metadata.get('namespace')==self.contract['kubernetes']['namespace']
+                    and self.runtime._master_create_job_matches(selected,self.contract,replacement)
+                    and journal.get('replacement_uid') in {None,uid}
+                    and (journal['recovery_state']!='created' or journal.get('replacement_uid')==uid))
+        remaining=(self.compute_deadline-time.time()
+                   if self.compute_deadline is not None else None)
+        if remaining is not None:
+            _require(type(self.compute_deadline) in {int,float}
+                     and math.isfinite(self.compute_deadline) and remaining > 0)
+        query=dict(runtime=self.runtime,config=self.config,
             namespace=self.contract['kubernetes']['namespace'],run_label=self.run_label,
             master_job=self.contract['kubernetes']['master_job'],master_job_uid=self.expected_job_uid,
-            master_state=value['terminal']['state'],workers=workers)
+            timeout_seconds=min(120,max(1,math.ceil(remaining))) if remaining is not None else 120)
+        if self.initial_abort is not None:
+            observation=probe_initial_workloads(**query,
+                **({'replacement_job':replacement} if replacement is not None else {}))
+        else:
+            workers=lineage_workers(self.runtime,self.contract,self.bundle,value,self.history_bundles)
+            observation=probe_final_workloads(**query,master_state=value['terminal']['state'],workers=workers)
+        if self.compute_deadline is not None:
+            _require(time.time() < self.compute_deadline)
         return {**value,'observation':observation}
 
     def lock_context(self,master_uid=''):
@@ -481,8 +588,12 @@ class RecoveryCapability:
         def proof(current,operation):
             # Native CAS invokes this immediately before changing an existing owner.
             value=self._authorized() if master_uid else self.inspect()
+            evidence_sha256=(hashlib.sha256(self.runtime._recovery_encoded(value['initial_abort'])).hexdigest()
+                if self.initial_abort is not None else value['terminal']['submission_snapshot_sha256'])
             mapped=self.verify_lock(current,operation,{'context':dict(self.context),
-                'terminal':value['terminal'],'lock_context':self.lock_context(master_uid)})
+                **({'initial_abort':value['initial_abort']} if self.initial_abort is not None
+                   else {'terminal':value['terminal']}),
+                'lock_context':self.lock_context(master_uid)})
             _require(isinstance(mapped,dict))
             if master_uid:
                 job=self.runtime._recovery_query(self.config,'job',self.contract['kubernetes']['master_job'])
@@ -494,12 +605,18 @@ class RecoveryCapability:
                          and annotations.get('cce-pipeline/execution-generation')==str(self.context['generation']))
                 states={c.get('type') for c in job.get('status',{}).get('conditions',[]) if c.get('status')=='True'}
                 _require(len(states & {'Complete','Failed'})<=1)
+                if self.initial_abort is not None:
+                    _require(not states & {'Complete','Failed'})
                 return {**mapped,'bound_master_uid':master_uid,
                     'master_state':'FAILED' if 'Failed' in states else 'SUCCEEDED' if 'Complete' in states else 'ACTIVE',
-                    'evidence_sha256':value['terminal']['submission_snapshot_sha256']}
+                    'evidence_sha256':evidence_sha256}
+            if self.initial_abort is not None:
+                return {**mapped,'inventory_complete':True,'workers_inactive':True,'dispatcher_inactive':True,
+                    'master_state':'INITIAL_ABORTED','recovery_allowed':True,
+                    'initial_abort':value['initial_abort'],'evidence_sha256':evidence_sha256}
             return {**mapped,'inventory_complete':True,'workers_inactive':True,'dispatcher_inactive':True,
                 'master_state':value['terminal']['state'],'recovery_allowed':value['terminal']['state']=='FAILED',
-                'evidence_sha256':value['terminal']['submission_snapshot_sha256']}
+                'evidence_sha256':evidence_sha256}
         if master_uid:self._authorized()
         else:self.inspect()
         self.runtime._claim_batch_lock(self.contract,self.config,lock_context=self.lock_context(master_uid),

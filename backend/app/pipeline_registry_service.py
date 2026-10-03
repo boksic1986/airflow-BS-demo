@@ -127,7 +127,7 @@ def _project_gatk_samples(*, session, run, **_) -> dict[str, Any]:
 
 def _project_gatk_run_detail(*, run, session, settings, **_) -> dict[str, Any]:
     from app.gatk_step7_service import capability
-    cleanup = capability(session=session, settings=settings, run=run)
+    cleanup = capability(session=session, settings=settings, run=run, verify_frozen=False)
     action = cleanup.get("latest_action") or {}
     params = dict(run.params_json or {})
     return {
@@ -217,12 +217,13 @@ def _project_wgs_samples(*, session, settings, run, include_sample_details=False
     return get_wgs_sample_projection(session=session, settings=settings, run=run, include_sample_details=include_sample_details)
 
 
-def _project_wgs_dashboard_qc_statuses(*, session, settings, runs, **_) -> dict[str, str]:
+def _project_wgs_dashboard_qc_statuses(*, session, settings, runs, samples_by_run=None, **_) -> dict[str, str]:
     return {
         run.analysis_id: get_wgs_batch_qc_status(
             session=session,
             settings=settings,
             run=run,
+            samples=samples_by_run.get(run.analysis_id, []) if samples_by_run is not None else None,
         )
         for run in runs
     }
@@ -339,6 +340,7 @@ def _project_gatk_rule_context(*, run, **_) -> dict[str, Any]:
 
 
 def _project_gatk_progress(*, session, run, payload, **_) -> dict[str, Any]:
+    from app.gatk_workspace_service import project_gatk_transfer_wait
     from app.wgs_stage_estimates import attach_stage_estimates
     stage = gatk_stage_definition(run.current_stage)
     stage_rows = list(
@@ -382,7 +384,10 @@ def _project_gatk_progress(*, session, run, payload, **_) -> dict[str, Any]:
         ),
         "airflow_tasks": [],
     }
-    return attach_stage_estimates(session, run, result)
+    return project_gatk_transfer_wait(
+        session=session, run=run, stage_row=stage_row,
+        payload=attach_stage_estimates(session, run, result),
+    )
 
 
 def _project_wgs_rule_context(*, run, **_) -> dict[str, Any]:

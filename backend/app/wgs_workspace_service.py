@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from sqlalchemy import case, func, select
+from sqlalchemy.orm import load_only
 
 from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunStageState, RunValidationIssue, Sample
 from app.qc_highlights import aggregate_qc_status
@@ -26,12 +27,15 @@ def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_s
         return dict(run=run_payload, summary=dict(sample_count=run_payload.get('sample_count', 0),
             rule_count=0, failed_rule_count=0, batch_qc_status='unknown'), progress=None,
             active_transfer=None, validation_issues=[], slot_usage=None)
-    sample_qc_statuses = list(session.scalars(
-        select(Sample.qc_status).where(Sample.analysis_id == run.analysis_id, selected_clause())
+    samples = list(session.scalars(
+        select(Sample).options(load_only(
+            Sample.analysis_id, Sample.sample_id, Sample.qc_status, Sample.metadata_json,
+        )).where(Sample.analysis_id == run.analysis_id, selected_clause())
     ).all())
-    sample_count = len(sample_qc_statuses)
+    sample_qc_statuses = [sample.qc_status for sample in samples]
+    sample_count = len(samples)
     batch_qc_status = (
-        get_wgs_batch_qc_status(session=session, settings=settings, run=run)
+        get_wgs_batch_qc_status(session=session, settings=settings, run=run, samples=samples)
         if settings is not None
         else aggregate_qc_status(sample_qc_statuses)
     )

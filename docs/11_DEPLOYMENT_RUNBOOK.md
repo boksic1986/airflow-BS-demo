@@ -1,5 +1,215 @@
 # Deployment runbook
 
+## 2026-10-03 scoped split-root/producer deployment and downstream completion
+
+The [scoped release](releases/2026-10-03-dtest1-downstream-twofix.md) records
+actual installation of native guard64438f44, paired415a45be and policy6c8617a3:
+five entries closed at11:12:10Z, three files switched under their original owners,
+pinned loading passed11:13:02Z, and original entries reopened11:13:16Z. Native
+af05, bootstrapb928 and the immutable registrations were retained; no service
+restart was part of this window. The affected combo did not reach full GREEN;
+its evidence and the human instruction stopping further tests remain explicit.
+
+The single normal same-attempt observer then completed Step3 and naturally
+continued Step4–6. The release records final real receipts, PASS native download
+and materialization markers, published results, and consistent Airflow/public
+success. This is an existing deployment/completion record, not permission to
+repeat a Resume, rebuild a runtime or recreate automatic monitoring. Step7 was
+skipped. A future source rollback requires the same quiet closed-entry window
+and the exact saved guard e993 / paired3fc / policya64 combination; preserve all
+successful generations, frozen inputs and old/new evidence.
+
+## 2026-10-02 paired control-node mode
+
+Production uses the existing runner aliases as a pair: default200 means
+`WGS_RUNNER_200_ALIAS=GATK_RUNNER_200_ALIAS=wgs-node200`; temporary96 means both
+are `wgs-cce-node96`. Keep each pipeline's original restricted command and accepted
+runtime/profile checks.97 is not a fallback. Prepare both actual worker/scheduler
+Compose configurations together, verify the exact env-only delta, and apply only
+under the existing no-active-TI/empty-worker/native-continuity boundary. Compose
+editing or restart alone does not replace container env. Preserve the original
+SSH Host mappings; do not repoint wgs-node200 to96.
+
+Current production is the paired temporary96 mode, applied14:15:14Z. Existing
+323D3F attempt1 remains on96; node switching does not migrate an active execution.
+There was no frontend/progress/core rollback. The target must retain the accepted
+pair before future switching; this release did not install/validate current981e
+on200. Source/pin/profile installation is a separate scope. Exact current service
+IDs, private backups, failed-method records, scheduling pauses, natural handoff
+and rollback boundary are in the
+[paired-node release record](releases/2026-10-02-common-control-node-bs96.md).
+
+## 2026-10-01 UNIFIED089 actual release and original gates restored
+
+The coordinator-authorized PROD gate completed. Genuine WGS423 registration
+and CAS selected `wgs-4.2.3-bafd27c` from `wgs-4.2.2-441d5e7` at 14:52:31Z;
+`gate3-prod-catalog-result.json` SHA256 `0856802d...` records the transaction
+and catalog-after SHA256 `35c53a2e...`. Six PROD gateway services passed the
+minimum installed check: 60 exact mounts, 18 Airflow imports/errors0, loaded
+gates, four external HTTP 200 checks. Receipt SHA256 prefixes: gateway apply
+`cf052e66`, acceptance `bef51b0c`, full mount `c9d26e88`, HTTP `7b80cb64`.
+Historical WGS/GATK Rules GETs returned 200 and existing rows; they did not
+replay a new089 producer or create an analysis.
+
+Gate4 restored the original backend env at 14:56:34Z on TEST and 14:57:18Z on
+PROD. Final read-only receipts at 15:04:56Z/15:05:16Z are
+`gate4-BS10610-final-readback-result.json` SHA256 `d7093fad...` and
+`gate4-BS96-final-readback-result.json` SHA256 `18ff3d91...`. WGS/GATK
+execution is true on both. TEST scan/auto are false; PROD effective scan is true
+and the original watermark literal remains
+`2026-09-17T09:34:19.655673+00:00`. PROD env auto is true but the inherited
+read-only intake policy's `auto_dispatch_enabled=false` makes **effective auto
+false**. Preserve this original business protection. The first PROD restore
+checker exited5 by assuming effective auto must equal env auto; retain its
+receipt, then use the accepted final read-only policy closure. Do not replay
+apply/POST or alter policy to satisfy that checker. Both external gateway
+`/api/health` reads were 200; original env/image/mounts and unrelated service
+identities remained unchanged. No nginx restart, dist rebuild, new analysis,
+canary, UE04/05/06, 17+2 or full test rerun was part of this gate.
+
+Original policy bytes were not independently archived before restoration;
+the final read-only mount SHA and unchanged inherited parser establish the
+observed state, not a historical byte comparison. Historical WGS422 is
+frozen for rollback only; if a marked089 attempt exists, retain the compatible
+stack during repair. Exact receipts and limits are in the
+[candidate release record](releases/2026-10-01-unified-native089-candidate.md).
+
+## 2026-10-01 PROD selected components; minimum checks in progress (prior Gate3 checkpoint)
+
+The coordinator's complete PROD GO was granted after TEST minimum acceptance.
+The initial read-only page-size-200 runs query timed out; the bounded five-run
+page refresh subsequently covered all 27 runs, 50 transfers and related DAG/TI
+state with nonterminal counts zero (`gate3-prod-activity-v2-result.json`, SHA256
+`674720db...`). This clears the recorded activity preflight, not installed
+gateway/catalog acceptance.
+
+PROD Heavy entrydc5/core554/original launcher5f2 and its new flock/Python pair
+190070/190480 were selected. Two fresh complete payloads and one actual Lease
+GET returning25 names per payload passed with held/used/waiting0, limit25,
+idle (`gate3-heavy-accept-result.json`, SHA256 `51b87164...`; actual 21-file
+index SHA256 `2c3e826c...`). The stop sent TERM once to the old Python only;
+flock exited naturally. The finish invoker exited1 in the final new-process
+check after entry/core installation and one original-launcher call. The cause
+is unproven because fail-moment rows were not recorded. Read-only acceptance
+then found the correct pair; no signal, launcher or finish replay followed.
+
+Six reviewed PROD gateway services were selected at 14:46:19–14:46:52Z.
+Infra is completing the installed minimum checks. **No PROD catalog POST has
+occurred; execution/auto gates remain closed, and `v2.paired` LAST has not been
+selected.** Continue only after the exact installed checks and catalog receipt
+are recorded. This is an in-progress release, not final production acceptance.
+Do not rerun UE04/05/06, 17+2 or the full suite for this checkpoint.
+
+## 2026-10-01 Gate2 TEST accepted; PROD GO granted (prior checkpoint)
+
+Shared nipttest0.8.9 and the four private node envs/five wrappers are now
+selected, including PROD WGS/GATK selectors. This is a real production node
+configuration change; PROD gateway source/catalog/Heavy remain prior and its
+v3 execution/auto admission gates remain closed. TEST has selected six reviewed
+gateway services with backend paired-frozen, genuine WGS423 catalog registration
+and CAS, and TEST Heavy core554. Its minimum actual imports, loaded gates,
+complete mount contract, API/Rules GET, four PVC/PV identities and two fresh
+complete Heavy/Lease snapshots passed. Rules GET returned zero historical rows;
+there was no real Group replay or new analysis.
+
+Use the [Gate2 receipt and limits](releases/2026-10-01-unified-native089-candidate.md)
+for exact installed hashes and rollback. The initial catalog transaction's
+final checker confused publisher raw profile SHA with installed canonical SHA
+after its POSTs succeeded; the later read-only closure confirmed current423 and
+did not repeat POST. The first Heavy read-only checker compared SFS mtime against
+node launch wall time and timed out; payload timestamps and independent Lease
+GETs passed, while the raw 599/604-second mtime offset remains recorded. These
+were checker/invoker issues, without an ad hoc product patch or full test rerun.
+
+The coordinator has granted the complete PROD gate GO. The first read-only
+runs request with page size 200 timed out; health/page 1 passed, and Infra is
+completing a smaller-page full active-use refresh. Page 1 is insufficient to
+establish idleness. Before PROD gateway/catalog/Heavy mutation, finish that
+preflight and recheck actual host, current configs, gates and exact rollback.
+Preserve the closed gates through bounded PROD acceptance; select `v2.paired`
+LAST only after all approved checks. Do not infer a final production release
+from shared089 or PROD node selector selection. After a marked089 attempt,
+automatic downgrade to old native/backend/DAG is unsafe; retain the compatible
+stack with gates closed for repair.
+
+## 2026-10-01 final423/shared089 candidate packet (pre-Gate2 plan)
+
+The following candidate wording records the earlier preparation/freeze phase;
+the Gate2 status above supersedes its pending-install observations.
+
+The sole card W423-R1-UNIFIED089 prepares AF80abdfc(parent0afd), native089/1f5/f843,
+WGS423/bafd/e481/profile436a and GATK7.6.0/a4f/r5/profile17d2. The422-native089
+transition is cancelled. Window CLOSED: no pip, catalog activation, active
+wrapper/env change or restart. Follow the
+[fixed candidate/rollback record](releases/2026-10-01-unified-native089-candidate.md).
+
+Use only reviewed gateway v2 variants: actual effective `/app/app` and DAG
+`common` copies with exact selected deltas, not whole `/app` replacement or v1
+new-file binds beneath read-only parents. Per-service images/env/project roots
+and rollback are pinned privately. Config --quiet is syntax-only; later authorized
+application uses --no-deps --pull never and still requires actual loaded hashes.
+
+Native alone installs shared nipttest/bootstrap. AF pairs common source and four
+private consumers; complete TEST producer/client/backend/Group acceptance precedes
+PROD new-request selection. Preserve scanner/watermark and restore original gates.
+Reuse accepted tests; supplement only approved affected pairing/import/mount checks.
+
+First-gate GO authorizes fresh preflight then admission-only v3.freeze using old
+code/mounts. Preserve actual original watermark literal+00:00; coordinator's +08
+display wording was corrected. Report closure before native independent install GO.
+Strict sequence: v3.freeze -> native install/pair -> v2.paired-frozen or
+paired-management -> TEST acceptance -> PROD catalog CAS -> v2.paired LAST.
+After any marked089 attempt, old backend/DAG automatic rollback is invalid as
+well as package downgrade; retain089-compatible stack with gates closed for repair.
+
+Heavy standalone wiring uses existing `scripts/heavy_global_snapshot.py` entry
+and same-directory `heavy_snapshot_core.py` from `backend/app/heavy_global_snapshot.py`.
+Retain launchers/config/evidence/Python/flock/log. Backend-only binds cannot update
+the loaded node core. The two private candidate/backups and PID/starttime maps
+are in the packet. Approved replacement requires loaded SHA and fresh snapshot;
+no new collector framework, Lease clearing or forced slot count.
+
+The following 2026-09-28/29 entries retain historical configuration and rollback
+provenance. Later accepted releases above supersede their current-path wording.
+Consult the latest release and actual consumer pins before any separately
+authorized deployment or rollback; do not replay old repair actions.
+
+## 2026-09-29 downstream-stage presentation rollout
+
+At the 2026-09-29 checkpoint, backend and WGS observer definitions were preserved in
+/data/airflow-WGS/downstream-stage-20260929-control. Both consume the corrected
+observer; only backend consumes corrected timing. Their rollback.json restores
+just these two consumers. All prior overlays, especially Step4 hash correction,
+are retained. Never use partial Compose orphan warnings to remove other services.
+Check actual dashboard stage and transfer values after health200/nginx reload;
+service health alone does not demonstrate corrected Run Tracker presentation.
+Native operator57483541 uses the same immutable-selector mechanism described
+below, keeping previouse5752ea closure for rollback; no Master rebuild/restart.
+
+## 2026-09-29 bounded Step3/Step4 production repair
+
+At that earlier checkpoint backend composition was publish-hash-20260929-control/compose.json;
+only the cce_publish_recovery.py read-only overlay changed (source9c7fc93).
+Use its private rollback.json for backend-only rollback, never whole-stack up.
+Current paths/hashes are in SERVER_INFO; current symlink is not authoritative.
+Preserve all scanner/auth/profile/env/other overlay pins. Existing nginx ACLs
+remain unchanged; if backend address changes, nginx-t then graceful reload.
+
+At that checkpoint, the native0.8.8 selected operator was installed in an immutable ctapa-owned code
+directory with matched native bootstrap/policy. Atomically switch only the
+private platform selector after pin validation, retaining previous closure for
+rollback. Do not overwrite files used by running workers or change Master
+images, business data permissions, dependencies or analysis inputs. A live
+monitor retry exposed a second reader transport issue; first operator rollout
+alone does not constitute full A acceptance. See latest HANDOFF before retry.
+
+## 2026-09-28 approved production client subnet
+
+BS96 gateway additionally allows172.20.13.0/24. When deploying the source nginx
+template, preserve other approved live rules: the active config also contains
+172.20.8.0/23 and172.21.4.221/32. Additive configuration update only; nginx-t and
+graceful reload, no Airflow/backend restart. See SERVER_INFO/HANDOFF for backup.
+
 ## 2026-09-27 BS10610 auxiliary DAG discovery release
 
 Only Airflow API/scheduler/worker were recreated with three updated read-only

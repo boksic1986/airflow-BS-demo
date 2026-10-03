@@ -270,8 +270,14 @@ def observe_maintenance(*, session, request_root, analysis_id, action_id, attemp
     if latest.status == 'success':
         return serialize_maintenance_action(latest)
     now = datetime.now(timezone.utc)
+    fallback_message = '清理状态待确认：监控已停止，重试前核对原执行'
+    if (status == 'failed' and latest.status == 'failed' and latest.error_message
+            and (not message or message in {
+                fallback_message, '清理监控已停止，重试前需核对原执行',
+            })):
+        message = latest.error_message
     latest.status = status
-    latest.error_message = (message or '清理状态待确认：监控已停止，重试前核对原执行')[:500] if status == 'failed' else None
+    latest.error_message = (message or fallback_message)[:500] if status == 'failed' else None
     if status == 'running':
         latest.started_at = latest.started_at or now
         latest.ended_at = None

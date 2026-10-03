@@ -1,6 +1,11 @@
 import {useRef, useState} from 'react';
 import {resumeStage, type RunDetail} from '../../api';
 
+export function legacyResumeAvailable(detail: RunDetail | null, canResume: boolean) {
+  return Boolean(detail && canResume && !(detail.pipeline === 'wgs'
+    && (detail.execution_dispatch?.desired_mode || detail.execution_mode) === 'cce'));
+}
+
 export function monitorReconnectAvailable(detail: RunDetail | null, canResume: boolean) {
   return Boolean(detail && canResume && ['wgs','gatk'].includes(detail.pipeline)
     && (detail.execution_dispatch?.desired_mode || detail.execution_mode) === 'cce'

@@ -4,6 +4,7 @@ import {act, cleanup, fireEvent, render, screen, waitFor, within} from "@testing
 import {afterEach, expect, it, vi} from "vitest";
 
 import App from "./App";
+import * as workflowTab from "./features/run-detail/RunWorkflowTab";
 
 afterEach(() => {
   cleanup();
@@ -286,6 +287,210 @@ it("leaves the preparation screen when the polled run has failed", async () => {
   expect(await screen.findByRole("heading", {name: "Sample information preparation failed"})).toBeInTheDocument();
   expect(screen.getByRole("link", {name: "View failure details"})).toHaveAttribute("href", "/runs/WGS_FAILED");
   expect(screen.queryByText("This page refreshes automatically.")).not.toBeInTheDocument();
+});
+
+it("shows workspace detail before samples finish without repeating the initial summary", async () => {
+  window.history.pushState({}, "", "/runs/WGS_FIRST_SCOPE");
+  let workspaceReads = 0;
+  let sampleReads = 0;
+  let finishSamples: ((response: Response) => void) | undefined;
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
+    if (url.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
+    if (url.endsWith("/api/runs/WGS_FIRST_SCOPE/workspace")) {
+      workspaceReads++;
+      return json({
+        run: {analysis_id: "WGS_FIRST_SCOPE", pipeline: "wgs", status: "running", attempt: 1, params: {}},
+        summary: {sample_count: 1, rule_count: 0, failed_rule_count: 0},
+        progress: null,
+        slot_usage: null,
+      });
+    }
+    if (url.endsWith("/api/runs/WGS_FIRST_SCOPE/samples")) {
+      sampleReads++;
+      if (sampleReads === 1) return new Promise<Response>((resolve) => { finishSamples = resolve; });
+      return json({items: [], manifest: []});
+    }
+    return json({items: []});
+  }));
+
+  render(<App />);
+  expect(await screen.findByRole("heading", {name: "WGS_FIRST_SCOPE"})).toBeInTheDocument();
+  expect(sampleReads).toBe(1);
+  expect(workspaceReads).toBe(1);
+  await act(async () => {
+    finishSamples?.(await json({items: [], manifest: []}));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+  });
+  expect(workspaceReads).toBe(1);
+  expect(sampleReads).toBe(1);
+});
+
+it("switches tab scope without waiting for samples or refetching workspace", async () => {
+  window.history.pushState({}, "", "/runs/WGS_TAB_SCOPE");
+  let workspaceReads = 0;
+  let ruleReads = 0;
+  let sampleSignal: AbortSignal | null | undefined;
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
+    if (url.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
+    if (url.endsWith("/api/runs/WGS_TAB_SCOPE/workspace")) {
+      workspaceReads++;
+      return json({
+        run: {analysis_id: "WGS_TAB_SCOPE", pipeline: "wgs", status: "running", attempt: 1, params: {}},
+        summary: {sample_count: 0, rule_count: 0, failed_rule_count: 0},
+        progress: null,
+        slot_usage: null,
+      });
+    }
+    if (url.endsWith("/api/runs/WGS_TAB_SCOPE/samples")) {
+      sampleSignal = init?.signal;
+      return new Promise<Response>(() => {});
+    }
+    if (url.includes("/api/runs/WGS_TAB_SCOPE/rules")) {
+      ruleReads++;
+      return json({items: [], total: 0});
+    }
+    return json({items: []});
+  }));
+
+  render(<App />);
+  expect(await screen.findByRole("heading", {name: "WGS_TAB_SCOPE"})).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("tab", {name: "Rules"}));
+  await waitFor(() => expect(ruleReads).toBe(1));
+  expect(sampleSignal?.aborted).toBe(true);
+  expect(workspaceReads).toBe(1);
+});
+
+it("fences Rules attempts after a failed workspace refresh and preserves an explicit history query", async () => {
+  window.history.pushState({}, "", "/runs/WGS_RULE_ATTEMPT");
+  let serverAttempt = 1;
+  let workspaceFails = false;
+  let wrongRuleReply = true;
+  const requestedAttempts: Array<string | null> = [];
+  const OriginalWorkflowTab = workflowTab.RunWorkflowTab;
+  const workflowSpy = vi.spyOn(workflowTab, "RunWorkflowTab").mockImplementation((props) => <>
+    <OriginalWorkflowTab {...props} />
+    <button type="button" onClick={() => props.onQueryChange?.({...props.query, attempt: 1})}>Synthetic history attempt 1</button>
+  </>);
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+    const url = new URL(String(input), "http://localhost");
+    if (url.pathname.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
+    if (url.pathname.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
+    if (url.pathname.endsWith("/api/runs/WGS_RULE_ATTEMPT/workspace")) {
+      if (workspaceFails) return jsonStatus({detail: "summary temporarily unavailable"}, 500);
+      return json({
+        run: {analysis_id: "WGS_RULE_ATTEMPT", pipeline: "wgs", status: "running", attempt: serverAttempt, params: {}},
+        summary: {sample_count: 0, rule_count: 1, failed_rule_count: 0},
+        progress: null,
+        slot_usage: null,
+      });
+    }
+    if (url.pathname.endsWith("/api/runs/WGS_RULE_ATTEMPT/rules")) {
+      const requested = url.searchParams.get("attempt");
+      requestedAttempts.push(requested);
+      const attempt = wrongRuleReply ? serverAttempt : Number(requested || serverAttempt);
+      return json({
+        items: [{rule: wrongRuleReply ? "unexpected_attempt_2" : `rule_attempt_${attempt}`, attempt, status: "running", phase: "Mapping"}],
+        total: 1, limit: 20, offset: 0, attempt, current_attempt: serverAttempt, attempts: [1, 2],
+      });
+    }
+    return json({items: [], manifest: []});
+  }));
+
+  try {
+    render(<App />);
+    expect(await screen.findByRole("heading", {name: "WGS_RULE_ATTEMPT"})).toBeInTheDocument();
+    await act(async () => { await new Promise((resolve) => window.setTimeout(resolve, 0)); });
+    serverAttempt = 2;
+    workspaceFails = true;
+    fireEvent.focus(window);
+    expect(await screen.findByRole("alert")).toHaveTextContent("summary temporarily unavailable");
+    fireEvent.click(screen.getByRole("tab", {name: "Rules"}));
+    await waitFor(() => expect(requestedAttempts).toHaveLength(1));
+    await act(async () => { await new Promise((resolve) => window.setTimeout(resolve, 0)); });
+    expect(requestedAttempts[0]).toBe("1");
+    expect(screen.queryByText("unexpected_attempt_2")).not.toBeInTheDocument();
+
+    workspaceFails = false;
+    wrongRuleReply = false;
+    fireEvent.focus(window);
+    await screen.findByText("rule_attempt_2");
+    fireEvent.click(screen.getByRole("button", {name: "Synthetic history attempt 1"}));
+    await screen.findByText("rule_attempt_1");
+    expect(requestedAttempts.at(-1)).toBe("1");
+
+    wrongRuleReply = true;
+    fireEvent.change(screen.getByLabelText("Rule status"), {target: {value: "failed"}});
+    await waitFor(() => expect(requestedAttempts.length).toBeGreaterThan(3));
+    await act(async () => { await new Promise((resolve) => window.setTimeout(resolve, 0)); });
+    expect(requestedAttempts.at(-1)).toBe("1");
+    expect(screen.getByText("rule_attempt_1")).toBeInTheDocument();
+    expect(screen.queryByText("unexpected_attempt_2")).not.toBeInTheDocument();
+  } finally {
+    workflowSpy.mockRestore();
+  }
+});
+
+it("keeps Samples from the displayed attempt when a newer selection arrives after summary failure", async () => {
+  window.history.pushState({}, "", "/runs/WGS_SAMPLE_ATTEMPT");
+  let workspaceReads = 0;
+  let sampleReads = 0;
+  let newerSelection = false;
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+    const url = new URL(String(input), "http://localhost");
+    if (url.pathname.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
+    if (url.pathname.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
+    if (url.pathname.endsWith("/api/runs/WGS_SAMPLE_ATTEMPT/workspace")) {
+      workspaceReads++;
+      if (newerSelection) return jsonStatus({detail: "summary temporarily unavailable"}, 500);
+      return json({
+        run: {analysis_id: "WGS_SAMPLE_ATTEMPT", pipeline: "wgs", status: "running", attempt: 1, params: {}},
+        summary: {sample_count: 1, rule_count: 0, failed_rule_count: 0},
+        progress: null,
+        slot_usage: null,
+      });
+    }
+    if (url.pathname.endsWith("/api/runs/WGS_SAMPLE_ATTEMPT/samples")) {
+      sampleReads++;
+      return json({items: [{sample_id: newerSelection ? "NEW_ATTEMPT_SAMPLE" : "CURRENT_ATTEMPT_SAMPLE", selection_attempt: newerSelection ? 2 : 1, status: "running"}], manifest: []});
+    }
+    return json({items: []});
+  }));
+
+  render(<App />);
+  fireEvent.click(await screen.findByRole("tab", {name: "Samples"}));
+  expect(await screen.findByText("CURRENT_ATTEMPT_SAMPLE")).toBeInTheDocument();
+  const initialSampleReads = sampleReads;
+  newerSelection = true;
+  fireEvent.focus(window);
+  await waitFor(() => expect(workspaceReads).toBe(2));
+  await waitFor(() => expect(sampleReads).toBeGreaterThan(initialSampleReads));
+  await act(async () => { await new Promise((resolve) => window.setTimeout(resolve, 0)); });
+  expect(screen.getByText("CURRENT_ATTEMPT_SAMPLE")).toBeInTheDocument();
+  expect(screen.queryByText("NEW_ATTEMPT_SAMPLE")).not.toBeInTheDocument();
+});
+
+it.each(["AbortError", "TimeoutError"])("does not use legacy fallback for a workspace %s", async (name) => {
+  window.history.pushState({}, "", "/runs/WGS_CANCEL_SCOPE");
+  const paths: string[] = [];
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+    const path = new URL(String(input), "http://localhost").pathname;
+    paths.push(path);
+    if (path.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
+    if (path.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
+    if (path.endsWith("/api/runs/WGS_CANCEL_SCOPE/workspace")) {
+      return Promise.reject(new DOMException(`workspace ${name}`, name));
+    }
+    return json({items: []});
+  }));
+
+  render(<App />);
+  expect(await screen.findByRole("alert")).toHaveTextContent(`workspace ${name}`);
+  expect(paths.filter((path) => path.startsWith("/api/runs/WGS_CANCEL_SCOPE")
+    && !path.endsWith("/workspace"))).toEqual([]);
 });
 
 it("loads WGS resource tabs for an active run", async () => {

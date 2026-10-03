@@ -6,11 +6,13 @@ import hashlib
 
 from sqlalchemy import select
 
-from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunStageState, RuleEventRaw
+from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunStageState, RuleEventRaw, WgsStageExecution
 from app.diagnostics_service import gatk_rule_log_contexts, wgs_rule_log_contexts
 from app.wgs_transfer_projection import TRANSFER_STAGES, active_transfer_snapshot, transfer_stage_progress, project_upload_wait, project_download_wait
 from app.workflow_phases import phase_for_rule, phase_order, wgs_phase_for_rule, wgs_phase_order, run_phase_release
 from app.wgs_stage_contract import (
+    WGS_STAGE_ALIASES,
+    WGS_STAGE_BY_CODE,
     canonical_wgs_stage,
     project_wgs_orchestration,
     wgs_stage_status_without_evidence,
@@ -122,6 +124,13 @@ def enrich_progress(*, session, run: AnalysisRun, payload: dict) -> dict:
     from app.wgs_stage_estimates import stage_estimates
     estimates = stage_estimates(session, run, now=datetime.now(timezone.utc))
     raw_stage = str(run.current_stage or payload.get("current_step") or "created")
+    # The current DagRun may have advanced since a manual resume stored its
+    # entry stage. Do not let that old entry hide the active sensor's progress.
+    current_step = payload.get("current_step")
+    if payload.get("current_source") == "airflow_task_instances" and (
+        current_step in WGS_STAGE_ALIASES or current_step in WGS_STAGE_BY_CODE
+    ):
+        raw_stage = current_step
     stage = canonical_wgs_stage(raw_stage, run.status)
     stage_rows = session.scalars(
         select(RunStageState).where(
@@ -129,7 +138,30 @@ def enrich_progress(*, session, run: AnalysisRun, payload: dict) -> dict:
             RunStageState.attempt == run.attempt,
         )
     ).all()
-    stage_row = next((row for row in stage_rows if row.stage_code == stage), None)
+    rows_by_stage = {row.stage_code: row for row in stage_rows}
+    # A late Step4 receipt can rewrite AnalysisRun.current_stage after Step5
+    # was registered. Choose only a causally later execution in this attempt;
+    # a new Step4 recovery generation must outrank older downstream history.
+    if (stage == "step4_publish" and rows_by_stage.get(stage)
+            and rows_by_stage[stage].stage_status == "success"
+            and int((run.params_json or {}).get("orchestration_contract_version") or 1) == 2):
+        step4 = session.scalar(select(WgsStageExecution).where(
+            WgsStageExecution.analysis_id == run.analysis_id,
+            WgsStageExecution.attempt == run.attempt,
+            WgsStageExecution.stage_code == "step4_publish",
+        ).order_by(WgsStageExecution.generation.desc()).limit(1))
+        if step4 is not None:
+            later = session.scalar(select(WgsStageExecution).where(
+                WgsStageExecution.analysis_id == run.analysis_id,
+                WgsStageExecution.attempt == run.attempt,
+                WgsStageExecution.stage_code.in_(("step5_download", "step6_materialize")),
+                WgsStageExecution.status.in_(("accepted", "running", "success", "failed", "canceled")),
+                WgsStageExecution.id > step4.id,
+            ).order_by(WgsStageExecution.id.desc()).limit(1))
+            if later is not None and later.stage_code in rows_by_stage:
+                raw_stage = later.stage_code
+                stage = later.stage_code
+    stage_row = rows_by_stage.get(stage)
     stage_definition = wgs_stage_definition(stage)
     progress_available = bool(stage_row and stage_row.progress_available)
     stage_percent = stage_row.progress_percent if progress_available else None

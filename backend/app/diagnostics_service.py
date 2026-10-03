@@ -114,9 +114,33 @@ def sync_wgs_airflow_status(*, session: Session, airflow_client, analysis_id: st
         ):
             authoritative_status = "failed"
             airflow_payload = {**airflow_payload, "state": "failed"}
+    params = run.params_json or {}
+    full_cce_step6 = (
+        str(run.execution_mode or "").lower() == "cce"
+        and params.get("validation_scope") not in {"step1_only", "step3_dryrun", "node97_full"}
+    )
+    if authoritative_status == "success" and full_cce_step6 and int(
+        params.get("orchestration_contract_version") or 1
+    ) == 2:
+        # An administrative DagRun success (including an empty TI list) cannot
+        # finalize a WGS analysis. The guarded finalize POST commits these two
+        # business records together; this read path does not re-prove native.
+        finalized = session.scalar(
+            select(RunStageState.id).where(
+                RunStageState.analysis_id == analysis_id,
+                RunStageState.attempt == int(run.attempt or 1),
+                RunStageState.stage_code == "final",
+                RunStageState.stage_status == "success",
+                RunStageState.progress_source == "airflow-finalize",
+            ).limit(1)
+        )
+        if previous_status != "success" or finalized is None:
+            return _run_payload(run)
     if authoritative_status == 'failed':
         from app.cce_recovery_budget import dag_failure_fence_reason
-        if dag_failure_fence_reason(session=session, run=run, dag_run_id=run.dag_run_id):
+        if dag_failure_fence_reason(
+            session=session, run=run, dag_run_id=run.dag_run_id, settings=settings,
+        ):
             return _run_payload(run)
     run.status = authoritative_status
     run.started_at = _parse_airflow_datetime(airflow_payload.get("start_date")) or run.started_at
@@ -126,6 +150,8 @@ def sync_wgs_airflow_status(*, session: Session, airflow_client, analysis_id: st
     else:
         run.ended_at = None
         run.error_summary = None
+        if previous_status == "failed" and run.status in {"submitted", "running"}:
+            run.pipeline_finished_at = None
     if run.status == "failed":
         run.error_summary = build_wgs_error_summary(run=run, airflow_payload=airflow_payload, settings=settings)
     elif run.status == "success":

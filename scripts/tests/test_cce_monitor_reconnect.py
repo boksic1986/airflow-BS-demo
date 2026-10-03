@@ -17,7 +17,7 @@ CONFIG = {"kubernetes": {"kubectl_bin": "kubectl", "kubeconfig": "synthetic", "n
 def monitor_fixture(tmp_path, monkeypatch, pipeline):
     root = tmp_path / "requests"
     monkeypatch.setattr(wgs_runtime_gate, "REQUEST_ROOT", root)
-    monkeypatch.setattr(wgs_runtime_gate, "RUNTIME_RUN_ROOT", tmp_path / "runtime" / "runs")
+    monkeypatch.setattr(wgs_runtime_gate, "RUNTIME_RUN_ROOT", str(tmp_path / 'runs'))
     monkeypatch.setenv("GATK_RUNTIME_REQUEST_ROOT", str(root))
     gate = wgs_runtime_gate if pipeline == "wgs" else gatk_runtime_gate
     payload = dict(analysis_id=f"{pipeline.upper()}_20260925_000000_AAAAAA", attempt=1,
@@ -26,7 +26,8 @@ def monitor_fixture(tmp_path, monkeypatch, pipeline):
     path = gate._request_path(payload["analysis_id"], 1, "step3_monitor")
     path.parent.mkdir(parents=True, exist_ok=True)
     if pipeline == "wgs":
-        payload["control_workdir"] = str(tmp_path / "runtime" / "runs" / payload['analysis_id'] / 'attempt-1')
+        payload['control_workdir'] = str(tmp_path / 'runs' / payload['analysis_id'] / 'attempt-1')
+        (tmp_path / 'runs' / payload['analysis_id'] / 'attempt-1').mkdir(parents=True)
     payload["request_hash"] = paired._request_digest(payload, pipeline)
     path.write_text(json.dumps(payload))
     def write(status, **details):
@@ -36,7 +37,10 @@ def monitor_fixture(tmp_path, monkeypatch, pipeline):
     clock = [1000.0]
     def owner():
         assert hasattr(paired, "_monitor_query_owner"), "registered monitor has no query retry owner"
-        value = paired._monitor_query_owner(payload, gate, pipeline, native)
+        value = paired._monitor_query_owner(payload, gate, pipeline, native,
+            observation=lambda: ({'master_state': 'RUNNING', 'completed': 4, 'total': 100,
+                'percent': 4}, {'master_job': 'cce-master-synthetic', 'namespace': 'synthetic',
+                               'run_label': 'cce-run-aaaaaaaaaaaaaaaa'}))
         value.now = lambda: clock[0]
         value.sleep = lambda seconds: clock.__setitem__(0, clock[0] + seconds)
         return value
@@ -126,7 +130,7 @@ def test_unconfirmed_selected_identity_is_blocked_not_retried(tmp_path, monkeypa
     case = monitor_fixture(tmp_path, monkeypatch, pipeline)
     owner = case.owner()
     monkeypatch.setattr(paired, 'load_runtime', lambda: native)
-    monkeypatch.setattr(paired, '_monitor_query_owner', lambda *a: owner)
+    monkeypatch.setattr(paired, '_monitor_query_owner', lambda *a, **kw: owner)
     calls = []
     def invalid_observation(*a, **kw):
         calls.append(1)
@@ -137,3 +141,77 @@ def test_unconfirmed_selected_identity_is_blocked_not_retried(tmp_path, monkeypa
     case.write('failed')
     assert case.read()['monitor_reconnect']['phase'] == 'blocked'
     assert case.read()['monitor_reconnect']['retries_used'] == 0 and len(calls) == 1
+
+
+def confirmed_monitor_result(case, monkeypatch, master):
+    """Only the external selected-Master read is replaced; persistence is real."""
+    monkeypatch.setattr(paired, 'load_runtime', lambda: native)
+    def selected(payload, *, query_owner, **kwargs):
+        query_owner.now = lambda: case.clock[0]
+        query_owner.sleep = lambda seconds: case.clock.__setitem__(0, case.clock[0] + seconds)
+        query_owner.run(lambda timeout: {'kind': 'Job'})
+        return master
+    monkeypatch.setattr(paired, '_selected_registered', selected)
+    return paired.monitor_registered(case.payload,
+        binding={'master_job': 'cce-master-synthetic', 'namespace': 'synthetic',
+                 'run_label': 'cce-run-aaaaaaaaaaaaaaaa'}, gate=case.gate,
+        pipeline=case.payload['analysis_id'].split('_', 1)[0].lower())
+
+
+@pytest.mark.parametrize('pipeline', ['wgs', 'gatk'])
+def test_healthy_confirmation_atomically_publishes_the_current_master_read(tmp_path, monkeypatch, pipeline):
+    case = monitor_fixture(tmp_path, monkeypatch, pipeline)
+    case.write('running', monitoring_health='degraded', monitoring_error='rule evidence unavailable',
+        master={'master_state': 'RUNNING', 'completed': 6, 'total': 333, 'percent': 1.8})
+    fresh = {'master_state': 'RUNNING', 'completed': 7, 'total': 333, 'percent': 2.1,
+        'current_rule': 'synthetic-rule', 'current_rules': ['synthetic-rule'],
+        'last_completed_rule': 'previous-rule', 'normal': True, 'message': 'workflow running',
+        'master_uid': 'synthetic-master-uid', 'master_resource_version': '123'}
+    writes = []
+    atomic = case.gate._atomic_json
+    def capture(path, value):
+        writes.append(json.loads(json.dumps(value)))
+        return atomic(path, value)
+    monkeypatch.setattr(case.gate, '_atomic_json', capture)
+    assert confirmed_monitor_result(case, monkeypatch, fresh) == fresh
+    saved = case.read()
+    assert saved['monitor_reconnect']['phase'] == 'healthy'
+    assert saved['monitoring_error'] == 'rule evidence unavailable'
+    assert saved['monitoring_health'] == 'degraded'  # Query recovery cannot repair the evidence bridge.
+    healthy = [v for v in writes if v.get('monitor_reconnect', {}).get('phase') == 'healthy']
+    assert healthy
+    if pipeline == 'wgs':
+        assert all(v['master'] == fresh for v in healthy)
+        assert saved['master_job'] == 'cce-master-synthetic'
+        assert saved['namespace'] == 'synthetic' and saved['run_label'] == 'cce-run-aaaaaaaaaaaaaaaa'
+    else:
+        assert all(v['completed_units'] == 7 and v['total_units'] == 333 for v in healthy)
+        assert saved['progress_percent'] == 2 and saved['unit'] == 'rules'
+        assert saved['current_item'] == 'synthetic-rule'
+
+
+@pytest.mark.parametrize('pipeline', ['wgs', 'gatk'])
+def test_unconfirmed_query_keeps_snapshot_but_does_not_claim_new_business(tmp_path, monkeypatch, pipeline):
+    case = monitor_fixture(tmp_path, monkeypatch, pipeline)
+    master = {'master_state': 'RUNNING', 'completed': 6, 'total': 333, 'percent': 1.8}
+    case.write('running', master=master, master_job='cce-master-synthetic', namespace='synthetic',
+        run_label='wgs-synthetic', monitoring_error='rule evidence unavailable')
+    with pytest.raises(QueryReconnectStopped):
+        case.owner().unconfirmed()
+    saved = case.read()
+    assert saved['monitor_reconnect']['phase'] == 'blocked'
+    assert saved['monitoring_health'] == 'degraded'
+    assert saved['master'] == master
+    assert saved['master_job'] == 'cce-master-synthetic'
+    assert saved['monitoring_error'] == 'rule evidence unavailable'
+
+
+@pytest.mark.parametrize('pipeline', ['wgs', 'gatk'])
+def test_complete_read_without_rule_counts_does_not_refresh_previous_numbers(tmp_path, monkeypatch, pipeline):
+    case = monitor_fixture(tmp_path, monkeypatch, pipeline)
+    confirmed_monitor_result(case, monkeypatch, {'master_state': 'RUNNING', 'message': 'counts unavailable'})
+    saved = case.read()
+    if pipeline == 'wgs':
+        assert saved['master'] == {'master_state': 'RUNNING', 'message': 'counts unavailable'}
+    for key in ('completed_units', 'total_units', 'progress_percent'):
+        assert saved.get(key) is None

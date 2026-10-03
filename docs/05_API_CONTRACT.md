@@ -1,5 +1,188 @@
 # API contract
 
+## W423 prepare permission correction (2026-10-02)
+
+PROD current selection is wgs-4.2.3-3f98682-perm2775, same3f source/build with
+original r1 corrected raw26b6fb15 and2775/0664/0775. Existing register/CAS/GET
+contract and historical entries remain. Same batch/input create is idempotent;
+CCE rerun retains old release. No new release-changing recovery API is added.
+
+## WGS published configuration selection (2026-10-02)
+
+Current TEST/PROD selection is `wgs-4.2.3-3f98682` with original profile r1,
+new build/profile hashes and immutable prepare source. Existing register/CAS/GET
+routes and response shape are unchanged; options remain closed and native defaults
+apply. Receipt cb6aca32 records AF configuration correspondence from pipeline-only
+and profile evidence, not joint execution acceptance. Historical entries remain.
+See [release record](releases/2026-10-02-wgs-dnascope-panel.md).
+
+## Run-page read efficiency (2026-10-02 deployed)
+
+`GET /api/runs` aggregates WGS QC status from the controlled batch QCstat's
+`是否通过质控` column without reading variant tables, metric contexts or MultiQC,
+or computing QC artifact hashes. It preserves `Sample_ID`/`Name`, sample/data-ID
+aliases (including the existing `-WGS` fallback), current-attempt selected-sample
+filtering, source pass/fail/warn/unknown normalization and `Sample.qc_status`
+fallback when the sample has no matching QC row. An explicitly unknown matching
+row remains unknown. The page reuses its one selected-sample query for counts
+and QC aggregation. Samples/QC retain the existing enriched metrics, judgments,
+variant counts and provenance.
+
+`GET /api/runs/{analysis_id}/workspace` builds the public detail and workspace
+projection from one fetched run in one session. WGS workspace reuses its
+selected samples for QC status. These projections introduce no response fields.
+When a WGS execution-dispatch record is absent, ordinary detail/workspace reads
+return `execution_dispatch: null`; they do not create a claim or commit a
+transaction. Explicit execution operations retain claim creation and their
+existing locks and validation.
+
+GATK public detail/workspace cleanup capabilities use database preconditions
+and the stored maintenance-action status. They do not scan the frozen cleanup
+bundle or runtime terminal receipt. `available` and `retry_available` are
+preliminary UI hints: the cleanup POST still validates the frozen binding,
+approved prepare/runtime identity, bundle snapshot and applicable predecessor
+runtime-terminal evidence before authorizing an operation. The strict service
+capability remains the default for callers that require frozen verification.
+The public response shape is unchanged. Source `fd855934` passed focused TEST
+checks and is deployed on BS10610 and BS96; see the
+[release acceptance](releases/2026-10-02-step7-run-pages-fix.md). Internal GET
+samples do not measure browser latency or establish a latency guarantee.
+
+## WGS recovered Tracker projection (2026-09-28 candidate)
+
+The existing `sync-airflow` action uses the run's bound DagRun state. When a
+previously failed WGS run is confirmed `queued` or `running`, it clears the old
+`ended_at`, `error_summary`, and `pipeline_finished_at`; it does not change the
+response schema. The existing authenticated internal `stage-status` GET may
+re-ingest a PREPARE status file. Only a receipt bound to the current attempt,
+execution ID, request hash, and newer contract-v2 generation may reopen that
+stage's old failed display projection. Stale or foreign receipts cannot do so,
+and a successful current generation remains terminal. No API or DB migration is
+added.
+
+## UE-05 exact native recovery evidence (2026-09-30, source only)
+
+The existing authenticated internal WGS/GATK stage, compute-recovery and
+dag-terminal requests, and WGS observer-deactivate request, accept optional
+`native_stage_observation`: a complete `cce.stage-execution.snapshot.v1`.
+It is separate from the existing `worker_observation` nonce/probe evidence and
+the UE-04 Step6 finalization carrier. No route, table or public request was added.
+
+The run lock protects current attempt, DagRun and recovery-action checks. The
+latest registered stage, release, version-correct frozen request digest and
+business receipt determine the expected native ref, terminal state and
+`evidence_ref`. Missing, unknown or mismatched evidence grants no new failure
+projection, compute replacement or cleanup. A matching failed terminal remains
+visible even when the older UI reconnect diagnostic is unconfirmed. Airflow
+failure alone cannot replace a native succeeded stage with business failure.
+
+Manual Resume actions entering at Step1 or Step2 retain that entry stage in their
+action metadata. Their compute terminal binds the current Step3 registration and
+version-correct frozen/native identity authorized by the same action; automatic
+Step3 actions use that same terminal check. The backend persists a minimal
+compute-terminal binding with action and DagRun identity, while the queued action
+continues to authorize its downstream scope. Poll and budget arbitration share
+the binding without changing the original deadline or recovery count; an older
+monitor row cannot settle a newer execution.
+
+The first verified source-monitor native `failed` terminal is persisted only for
+that reservation, monitor and caller identity. It lets the same caller reach the
+existing Worker wait despite stale UI `query_unconfirmed`. An active wait becomes
+ready only after a later POST with separately validated nonce-bound
+`worker_observation`.
+The permit does not prove Worker quiet or alter the original Worker wait and
+recovery budget deadlines.
+
+Native terminal is not Worker or transfer quiescence: observer drain after failed
+Step3 additionally requires existing complete bound quiet evidence, and transfer
+leases retain their existing receipt/ownership guards. A Step2 Master handoff
+alone cannot authorize global cleanup.
+
+## UE-05 Step4 frozen request validation (2026-09-30; source only)
+
+The existing authenticated internal Step4 publish-control request uses the
+registered stage row and frozen request. WGS now applies the same
+version-correct `require_frozen_request_digest` check as its other current
+stage consumers: initial dispatch added v2 after the original producer hash,
+whereas same-attempt recovery included v2 in that hash. GATK retains its
+canonical frozen-request digest. This changes no route, request field,
+response field, database schema, public recovery budget or dispatch deadline.
+It is not deployed or approved for production use.
+
+
+## UE-04 exact stage completion and same-attempt recovery (2026-09-30; source only)
+
+The existing service-token internal WGS/GATK `stage-status` GET projects the
+current registered Step1–Step6 execution ID, generation and request hash. For a
+newly marked request it also projects `stage_execution` from that exact frozen
+request; stale sidecars do not make the stage ready. WGS rechecks the frozen
+request digest against its current database execution before selecting the
+marked or legacy path. The existing internal
+`stages/finalize_run` POST accepts `worker_observation` from the trusted Airflow
+caller. Newly marked Step6 requires the current successful business receipt and
+its matching, freshly observed native `succeeded` snapshot, including the exact
+execution tuple and evidence digest. Missing, old or unknown native evidence
+returns an error and does not finalize the analysis. Existing unmarked requests
+retain their legacy receipt path. No browser endpoint or database field is added.
+
+WGS `POST /api/runs/{analysis_id}/actions/resume-stage` and the internal Step3
+registration may ingest a late current Step2 receipt once. They close the first
+run-lock session before ingestion and then recheck attempt, DagRun, current
+recovery action and stop state under a fresh lock before any Step3 registration
+or dispatch. A changed identity or unavailable receipt returns a conflict.
+The latest Step3 registration and frozen request must bind that exact successful
+Step2 generation and receipt hash. GATK Airflow reconciliation accepts a
+same-attempt recovery DagRun only when it matches the persisted current
+authorized action; DagRun success alone never commits GATK business success.
+
+## WGS 4.2.3 deferred extension contract (2026-09-30 design)
+
+The [W423 design](superpowers/specs/2026-09-30-wgs423-upgrade-integration-design.md)
+records proposed asynchronous prepare evidence, QC2 source/policy reasons and
+manual delivery. The completed Group display retains its existing contract;
+these remaining extensions are deferred. Section6 proposes
+`POST /api/runs/{analysis_id}/delivery-actions`, required `Idempotency-Key`,
+attempt/revision/result/QC snapshot binding and review fields. This route is
+not yet implemented. Reviewer and delivery target/entry/credentials are server
+owned; unconfigured business policy rejects execution. A lifecycle status
+PATCH is not a real send. Uncertain receiver outcome must be reconciled before
+replay. No existing route or frozen historical run changes in this docs task.
+The remaining W423-03–05 requirements await a separately accepted task after
+the stated dependencies. This documentation merge authorizes no implementation.
+
+## WGS post-publish stage monotonicity (2026-09-29)
+
+No new route/field/schema. Repeated current Step4 receipts still update their
+stage evidence, but do not overwrite run stage/status when a same-attempt
+Step5/6 execution was registered later. Execution ID ordering also preserves
+a newer Step4 recovery over historical downstream records. WGS progress and
+Run Tracker can read-only select that later evidenced stage if a stored stage
+already regressed; existing measured transfer values and stale semantics remain.
+GATK adapter/transfer execution unchanged. The historical e634ca4 production
+overlay deployment on backend and observer and C dashboard Step5 acceptance
+are recorded in HANDOFF; this is not a fresh production fingerprint.
+
+## Step4 historical Resume fence (2026-09-28)
+
+No new endpoint or action-status mutation. Step4 registration/dispatch first
+validates the current recovery action and DagRun. A previous same-attempt manual
+resume_stage marked queued/confirmed no longer blocks that successor if an exact
+airflow_dag_failed audit record lies between the old and current action IDs.
+The failed record must match its attempt and DagRun; current/unknown/reserved/
+uncertain controls and maintenance still fence dispatch. Audit history stays
+unchanged. This only settles obsolete controller authority, not cloud workload
+termination; the successful Step3 receipt and all publish-budget gates remain.
+
+## WGS Tracker projection correction (2026-09-28, source verified)
+
+No new fields/routes. WGS progress uses a recognized current-DagRun Airflow task
+stage before a stored resume-entry stage, so Step3 exposes its existing rules
+units instead of Step2 success. Exact release wgs-4.2.2-441d5e7 now has audited
+phase definitions, including release-specific annotation additions. Unknown
+releases/rules remain Unknown; historical mappings are unchanged. The completed
+2026-09-28 production rollout and live API acceptance are recorded in
+[the release note](releases/2026-09-28-tracker-rule-phase.md).
+
 ## Configuration-only WGS release registration (2026-09-27)
 
 Release identities accept `wgs-X.Y.Z-<7 hex>[-configuration-revision]`.
@@ -628,6 +811,13 @@ operation origin_batch as source analysis provenance.
 
 ## CCE 0.8.5 managed WGS release API (2026-09-15, inactive)
 
+W423 phase projection source update (2026-10-01): exact WGS
+`wgs-4.2.3-bafd27c` uses the owner-proven14-module inventory,12 inherited422
+names/aliases and six QC/SNV additions. Exact `gatk-scmc-v7.6.0@r5` uses the
+unchanged17-rule workflow. Unregistered releases/rules retain Unknown.
+API/schema are unchanged; this does not register/activate a runtime catalog
+or establish biological equivalence.
+
 `POST /api/wgs/releases` accepts only `cce-release.v1`: a complete managed
 `release`, its verified `assets` record (`status=PASS`, `state_verified=true`),
 and `receipt_sha256`, the SHA-256 of canonical JSON without that digest field.
@@ -662,6 +852,17 @@ Percent retains the serializer's one decimal; bytes, speed, ETA, current item an
 heartbeat come from that same snapshot. No detailed/current transfer means
 unavailable numeric progress, not fallback to stale integer stage progress.
 No endpoint/schema/DB migration or workflow state mutation is introduced.
+
+For contract-v2 WGS runs, a repeated Step4 status receipt must not move the
+run-level stage or status back to Step4 after a later Step5/6 execution is
+registered in the same attempt. The receipt still updates Step4 evidence.
+`GET /api/runs/{analysis_id}/progress` selects a registered downstream stage
+with a stage-state row when its execution is newer than the latest Step4
+generation. This read-only correction also covers runs whose stage was already
+regressed by an older observer. A new Step4 recovery generation takes precedence
+over earlier Step5/6 history. Transfer percent, bytes, speed, ETA and heartbeat
+continue to come from the recorded transfer snapshot; the projection does not
+infer new measurements.
 
 
 ## GATK recovery and explicit Step7 (2026-09-14)
@@ -708,6 +909,14 @@ stage_label `等待上传`/`等待下载`, progress_available=false, and current
 distinguishing waiting capacity from acquired-but-not-started. Run status stays
 running; real stage registration resets the standard stage label. This is based
 on actual acquire calls, not guessed from elapsed time or missing telemetry.
+
+The GATK Run Tracker and Run Detail workspace read projections display this
+exact current-attempt acquire-slot marker as `waiting`, with stage labels
+`Uploading FASTQ` (Step1) or `Downloading GATK results` (Step5), an English
+waiting item, unavailable progress, and no percentage. The persisted queued
+marker and overall run status are unchanged. A registered stage execution or
+transfer job, a truly running stage with missing telemetry, and a terminal run
+do not receive this waiting projection.
 
 ## GATK terminal transfer convergence (2026-09-14)
 
@@ -1022,6 +1231,15 @@ Internal `/api/internal/gatk/runs/{analysis_id}/stages/{stage}` and
 `/stage-status` routes require the service token and the fixed
 `gatk-runtime-200` adapter identity.
 
+UE-04 source registration replies for WGS and GATK Step1–Step6 include the
+existing frozen `request_hash` and, only when present in the exact immutable
+request, `stage_execution: {"protocol":"cce.stage-execution.v1"}`. WGS normal
+contract-v2 and P0 same-attempt recovery registration return the same fields;
+legacy WGS responses may have a null `request_hash` and omit the marker. GATK
+prepare and older unmarked stage requests omit the marker. The marker is a
+read-only projection for Airflow to select the native stage client; it is not
+accepted from a public caller and does not create or repair a registration.
+
 ## Privacy
 
 Except for the explicitly approved WGS run-detail sample fields below, responses exclude patient names and hospitals. Credentials, raw absolute storage paths and arbitrary filesystem content remain excluded. Artifacts are accessed by controlled keys.
@@ -1066,6 +1284,10 @@ and GATK `gatk-scmc-v7.6.0@bd04f6d`. Unknown/missing releases and unlisted
 rules return `Unknown`; module prefixes alone are not evidence. Rules, filters,
 complete phase summaries, registry progress, observer and sample projections
 share this policy. Legacy coarse helper defaults are not used by run APIs.
+The separately audited GATK `r2`, `r3` and `r4` release identities use the
+same 17-rule phase inventory. The `r4` `SCMC_GATK.smk` has Git blob
+`1cf9fe6f1672e919517bd1392bb2fd4496eab702`, identical to `r3`;
+unregistered revisions and rules still return `Unknown`.
 Phase precedence: failure, active running, unresolved planned, terminal canceled,
 success (including success+skipped), all-skipped. Cancellation aliases include
 cancelled/terminated. An incomplete canceled+planned phase remains planned.

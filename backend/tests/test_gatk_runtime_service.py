@@ -1,12 +1,19 @@
 from datetime import datetime, timezone
+import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
-from app.gatk_runtime_service import register_gatk_stage, sync_gatk_stage_status
+from app.gatk_runtime_service import (
+    _canonical_hash,
+    _registration_payload,
+    register_gatk_stage,
+    sync_gatk_stage_status,
+)
 from app.models import (
     AnalysisRun,
     Base,
@@ -62,6 +69,114 @@ def _execution(stage: str, generation: int, status: str) -> PipelineStageExecuti
         release_id="gatk-scmc-v7.6.0@bd04f6d",
         receipt_hash="a" * 64 if status == "success" else None,
     )
+
+
+@pytest.mark.parametrize("stage, predecessor", [
+    ("step1_upload", "prepare"),
+    ("step2_master", "step1_upload"),
+    ("step3_monitor", "step2_master"),
+    ("step4_publish", "step3_monitor"),
+    ("step5_download", "step4_publish"),
+    ("step6_materialize", "step5_download"),
+])
+def test_protocol_scope_gatk_registration_keeps_native_marker(
+    tmp_path: Path, stage, predecessor,
+) -> None:
+    sessions = _sessions()
+    settings = _settings(tmp_path)
+    with sessions() as session:
+        session.add_all([_run(), _execution(predecessor, 1, "success")])
+        session.commit()
+
+        result = register_gatk_stage(
+            session=session, settings=settings,
+            analysis_id=ANALYSIS_ID, attempt=1, stage=stage,
+        )
+        request = json.loads((
+            Path(settings.gatk_runtime_request_root)
+            / ANALYSIS_ID / "attempt-1" / f"{stage}.request.json"
+        ).read_text())
+        execution = session.scalar(select(PipelineStageExecution).where(
+            PipelineStageExecution.stage_code == stage,
+        ))
+
+        assert request["stage_execution"] == {"protocol": "cce.stage-execution.v1"}
+        assert result["stage_execution"] == {"protocol": "cce.stage-execution.v1"}
+        assert request["request_hash"] == execution.request_hash == hashlib.sha256(
+            json.dumps(
+                {key: value for key, value in request.items() if key != "request_hash"},
+                sort_keys=True, separators=(",", ":"),
+            ).encode()
+        ).hexdigest()
+
+
+def test_protocol_scope_gatk_reuses_unmarked_request_bytes_and_hash(tmp_path: Path) -> None:
+    sessions = _sessions()
+    settings = _settings(tmp_path)
+    old = _execution("step1_upload", 1, "accepted")
+    request = {
+        "analysis_id": ANALYSIS_ID, "attempt": 1, "stage": "step1_upload",
+        "generation": 1, "execution_id": old.execution_id,
+    }
+    old.request_hash = hashlib.sha256(
+        json.dumps(request, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    original_hash = old.request_hash
+    request["request_hash"] = original_hash
+    path = (
+        Path(settings.gatk_runtime_request_root)
+        / ANALYSIS_ID / "attempt-1" / "step1_upload.request.json"
+    )
+    path.parent.mkdir(parents=True)
+    original_bytes = (json.dumps(request, indent=2) + "\n").encode()
+    path.write_bytes(original_bytes)
+    with sessions() as session:
+        session.add_all([_run(), _execution("prepare", 1, "success"), old])
+        session.commit()
+
+        result = register_gatk_stage(
+            session=session, settings=settings,
+            analysis_id=ANALYSIS_ID, attempt=1, stage="step1_upload",
+        )
+
+        assert result["execution_id"] == old.execution_id
+        assert result["request_hash"] == original_hash
+        assert result["generation"] == 1
+        assert "stage_execution" not in result
+        assert path.read_bytes() == original_bytes
+        assert old.request_hash == original_hash
+
+
+def test_registration_marker_follows_exact_frozen_request(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    row = _execution("step1_upload", 1, "accepted")
+    path = (
+        Path(settings.gatk_runtime_request_root)
+        / ANALYSIS_ID / "attempt-1" / "step1_upload.request.json"
+    )
+    path.parent.mkdir(parents=True)
+    body = {
+        "analysis_id": ANALYSIS_ID,
+        "attempt": 1,
+        "stage": "step1_upload",
+        "generation": 1,
+        "execution_id": row.execution_id,
+        "stage_execution": {"protocol": "cce.stage-execution.v1"},
+    }
+    row.request_hash = _canonical_hash(body)
+    path.write_text(json.dumps({**body, "request_hash": row.request_hash}))
+    assert _registration_payload(row, settings)["stage_execution"] == body["stage_execution"]
+
+    body.pop("stage_execution")
+    row.request_hash = _canonical_hash(body)
+    path.write_text(json.dumps({**body, "request_hash": row.request_hash}))
+    assert "stage_execution" not in _registration_payload(row, settings)
+
+    body["stage_execution"] = {"protocol": "cce.stage-execution.v0"}
+    row.request_hash = _canonical_hash(body)
+    path.write_text(json.dumps({**body, "request_hash": row.request_hash}))
+    with pytest.raises(ValueError, match="unsupported frozen"):
+        _registration_payload(row, settings)
 
 
 def test_failed_stage_projects_terminal_run_state(tmp_path: Path) -> None:

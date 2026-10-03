@@ -1,13 +1,16 @@
 """Identity-bound Step4 dispatcher observations; no publish, retry or cloud scan."""
 import hashlib
 import json
+import os
 import re
 from datetime import datetime,timezone
 
 if __package__:
-    from .cce_paired_runtime import _exclusive, _read_registered, _registered_request
+    from .cce_paired_runtime import (STAGE_EXECUTION_PROTOCOL, _exclusive,
+        _read_registered, _registered_request)
 else:
-    from cce_paired_runtime import _exclusive, _read_registered, _registered_request
+    from cce_paired_runtime import (STAGE_EXECUTION_PROTOCOL, _exclusive,
+        _read_registered, _registered_request)
 
 KEYS = ('analysis_id', 'attempt', 'stage', 'execution_id', 'generation', 'request_hash')
 TERMINAL = {'success', 'complete', 'succeeded', 'failed', 'canceled'}
@@ -52,6 +55,13 @@ def publish_dispatch_command(arguments, *, gate, pipeline):
     else:
         from wgs_release_runtime import select_release_runtime
     gate.CCE_PIPELINE_BIN=select_release_runtime(payload,default_cli=gate.CCE_PIPELINE_BIN)
+    if 'stage_execution' in payload:
+        if payload['stage_execution'] != {'protocol': STAGE_EXECUTION_PROTOCOL}:
+            raise ValueError('unsupported Step4 stage execution protocol')
+        # The native worker_command rechecks the deadline under launch.lock
+        # only for a fresh launch. A duplicate after expiry may reattach.
+        return gate.start_native_stage(payload)
+    require_publish_deadline(payload)
     # start_async_stage revalidates these exact bytes under the launch lock.
     return gate.start_async_stage(payload)
 
@@ -70,6 +80,30 @@ def _record(path, payload):
 def observe_locked(payload, *, gate, pipeline):
     """Caller holds the original launch lock. Absence alone never grants replay."""
     path, raw = registered_publish(payload, gate=gate, pipeline=pipeline)
+    if 'stage_execution' in payload:
+        if payload['stage_execution'] != {'protocol': STAGE_EXECUTION_PROTOCOL}:
+            raise ValueError('unsupported Step4 stage execution protocol')
+        if __package__:
+            from .cce_stage_execution_adapter import executor_for_registered
+        else:
+            from cce_stage_execution_adapter import executor_for_registered
+        executor, ref, binding = executor_for_registered(
+            payload, gate=gate, pipeline=pipeline)
+        if (binding.request_path != path
+                or binding.dispatch_path != path.with_suffix('.stage-execution.dispatch.json')):
+            raise ValueError('Step4 native dispatch path differs')
+        if (os.path.lexists(binding.dispatch_path)
+                or os.path.lexists(binding.status_path)):
+            state = executor.observe(ref).state
+            if state == 'succeeded':
+                return 'success'
+            if state in {'accepted', 'running'}:
+                return 'running'
+            if state in {'failed', 'canceled'}:
+                return state
+            return 'uncertain'
+    elif os.path.lexists(path.with_suffix('.stage-execution.dispatch.json')):
+        return 'uncertain'
     receipt = _record(path.with_suffix('.status.json'), payload)
     worker = _record(path.with_suffix('.worker.json' if pipeline == 'wgs' else '.worker.state.json'), payload)
     if worker:

@@ -1,7 +1,9 @@
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 import json
+import os
 from pathlib import Path
+import secrets
 from types import SimpleNamespace
 
 import pytest
@@ -63,7 +65,7 @@ class FakeAirflowClient:
         return self.runs.get((dag_id, dag_run_id))
 
 
-def make_client(tmp_path, monkeypatch):
+def make_client(tmp_path, monkeypatch, sessions_override=None):
     fastq_source = tmp_path / "fastq-source"
     fastq_source.mkdir()
     for read in ("R1", "R2"):
@@ -114,7 +116,7 @@ projects:
 """,
         encoding="utf-8",
     )
-    sessions = make_sessionmaker()
+    sessions = sessions_override or make_sessionmaker()
     settings = SimpleNamespace(
         deployed_pipelines=("wgs",),
         container_shared_root=str(tmp_path / "shared"),
@@ -2448,6 +2450,8 @@ def test_forced_step2_retry_imports_terminal_receipt_before_new_generation(
                 WgsStageExecution.generation == 1,
             )
         )
+        assert first.json()["request_hash"] == generation_one.request_hash
+        assert first.json()["stage_execution"] == {"protocol": "cce.stage-execution.v1"}
         status_payload = {
             "schema_version": "wgs-runtime.stage-status.v1",
             "analysis_id": analysis_id,
@@ -2494,6 +2498,165 @@ def test_forced_step2_retry_imports_terminal_receipt_before_new_generation(
             "failed",
             "accepted",
         ]
+
+
+@pytest.mark.skipif(
+    not os.getenv("OPT_SUBMISSION_TEST_DATABASE_URL"),
+    reason="isolated PostgreSQL DSN required",
+)
+@pytest.mark.parametrize(
+    ("stage_name", "force_new_generation", "receipt_status"),
+    [
+        ("step3_monitor", False, "success"),
+        ("step2_master", True, "failed"),
+    ],
+)
+def test_runtime_stage_sync_does_not_self_lock_run_row(
+    tmp_path, monkeypatch, stage_name, force_new_generation, receipt_status
+):
+    dsn = os.environ["OPT_SUBMISSION_TEST_DATABASE_URL"]
+    schema = f"test_stage_sync_{secrets.token_hex(8)}"
+    bootstrap_engine = create_engine(dsn)
+    with bootstrap_engine.begin() as connection:
+        connection.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
+
+    engine = create_engine(dsn)
+
+    def configure_postgres_connection(connection, _record):
+        cursor = connection.cursor()
+        cursor.execute(f'SET search_path TO "{schema}"')
+        cursor.execute("SET lock_timeout TO '1500ms'")
+        cursor.close()
+
+    event.listen(engine, "connect", configure_postgres_connection)
+    client = None
+    try:
+        Base.metadata.create_all(engine)
+        sessions = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+        client, sessions, _ = make_client(tmp_path, monkeypatch, sessions_override=sessions)
+        settings = main.get_settings()
+        settings.wgs_contract_v2_enabled = True
+        settings.wgs_stage_contract_path = str(
+            Path(__file__).parents[2] / "config" / "wgs_stage_contract.yaml"
+        )
+        monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+        monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+        monkeypatch.setattr(
+            main, "get_internal_service_token", lambda: "internal-test-token"
+        )
+        headers = login(client, "operator", "operator-pass")
+        created = client.post(
+            "/api/runs",
+            headers=headers,
+            json={
+                "pipeline": "wgs",
+                "project_name": "WGS_Clinical",
+                "execution_mode": "cce",
+                "batch_no": "SYNTHETIC-STEP3-LOCK",
+                "fq_path": str(tmp_path),
+            },
+        )
+        assert created.status_code == 201, created.text
+        analysis_id = created.json()["analysis_id"]
+        with sessions.begin() as session:
+            run = session.scalar(
+                select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+            )
+            run.params_json = {
+                **dict(run.params_json or {}),
+                "orchestration_contract_version": 2,
+            }
+            session.add(
+                WgsStageExecution(
+                    execution_id="wse_step1_lock_test",
+                    analysis_id=analysis_id,
+                    attempt=1,
+                    stage_code="step1_upload",
+                    generation=1,
+                    status="success",
+                    request_hash="1" * 64,
+                    release_id=str(run.params_json["pipeline_release_id"]),
+                    receipt_hash="2" * 64,
+                    evidence_type="transfer_receipt",
+                    terminal_payload_json={},
+                )
+            )
+
+        internal = {"X-Airflow-Demo-Token": "internal-test-token"}
+        step2_body = {
+            "attempt": 1,
+            "adapter": "wgs-runtime-200",
+            "command": f"wgs-runtime {analysis_id} 1 step2_master",
+        }
+        step2 = client.post(
+            f"/api/internal/wgs/runs/{analysis_id}/stages/step2_master",
+            headers=internal,
+            json=step2_body,
+        )
+        assert step2.status_code == 200, step2.text
+        with sessions() as session:
+            step2_execution = session.scalar(
+                select(WgsStageExecution).where(
+                    WgsStageExecution.execution_id == step2.json()["execution_id"]
+                )
+            )
+            step2_identity = (
+                step2_execution.execution_id,
+                step2_execution.generation,
+                step2_execution.request_hash,
+            )
+        status_dir = Path(settings.wgs_runtime_request_root) / analysis_id / "attempt-1"
+        status_dir.mkdir(parents=True, exist_ok=True)
+        (status_dir / "step2_master.status.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "wgs-runtime.stage-status.v1",
+                    "analysis_id": analysis_id,
+                    "attempt": 1,
+                    "stage": "step2_master",
+                    "status": receipt_status,
+                    "orchestration_contract_version": 2,
+                    "execution_id": step2_identity[0],
+                    "generation": step2_identity[1],
+                    "request_hash": step2_identity[2],
+                    "retry_no": 0,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        target_stage = stage_name
+        target_body = {
+            **step2_body,
+            "command": f"wgs-runtime {analysis_id} 1 {target_stage}",
+            "force_new_generation": force_new_generation,
+        }
+        response = client.post(
+            f"/api/internal/wgs/runs/{analysis_id}/stages/{target_stage}",
+            headers=internal,
+            json=target_body,
+        )
+
+        assert response.status_code == 200, response.text
+        if stage_name == "step3_monitor":
+            assert response.json()["stage"] == "step3_monitor"
+            with sessions() as session:
+                step2_execution = session.scalar(
+                    select(WgsStageExecution).where(
+                        WgsStageExecution.execution_id == step2.json()["execution_id"]
+                    )
+                )
+                assert step2_execution.status == "success"
+        else:
+            assert response.json()["generation"] == 2
+    finally:
+        if client is not None:
+            client.close()
+        engine.dispose()
+        with bootstrap_engine.begin() as connection:
+            connection.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
+        bootstrap_engine.dispose()
 
 
 def test_forced_prepare_retry_imports_terminal_receipt_before_new_generation(
@@ -3199,8 +3362,10 @@ def test_prepare_analysis_status_waits_for_final_sampleinfo_nfs_visibility(
         assert [item.sample_id for item in samples] == ["SAMPLE-1"]
 
 
-@pytest.mark.parametrize('version', ['V4.2.0', 'V4.2.1', 'V4.2.2'])
-def test_prepare_status_waits_for_required_handoff(tmp_path, monkeypatch, version):
+@pytest.mark.parametrize('version', ['V4.2.0', 'V4.2.1', 'V4.2.2', 'V4.2.3'])
+@pytest.mark.parametrize('stage', ['prepare_sampleinfo', 'prepare_analysis'])
+@pytest.mark.parametrize('has_receipt', [pytest.param(False, id='missing'), pytest.param(True, id='present')])
+def test_prepare_status_waits_for_required_handoff(tmp_path, monkeypatch, version, stage, has_receipt):
     monkeypatch.setenv('WGS_RUNTIME_ADAPTER_ENABLED', 'true')
     client, sessions, _ = make_client(tmp_path, monkeypatch)
     headers = login(client, 'operator', 'operator-pass')
@@ -3209,26 +3374,58 @@ def test_prepare_status_waits_for_required_handoff(tmp_path, monkeypatch, versio
         'batch_no': f'WGS_20260909A_T7Hg38{version}', 'fq_path': str(tmp_path),
     }).json()
     aid = created['analysis_id']
+    submission_phase = 'preparing_sampleinfo' if stage == 'prepare_sampleinfo' else 'preparing_analysis'
     with sessions.begin() as session:
         run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == aid))
         run.params_json = {**dict(run.params_json or {}), 'wgs_version': version,
-                           'submission_phase': 'preparing_sampleinfo'}
-    marker = Path(main.get_settings().wgs_runtime_request_root) / aid / 'attempt-1' / 'prepare_sampleinfo.status.json'
+                           'submission_phase': submission_phase}
+        release_id = run.params_json['pipeline_release_id']
+    marker = Path(main.get_settings().wgs_runtime_request_root) / aid / 'attempt-1' / f'{stage}.status.json'
     marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_text(json.dumps({'schema_version': 'wgs-runtime.stage-status.v1',
-        'analysis_id': aid, 'attempt': 1, 'stage': 'prepare_sampleinfo', 'status': 'success',
-        'updated_at': '2026-09-11T00:00:00Z'}))
-    # Receipt absence must stop preview import, even if sampleinfo is already visible.
+    payload = {'schema_version': 'wgs-runtime.stage-status.v1',
+        'analysis_id': aid, 'attempt': 1, 'stage': stage, 'status': 'success',
+        'updated_at': '2026-09-11T00:00:00Z'}
+    if has_receipt:
+        sampleinfo_stage = stage == 'prepare_sampleinfo'
+        decision = 'candidate' if sampleinfo_stage else 'selected'
+        receipt = {
+            'schema_version': 'wgs.prepare-sampleinfo.receipt.v1' if sampleinfo_stage else 'wgs.prepare-analysis.receipt.v1',
+            'analysis_id': aid, 'attempt': 1, 'execution_id': f'{stage}-g1',
+            'generation': 1, 'request_hash': 'a' * 64, 'release_id': release_id,
+            'safe_candidates' if sampleinfo_stage else 'selected': [{
+                'sequencing_batch': '20260909A', 'analysis_batch': '20260909A',
+                'family_id': 'FAMILY-1', 'sample_id': 'SAMPLE-1', 'data_id': 'DATA-1',
+                'sample_type': 'WGS', 'family_relation': 'proband', 'sex': 'M',
+                'decision': decision, 'reason_code': decision, 'reason_message': '',
+            }],
+        }
+        if not sampleinfo_stage:
+            receipt.update(pending=[], excluded=[])
+        payload['prepare_handoff_receipt'] = receipt
+    marker.write_text(json.dumps(payload))
+    # Isolate the receipt fence from filesystem imports for both prepare stages.
     monkeypatch.setattr(main, 'sync_sampleinfo_preview', lambda **_: None)
+    monkeypatch.setattr(main, 'sync_prepared_samples', lambda **_: None)
     response = client.get(f'/api/internal/wgs/runs/{aid}/stage-status',
-        params={'attempt': 1, 'stage': 'prepare_sampleinfo'},
+        params={'attempt': 1, 'stage': stage},
         headers={'X-Airflow-Demo-Token': 'internal-test-token'})
     assert response.status_code == 200, response.text
-    assert response.json()['artifact_pending'] is True
-    assert response.json()['ready'] is False
+    assert response.json()['artifact_pending'] is (not has_receipt)
+    assert response.json()['ready'] is has_receipt
     with sessions() as session:
         run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == aid))
-        assert run.params_json['submission_phase'] == 'preparing_sampleinfo'
+        samples = list(session.scalars(select(Sample).where(Sample.analysis_id == aid)))
+        if has_receipt:
+            assert run.params_json['submission_phase'] == ('config_review' if sampleinfo_stage else 'execution_review')
+            assert run.params_json['sample_selection_scope'] == {
+                'attempt': 1, 'status': 'preparing' if sampleinfo_stage else 'ready',
+            }
+            assert [(row.sample_id, row.metadata_json['selection_decision']) for row in samples] == [
+                ('SAMPLE-1', decision),
+            ]
+        else:
+            assert run.params_json['submission_phase'] == submission_phase
+            assert samples == []
 
 
 def test_prepare_analysis_status_imports_final_selection_before_pending_decisions(

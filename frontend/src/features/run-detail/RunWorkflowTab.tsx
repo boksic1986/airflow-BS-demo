@@ -126,20 +126,22 @@ export function RuleInstanceTable({rules, onOpenLog}: {
   onOpenLog?: (key: string) => void;
 }) {
   return <div className="table-wrap"><table className="data-table rule-instance-table" aria-label="Pipeline rule instances">
-    <thead><tr>{["Phase", "Rule", "Sample", "Family", "Order", "Job", "Status", "Started", "Finished", "Elapsed", "Remaining", "Message / failure excerpt"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
+    <thead><tr>{["Phase", "Rule", "Group", "Sample", "Family", "Order", "Job", "Status", "Started", "Finished", "Elapsed", "Remaining", "Message / failure excerpt"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
     <tbody>{rules.map((rule, index) => {
       const key = JSON.stringify([rule.attempt, rule.rule_instance_id || [rule.rule, rule.sample_id, rule.family_id, rule.sequence, rule.snakemake_jobid, index]]);
       return <tr key={key}>
-        <td>{rule.phase || "Unknown"}</td><td className="rule-name-cell">{rule.rule}</td><td>{rule.sample_id || "-"}</td><td>{rule.family_id || "-"}</td><td>{rule.sequence ?? "-"}</td>
+        <td>{rule.phase || "Unknown"}</td><td className="rule-name-cell">{rule.rule}</td>
+        <td title={rule.execution_group || undefined}>{rule.execution_group?.split(":").pop() || "-"}</td>
+        <td>{rule.sample_id || "-"}</td><td>{rule.family_id || "-"}</td><td>{rule.sequence ?? "-"}</td>
         <td>{rule.snakemake_jobid || "-"}</td>
         <td><StatusBadge status={displayRuleStatus(rule.status)} />{rule.status_inferred ? <small>Inferred from run success</small> : null}</td>
-        <td>{rule.started_at || rule.start_time ? formatDate(rule.started_at || rule.start_time) : rule.native_started_at || "未采集"}</td><td>{rule.ended_at || rule.end_time ? formatDate(rule.ended_at || rule.end_time) : rule.native_ended_at || "未采集"}</td><td>{duration(rule.elapsed_seconds)}</td><td>{duration(rule.estimated_remaining_seconds)}</td>
+        <td>{rule.started_at || rule.start_time ? formatDate(rule.started_at || rule.start_time) : rule.native_started_at || (rule.timing_provenance === "group_only" && ["planned", "accepted"].includes(normalizeStatus(rule.status)) ? "Awaiting rule start" : "未采集")}</td><td>{rule.ended_at || rule.end_time ? formatDate(rule.ended_at || rule.end_time) : rule.native_ended_at || "未采集"}</td><td>{duration(rule.elapsed_seconds)}</td><td>{duration(rule.estimated_remaining_seconds)}</td>
         <td className="rule-message-cell">
           {rule.stderr_excerpt ? <details><summary>{rule.message || "Show failure excerpt"}</summary><pre>{rule.stderr_excerpt}</pre></details> : (rule.message || "-")}
           {rule.analysis_log_key && onOpenLog ? <button type="button" className="text-button" aria-label={`Open log for ${rule.rule}`} onClick={() => onOpenLog(rule.analysis_log_key!)}>Open log</button> : null}
         </td>
       </tr>;
-    })}{rules.length === 0 ? <tr><td colSpan={12} className="empty-cell">No matching Rule instances.</td></tr> : null}</tbody>
+    })}{rules.length === 0 ? <tr><td colSpan={13} className="empty-cell">No matching Rule instances.</td></tr> : null}</tbody>
   </table></div>;
 }
 

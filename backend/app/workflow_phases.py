@@ -19,11 +19,13 @@ PINNED_GATK_PHASES = {
     "gatk_concat_vcf": "Variant packaging", "gatk_publish": "Delivery",
     "cloud_gatk_finalize": "Delivery", "cloud_gatk_all": "Workflow targets",
 }  # bd04f6d:workflow/SCMC_GATK.smk, blob 0ee4e0033a1d5e0dbf0e62c0264136749173304a
-# Audited SCMC_GATK.smk inventories; r2/r3 retain the same 17 rule names.
+# Audited SCMC_GATK.smk inventories; r2/r3/r4/r5 retain the same 17 rule names.
 GATK_PHASE_RELEASES = {
     "gatk-scmc-v7.6.0@bd04f6d": "0ee4e0033a1d5e0dbf0e62c0264136749173304a",
     "gatk-scmc-v7.6.0@r2": "1cf9fe6f1672e919517bd1392bb2fd4496eab702",
     "gatk-scmc-v7.6.0@r3": "1cf9fe6f1672e919517bd1392bb2fd4496eab702",
+    "gatk-scmc-v7.6.0@r4": "1cf9fe6f1672e919517bd1392bb2fd4496eab702",
+    "gatk-scmc-v7.6.0@r5": "1cf9fe6f1672e919517bd1392bb2fd4496eab702",
 }
 BIOLOGICAL_PHASE_ORDER = {name: i * 10 for i, name in enumerate([
     "Preflight", "FASTQ QC", "Mapping", "Duplicate marking", "Alignment QC",
@@ -50,7 +52,10 @@ def _pinned_wgs_rules(release_id):
     # Equivalence is only the audited rule-to-phase inventory, not biological
     # behavior. Changed source blobs are recorded in verified_source_overrides.
     supported = {PINNED_WGS_PHASES["release_id"], *PINNED_WGS_PHASES.get("verified_equivalent_releases", {})}
-    return PINNED_WGS_PHASES["rules"] if release_id in supported else {}
+    if release_id not in supported:
+        return {}
+    return {**PINNED_WGS_PHASES["rules"],
+            **PINNED_WGS_PHASES.get("verified_rule_additions", {}).get(release_id, {})}
 
 
 def _pinned_gatk_rules(release_id):
