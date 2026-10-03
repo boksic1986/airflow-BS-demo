@@ -42,6 +42,23 @@ Initial local candidates are not deletion results: `cce-recovery-design-20260922
 clean trees with ignored `.codex-runtime`/`.superpowers` remain protected until
 their contents are preserved. Actual removals and archive IDs must be appended.
 
+### Exact authorized cleanup targets (before action)
+
+Fresh local checks: every HEAD below is contained in main, production and test;
+tracked/untracked status and ignored inventory are empty. Current owner routes
+do not use them; their completed design/fix history is retained in target Git.
+Authorization is the human's unused branch/worktree cleanup request, not data cleanup.
+
+| Workspace | Branch | HEAD | Method |
+| --- | --- | --- | --- |
+| `C:/Users/11217/.codex/worktrees/cce-recovery-design-20260922/airflow-demo` | `jiucheng/docs/cce-recovery-design-20260922` | `0e5ea914e179eb0ec565f93704d7358c1def6891` | App archive, then safe local branch deletion |
+| `C:/Users/11217/.codex/worktrees/gatk-slot-retry/airflow-demo` | `jiucheng/fix/gatk-slot-retry-20260923` | `43cd0c51a0ff44cc368579a397ba5ddb5ebc611a` | Non-forced Git worktree removal, safe local branch deletion |
+| `D:/pipeline/airflow-demo-worktrees/wgs-submission-design-20260922` | `jiucheng/docs/wgs-submission-design-20260922` | `e44dc3efa7e0d87dd631cb674919434dae17a451` | Non-forced Git worktree removal, safe local branch deletion |
+
+These are code workspaces, not clinical resources. No batch directory, FASTQ,
+runtime evidence, database, release artifact or protected target branch is a target.
+If final checks or removal refuse, retain the workspace; no force fallback.
+
 ## Handoff simplification candidates (do not delete automatically)
 
 - Old UE-01-only/"not implemented" headers: superseded by later UE delivery
