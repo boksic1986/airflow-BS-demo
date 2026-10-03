@@ -324,6 +324,40 @@ def _registered_request(payload, gate, pipeline):
     return path, raw
 
 
+def _registered_recovery_root(payload, gate, pipeline):
+    if pipeline != 'wgs':
+        return None
+    path, raw = _registered_request(payload, gate, pipeline)
+    frozen = json.loads(raw)
+    root = gate._workdir(frozen)
+
+    def resolve():
+        current, current_raw = _registered_request(frozen, gate, pipeline)
+        if current != path or current_raw != raw or gate._workdir(frozen) != root:
+            raise RuntimeError('registered recovery root changed')
+        return root
+
+    return resolve
+
+
+def _registered_journal_root(payload, gate, pipeline):
+    path, _ = _registered_request(payload, gate, pipeline)
+    callback = _registered_recovery_root(payload, gate, pipeline)
+    return (path.parent, callback()) if callback is not None else path.parent
+
+
+def _registered_writer(runtime, bundle, contract, config, payload, gate, pipeline, **kwargs):
+    writer = runtime.writer_for_bundle(runtime, bundle, contract, config, **kwargs)
+    callback = (_registered_recovery_root(payload, gate, pipeline)
+                if writer is not None and writer.registration_schema_version == 3 else None)
+    if callback is not None:
+        writer = runtime.writer_for_bundle(runtime, bundle, contract, config,
+            recovery_control_root=callback, **kwargs)
+    if writer is not None:
+        writer._registered_recovery_control_root = callback
+    return writer
+
+
 def _request_digest(registered,pipeline):
     excluded = {'request_hash'} if pipeline == 'gatk' else {
         'execution_id', 'generation', 'request_hash', 'predecessor_execution_id',
@@ -556,8 +590,10 @@ def _resolve_selected_owner(runtime, bundle, selected, contract, config, record,
         return expected
     if writer.registration_schema_version != 3:
         raise RuntimeError('unsupported native writer registration protocol')
+    callback = getattr(writer, '_registered_recovery_control_root', None)
     current = runtime.resolve_current_owner(runtime, bundle, contract, config,
-        selected_bundle=selected, expected_master_uid=record['job_uid'], read_only=True)
+        selected_bundle=selected, expected_master_uid=record['job_uid'], read_only=True,
+        **({'recovery_control_root': callback} if callback is not None else {}))
     if (current['selected_bundle'] != selected
             or current['expected_master_uid'] != record['job_uid']
             or current['record'] != record or current['platform_execution'] != platform
@@ -592,7 +628,7 @@ def submit_registered(payload, *, binding, gate, pipeline):
     path, raw = _registered_request(payload, gate, pipeline)
     bundle = Path(binding['cce_bundle'])
     contract, config, modules = runtime._load(bundle, None)
-    writer = runtime.writer_for_bundle(runtime, bundle, contract, config)
+    writer = _registered_writer(runtime, bundle, contract, config, payload, gate, pipeline)
     if writer is None:
         raise RuntimeError('trusted per-run writer registration required')
     with writer.serialize():
@@ -699,7 +735,7 @@ def _initial_step2_continuation(path, payload, gate, pipeline, runtime, bundle, 
         return False  # A real prior/replacement owner keeps the recovery path.
     platform = dict(pipeline=pipeline, **{k:payload[k] for k in
         ('analysis_id','attempt','stage','execution_id','generation','request_hash')})
-    views = list(_journal_views(path.parent, pipeline, runtime, bundle, contract))
+    views = list(_journal_views(_registered_journal_root(payload, gate, pipeline), pipeline, runtime, bundle, contract))
     journal_path = path.parent / ('submission-'+payload['execution_id']+'.json')
     current = [v for v in views if v[0] == journal_path and v[1].get('identity',{}).get('platform_execution') == platform]
     if views and (len(current) != 1 or len(views) != 1):
@@ -747,8 +783,10 @@ def _initial_step2_continuation(path, payload, gate, pipeline, runtime, bundle, 
 
 def _journal_views(root, pipeline, runtime, bundle, contract):
     """Locate native views by exact persisted identity, never by mtime/latest."""
-    paths = sorted({p for pattern in ('submission-*.json', 'recovery-*.json' if pipeline == 'wgs' else 'resume-*.json')
-                    for p in root.glob(pattern)})
+    spool, recovery = root if isinstance(root, tuple) else (root, root)
+    paths = sorted({p for directory, pattern in ((spool, 'submission-*.json'),
+        (recovery, 'recovery-*.json' if pipeline == 'wgs' else 'resume-*.json'))
+        for p in directory.glob(pattern)})
     if len(paths) > 4096:
         raise RuntimeError('native journal inventory requires archival')
     frozen = runtime._handoff_binding(bundle, contract)
@@ -770,7 +808,7 @@ def _journal_views(root, pipeline, runtime, bundle, contract):
             if value['recovery_v2'].get('view') != str(selected):
                 raise RuntimeError('recovery view journal changed')
         if (selected.resolve() != selected or platform.get('pipeline') != pipeline
-                or platform.get('analysis_id') != root.parent.name or platform.get('attempt') != frozen['attempt']):
+                or platform.get('analysis_id') != spool.parent.name or platform.get('attempt') != frozen['attempt']):
             raise RuntimeError('journal view outside registered attempt')
         yield path, value, selected, platform
 
@@ -1010,8 +1048,8 @@ def _automatic_failure_evidence(payload, value, *, runtime, bundle, selected, co
         return None
 
 
-def _created_monitor_journal(root, payload, pipeline, runtime, bundle, contract, expected=None):
-    """Locate only the authenticated previous Step3 producer, never latest/mtime."""
+def _created_monitor_journal(root, payload, pipeline, runtime, bundle, contract, expected=None, *, gate):
+    """Follow registered observers to their exact original Step3 producer."""
     if pipeline != 'wgs':
         return None
     producer = (expected or {}).get('platform_execution')
@@ -1021,31 +1059,64 @@ def _created_monitor_journal(root, payload, pipeline, runtime, bundle, contract,
             return None
         producer = dict(pipeline=pipeline, analysis_id=payload['analysis_id'], attempt=payload['attempt'],
             stage='step3_monitor', **previous)
-    matches = [item for item in _journal_views(root, pipeline, runtime, bundle, contract)
-        if item[1].get('recovery_state') == 'created'
-        and item[3].get('execution_id') == producer.get('execution_id')]
-    if not matches:
+    if expected is not None and producer.get('stage') != 'step3_monitor':
         return None
-    if len(matches) != 1 or matches[0][3] != producer or producer.get('stage') != 'step3_monitor':
-        raise RuntimeError('created monitor producer is ambiguous or changed')
-    return matches[0]
+    if __package__:
+        from .cce_recovery_deadline import deadline_epoch
+    else:
+        from cce_recovery_deadline import deadline_epoch
+    views = list(_journal_views(root, pipeline, runtime, bundle, contract))
+    evidence = []
+    ceiling = payload['generation'] if expected is None else producer['generation'] + 1
+    while True:
+        generation = producer.get('generation')
+        if producer.get('stage') != 'step3_monitor' or type(generation) is not int or not 0 < generation < ceiling:
+            raise RuntimeError('monitor producer chain is cyclic or not decreasing')
+        authenticated = _producer_registration(producer, gate, pipeline, payload['analysis_id'], payload['attempt'])
+        registered = json.loads(authenticated[0][1])
+        if (any(raw != authenticated[0][1] for _, raw in authenticated)
+                or gate._workdir(registered) != gate._workdir(payload)
+                or deadline_epoch(registered) != deadline_epoch(payload)):
+            raise RuntimeError('monitor producer chain changed frozen scope')
+        evidence.extend(authenticated)
+        matches = [item for item in views if item[3].get('execution_id') == producer.get('execution_id')]
+        if matches:
+            if len(matches) != 1 or matches[0][3] != producer:
+                raise RuntimeError('created monitor producer is ambiguous or changed')
+            if matches[0][1].get('recovery_state') != 'created':
+                if len(evidence) > 1:
+                    raise RuntimeError('observer chain has no created producer')
+                return None
+            return (*matches[0], tuple(evidence))
+        previous = registered.get('resume_previous_execution')
+        if expected is not None or not previous:
+            if len(evidence) > 1:
+                raise RuntimeError('observer chain has no registered native producer')
+            return None
+        if not isinstance(previous, dict) or set(previous) != {'execution_id', 'generation', 'request_hash'}:
+            raise RuntimeError('monitor producer predecessor identity changed')
+        ceiling = generation
+        producer = dict(pipeline=pipeline, analysis_id=payload['analysis_id'], attempt=payload['attempt'],
+                        stage='step3_monitor', **previous)
 
 
 def _confirmed_created_monitor_source(payload, gate, pipeline, runtime, bundle, contract, config, writer, expected=None,
         serialized=False):
     """Reconcile an existing START only; preserve its created journal and producer."""
     path, request_raw = _registered_request(payload, gate, pipeline)
-    located = _created_monitor_journal(path.parent, payload, pipeline, runtime, bundle, contract, expected)
+    root = _registered_journal_root(payload, gate, pipeline)
+    located = _created_monitor_journal(root, payload, pipeline, runtime, bundle, contract, expected, gate=gate)
     if located is None:
         return None
-    journal_path, saved, selected, platform = located
+    journal_path, saved, selected, platform, chain_evidence = located
     journal_raw = _read_registered(journal_path)
     if json.loads(journal_raw) != saved:
         raise RuntimeError('created monitor journal changed')
-    evidence = _producer_registration(platform, gate, pipeline, payload['analysis_id'], payload['attempt'])
-    producer = json.loads(evidence[0][1])
+    producer_evidence = _producer_registration(platform, gate, pipeline, payload['analysis_id'], payload['attempt'])
+    evidence = (*chain_evidence, *producer_evidence)
+    producer = json.loads(producer_evidence[0][1])
     parent = Path(saved.get('registered_source', str(bundle)))
-    allowed = [bundle, *[v[2] for v in _journal_views(path.parent, pipeline, runtime, bundle, contract)]]
+    allowed = [bundle, *[v[2] for v in _journal_views(root, pipeline, runtime, bundle, contract)]]
     if parent not in allowed or parent.resolve(strict=True) != parent or selected.resolve(strict=True) != selected:
         raise RuntimeError('created monitor source is not registered or canonical')
     original = runtime._handoff_binding(parent, contract)
@@ -1132,9 +1203,9 @@ def _observe_registered_source(payload, binding, gate, pipeline, runtime, bundle
             source, record, confirmed_evidence = created
             evidence = (*evidence, *confirmed_evidence)
         elif expected is None:
-            source, record = _recovery_source(path.parent,payload,pipeline,runtime,bundle,contract,writer)
+            source, record = _recovery_source(_registered_journal_root(payload,gate,pipeline),payload,pipeline,runtime,bundle,contract,writer)
         else:
-            matches=[v for v in _journal_views(path.parent,pipeline,runtime,bundle,contract)
+            matches=[v for v in _journal_views(_registered_journal_root(payload,gate,pipeline),pipeline,runtime,bundle,contract)
                 if str(v[2]) == expected.get('selected_bundle') and v[3] == expected.get('platform_execution')
                 and (v[1].get('state') == 'confirmed' or v[1].get('recovery_state') == 'started')]
             if len(matches) != 1:
@@ -1172,7 +1243,7 @@ def _observe_registered_source(payload, binding, gate, pipeline, runtime, bundle
         else:result=operation(runtime,bundle,source,record['job_uid'],contract,config,modules,writer)
         proof = _automatic_failure_evidence(payload,result or {},runtime=runtime,bundle=bundle,selected=source,
             contract=contract,config=config,run_label=binding['run_label'],exported=exported,
-            request_root=path.parent,pipeline=pipeline)
+            request_root=_registered_journal_root(payload,gate,pipeline),pipeline=pipeline)
         if _read_registered(path) != raw or any(_read_registered(p)!=v for p,v in evidence):
             raise RuntimeError('registered observer superseded')
         if __package__:
@@ -1209,7 +1280,7 @@ def resume_registered(payload, *, binding, gate, pipeline):
     original_deadline = deadline_epoch(payload)
     bundle = Path(binding['cce_bundle'])
     contract, config, modules = runtime._load(bundle, None)
-    writer = runtime.writer_for_bundle(runtime, bundle, contract, config,
+    writer = _registered_writer(runtime, bundle, contract, config, payload, gate, pipeline,
         **({'probe_deadline_epoch':original_deadline} if original_deadline is not None else {}))
     if writer is None:
         raise RuntimeError('trusted per-run writer registration required')
@@ -1234,13 +1305,13 @@ def resume_registered(payload, *, binding, gate, pipeline):
         if _initial_step2_continuation(path,payload,gate,pipeline,runtime,bundle,contract,config,writer):
             return _submit_registered_locked(payload, pipeline=pipeline, path=path, raw=raw,
                 bundle=bundle, runtime=runtime, contract=contract, config=config, modules=modules, writer=writer)
-        initial=_initial_abort_source(path.parent,payload,gate,pipeline,runtime,bundle,contract,config,writer)
+        initial=_initial_abort_source(_registered_journal_root(payload,gate,pipeline),payload,gate,pipeline,runtime,bundle,contract,config,writer)
         abort=None; producer_evidence=()
         if initial is not None:
             if original_deadline is not None:
                 raise RuntimeError('initial abort cannot change an initialized compute budget')
             source,record,abort,producer_evidence=initial
-            started=[v for v in _journal_views(path.parent,pipeline,runtime,bundle,contract)
+            started=[v for v in _journal_views(_registered_journal_root(payload,gate,pipeline),pipeline,runtime,bundle,contract)
                 if v[1].get('recovery_state')=='started'
                 and v[1].get('recovery_v2',{}).get('context',{}).get('action')==payload['resume_action_id']]
             if started:
@@ -1253,8 +1324,8 @@ def resume_registered(payload, *, binding, gate, pipeline):
                     expected=expected,evidence=producer_evidence)
                 return payload['_cce_master_result']
         else:
-            _reconcile_initial_intent(path.parent,payload,gate,pipeline,runtime,bundle,contract,config,writer)
-            source, record = _recovery_source(path.parent, payload, pipeline, runtime, bundle, contract, writer)
+            _reconcile_initial_intent(_registered_journal_root(payload,gate,pipeline),payload,gate,pipeline,runtime,bundle,contract,config,writer)
+            source, record = _recovery_source(_registered_journal_root(payload,gate,pipeline), payload, pipeline, runtime, bundle, contract, writer)
         if not isinstance(record, dict) or record.get('schema_version') != 2:
             raise RuntimeError('native Master handoff identity required')
         old_uid = record['job_uid']
@@ -1324,7 +1395,7 @@ def resume_registered(payload, *, binding, gate, pipeline):
         capability = RecoveryCapability(bundle=source, origin_bundle=bundle, expected_job_uid=old_uid, context=context,
             authorize=authorize, verify_lock=verify_lock, platform_execution=platform,
             compute_deadline=original_deadline,
-            history_bundles=_source_history(path.parent,pipeline,runtime,bundle,contract,source),
+            history_bundles=_source_history(_registered_journal_root(payload,gate,pipeline),pipeline,runtime,bundle,contract,source),
             **({'initial_abort':abort} if abort is not None else {}))
         if pipeline == 'wgs':
             result = wgs_resume.resume_master(payload=payload, binding=binding, runtime=runtime, recovery=capability)
@@ -1356,7 +1427,7 @@ def prepare_monitor_registered(payload, *, binding, gate, pipeline):
     runtime = load_runtime()
     bundle = Path(binding['cce_bundle'])
     contract, _, _ = runtime._load(bundle, None)
-    if _created_monitor_journal(path.parent, payload, pipeline, runtime, bundle, contract) is not None:
+    if _created_monitor_journal(_registered_journal_root(payload,gate,pipeline), payload, pipeline, runtime, bundle, contract, gate=gate) is not None:
         # A failed START observer already has a producer. This branch can only
         # confirm that producer and observe it; errors never fall into Resume.
         _selected_registered(payload, binding=binding, gate=gate, pipeline=pipeline,
@@ -1364,7 +1435,7 @@ def prepare_monitor_registered(payload, *, binding, gate, pipeline):
         return
     if any(saved.get('recovery_state') == 'started'
             and saved.get('recovery_v2', {}).get('context', {}).get('action') == payload['resume_action_id']
-            for _, saved, _, _ in _journal_views(path.parent, pipeline, runtime, bundle, contract)):
+            for _, saved, _, _ in _journal_views(_registered_journal_root(payload, gate, pipeline), pipeline, runtime, bundle, contract)):
         # A confirmed replacement is observed even if its Job has been reclaimed.
         # The journal is only a locator: revalidate registration, native handoff,
         # frozen inputs and current owner before the ordinary monitor reads FINAL.
@@ -1386,7 +1457,7 @@ def reattach_registered(payload,previous,*,binding,gate,pipeline):
     if previous.get('cce_master_submit_execution_id')!=expected.get('platform_execution',{}).get('execution_id'):
         raise RuntimeError('reattached producer identity changed')
     bundle=Path(binding['cce_bundle']);contract,config,modules=runtime._load(bundle,None)
-    writer=runtime.writer_for_bundle(runtime,bundle,contract,config)
+    writer=_registered_writer(runtime,bundle,contract,config,payload,gate,pipeline)
     if writer is None:raise RuntimeError('reattached writer registration missing')
     _observe_registered_source(payload,binding,gate,pipeline,runtime,bundle,contract,config,modules,writer,
         operation=lambda *args:None,expected=expected,evidence=((status_path,status_raw),))
@@ -1414,7 +1485,7 @@ def probe_waiting_workers(payload, *, binding, gate, pipeline, generation, reque
         raise RuntimeError('Worker probe producer differs')
     bundle = Path(binding['cce_bundle'])
     contract, config, modules = runtime._load(bundle, None)
-    writer = runtime.writer_for_bundle(runtime, bundle, contract, config)
+    writer = _registered_writer(runtime, bundle, contract, config, payload, gate, pipeline)
     if writer is None:
         raise RuntimeError('Worker probe writer registration missing')
     _observe_registered_source(payload,binding,gate,pipeline,runtime,bundle,contract,config,modules,writer,
@@ -1638,7 +1709,7 @@ def _release_registered_writer(payload, binding, gate, pipeline,
             if value['terminal']['state'] != 'SUCCEEDED':
                 raise RuntimeError('final writer requires native success')
             workers = lineage_workers(runtime,contract,selected,value,
-                _source_history(current_path.parent,pipeline,runtime,bundle,contract,selected))
+                _source_history(_registered_journal_root(payload,gate,pipeline),pipeline,runtime,bundle,contract,selected))
             probe_final_workloads(runtime=runtime, config=config,
                 namespace=contract['kubernetes']['namespace'], run_label=binding['run_label'],
                 master_job=contract['kubernetes']['master_job'], master_job_uid=uid,
@@ -1679,7 +1750,7 @@ def _selected_registered(payload, *, binding, gate, pipeline, operation=None, ru
         # ProtectedWriter snapshots config with deepcopy. A closure preserves
         # the one durable owner; copying a bound method would clone that owner.
         config = {**config, '_monitor_query_runner': lambda query: query_owner.run(query)}
-    writer = runtime.writer_for_bundle(runtime, bundle, contract, config)
+    writer = _registered_writer(runtime, bundle, contract, config, payload, gate, pipeline)
     if writer is None:
         raise RuntimeError('trusted per-run writer registration required')
     source_path = gate._request_path(payload['analysis_id'], payload['attempt'], 'step2_master')
@@ -1724,7 +1795,7 @@ def _selected_registered(payload, *, binding, gate, pipeline, operation=None, ru
         return _observe_registered_source(payload,binding,gate,pipeline,runtime,bundle,contract,config,modules,writer,
             operation,expected=exported,evidence=((source_path,source_raw),(status_path,status_raw)))
     if direct and not any(v[1].get('recovery_v2',{}).get('context',{}).get('action') == action
-            for v in _journal_views(path.parent,pipeline,runtime,bundle,contract)):
+            for v in _journal_views(_registered_journal_root(payload,gate,pipeline),pipeline,runtime,bundle,contract)):
         return _observe_registered_source(payload,binding,gate,pipeline,runtime,bundle,contract,config,modules,writer,operation)
     if __package__:
         from .cce_recovery_inventory import VerifiedMasterResult
@@ -1736,7 +1807,7 @@ def _selected_registered(payload, *, binding, gate, pipeline, operation=None, ru
             writer.validate()
         original = runtime._handoff_binding(bundle, contract)
         platform = dict(pipeline=pipeline, **{k:source[k] for k in keys})
-        matches = [v for v in _journal_views(source_path.parent,pipeline,runtime,bundle,contract)
+        matches = [v for v in _journal_views(_registered_journal_root(payload,gate,pipeline),pipeline,runtime,bundle,contract)
             if v[3] == platform]
         if len(matches) != 1:
             raise RuntimeError('selected Master journal is missing or ambiguous')
@@ -1749,7 +1820,7 @@ def _selected_registered(payload, *, binding, gate, pipeline, operation=None, ru
             if selected_journal.get('recovery_v2',{}).get('context',{}).get('action') != action:
                 raise RuntimeError('recovery submit journal producer changed')
             parent = Path(selected_journal.get('registered_source',str(bundle)))
-            allowed = [bundle, *[v[2] for v in _journal_views(source_path.parent,pipeline,runtime,bundle,contract)]]
+            allowed = [bundle, *[v[2] for v in _journal_views(_registered_journal_root(payload,gate,pipeline),pipeline,runtime,bundle,contract)]]
             if parent not in allowed or parent.resolve(strict=True) != parent:
                 raise RuntimeError('selected Master source is not registered')
             original = runtime._handoff_binding(parent,contract)
@@ -1834,7 +1905,7 @@ def _selected_registered(payload, *, binding, gate, pipeline, operation=None, ru
             value = operation(runtime,bundle,selected,record['job_uid'],contract,config,modules,writer)
         proof = _automatic_failure_evidence(payload,value,runtime=runtime,bundle=bundle,selected=selected,
             contract=contract,config=config,run_label=binding['run_label'],exported=exported,
-            request_root=path.parent,pipeline=pipeline)
+            request_root=_registered_journal_root(payload,gate,pipeline),pipeline=pipeline)
         if any(content is not None and _read_registered(p) != content for p,content in [
                 (path,raw), (source_path,source_raw), (status_path,status_raw), (journal_path,journal_raw), *evidence]):
             raise RuntimeError('selected monitor evidence superseded during observation')
