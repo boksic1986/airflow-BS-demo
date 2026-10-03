@@ -1,5 +1,15 @@
 # Handoff
 
+## 2026-10-03 22:20（Asia/Shanghai）— GIT-AF-3TARGET-20261003 完成源整合
+
+**已完成源：**main 普通快进 e65834e，保留 cd6f2ab 完整 Step1–6 成功/实际部署及未全 GREEN combo 限制。ab29e46 仅原 coordinator 三 frontend 文件 legacy Resume 精确 hunk，保留 fd855934 最新生命周期/budget fencing；旧 accepted BS10610/BS96 证据在原 HANDOFF9086–9106/CURRENT2383–2402，未重新测试/部署。bf5f177 的 26docs 转 9e2a6f4，8 文档冲突逐块收口；五合同保留 owner 最新正文，AA W423 三文件保留实际 final/history并注明 QC4.2.x/Step2 新需求尚未实施。0586aec/e32358a ledger 转 0290daa/75f90d3，协调三路径/三 branch 精确清理已完成，不再并行操作。
+
+**治理：**e1fe6cd/9f8cb04 按 AGENTS、两 skill、docs15/36、SERVER_INFO dated inventory 白名单整合，非整个旧三卡快照。旧 A468 活动口径由最终 323D3F COMPLETE/自动监控停止覆盖；治理导航仍非开发/部署授权。所有 dirty/ignored/unique 与 owner/gov/coord 树保留。
+
+**测试分支差异：**实际 jiucheng/test/wgs-local-main-sync-20260917 保留 5c29d86 与 257931c 历史；F1 cce_compute_dispatch 的 configured runtime attempt 比较、F3 无 compute opt-in 时冻结监控期限是通用 P0，main/production 没有 UE 等效替代，尚未 promote；不得当环境差异忽略。保留 test 当前代码和其两 backend tests，旧 paired F2 用现行严格实现收口，监控 fixture 保留新版分离 root/observed query，registered-recovery fixture保留 test分离 root和既有 digest。旧 P1 six-scenario fixture 保留但未在新 gate下验证。无新实现/运行时验证或部署；待后续明确统一语义方向。
+
+**下一：**production FF、test 普通 merge保留上述差量，三 refs non-force push/ls-remote和源码包含核对后记录实际 SHA；普通 local -d仅明确已完成/全三目标包含/未checkout refs，未完成/证据/活跃引用保留。回滚仅普通 revert，保护三目标/完成运行/安装与数据；本检查点未声称目标 push 完成。
+
 ## 2026-10-03 21:55（Asia/Shanghai）— Git 归仓范围与初始盘点
 
 **新授权/owner：**亲读协调线程01a10202-9e22-7332-8cbf-429e58e0ba21原人类“airflow 提交到main和生产分支，以及测试分支。合并后，可以先删除不用的分支和worktree”。AF线程为唯一产品Git writer；协调只其单独文档白名单、原owner各自跨仓库Git。此轮只Git，不新增QC/Submit/核心实现、远端部署、旧运行恢复/完整重测或监控。当前323D3F完整success已结案保持。

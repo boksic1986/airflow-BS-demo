@@ -1,5 +1,49 @@
 # SERVER_INFO.md
 
+## 2026-10-02 BS10610 Docker image read-only inventory (historical snapshot)
+
+Preserved from governance source e1fe6cd during 2026-10-03 Git integration.
+These are dated inventory readings, not current live checks or deletion authority.
+
+Read-only preflight at 2026-10-02T10:10:49+08:00 confirmed `ssh BS10610`
+reached `server10610` as `chenjc` (uid 6708, docker group); test control root
+exists and `current` resolves to `releases/20260912-opt-4d3d24e6`. Compose
+project is `airflow-wgs`. No BS96 access or Docker mutation occurred.
+
+`docker system df` reported 84 images / 27.39 GB, with 25.43 GB marked
+reclaimable; Build Cache was 10.43 GB (1,514 records), separate from images.
+Ten containers were running and one unrelated, unlabeled container was exited.
+The current backend image `airflow-demo/backend:t235-232154f` (ID
+`8491604ee01d`) is referenced by three running services; Airflow
+`airflow-demo/airflow:bs-control-841eb55` (ID `58195672af68`) by four; current
+frontend `airflow-demo/frontend:main-359df11` (ID `c4225c70fe3e`) by one.
+Keep the lock-bound Node builder, nginx runtime base, Postgres/Redis bases, and
+all non-`airflow-demo/*` pipeline/Master candidates under the existing image
+policy; no build cache, volume, network or unrelated container cleanup is
+authorized by this inventory.
+
+Two unreferenced `airflow-demo/frontend` tags were identified:
+`resume-entry-20260928` (ID `05cf5152f9e8`, logical 63.1 MB, unique 498 kB)
+and `shared-handoff-final-fix` (ID `873625300723`, logical 63.1 MB, unique
+480.8 kB). Their combined unique layer estimate is under 1 MB. They are
+cleanup candidates only, not deleted. The private test rollback manifest
+`candidates/main-359df11-control/rollback.json` names
+`airflow-demo/frontend:panel-1fb971b`, which was absent from the complete
+local `airflow-demo/*` tag inventory. A read-only provenance check of local
+dangling images around the frontend size found only generic nginx-maintainer
+labels, not a verifiable `panel-1fb971b` image ID. Resolve this rollback-pin
+drift and reconfirm the keep set before any image removal; do not infer that
+either candidate is disposable from its age or zero container references.
+
+Commands were inventory-only (`hostname`, `id`, control-root `readlink`,
+`docker ps -a`, running-container mount inspection, `docker image ls`,
+`docker system df[-v]`, and a filtered rollback-tag read). An attempted
+read-only Python JSON-field extraction returned `python: command not found`;
+no file or runtime state changed, and a filtered text read confirmed the
+rollback image tags. No image/container/volume/database/Airflow change was
+made. See the matching current-state and handoff entries for next steps.
+
+
 ## 2026-10-02 14:15Z paired temporary96 control route
 
 server96 /data/airflow-WGS: actual worker c92ad8fe4b2b1bc9e197fca8f47da90b59638d6b9266bd97c705758584021342;

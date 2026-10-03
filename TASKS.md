@@ -1,5 +1,13 @@
 # Active test-branch tasks
 
+## 2026-10-03 22:20（Asia/Shanghai）— GIT-AF-3TARGET-20261003 源收口
+
+- [x] e65834e 完成源/六文档、ab29e46 已发布 legacy Resume 精确差量、9e2a6f4 协调 26docs及 0290daa/75f90d3 ledger 归仓；现行协议和延期边界保留。
+- [x] gov 治理文件/dated inventory 选择；旧 323D3F COMPLETE、monitor 停止保持；不覆盖旧树或患者/私有证据。
+- [ ] production 普通 FF、测试普通 merge/保护 5c29d86/257931c 与 F1/F3 独有代码；F2 保留最新实现。
+- [ ] 三实际目标普通 push、ls-remote/包含矩阵及完成源静态差量核对；已完成且未附工作树的本地分支按精确清单安全删除。
+- 待决策：F1/F3 是通用 P0，非环境私有配置；未获这两项推广 main/production 的范围，本轮不新增修复/验收。历史 P1 fixture 仅按双方已存差量整合，不声称 merged suite GREEN。
+
 ## 2026-10-03 21:55（Asia/Shanghai）— GIT-AF-3TARGET-20261003
 
 - [x] 亲核人类Git授权/唯一writer、origin与三个既存目标名/初始SHA，fetch完成。

@@ -1,5 +1,11 @@
 # Current state
 
+## 2026-10-03 22:20（Asia/Shanghai）— Git 完成源与三目标整合检查点
+
+GIT-AF-3TARGET-20261003：main 已普通快进至 owner e65834e，吸收 cd6f2ab 完成运行/已验源码；历史已发布 legacy Resume 三个精确 hunk（原 BS10610 RED1/GREEN3/build、BS96 frontend-only 记录）归仓 ab29e46。协调 bf5f177 的 26 文档已收口为 9e2a6f4，8 冲突保留当前合同/真实发布并明确历史与新需求；协调精确清理账本 0586aec/e32358a 转为 0290daa/75f90d3，三原路径已由协调处理，本线程不重做。gov e1fe6cd 导航/角色/skill 与 dated SERVER_INFO inventory 按白名单纳入，旧活动 A468 状态由最终 323D3F COMPLETE 覆盖。
+
+main 的 paired 原文 SHA415a45befe816cd738385ebd4ba7b5502d7f209b1fd69448d0489fb9bf8bca9a 未回退。实际测试分支 5c29d86/257931c 历史及 F1/F3 通用 P0 差量保留，未自动推广 main/production；UE 未等价覆盖这两项，后续统一方向待明确。F2 采用当前严格 initial 路由，旧 paired 实现不复引。测试历史验收不声明覆盖新 merge。此检查点尚待 production/test 合并及普通远端 push/readback；本轮无运行时测试/部署/恢复/新功能/自动monitor。
+
 ## 2026-10-03 21:55（Asia/Shanghai）— GIT-AF-3TARGET-20261003 开始
 
 已直接核实协调聊天人类01a10202-9e22-7332-8cbf-429e58e0ba21授权Airflow完成代码/文档普通同步main、生产、测试后清理不用分支/worktree。本线程唯一产品Git writer；仅Git管理，无开发/部署/323D3F恢复/自动监控或完整套重测。

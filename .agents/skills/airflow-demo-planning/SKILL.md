@@ -18,7 +18,7 @@ Use this skill when coordinating airflow-demo development. The goal is to keep t
 
 ## Workflow
 
-1. Declare `test` or `production`, then verify the target environment fingerprint.
+1. Read the canonical routing/priority index `docs/36_CROSS_REPO_DEVELOPMENT_BACKLOG.md` and `docs/15_MULTI_AGENT_BOUNDARIES.md`; identify the requested scope and authority. For documentation-only planning, do not contact a remote environment. If remote work is explicitly requested, declare `test` or `production` and verify its fingerprint using `docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md`.
 2. Identify the current phase and blocking issues.
 3. Break the requested work into small task cards.
 4. Assign each task to one owner agent.
@@ -31,3 +31,5 @@ Use this skill when coordinating airflow-demo development. The goal is to keep t
 - Do not implement large code changes while planning.
 - Do not assign two agents to edit the same contract file at the same time.
 - Prefer mock/dry-run first, then a bounded remote runtime or Docker canary.
+- Treat priority as advisory, not as authorization. Keep one accountable owner per task and split implementation, acceptance, and deployment gates; record dependencies, unknowns, deferrals, and user decisions explicitly.
+- On continuation after handoff/compaction, recover from the newest state files and current evidence; do not replay completed operations. Keep routine unchanged-state reporting quiet where the monitor requires it.

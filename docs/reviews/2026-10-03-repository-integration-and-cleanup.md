@@ -94,3 +94,22 @@ If final checks or removal refuse, retain the workspace; no force fallback.
 - Preserve active, dirty, unique-commit and ignored-evidence trees. Native0.8.8
   transport/selected-terminal legacy differences are not fully proven replaced;
   retain the old branch rather than silently reintroduce or discard it.
+
+## Airflow source integration checkpoint
+
+- Owner completed source/history `e65834e` (parent `cd6f2ab`) is in main.
+  Exact accepted frontend legacy Resume hunks were absorbed as `ab29e46`; this
+  reused the recorded acceptance and did not change paused English candidates.
+- Coordinator 26-doc whitelist `bf5f177` became `9e2a6f4`, resolving eight
+  conflicts with current contracts, actual release chronology and planned-only
+  QC4.2.x/compact Step2 requirements. Cleanup ledger updates `0586aec`/`e32358a`
+  became `0290daa`/`75f90d3`. Canonical governance files come from `e1fe6cd`.
+- The existing test target keeps `5c29d86`/`257931c` ancestry. Its F1 runtime-root
+  and F3 independent monitor-timeout fixes are common P0 semantics, not private
+  environment configuration. They are not equivalent to current UE paths and
+  have not been approved for promotion into main/production in this task.
+  Preserve them on test and flag the follow-up decision; do not restore old F2
+  over the accepted strict first-Master implementation.
+- No runtime tests or deployment were run. Prior test evidence is historical;
+  the old P1 fixture is preserved without claiming it passes against new gates.
+  Three target push/readback and final exact cleanup are pending below.
