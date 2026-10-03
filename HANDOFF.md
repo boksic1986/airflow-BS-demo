@@ -1,5 +1,2029 @@
 # Handoff
 
+## 2026-10-03 21:55（Asia/Shanghai）— Git 归仓范围与初始盘点
+
+**新授权/owner：**亲读协调线程01a10202-9e22-7332-8cbf-429e58e0ba21原人类“airflow 提交到main和生产分支，以及测试分支。合并后，可以先删除不用的分支和worktree”。AF线程为唯一产品Git writer；协调只其单独文档白名单、原owner各自跨仓库Git。此轮只Git，不新增QC/Submit/核心实现、远端部署、旧运行恢复/完整重测或监控。当前323D3F完整success已结案保持。
+
+**初始真实Git：**origin github.com:boksic1986/airflow-BS-demo.git，13:55Z fetch已完成；main与jiucheng/release/production本地/远端均c41450a26105b4f81518741fe8f926c60b26e0a7；test实际jiucheng/test/wgs-local-main-sync-20260917本地/远端257931c9b6cb157f7de29c45b0b73a30b0a85dfa。owner jiucheng/ops/WGS-6C78D5-prepare-recovery-20261002 HEADcd6f2abdeadc94de9923f39f18bd02f30ae397fa，无cd6后产品变动，六dirty文档/原private evidence保留。main已有fd855934/UE01–06/W423Group；test落后66commits且有5c29d86/257931c两独有历史，保留其历史，依据UE当前语义正常合并，不能反向搬test私有环境/门禁/数据库至生产。
+
+**白名单/依赖：**本owner CURRENT_STATE/TASKS/HANDOFF、docs08、ack-monitor-reconnect/terminal-identification仅完成ops/合同历史，精确提交不整树add。coord工作区旧产品dirty不提交，已切独立jiucheng/docs/coordination-snapshot-20261003释放test ref；待其文档白名单SHA。gov e1fe6cd七治理提交只核已有文档，不因文档owner等待扩大授权而停产品整合，保留当前最新成功三卡。前端English/typography dirty经完整最新卡明确暂停，排除，不把BS10610GREEN当部署；legacy Resume已发布补丁正核真实差量。原各种deferred/bulk inventory/prestart/legacy旧API均非自动实施授权。
+
+**工作区/清理：**22树逐项只读status/ignored/祖先已核；当前owner、dirty/private证据/uniquecommit树保护。拟复用本线程attached clean无ignored的step3-stage-lockfix做Git整合，原ui-transfer-wait分支保留。协调认领的cce-recovery-design等App归档路径不并行处理。清理只在三个目标真实合并/push/readback后，对准确clean已合并无证据依赖/活跃依赖项进行，Windows绝对路径预核，不force/reset/clean或通配符删除。
+
+**验证/回退：**用户明确复用已有验收，不跑全套/新运行时验证；仅Git祖先/差量/冲突/文档diff-check/远端SHA。merge冲突保留各目标有效独有内容，范围不明及时报协调，不粗暴ours/theirs覆盖。push非force，失败不重发不明写操作；历史commit/工作区证据保持，可普通revert不回退运行。当前尚无目标merge/push或清理，下一收口源/文档清单后普通同步并实证结果。
+
+## 2026-10-03 20:28（Asia/Shanghai）— 20260927D-test1 真实 Step1–6 完成
+
+**目标/终态：**W423-DTEST1-DOWNSTREAM-20261003完成。WGS_20261002_095408_323D3F / attempt1 / action resume_bc9f6186fc4f9571404e545b / 原5；成功Mastercb75、Pod6714、nativegen2/platformproducer3保持。原成功Step1/2及本次正常Step3g5/Step4g1/Step5g1/Step6g1均真实成功，原request/receipt全部保留在原路径，后续沿runner-requests，无迁移、重算、重传或新attempt。
+
+**最终Step6证据：**generation1/execution wse_63ede6c84fa53e657f587ef0/hash60823794978ed88719f163a9da001e3b122a32e314b469769a344f1ec54506a8/requestSHA531b9df222309cd905eb6696859c1865f6c698277a3cdbf181b952e9bacc2519；success12:17:26.201089Z/businessSHA004ec50cf25f45741e3a04771dcc6eec956f539f66abb5331b1d831388ce67de/typedterminalSHAcdc1865381cda0d2838fbf0af1f3934150b4ca9eea32693c6b519bde721267cc succeeded。typedref/registration/businesshash全匹配，dispatchfinished。AFwaitStep6成功12:17:29.122454Z，finalize_run成功12:17:32.213286Z，release_leases成功12:17:37.504189Z。12:22:01Z AF/public均success；12:22:44Z正常workspace六stage全success/final100%/WGS workflow completed，前端状态数据一致success。Step7_cleanup及wait_step7_cleanup均skipped。
+
+**结果真实落地：**12:27:53.823392Z既有ctapa key/严格96pin的最小read核原Clinical batch。DOWNLOAD_VERIFIED SHA9a32351a852b05caf4df773aae4951a72d365c83310ca9cd814a634b1e5ffd68与MATERIALIZED SHA5939aba65644896ce1b68cc8b4a0c4119e5fc316e0ab741d18ad9d883eea0cd0均statusPASS/schema1/project/batch/run_id匹配原冻结contract；payloadmanifestSHA329bd7b55fdaff200d1c35e9f695e26f8a79ba4901ea7e9bc0f724d424b4c401。materialize-progress SHA641993dd62a467aa3a787927cfc9b76b96b7f7de1f802eff5d162f8a4e3ee4c7/complete100%，968members、84253000884uncompressedbytes、archive36745541152B；原batchroot18个真实非symlink目录存在且有内容，仅输出namehash/权限/计数，无患者字段、不递归/MD5/云盘点。TransferJob成功17/17/220435381955B；verification_status投影仍null，不伪称该字段passed，真实DOWNLOAD_VERIFIED为验证证据。
+
+**核对失败如实：**初次现有verify-results.py读取到两PASS markers后在line26要求临时workspace存在而AssertionError/RC1，无任何生产数据写入。精确native cce_delivery.py1259明确成功写marker/progress后shutil.rmtree(workspace)，故这是reader错误条件，不是运行失败。未改该原helper或产品代码；一次只读按原生complete progress/marker/实际目录纠正，nodeprivate final-results.safe.json以O_EXCL/0600保存，原错误工具输出和helper保留，禁止重跑错误helper。未重POST/安装/测试/修改status/journal/锁/lease/注册。
+
+**最终证据/限制：**.codex-artifacts/w423-dtest1-downstream-20261003/current-step6-once4.safe.jsonl SHAce747cc33026598c3869e566b9753d13ef52c2eb5119be08e073c58d90c93509；progress-final.safe.jsonl SHAb6e2b25e27a535199004a67cdd96e0d45cf7a720b222e8f3933f5fa28241606d；final-results-corrected.safe.jsonl SHAa23d33284a7b37fc953ed8ac132db311a7ccc381a751523884d2256c789ea16f。原combo未全GREEN/人类停止测试事实保持；线上成功不改称测试GREEN。QCsummary warn/历史failedrule1/submission_phasefailed仍原投影，未扩UI修复或声明临床QC通过。
+
+**保护/交接：**产品三文件部署在19:14条已完整记载，之后无产品代码变化；paired415本地hash一致。自动monitor早已按人类要求停止/不存在，本轮未创建或删除任何automation；完成无需重建。无Step7/主动数据清理，原FASTQ/OBS/source/generatedsampleinfo/pending/reference/audit/Clinicalproject/results及所有新旧证据/其他批次5035B0保持。目标完成，无后续生产恢复待办；协调与docs owner获最终运营/产品分列简报。未来源码回滚仍需真实共享quiet闭窗恢复e993/3fc/a64，不能回退已成功运行代次或重复上述once。
+
+## 2026-10-03 20:05（Asia/Shanghai）— Step5 成功、当前 Step6 新身份
+
+**真实前驱：**12:05:29Z既有readonly helper确认Step5 gen1/wse_17fd84eacf72494cbdf587c3/hashbff1d74522c579129f4fc762f128b85ce065f956992c2e343573061e58956695真实success12:03:16.699035Z/businessSHA76a73d0226a47ec147092849d415788fcfacb23d4699b44b3f1539d30b8005d0；typedterminalSHA4b99bb723ced5044332198683f7a64cde549ba453a610526e82bab97d77c55eb succeeded，所有identity/ref/reg/businesshash匹配，dispatchfinished。原producerplatformgen3/wsea8c/hashfd1b/nativecb75gen2保持。AFwaitStep5 success12:03:19与slotrelease success12:03:22。正常TransferJob success/17files/220435381955B；verification_status仍null，不把投影空值说成验证通过，最终核真实DOWNLOAD_VERIFIED。
+
+**当前Step6：**same323D3F/a1/actionresume_bc9f6186fc4f9571404e545b/Dagrunning/原5/原deadline。generation1/execution wse_63ede6c84fa53e657f587ef0/requesthash60823794978ed88719f163a9da001e3b122a32e314b469769a344f1ec54506a8/requestSHA531b9df222309cd905eb6696859c1865f6c698277a3cdbf181b952e9bacc2519；businessrunning12:03:27.851615Z、dispatchrunning、regref全匹配、terminal无。AFmaterialize_step6_results start成功12:03:27，wait正常reschedule；finalize_run/release_leases尚未运行。publicpublishing，旧phasefailed不手改。
+
+**证据/下一：**.codex-artifacts/w423-dtest1-downstream-20261003/progress-eighth.safe.jsonl 与current-step6-start.safe.jsonl；原private stdout/stderr按时间保留。现在只等自然materialize真实成功，随后一次现有verify-results.py读取原Clinical DOWNLOAD_VERIFIED/MATERIALIZED、identity相符、prepared/committed journal及发布文件存在；不全MD5/云盘点。再核finalize及AF/public/workspace终态。无新增产品代码/helper/测试/POST/迁移/attempt/重算/重传、自动monitor/Step7/清理。当前完整流程未完成，所有原数据/成功结果/新旧证据/其他批次保护。
+
+## 2026-10-03 19:50（Asia/Shanghai）— 当前 Step5 与无新增补丁边界
+
+**方向：**人类问忽略恢复记录直跑Step4–6、后续写runner-requests或迁移，明确只是临时补丁且不额外生成代码。以最新实际部署为准：后来获准的证据根/原Master两项修正已完成，正常Step3/4真实success，Step5运行；后续请求/回执本来在runner-requests，现无新增迁移/代码需求。原记录/前驱/producer身份保留，不忽略或改写。
+
+**本次读取：**既有read-progress.sh经sshBS96先核server96/control/current/实际三服务mount/image/env与门禁，再正常public workspace/transfer GET；11:50:40Z same323D3F/a1/actionbc9f/publicpublishing，Step5running，148141361927/220435381955B、10/17files、67.2%，heartbeat11:50:31，verificationnull/Step6pending。现有历史phasefailed/failed_rule_count1未改。证据 .codex-artifacts/w423-dtest1-downstream-20261003/progress-fifth.safe.jsonl，协调已获简报。
+
+**下一步：**仅当前自然下载/校验/Step6落地及finalize真实回执、结果marker/journal/发布文件与AF/public/workspace一致success；未完成不虚报。自动监控保持停止，无新helper/产品代码/测试/POST/重算/重传/迁移/Step7或清理。原5、原producer与全部输入/成功结果/新旧证据/其他批次保护。
+
+## 2026-10-03 19:22（Asia/Shanghai）— 自然 Step5 已派发/正常下载
+
+**实际新阶段：**Step5_download generation1/execution wse_17fd84eacf72494cbdf587c3/hashbff1d74522c579129f4fc762f128b85ce065f956992c2e343573061e58956695/requestSHA55e7e8bfb2f32eae365fd6949604ea014e983a634468f14057003164e0eff304，actionbc9f/a1/原deadline不变。11:20:43Z真实reg/dispatch身份均match、dispatchrunning、businessrunning（采样SHA1e0bb332）、无terminal；AFresultslot acquire success11:17:16/startStep5success11:17:21，wait自然up_for_reschedule，没有重发/制造task。
+
+**真实进度/前端：**11:22:37Z正常public workspace/transferGET；stage5 Downloading WGS results/running，原5，railStep1–4success、Step6pending。result transfer WGS_20261002_095408_323D3F-a1-result/directiondownload/type result_download/running/frozen_plan；17files、220435381955bytes、36206574305transferred16.4%、speed269966376B/s、ETA682s，heartbeat11:22:29，verificationnull。无需额外OBS/md5/log/inventory；原phasefailed与failedrulecount1是现存历史投影，未改UI或状态。publicpublishing/currentDagrunning保持，不以传输进度宣布成功。
+
+**证据/下一：**task/current-download.safe.jsonl及progress-first.safe.jsonl/nodeprivate同时间stdout/stderr；只本次主动任务中等待自然Step5校验/Step6/最终落地，并不重建自动monitor。下载成功需真实receipt/typedterminal+TransferJobverification，Step6需实际DOWNLOAD_VERIFIED/MATERIALIZED和发布结果存在，以及finalize后AF/public/workspace一致success。原5/成功计算/原输入/FASTQ/OBS/pending/新旧证据/其他批次保护，无newattempt/重复源变/POST/测试/Step7/清理。
+
+## 2026-10-03 19:17（Asia/Shanghai）— 真实 g5 成功复用原 producer；自然 Step4 成功
+
+**当前实际身份/运营：**11:17:14–16Z sshBS96 actual环境pin仍一致，323D3F/a1/actionresume_bc9f6186fc4f9571404e545b/Dagrunning/publicpublishing/5。当前Step3gen5/wse_0731b3c84b50d6d847d0376e/hash205666d4/request9e97已真实success11:16:13.306080Z，businessSHAfd05284f844f9a3b847d7b5a5d7f49ccebe3dac90690b837960de090ff01c393；typedterminalSHAb4b91e01a173065f1926d98b0145c51b0efa85ab6a42e08ec9b057395f63ac66 succeeded、businesshash一致、typedexecutionref与reg完全匹配、dispatchfinished。真实queryhealthy、nativeMasterSUCCEEDED100%，0/0是退休Master计数语义，不误报333rules重算。binding.native cb75dde6/671407ee/nativegen2/a1，platformexec原producer3 wsea8c/hashfd1b不变。原AFwaitStep3 success11:16:22，chooseafter成功。未额外读cloud/journal/原日志或手改receipt。
+
+**自然Step4真实身份/成功：**generation1/execution wse_62cce319d45f62954e0574e7/hash3deb9611c081621733b215b6c27eacbdfe2bd62f56b998184e6271bd916c1a42/requestSHA2b815338cf0ddc92a6f2860fd95a7ac0aa843f2eaf6024e9c82d6fe428486a70。businessSHA89ea07a2fefb43ae8e8a3adbd05f1b6eb670b12b236c1aadfcf98fb00d86e5cc真实success11:17:04.687450Z；typedterminalSHAaeb8ae3e5bd5ce0351da338e486d4d0940b703c2f2b5a735bfe740f05ecb4181 succeeded，typedref/reg以及businesshash一致、dispatchfinished。业务binding原producer3/cb75与g5一致，AFstart/waitStep4 success11:17:14。无需直接skip/迁移journal，后续实际回执仍正常runner-requests下。
+
+**证据/下一步：**.codex-artifacts/w423-dtest1-downstream-20261003/current-first.safe.jsonl，nodeprivate observer-gen5-current-20261003T111716Z.stdout/stderr原raw保留。11:17:16 result_transfer.acquire_obs_transfer_slot running，Step5/6尚无request。只自然下载/落地/最终pipeline与AF/public/workspace一致终态；无第二POST、newattempt、forceall、重复成功步骤/测试、自动monitor、Step7或清理。pipeline最终仍未完成，不能以Step4 success宣告全程成功；旧submission_phasefailed是投影历史，不手改或扩UI范围。
+
+## 2026-10-03 19:14（Asia/Shanghai）— manifest3406 三文件实际上线；新 gen5 已登记
+
+**最终GO/必要检查：**协调直接工具消息已实读manifest3406f194、guard644、paired415、policy6c、activate0463及commit8cad，限定放行不再等待同审批/冗余测试。11:09:52–54Z原BS96 server96/control/current、backend a705/worker c92/scheduler243实际images/mount/env/55cb/auth+scantrue/autofalse一致，323D3F/a1/原5/action8e/g4failed与deadline保持；没有全环境/云查询。native/ctapa新private dirs0700、候选0600，11:11:22/40各owner精确备份完成。
+
+**实际闭窗安装：**ctapa11:12:10.692321Z原五wrapperCAS maintenance且sharedquiet；native6708:520仅guard0644 e993→644于11:12:31.742465Z，凭120s内精确闭窗receipt，未越权读取privatebootstrap。ctapa6801:520于11:12:44.013642Z只paired0644 3fc→415与policy0600 a64→6c；11:13:02.314078Z真实nipttest loadselectedruntime/nativeaf05/guard644/paired415/policy6c/新增两callback签名和全部unchangedpin通过。11:13:16.257866Z五原入口bytes/owner/mode完整恢复，无restart/ACL/路由/注册变更。native/ctapa backup/close/switch/load/open once全部保留，不重放。证据 .codex-artifacts/w423-dtest1-downstream-20261003/{preflight,backup-native,backup-platform,close,switch-native,switch-platform,load,open}.safe.jsonl；node /data/airflow-WGS/w423-dtest1-downstream-20261003-control、ctapa operator-evidence同task，备份仅原三文件/五入口，不声称全项目可恢复。
+
+**原g4保护：**新ctapa old-gen4-evidence仅五sidecar原bytes备份0600，request71c995/business369b/dispatch989c/registration3074/terminal2c7a均匹配原基线；producer原createdjournal/handoff/mirror及gen3证据此前完整备份保留，没有手改或迁移。preserve-gen4.safe.jsonl真实记录。
+
+**唯一正常API/新当前：**11:14:25.382927Z正常resume-stage HTTP200/queued，key w423-323d3f-a1-step3-twofix-20261003/step3-twofix-resume.once已消费。analysis WGS_20261002_095408_323D3F、attempt1、原5不变；action resume_bc9f6186fc4f9571404e545b / Step3_monitor generation5 / execution wse_0731b3c84b50d6d847d0376e / hash205666d45806dc912bcd52cc0d85e35d60f0d847020b972d94a368c98a62cdb3 / requestSHA9e97afb53ad4251afb64fe08b710632760995d0ad9dcf8506324d4cd90c017d9，Dag WGS_20261002_095408_323D3F-a1-resume_bc9f6186fc4f9571404e545b。responseSHA55a347eb74a32eae926463a3fa010152cfd402830337a71c466535dd399cd4ac；原Step2 predecessor wsec67b/gen2/hash1ffd及originaldeadline2026-10-07T12:45:38.887362Z/3f-release保持。真实response/request先记录，queued不是native成功，严禁重复POST/换key/newattempt/clear/强计算重跑。
+
+**下一/风险：**仅当前gen5派发/真实registeredbusiness/typedterminal和原producercb75/platformgen3 ACK确认，正常DAG自然Step4–6。新异常一次准确诊断报协调，不盲重派；变更rollback仍需要真实共享quiet闭窗原e993/3fc/a64组合，不在活跃消费者降级。所有源码review/native4GREEN复用，受影响combo未全GREEN/人类停止测试如实不变，生产成功以真实回执为准。自动monitor保持停止；原5/成功步骤/冻结输入/deadline/OBS/FASTQ/pending/全部新旧证据及其他批次保护，无Step7/清理。完整Step1–6/最终落地/三方终态尚未验证，不宣告完成。
+
+## 2026-10-03 19:08（Asia/Shanghai）— 最新直接人类停止冗余测试；实际 manifest 交最终 GO
+
+**最新方向亲核：**read_thread直接人类01a1016e-a827-7893-bd0b-5a17d81b45f0“不要冗余测试，从生产代码处补齐即可，不要来回浪费时间”，优先于旧comboGREEN前置。所有补fixture/测试停止，最后76a68286夹具未执行，不声称GREEN；原196f真实RED、7a98/66b6/da6d/b235失败raw保留。nativee020边界4GREEN及静态review复用，无更多验收/源码审计。
+
+**源码/实际候选：**AF8cad5d3d047e281b63638d9c086776f3db3db659只提交paired/同测试/窄docs/releases，历史dirty三卡/docs不混入。paired415a45be、guard64438f44、policy6c8617a3；manifest .codex-artifacts/w423-dtest1-downstream-20261003/deployment-manifest.safe.json SHA3406f1941a1d31b288fad9f59ef5e2c3304447fb88cdc336a449a68ccd1acab6。verification显式not_green/人类ID/最终夹具notexecuted。仅guard6708:520/0644、paired6801:520/0644、policy6801:520/0600；runtimeaf05/双bootstrapb928/原registration/路径/ACL/服务保持。原政策bytes只runtime_guard.sha256与writers.platform.sha256各一次替换，不新schema。
+
+**上线/回滚review：**新private native/data-control与ctapa operator-evidence/w423-dtest1-downstream-20261003两个root，新的backup/close/switch/load/open.once；原三文件/五入口精确0600备份。activate.py SHA0463f86f/stage.py aca6e84/preflight.sh cc7186/resume-once.sh062e7a5，沿既有CAS/fsync/owner-role机制；native只guard且用120s fresh ctapa闭窗receipt，不越权读privatebootstrap，ctapa最终完整pin/load/新增callback签名核对后恢复原五入口。rollback同真实quiet闭窗按各owner回装e993/3fc/a64，最终旧匹配load/入口open，不退981/ec6或运行代次。旧onceguards全消费，不重放。
+
+**尚未写生产：**精确manifest/rollback已发协调最终审核，AF仍唯一writer，无当前维护窗/生产切换/POST，不再因未GREEN阻塞人类新方向。只必要fresh实际mount/gates/sourcepins/sharedquiet，无全套前置/云库存/SFS/原日志重查。正常新key w423-323d3f-a1-step3-twofix-20261003一次同a1观察成功cb75；实际gen/execution/hash/Dag来自真实response并立即记三卡，unknown结果只readback。正常回执成功后自然Step4/5/6与最终落地，不绕API/锁或制造receipt。自动monitor保持停止；原5/deadline/成功步骤/输入/OBS/pending/结果/证据/其他批次保护，无newattempt/重算/重传/迁移/Step7/清理。
+
+## 2026-10-03 19:03（Asia/Shanghai）— 两项最小差量审查通过；真实组合RED，夹具收口中
+
+**范围/源码：**人类01a10148精确授权继续有效，仅受信证据根/原producer引用。AF paired415a45befe816cd738385ebd4ba7b5502d7f209b1fd69448d0489fb9bf8bca9a，native e0202c5027b567d5184d8a308adab4e136da3db1/guard64438f44ab380d2b7069ab3eef6684587abede67af5399044238e045bda1422f；独立静态review无缺陷。schema2未传callback/default不变；Step2 expected earlyNone；producer从authenticated terminal chain节点选取，非observerchainhead。无public schema/协议/DB/UI改动。
+
+**真实受影响验证：**BS10610固定容器/networknone/真实nativeaf05，仅新增split_root_observer_chain选中用例。旧paired3fc/guarde993 RED1failed/8deselected，日志196f94cd，prepare误入replacement；现象与生产错根一致。后续同用例raw7a98d567（schema2 callback）、66b66eaa（queryowner未真实observe）、da6d7c8d（synthetic binding label非法）、b23535ff（只改binding与原模板label不一致）如实全部私有保存。前两产品回归已局限修正/产品415不再扩；fixture修复只移mock到_run GET传输边界及源fixture冻结前统一合法label，不mock确认/门禁、不手造success；当前尚无GREEN，不可部署。native边界4RED/4GREEN已接受，其他历史套件不重跑。
+
+**最小待审发布：**仅guard e993→644/6708:520:0644，paired3fc→415/6801:520:0644，policy a64→6c8617a39c13f37ba573905ed10f6b388d01ab893ebee735adbd94cea721a530/6801:520:0600（原bytes只runtime_guard.sha256、writers.platform.sha256各替换一次）。runtimeaf05/bootstrapb928及所有注册/路径/其他fields不改。新任务独立private roots/onceguards、原三文件+五入口精确备份、必要pins/共享WGS/GATK静止、原入口维护、各owner切文件、ctapa匹配load后恢复入口；旧helper/once不得重放。回滚仅同静止窗口原e993/3fc/a64组合，不退回旧981/ec6、不kill/清状态/回退代次。
+
+**当前/下一步：**18:12证据继续作为运营基线，323D3F/a1/action8e/g4 failed；cb75原真实SUCCEEDED保护，Step4–6未开始。无新源码commit/维护窗/部署/POST。等待同combo真正GREEN，然后精确sourcecommit/diff/rawXML/manifest/rollback交协调最终GO；不重复全前置、不扩大测试。AF唯一productionwriter、正常API新key一次结果确知才跟踪实际新身份，unknown只readback不重POST。自动monitor按人类停止，所有原输入/FASTQ/OBS/成功结果/证据/其他批次保护，无新attempt/重传/重算/Step7/清理。
+
+## 2026-10-03 18:22（Asia/Shanghai）— 精确两项修复批准，实施开始
+
+**人类授权：**read_thread亲读协调直接人类01a10148-9a1d-7462-9faa-beb004464457，明确“仅修正证据目录定位和原Master引用两个问题，最小验证后部署；不做架构重构、不重算、不重传”→“允许修正，尽快上线完成”。W423-DTEST1-DOWNSTREAM-20261003目标仍323D3F/a1/原5/成功cb75/原deadline；只对这两项撤销本线程旧无代码限制，不等待重复批准。AF唯一生产writer，native合作负责guard源码资产，不独立生产写入。
+
+**已收敛最小合同：**native resolve_current_owner与writer_for_bundle新增内部可选recovery_control_root零参回调（默认None旧单根）；AF pinned paired闭包冻结已认证原request path/raw/analysis/attempt，每次重读bytes/hash/control_workdir并返回原精确canonical Path，native factory/publicresolver/validate重核回调和不变根。submission仅原registration spool，WGS recovery仅受信control，不迁移/复制journal、改原schema3登记或弱化锁/ownerUID/CAS。AF仅以现有_producer_registration/request-history按严格递减、同identity/hash/control/deadline的authenticated previous精确g4→g3，原bytes链复核，拒缺失/外来/循环，不latest/mtime猜选或普通Resume重建成功Master。
+
+**验证/发布路径：**新增现实双根+failedobserver4→producer3+正常Step4消费的一次最小BS10610组合RED/GREEN，复用其他既有验收，不重跑全套。AF将精确diff/rawGREEN/manifest/rollback交协调审核，再在必要source/policy pins及受影响消费者静止窗口内限定部署；唯一正常same-attempt接续确认结果后立即登记新真实execution/gen/hash，并自然跟踪Step4–6。18:12实际服务/mount/gate/current与失败身份已核，不重复全预检/云盘点。实现开始时尚无新产品差量/测试结果/部署或POST；后续实际结果追加。自动监控保持人类停止，保护所有输入/成功结果/OBS/pending/新旧证据/其他批次；无新attempt/重算/重传/架构/UI/公开协议/直接DB/Step7/清理。
+
+## 2026-10-03 — UE03 native 既有查询接口交接（仅本地核证）
+
+**来源/边界：**native owner019f9d79-be3f-7701-af33-3595d72bbfac交接既有接口，明确本次不是新增源码/测试/部署/恢复授权，协调最新STOP继续有效。本轮本地核对固定历史huawei-cloud-runtime 1f5e1e0d7d7095ab43b14f514aafe623f4f89ca3的inspection源码及最新AF三卡/git，不作生产实装声明；不重复此前根因、日志、云读取或18:12状态探测。
+
+**公共查询合同：**[stage_execution.py](D:/pipeline/WGS-noncoding-model/.codex-artifacts/w423-03-native-20261001/inspection/stage_execution.py:606)，SHA256 21b505da319cc752c5694f2b42e4082dd02dc47e3c7ddad895fdb87b08581bd2。StageExecutor.observe(ref: ExecutionRef)->ExecutionSnapshot；ref含protocol/pipeline/analysis_id/attempt/stage/execution_id/stage_generation/request_hash/registration_sha256，不含路径、命令、deadline。受信resolver(ref)返回StageExecutionBinding(execution_ref,request_path,dispatch_path,status_path,file_mode=0600)，terminal_reader(binding)返回匹配的StageReceipt或None。observe本身不创建锁、worker或业务结果；accepted/running、SSH/进程退出不等于业务成功；unknown/degraded表示观测不确定，不应覆盖平台已确定的终态。
+
+**内部deadline合同：**[cce_writer_guard.py](D:/pipeline/WGS-noncoding-model/.codex-artifacts/w423-03-native-20261001/inspection/cce_writer_guard.py:369)，SHA256 e99378dcb1a0f71d3561c6705f4b5fe2f9886bc9e0307b5dc7c1b822de6e6d0f。既有writer_for_bundle(...,*,probe_deadline_epoch=None)、current_master_storage_identity(...,*,probe_deadline_epoch=None)、cloud_storage_identity(...,*,keep_helper=False,cleanup_only=False,probe_deadline_epoch=None)签名已核。使用上游原冻结absolute epoch deadline；单probe默认预算120秒并以该deadline取小，预算内单操作min(30秒,剩余预算)，最多3次尝试（最多2次重试），退避2/5秒共用预算；仅明确SERVICE/TRANSPORT或严格筛选的暂时exec错误重试，身份/绑定/权限/格式错误不重试。helper缺有效startTime时仅一次。该预算不是cloud_storage_identity整个生命周期上限：CREATE固定30秒、等Pod可达有min(60,remaining)和后续清理。writer.validate内部传递参数，不新增公共request字段、不重新起算业务deadline。
+
+**独立静态核对限定：**StageExecutor.observe本身不写锁/worker/业务结果，resolver与terminal_reader为外部注入回调，本轮未证明其任意实现均零写；_resolve在try外，异常不保证转换成unknown。unknown不覆盖平台既有终态是AF调用方投影约束，而非native会自动改回平台状态。两份历史源码SHA/签名/上述预算与筛选已独立核对，未运行测试或生产操作；不把固定源码核证等同当前部署验证。
+
+**AF责任/当前/变更：**WGS prepare_analysis受信登记、稳定prebinding、冻结业务deadline、真实业务receipt门禁仍由AF adapter拥有；native observe不需要新协议，不代替原生完成证据，也不解决受信split-root或failedobserver4→producer3接线。当前下游任务和18:12一次只读failed事实不变；最小代码范围由协调已一次询问人类，自动监控持续停止。本轮只三卡交接、固定SHA/符号及独立本地核对，无产品代码/新helper/测试/SSH/API/部署/恢复或数据操作，无需生产回滚；原dirty保留。
+
+## 2026-10-03 18:12（Asia/Shanghai）— Step4–6 最新任务与代码限制澄清；仅一次当前只读核对
+
+**直接人类/协调范围：**已通过read_thread亲读协调线程人类01a1013a-c215-72a1-b23b-03fd8e03d1f9要求“先修复20260927D-test1的step4-6，最快程度完成流程”。协调先派发必要最小实施，随后明确补充暂停源码/测试/部署/POST：本线程先前人类“不应有额外代码生成”未明确撤销，已在协调线程一次询问两项接线范围。遵循补充边界，仅允许一次精确当前状态读取，不重做诊断；原audit-only任务被新下游目标取代，但不据此绕过具体代码限制。AF仍唯一生产writer，自动监控保持停止。
+
+**本轮命令/实证：**本地读取最新三卡、AGENTS、34边界、runtime/deployment/handoff规范、既有helper和git；HEAD5b50、原dirty保持。使用既有read-current-observer-gen4.sh经ssh BS96（BatchMode/ConnectionAttempts1/ConnectTimeout10、70秒上限）执行一次，退出0，10:12:48.352784–10:12:51.621581Z。server96/UID6708/control/current及实际backend/worker/scheduler原ID/image/mount/env、55cb模块一致，auth/intake=true/autodispatch=false。当前323D3F/a1/原5/release3f/action8e/Step3gen4/wseb968/hash0737/requestSHA71c9和原deadline保持；公平台/Dag failed，Step3 business369b/terminal2c7a失败，Step4–6无request。Step1gen2业务99c7/terminal715e与Step2gen2业务1ffd/terminal38eb仍success；本地按nested execution_ref核终态完整引用均true，businesshash均true，不重复远端读证纠正helper的顶层false。
+
+**证据：**[downstream-current-once-20261003T101246Z.safe.jsonl](.codex-artifacts/wgs323d3f-tmp-recover-20261003/downstream-current-once-20261003T101246Z.safe.jsonl)，SHA256 0a0f4f7c18869da5de226ba87bfe937e885e4faef3840628d3c5ae68bfce050a；BS96既有私有control保存observer-gen4-current-20261003T101251Z.stdout/stderr。helper读取当前身份与已有回执/API/Airflow，不执行native/cloudinventory，也未刷新cb75 SUCCEEDED；原可信计算完成证据继续引用而非宣称本轮新验证。
+
+**变更/暂停/下一步：**仅本地三卡与上述私有只读输出，无产品代码/新helper、测试、安装/部署、回执改写、迁移/复制journal、POST或自动监控。未运行测试，因为当前代码范围待明确且无实现。最小待批内容为受信control/spool定位（paired与native guard须完整一致）及authenticated failedobserver4→原producer3引用，复用既有真实成功证据让正常Step3回执接通Step4；不得只修paired、改原注册、猜选latest/mtime、绕身份/锁、直接DB写或重建Master。获得范围后才与native owner收敛精确diff/manifest/rollback并交协调审核、限定部署和正常same-a1接续一次。保护原5/输入/FASTQ/OBS/source/pending/结果/全部新旧证据与其他批次；无新attempt/forceall/Step7/清理。本轮无生产改动，无需生产回滚。
+
+## 2026-10-03 — 协调只读耦合审查已接收（仅交接）
+
+**来源/报告：**协调线程019fa8d1-0d81-7e92-abee-8154dd1cf0a7同步ARCH-CONTROL-MONITOR-20261003完成，明确仅记录，不启动代码/测试/生产操作/重试，也不批准原双根/递归链方案。已亲读[报告](C:/Users/11217/.codex/worktrees/wgs422-p0-integration-20260926/airflow-demo/docs/reviews/2026-10-03-control-monitor-display-coupling-audit.md)，原文留在协调worktree，不复制完整合同。其证据为已有10-03 05:41–05:51Z记录及实际候选源码，不是本轮在线fresh检查。
+
+**准确结论：**split-root为真实读写/注册合同缺陷；观察代次不能作为计算producer的稳定身份；平台stage failed与云compute终态应分别解释。未发现React按96/200选择监控路径，节点选择在Airflow派发层。纯StageExecutor observe、证据刷新/ACK对账、计算启动/恢复有不同写入边界，不能因同名read-only就推定零写。共享目录可读取证据，不能据此证明另一节点旧进程已静止。已有4fc完整进度快照修复与split-root是不同问题，不以本报告回滚已部署修复。
+
+**后续边界：**协调建议先收敛稳定计算引用、可替换观察者及统一受信定位/业务状态投影，减少重复定位与恢复特例；此是只读审核建议，非实施GO。保持本线程最新直接人类“临时补丁、不应有额外代码生成”及“保持停止自动监控”约束。当前已知cb75成功计算、g4失败观察与Step4–6未启动均保留，不标整批成功，不迁移journal/写success前驱/改冻结注册、不重算或发新POST。若后续直接人类方向与协调报告冲突，先按明确人类范围告知协调，不由报告扩授权。
+
+**本轮变更/验证：**仅CURRENT_STATE.md/TASKS.md/HANDOFF.md本条交接。没有代码/helper生成、测试、SSH/API/DB/云读取、部署、文件迁移、回执或重试；所有原dirty和私有证据保留。文档差异校验不代表运行时验收。无需生产回滚；后续生产动作仍待明确范围与实际门禁核验。
+
+## 2026-10-03 — 本线程人类提出无代码临时处置；只读可行性结论
+
+**最新请求：**人类原文“可以忽略恢复记录，直接续跑step4-6，然后把后续的记录写在runtime/runner-requests/...下吗？或者把记录迁移一下。这个只是临时补丁，不应该有额外的代码生成”。按当前原文只评估现成原语；先前新跨根产品实现路线暂停，不从问句推定可任意改注册/伪造成功/清理。协调已收到这条独立最新方向，并确认其本线程正在做只读架构审查、不新增修复授权。本轮无代码/helper生成、测试、远端命令、迁移/回执/POST。
+
+**已核现成入口：**backend/wgs_resume_service135–137要求目标已有interruptedexecution，当前Step4无request/注册不能直接resume；wgs_stage_execution_service100–101/319–336和config/wgs_stage_contract.yaml要求Step4最新Step3成功receipt，当前gen4failed。Step4–6请求及回执原本写runner-requests，改变后续写入目录不解决既有前驱。standalone native step4也是protected_stage(4)，仍核selected native success/owner，不是现成跳过注册和身份的正常平台恢复入口。
+
+**迁移约束（本地审计）：**paired748–774及guard904–910按journal文件位置推导同名view，须与recovery_v2.view完全相同；仅移JSON会身份不一致，软链在guard889/917与paired canonical检查被拒绝。连view纯字节搬家并不必然改变生信files/config/manifest哈希，不夸大为全部hash损坏；但必须同步原绝对路径、注册control/request、receipt/lineage绑定，native_advance_recovery_view仍拒绝旧recovery_v2.view变化。没有既有migrate/relocate命令可完成全套；迁移也不能代替真实START_CONFIRMED或精确g5→failedobserverg4→producerg3接链。因此两个简单处置均不能通过当前完整平台链，未执行迁移试错。
+
+**当前状态/保护/下一步：**复用上一明确事实，g4 failed、原cb75compute成功、Step4–6未启动、af05/3fc/a64与五原入口保持；不重复线上查询。已将源码行和准确无代码结论回报协调，并向本线程人类说明。未运行新测试，因为人类限定临时处置且本轮只读评估，没有实现。仅本地三卡更新，历史dirty/私有证据不提交；不改原数据、原5/a1/3f/deadline、成功结果/OBS/输入/pending和其他批次，自动监控持续按人类停止。
+
+## 2026-10-03 — 最终交接：共享 guard 固定根使 paired-only 范围不足，协调明确 STOP
+
+**当前决定/来源：**协调亲读actual e993独立review后明确：停止本轮所有新增实现/测试/部署/新POST；本AF保留af05/3fc/a64与五正常入口，仅记录准确根约束。协调将向native owner做最小静态方案确认，再向人类说明新增共享native受保护跨根合同范围。此前批准“无native修改”的paired薄差量不能完成当前问题，不自动扩展；用户“保持停止自动监控”持续有效，不创建/替代周期任务。
+
+**源码实证：**本地 .codex-artifacts/wgs323d3f-tmp-recover-20261003/actual-c8-guard.py SHAe99378dcb1a0f71d3561c6705f4b5fe2f9886bc9e0307b5dc7c1b822de6e6d0f，register_bundle780–790固定schema3control_root、已有不同注册冲突；resolve_current_owner867–870只glob已冻结registration.control_root，921仅START_CONFIRMED、938–945唯一候选后才约束selected_bundle，显式selected不增加root。writer.validate cloud/schema3还会独立调用resolver。paired register_initial242–244按request path.parent登记spool，_resolve_selected_owner559仍调用该guard。没有当前原schema3注册文件在本地，因此不声称已直接读取其全部值；已确证源码边界，不另做远端注册读取。
+
+**根与链设计依据（未实施）：**初始_submit_registered_locked614把submission-*写spool，03:06既有safe证据863b41原初始view亦在spool；wgs_resume154把recovery-*写payload注册control_workdir。后续需要按类型受信双根、GATK既有单根保持，不可把全部journal换control或复制/迁移/软链。当前g4失败后新API会previous=g4，须复用authenticated request-history/_producer_registration准确取g4.previous→g3，同analysis/a1/Step3/hash/control/deadline、递减generation、循环/缺失/外来拒绝和原bytes前后核；再完整原producer frozen/native/CMowner/fullfinal门禁。只本地两reviewer静态收口，不新增代码、验收或矩阵，也不把方案当已批准native实现。
+
+**实际状态/保护：**最新线上观测05:51:27Z g4/action8e/wseb968/hash0737 business369b/terminal2c7a/dispatch989cfinished、AF/currentDag/publicfailed，05:54:24Z原producerhandoff df5f仍START_SENT/journal2052created/cb75；原05:20可信SUCCEEDED026e/fullnativefinal保护，当前失败是observer入口定位，不是重算失败。Step4–6无request未启动，完整最终结果未落地核验。部署完成事实/6GREEN局限/首窗失败及恢复和全部onceguard保留；五入口原bytes正常，无新API/环境探针/云读取/服务或权限变更。下一仅等待协调明确跨根合同及直接范围，不重发消费的key、clear、手改registration/receipt/status/journal/锁/租约、制造失败/新attempt、重算成功rule/forceall、Step7或任何数据清理。原5/3f/a1/deadline/FASTQ/OBS/source/sampleinfo/pending/results/全部新旧证据和其他批次保护。
+
+**本次文件/验证：**只本地三卡与docs/reviews/2026-10-03-ack-monitor-reconnect.md运营交接追加，以及必要私有readonly/normalize证据；无产品源修改。未运行新增测试，原因是协调在跨native边界明确STOP，原组合6GREEN不重放且不能替代分离目录形态验收。前文测试共根漏覆盖如实保留。回滚仍须真实受影响消费者静止窗口和匹配source/policy，当前没有新回滚授权或操作。
+
+## 2026-10-03 13:55（Asia/Shanghai）— gen4 接续真实失败，准确定位到新薄接线 control/spool 错根
+
+**运营身份/实证：**仍WGS_20261002_095408_323D3F/a1/action resume_8e2670251e4703389637a2ef / Step3gen4 / wse_b96887a8de97349289beb8cd / hash0737db2420e1f5b1f65fc931357b9f3ccd5ddc190a56ef6575b8b9c37e79c51f。05:51:25–27Z ssh BS96 server96/control/current/actual三服务ID/image/mount/env/55cb/authscan=true/autofalse吻合；normalGET与AF当前Dag均failed/原5/3f/deadline保持。businessSHA369bfac0b35afc3328fcd85f0cdf3621af57f4e3f37b2a5b12bbeee061ff09c5于05:44:26.601782Z failed，typedterminalSHA2c7a3158ce59bcc84d033fce5b6906eebf59ecdec17160b46725e2109140db60 failed且businesshash一致；typedreg3074727c/nativeexecutionref77e4c656匹配，dispatch989c0406finished。AFstartStep3success，waitStep3 05:44:33.466872Z failed、Dag/publicfailed；Step4/5/6无request/未启动。prepare/Step1/2在新Dag任务success是既有结果复用，不作新执行证据。
+
+**本次错误：**仅当前worker append log私有保存10574B SHA c63d82258b1071e98c01c86babd4e327790e3156ebc99db73b384cfd34ea3fc5，仅输出最后trace。wgs_resume307→paired prepare_monitor_registered1374→resume_registered1257→_recovery_source800 RuntimeError静态“current owner has no unique native submission”，消息SHAdf55c70b51c5cb86d9655606d850bf37ec290a216035d4d035bfcc4ecd049310；源码实际paired3fc、nativeaf05/policya64 bytepins读证匹配。未进入native_finish/_await，不能称af05 ACK错误或云计算再次failed。
+
+**本地根因与验证缺口：**_registered_request309–324返回gate._request_path的spool，只另行校验gate._workdir(control)。prepare_monitor_registered1351取Step2spool，1359/1365传path.parent给_created_monitor_journal/_journal_views；真实注册control_workdir与journal2052为runtime/runs/<analysis>/attempt-1。locator None后ordinaryResume1257同wrongroot，_recovery_source仅认confirmed/started，故当前createdowner被800拒绝。scripts/tests/test_p02_registered_recovery.py25–27将REQUEST_ROOT/RUNTIME_RUN_ROOT同设requests、ACK test39/63用path.parent写journal/controlroot，现6GREEN未覆盖生产分离目录。仅诊断，尚未新增代码/验收/部署。下一正常API的previous将指向失败observergen4，方案还需保留authenticated原producer定位，不能盲假设重复原key/newgeneration可行。
+
+**实际原producer/纠正：**第一次小helper使用错误view根MASTER_HANDOFF.json输出absent，原文件保留但不作为真实缺项；随后依据native_master_handoff_path的evidence/runid locator一次corrected05:54:24.167737Z读证：producerhandoffSHA df5fbb94044e921380b6a209db49d4557ecdc04ac4c7a0fe0cb741d39cde1010仍START_SENT/cb75dde6-d06c-4f06-a4c3-63db8dc04ca7/671407ee-676a-4bf5-9000-01f1270cfb4e/nativegen2/platformgen3/action4d/wsea8c/hashfd1b；journalSHA20525d29仍created/replacementcb75。current request resume_previous_execution确实wsea8c/gen3/hashfd1b。原05:20可信RUN_COMPLETE026e/fullnativefinal成功保持，无重复云/SFS读取。
+
+**证据/范围/下一步：**local current-observer-gen4.safe.jsonl及normalized.safe.json（typed引用execution_ref完整校正，所有identitytrue/terminalbusinesshashtrue）、step3-gen4-error.safe.jsonl、gen4-handoff-readonly.safe.jsonl（错误locator原证据）、gen4-handoff-corrected.safe.jsonl。node private step3-gen4-error.worker.private.log/step3-gen4-error.safe.json、gen4-handoff-*保留0600。协调已收到准确首错/同薄接线错根，待其收敛最小修复与正常恢复入口，当前恢复写STOP；不再次POST/clear/复制journal到spool或改created/status/receipt/锁、native/SFS/云资源。已上线af05/3fc/a64与五原入口保留，不重放window/once/组合验收。原5/3f/a1/成功结果/deadline/全部历史证据和数据保护，自动monitor保持人类停止，无Step7/清理，完整Step1–6尚未完成。
+
+## 2026-10-03 13:43（Asia/Shanghai）— ACK/进度三文件实际上线；原 a1 新 observer generation4 注册
+
+**授权/目标：**直接人类01a1002b/01a1002d及协调最终GO覆盖4fc进度与ACK一次组合最小check、精确三文件/五入口维护窗口及唯一正常same-a1观察接续。原当前cb75云计算SUCCEEDED已真实取得且完整nativefinal通过，因此仅正常确认→Step4–6，不rerun此成功计算。自动监控持续按人类“保持停止自动监控”停止。
+
+**实际部署：**首窗跨owner读取失败已STOP并05:39:23Z确认产品仍旧/五入口恢复；仅维护helper角色校验分工纠正获协调批准，无ACL放宽。fresh05:41:05–07Z原服务/current/mount/env/gates/tuple吻合；新window2五入口关闭05:41:14.148276Z，native原owner6708:520/0644切af05于05:41:19.481741Z，paired原6801:520/0644切3fc与policy6801:520/0600切a64于05:41:21.833481Z，05:41:24.399257Z ctapa完整closed load/全部pins通过，05:41:26.817452Z五原entry完整bytes/mode恢复。nativeSHA af05ea224ef77bcb98b10ce3a702bce53379ced7c6f5ea3f401ba501ace5cb2b；pairedSHA3fc179a9b99b2c69677ab1ed2756a7db41fecf7aed4cb49f19218e37336a79c9；policySHAa64b559bde9dc9ff51dd82ea4bc03464cdda622aeaeacc14c967b9f0909f933d。guard/bootstrap/55cb/服务image/mount/env/routes保持。source5b50、manifest5a34、组合6GREEN6695均已审核；不重验收/安装/切换。
+
+**唯一正常提交：**旧gen3原request/business/dispatch/注册/terminal/journal/handoff/mirror全私有保存后，05:43:20.365355Z正常resume-stage HTTP200/queued。analysis WGS_20261002_095408_323D3F、attempt1不变；新action resume_8e2670251e4703389637a2ef / Step3_monitor generation4 / execution wse_b96887a8de97349289beb8cd / requesthash0737db2420e1f5b1f65fc931357b9f3ccd5ddc190a56ef6575b8b9c37e79c51f / requestSHA71c995ae5ee04172b7844b8ffe18a44fbdec47690c12a429c43c1e3f947e451b / responseSHA9a945072cf627df0b80c87f14ad2a9df3d7b16c5845f24dcaa40d9c739367332。key w423-323d3f-a1-step3-ack-observe-20261003与step3-ack-observe.once已消费，不重发/换key或新attempt。queued仅API受理，actual Dag/派发/ACK/Step3 terminal与自然Step4–6等待只读确认。原deadline2026-10-07T12:45:38.887362Z、release wgs-4.2.3-3f98682-perm2775、原5及Step2gen2/wse_c67b199d729c19f374c2eb51/receipt1ffd保持。
+
+**证据/下一步/回滚：**local .codex-artifacts/wgs323d3f-tmp-recover-20261003/ack-progress-window2-{preflight,close,native-switch,platform-switch,load,open}.safe.jsonl、old-gen3-preserved.safe.jsonl、step3-ack-observe.safe.jsonl。BS96 /data/airflow-WGS/wgs323d3f-ack-progress-20261003-control 的APIonce/response/request；ctapa /sg2/50.ctapa/project/HWcloud/airflow-wgs/operator-evidence/wgs323d3f-ack-progress-20261003 保留旧gen3-evidence与全部原备份、first/restore/window2 distinctguards。现在仅新身份真实回执/持久ACK消费及Step4–6，原producercb75/nativegen2/平台gen3不改，原created journal2052与旧终态保护。必要回滚仅真实相关消费者静止窗口内三原文件匹配pins，不盲降级活跃消费者；不得重建Master/重START、重算成功rule/forceall、手改status/receipt/journal/锁/租约或删除数据。完整Step1–6/最终落地未证，无Step7/清理或自动监控。
+
+## 2026-10-03 13:39 — 首窗口维护校验账号边界，原源未写/五入口已恢复；获准新窗口
+
+最终source5b50b8a/paired3fc/nativeaf05/policya64/manifest5a34及combined6GREEN已获协调最后GO。05:34:44–51Z fresh实际服务/tuple/11pins/sharedquiet；private exact backups05:35:55–58完成。05:36:50五wrapper CAS maintenancef5bc关闭且quiet后，nativeUID6708在unchanged ctapa bootstrap路径读取遭PermissionError13（ctapa私有父目录不可遍历），发生在switch.once与source replace之前。本AF立即停止并准确报告；不得放宽ACL或重放原命令。
+
+协调批准仅维护helper角色分工修正：native只验其owner unchanged pins，ctapa完整最终load仍验三文件/全部unchanged/入口，原owner/ACL不变。优先于继续切换，本AF05:39:23.032232Z ctapa restore-old先真实全部三文件SHA仍bfa/981/ec6、所有guard/bootstrap与maintenance入口吻合，再CAS恢复五原entry，最终完整原pins通过；无产品激活/API，restore-old.once保留。新window2须真实当前pins/quiet/fresh closedreceipt、使用window2-*证据和once，不删除或复用旧close/backup/失败记录，不持过期120s receipt。候选/manifest/验收未变，不追加产品测试；新的窗口及一次正常观察继续依原GO。
+
+## 2026-10-03 13:22（Asia/Shanghai）— 本次真实云终态SUCCEEDED，reader完成，产品消费薄条件待审
+
+按最新直接人类01a1002b/01a1002d与协调精确必要前置范围，fresh05:17:29–31Z ssh BS96原current/三服务ID/images/mount/env/gates/55cb及normal平台/AF failed/a1/action4d/原5/3f/compute deadline一致。ctapa严格96pin下当前同boot PID/完整PG1303859=0，精确Master absent、run-scoped无活跃Pods；未查无关namespace。新current-cb75-terminal-read.py只模板复用原native_reader_job和原生snapshot表达式，180s/backoff0/e481/UIDGID10001/单biosan-clinical双readonly/no fsGroup/env/OBS，仅当前UID archive，不重放eb02/旧guard。
+
+05:19:55.876037Z唯一CREATE真实reader c2917666-5f6c-4e4c-ac1d-c7a904da3184，namew423-323d3f-cb75-terminal-20261003/documentfd03cc50d238d8bfe3e33e1a9fe6897d4b932060ff2f10177ee01cbf98d6af10；同步native exec/currentarchive RC0，05:20:19Z唯一 RUN_COMPLETE.json SHA026e27ff680f16f1aa9ab6578993614aeb079fac666f921585444eee56f6355d，SUCCEEDED/finished_epoch1791001145即04:19:05Z；START SHA24a224原一致、recovery-final689ab4510695726ddf56165b7577563a37b7a05772b13f6938e75a9ec85dd912、workflowcompletiond5535b41a973a799da90420d34996ad68892a2755d214ad6616f7b959ef34ccf。全当前producer cb75/6714/nativegen2与platformgen3/action4d/wsea8c/hashfd1b及frozen hash/deadline身份匹配。仅原native_write_mirror_evidence发布真实selectedview mirror27535f90501bf1bfb9179705e7afffd1fe1e2c4cb489dc1666b83a1062a26e45，原_recovery_final_evidence完整PASS，其中_recovery_native_success校preflight/analysis/finaldryrun三exit0和真实completionmarker；submission_inventory_complete=true。没有手写原终态、改created journal或START_SENT。
+
+reader按actualUID+RV foreground DELETE一次RC0，05:22:26.790874Z exact readback Jobabsent/完整Pods0，生命周期完成；新reader-create/mirror-publish guards消费，不重读/重CREATE/重发布。private node cb75-terminal-20261003.{reader.document.private.json,reader.created.private.json,current-uid.exec.stdout,current-uid.evidence.private.json,native-final.private.json,result.safe.json,reader-readback-*}0600与所有原证据保留。local current-cb75-terminal-read.safe.jsonl/current-cb75-reader-readback.safe.jsonl；错误stderr/原stdout私有。只此必要native证据写，产品source/policy/五entry/新API尚未写。
+
+真实计算已成功，按协调条件不能rerun此成功分析；应正常Step3确认→Step4–6继续，完整最终落地尚未完成。已报协调currentSUCCEEDED/证据与准确拒绝点：combined01f1 _confirmed_created_monitor_source的START_SENT分支在liveJobNone时拒绝，不能盲POST；native_finish对START_SENT直接_await且已有mirror可非live读真实ACK，保持原deadline/身份并由native接收。最小提案仅在liveNone时先原_recovery_native_success验证完整本次success，保留liveUID/deleting/其他失败拒绝，再现有serialization/producerowner/CURRENT_WRITER下_finish消费持久ACK；不变journal、云Master/START/原inputs，尚未实施，待协调审查后纳入唯一组合最小check。自动监控仍停止，不newattempt/forceall/数据删除/Step7。
+
+## 2026-10-03 — 新直接人类要求合并展示修复并正常rerun，授权核实与前置计划
+
+已read_thread直接核实协调线程人类01a1002b-4e31-7313-a2fc-95ef970c9011：“生产切换的时候，顺便把之前的前端修复的代码也一起切换”；01a1002d-e8cd-7910-84fd-7acaa36ca3eb：“另外分析肯定失败了，直接rerun”。本AF仍唯一production writer，仅323D3F/a1/原5/3f/原deadline和成功结果。协调收敛该授权覆盖必要现有可信native当前cb75精确UID终态补取及正常同attempt恢复前置；不推定Master absent即failed/无证据，不伪造终态、放宽围栏/newattempt/forceall/重传/删除数据。若真实success走正常后续阶段，若created/START_SENT被现有入口拒绝则报告准确guard，不连续POST或扩框架。
+
+已仅本地核清单：4fc2999运行进度展示修复唯一产品paired脚本/raw346未部署，24+6既有GREEN；55cb/edbe381终态识别已上线/12GREEN，不重复；独立React待部署候选未有完整证据，旧409/400仅待办。合并4fc与ACK后的当前tracked paired01f1只含这两差量，旧aa9/manifest6c73/policy5ada不适用新组合；拟一次BS10610最终组合受影响路径最小check，复用其余验收，给协调更新三文件/五入口清单及真实终态/入口决策后才切换和一次正常API。自动monitor继续保持人类停止。
+
+下一顺序：fresh BS96实际服务/current/mount/gates与原failedtuple；精确无旧writer及当前run安全事实；新的私有once/reader名称，复用原native readonly SFS模板/UID/GID/e481/单biosan-clinical PVC/no fsGroup/OBS/env，180s/backoff0，仅读当前cb75归档原bytes并验证完整identity/终态。保留全部旧证据，不重放eb02采集/旧guard，不改原START/journal/receipt。此条记录计划，本轮尚未新reader/collector/API/部署。
+
+## 2026-10-03 13:04（Asia/Shanghai）— ACK 部署门已GO，fresh原Master absent触发STOP
+
+**目标/授权：**继续直接人类01a0ffea-32b1-77a1-b7f0-4ee45758a933的最小ACK修正及正常同attempt监控重接。协调已亲审manifest6c73db03、原04:52pins、aa9/af05/5ada及6GREEN，明确GO精确三文件/五入口窗口/既定一次API，普通步骤无需重复审批；同时要求若原Master已终态/消失而ACK路径不满足则停止，不重建Master。自动小时monitor仍按人类“保持停止自动监控”停止。
+
+**实际命令/结果：**ack-reconnect-fresh-preflight.sh 经ssh BS96，05:03:38–40Z RC0，server96/UID6708、/data/airflow-WGS/current、实际backend/worker/scheduler IDs/images/mount/env与55cb及auth/scan=true/autodispatch=false吻合；normal GET与AF保持323D3F/a1/action4d/gen3/wsea8c/hashfd1b、failed、原5/3f/compute deadline2026-10-07T12:45:38.887362Z。随后ack-activation-current-cloud.py经既有ctapa key/严格96 ED25519 pin/ProxyJump BS96，05:04:06.032295Z精确Master GET与对应job-name Pods读取都RC0，Master absent、完整Pods0（无分页）、旧hostPID1303859 absent。helper存在条件assert失败RC1，PowerShell顺序停止，未执行后续ack-activation-current-ack.py或ack-host-quiet.py。这是实际目标消失阻碍，非网络读失败，不盲重试。
+
+**证据/修改：**local .codex-artifacts/wgs323d3f-tmp-recover-20261003/ack-activation-host-preflight.safe.jsonl、ack-activation-current-cloud.safe.jsonl；node private /sg2/50.ctapa/project/HWcloud/airflow-wgs/operator-evidence/wgs323d3f-tmp-recover-20261003/ack-activation-current-cloud-{master,pods}.stdout/stderr及ack-activation-current-cloud-state.safe.json（O_EXCL/0600）。只新增必要私有只读证据和本次三卡/review说明，保留原输出，不输出患者/凭据。没有部署stage/backup/关闭入口/三文件切换、新onceguard或新observer POST，w423-323d3f-a1-step3-ack-observe-20261003未消费。源码checkpoint7a47440/实际981加薄差量aa9/nativeaf05/6GREEN仍完成未激活；不重测或整HEAD部署。
+
+**未解决/下一步/保护：**absent不能判云success/failed，未读本次终态回执/最终结果，不能沿用04:06的Running/ACK证明当前可重接。已工具汇报协调019fa8d1-0d81-7e92-abee-8154dd1cf0a7和授权docs owner01a0b254-07b5-7352-99aa-871b117459ad运营阻碍，产品源码单列。当前停止额外云/日志/collector读取与生产写入，后续精确终态判定范围由协调收敛；不创建Master/newattempt/START重发、改旧状态回执锁、扩大清理或重建monitor。原5/3f/a1/deadline/成功Step1–2和rules/FASTQ/OBS/source/sampleinfo/pending/results/全部新旧证据及其他批次5035B0保护，无Step7。此轮无生产源激活，未触发部署回滚；原三文件与五入口未被本轮写入，候选/精确回滚清单仍保留。
+
+**05:07现存本地证据补充：**协调收到STOP后明确仅只读本次selected view现有mirror/当前UID终态文件，不新collector/云helper写；若缺则给最小SFS只读提案由协调向人类确认。本AF按该范围新建本地ack-absent-current-local.py并仅stdin经既有ctapa/BS96严格pin读取，RC0/05:07:55.151375Z：actualpaired981/nativebfa匹配；view内MASTER_HANDOFF df5fbb94044e921380b6a209db49d4557ecdc04ac4c7a0fe0cb741d39cde1010仍START_SENT，cb75/6714/nativegen2/a1身份匹配，journal20525d29仍created；view/evidence/runid/mirror/{MIRROR_COMPLETE,START_CONFIRMED,RUN_COMPLETE,RUN_FAILED,recovery-final}.json与本地master/cb75归档四JSON均absent。输出ack-absent-current-local.safe.jsonl只元数据/identity，无远端文件写、native执行import或原始日志读取，不混入eb02旧终态。
+
+当前Pod0使原Pod读取SFS不成立。所缺SFS原始当前UID START、唯一RUN_COMPLETE/FAILED和recovery-final；已报协调最小方案为单次既有native readonly SFS reader有界生命周期，复用原审核模板/当前run绑定，只读精确SFS run/evidence/runid/master/cb75四JSON并私有保存原bytes、核当前producer全identity/digest。此为提案未执行/未创建reader/collector，不预设终态或授权部署/恢复。没有新的终态证据，不继续SSH/云查询或API，等待精确方向。
+
+## 2026-10-03 — W423-ACK-RECONNECT：源码和真实生产形态专项验收完成；部署与单次重接待协调
+
+**范围/运营：**遵循新直接人类01a0ffea-32b1-77a1-b7f0-4ee45758a933及协调已批准必要AF薄接线。自动小时monitor继续按“保持停止自动监控”停止。当前仍323D3F/a1/原5/3f/action4d/Step3gen3/wsea8c/hashfd1b；最后04:38:18Z normal GET/AF failed、原deadline和实际三服务mount/env/current/authscan/autofalse/55cb匹配。04:06:54Z云精确cb75/6714真实Running和ACK24a224已证，此后未额外查询云阶段，不推定持续Running/最终完成。
+
+**已完成：**基于raw实际981（git b861052原字节SHA981e7e82），原有API正常同attempt新observergeneration方案，不重开旧terminal。paired strict created-source helper以已认证resume_previous_execution或downstream exported原producer为定位；验证原注册hash/完整recovery identity/frozen parent/view/原deadline/CM owner/UID/Pod，经factory registration/storage validate后置原producer合法owner，并仅native START_SENT→await确认。CURRENT_WRITER恢复、record真实confirmed、journal原created字节保持；后续selected/expected observer同样重核，无普通replacement fallback。动态cloud guard不改，保持原producer identity和合法context键集。native owner交付e93b20c/af05并独立11GREEN，本AF不重跑。
+
+**验证/失败记录：**BS10610 root /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/wgs323d3f-ack-observer-20261003，actual guard e993和04:38一次BS96 exact包源码SHA一致。red/red2是plugin路径/误选backend镜像导致collection失败（RC2），不计功能RED；恢复已有8ba验收镜像，无安装依赖。red3准确1fail/5deselected，ordinaryResume被forbidden；green3准确Step4 nested lock Errno11，改复用已有serialize；green4添加非法execution_id context被原目录严格键集拒绝，恢复原合法owner字段；green6显式原bundle旧CONFIRMED/schema3cloud准确resolver941循环，按既有顺序先注册/storage验证再置已证owner。最终green-final RC0/6passed/10.09s，rawSHA bf4280bbfff123d6447456b1a00f4dc5dc57d29d68c04aa3c603b03078321022/XML同名。只现6case，无泛化suite/重native11。最早本地python app alias退出1无输出，仅source bytes提取失败；改用已配置bundled python提取，不运行本地runtime测试。
+
+**修改/来源：**scripts/cce_paired_runtime.py、scripts/tests/test_ack_monitor_reconnect.py、docs/08_WORKFLOW_RUNTIME_INTEGRATION.md、docs/reviews/2026-10-03-ack-monitor-reconnect.md及三卡。生产候选aa9bc59ec86107a32c79a17ed4b31b3c22ed268869c53d0a8f4179b09e7b580f只raw981+本差量；本checkout tracked源还含未部署4fc，绝不复制整文件或整个HEAD。private candidate/patch/build/archive/所有REDGREEN保留，不进Git。实际guard e99378dcb1a0f71d3561c6705f4b5fe2f9886bc9e0307b5dc7c1b822de6e6d0f未改。Nativeaf05ea224ef77bcb98b10ce3a702bce53379ced7c6f5ea3f401ba501ace5cb2b源路径/commit来自nativeowner，未安装。
+
+**未完成/下一步/回滚：**生产source/policy或服务没有新写入，尚未正常新observer POST。须协调亲审精确候选/diff/6case原始证据，并收敛当前主机WGS/GATK消费者静止窗口、三个源/policy实际字节pin与回滚，再单次正常new key同a1 Step3 observer。必须证明窗口后才激活，不让source/pin中间态击中活跃reader；云Master/Workers不停止。未知POST结果只readback。建议key w423-323d3f-a1-step3-ack-observe-20261003尚未消费，不据建议直接执行。回滚仅原bfa/981与匹配policy在相同quiet窗口，保留55cb/路由/原数据/5/成功outputs/原deadline/原全部证据，禁止旧guard重放、新attempt/START/rerun、Step7/清理或重建monitor。复核git diff --check通过；这是源码checkpoint，不宣告临床Step1–6完整完成。
+
+## 2026-10-03 — W423-ACK-RECONNECT-20261003 新直接授权与分工
+
+已read_thread核实协调线程直接人类01a0ffea-32b1-77a1-b7f0-4ee45758a933“修复”，明确接受最小修正启动确认误判并重接当前Master监控、保留云分析。仅此范围替代下面STOP。AF仍唯一生产writer，native owner负责共享ACK源必要修正和专项synthetic回归，不重叠修改；本AF先一次fresh production server96/control current/实际三服务mount/env/image/gates和cb75/6714/ACK/host状态，不强制旧Running。独立本地只读agent核AF正常入口，root核实际runtime/source/当前事实。方案精确到入口、created journal与当前START复用、需要的薄接线及活跃云影响，报协调审查；生产激活/重接在审核前不执行。
+
+对象保留323D3F/a1/原5/3f/原compute deadline、平台当前action4d/Step3gen3/wsea8c/hashfd1b/nativegen2/原新Mastercb75与Pod6714。禁止新rerun/newattempt/START重发、Master/Worker重启或删除、直DB/伪造原receipt/journal/status/锁/放宽身份权限。仅BS10610必要最小测试；新增能力/扩大范围必须明确报告，不从本授权推演。不要重做终态reader/tmp/部署/旧guards，不打包未部署4fc进度源或重开UE/WES。自动小时monitor继续停止，保留全部数据/原成功outputs/新旧证据/其他批次，无Step7/清理。
+
+
+## 2026-10-03 11:31（Asia/Shanghai）— 本轮手动操作收口：云真 START，平台失败，禁止新写
+
+**当前身份/终态：**唯一新POST已消费，当前323D3F/a1/action resume_4d7613c596c453f582e8764c / Step3gen3 / execution wse_a8c703f0c3c1e6491e74cad8 / hashfd1b03b8fa151f4fd2d90903934e28377aa3cd9d70257ad486860821b2a03686。03:26:01只读发现本次business60c085d9已在03:19:52.273525Z failed；真实terminal1a9a81c8 failed/businesshash与typedregb1ec一致，dispatch90c8finished、AFwait03:19:54/currentDag/publicfailed。03:22/24 journal2052/statecreated/START_SENT是失败之后的陈旧控制记录，不能当host活跃或START成功。
+
+**精确错误：**当前worker.log为append文件，8022B/SHA b270bd10e5ad776e96356d3d04d7cac51c36e67739d954f35ef564871132b2c8；其旧final1877 traceback保留历史。最后本次trace pairedresume_registered1217→wgs_resume176→native_advance2219→_finish1420→_await_master_confirmation1447。RuntimeError消息SHA39f395161ecef7428c81de591369329e839b4a1941af2909433e40903e67ddee精确等于actual nativebfa静态'Master confirmation identity mismatch'，不是原final不足或timeout。原错误全文私有保存，不输出患者或凭据。
+
+**云执行真值：**协调批准失败后仅一次精确新UID状态/ACK读取，03:29:15 MasterUIDcb75dde6-d06c-4f06-a4c3-63db8dc04ca7 active1/failed0/noDeleting，对应PodUID671407ee-676a-4bf5-9000-01f1270cfb4e Running/容器running/noexit，host1303859 absent。03:30:56Z对同Pod owner/UID before+after一致，读取实际SFS START_CONFIRMED原bytes SHA24a224a620fac3a7ff7dbf1a0fde8bebdbb575427d2c073d38f2b5334e3ff8f3；其全部原_await identity keys与newhandoff完全匹配，different_identity_fields=[]。nativegen2/recoveryaction4d、platform当前gen3/wsea8c/hashfd1b完整一致；confirmed_epoch1790997610.5998244即03:20:10.599824Z，在原native启动握手期限03:28:30.771702Z内，晚于hostfailure18.326s。原compute deadline仍2026-10-07T12:45:38.887362Z未改。
+
+**结论/限制：**云新Master真实START已证，当前容器活跃；AF/公平台仍failed，控制journal/handoff没有正常接受此ACK。结合03:13 alias仍old eb02/gen1与新ACK晚到，强烈指向启动确认提前读到旧alias的竞态；失败瞬间ACK bytes未记录，不能声称其字段已实证或自动接受任意外来ACK。没有核业务rule进度/完整结果，不能宣告全流程完成。只读范围已结束，协调收到事实；后续写STOP，等待精确新方向，无新POST/gen/attempt/自动attach或重接、源码/测试/部署、clear/kill/delete、手改receipt/journal/status/锁/租约。保留活跃新Master与所有数据、原5/3f/成功outputs/deadline和原新证据，不Step7/清理。自动monitor继续按用户“保持停止自动监控”停止，不创建。
+
+**证据/收口：**local .codex-artifacts/wgs323d3f-tmp-recover-20261003/{current-step3-gen3.latest.safe.jsonl,step3-gen3-error.safe.jsonl,gen3-current-cloud-state.safe.jsonl,gen3-current-ack.safe.jsonl}；node private原operator-evidence目录内同名safe及gen3-ack-actual.stdout/stderr/Pod before-after与step3-gen3-error.worker.private.log。原source terminal补取成功、oldmirror备份/native新mirror2f83、只读helperfa75 UID/RV回收已完成且不重放。仅本地三卡/review和私有operator脚本改动，无生产产品源变更；未运行产品测试，因为无实现/测试授权且原验收已完成。文档diff检查通过；回滚无需/禁止通过删除当前云执行或重放旧恢复实现。
+
+
+## 2026-10-03 11:22（Asia/Shanghai）— 当前替换 Master 已创建，未宣告 START
+
+03:19:19Z当前a1/action4d/平台Step3gen3/wse_a8c703f0c3c1e6491e74cad8/hashfd1b，native registration04b655bc/typedb1ec9c2c/currentbusiness525aaccepted一致；native dispatchce7ade32 running/newPIDPG1303859/bootef1f/start4488452061，AF/currentDag/publicrunning、startStep3success/waitStep3正常reschedule。03:22:13Z仅当前control_workdir/recovery-resume_4d7613c596c453f582e8764c.json定向读取，SHA20525d29/statecreated/replacementUIDcb75dde6-d06c-4f06-a4c3-63db8dc04ca7；其currentview真实hand START_SENT，新PodUID671407ee-676a-4bf5-9000-01f1270cfb4e/nativegeneration2，platform当前gen3/execution/hash/action全部匹配。原生handoffdeadline是新Master启动握手期限，不改请求/compute budget原2026-10-07T12:45:38.887362Z。
+
+尚无START_CONFIRMED业务ack，不能把APIqueued、startTI success或START_SENT当恢复完成；下一只该currentjournal/mirror START和当前stage回执有界读取，不手改marker或重POST/collector/云盘点。local current-step3-gen3.safe.jsonl / gen3-master-start.safe.jsonl，node对应private gen3-master-start-20261003T032213Z.safe.json；所有once已消费，原3f/5/a1/成功outputs/deadline和全部证据保护，monitor仍停止，无Step7/清理。
+
+
+## 2026-10-03 11:17（Asia/Shanghai）— 新当前身份立即登记：原 a1 Step3 gen3
+
+**正常提交已完成：**fresh03:17:14–17Z BS96实际三服务pin/mount/env/55cb与authtrue/scantrue/autofalse吻合，正常GET同323D3F/a1/ab7/failed/5/原3f；policy/budget原deadline2026-10-07T12:45:38.887362Z同值/余379700.9s。03:17:19.372936Z一次 /api/runs/WGS_20261002_095408_323D3F/actions/resume-stage HTTP200/queued，key w423-323d3f-a1-step3-terminal-capture-20261003，responseSHA8f6decfc2313a71116cfc12955167b4a3d8f097d627edb1bd0c5586046ba5b3c。
+
+**真实新tuple：**attempt1不变；action resume_4d7613c596c453f582e8764c / Step3_monitor generation3 / execution wse_a8c703f0c3c1e6491e74cad8 / requesthash fd1b03b8fa151f4fd2d90903934e28377aa3cd9d70257ad486860821b2a03686 / requestSHA d4d381bf369732c83840efcfe4d165ec2a107911e4894ee43fb3b941f2a758a9。Dag WGS_20261002_095408_323D3F-a1-resume_4d7613c596c453f582e8764c；request保留原3f、原deadline、Step2gen2/wse_c67b199d729c19f374c2eb51/receipt1ffd。private /data/airflow-WGS/wgs323d3f-tmp-recover-20261003/step3-terminal-resume.{once,preflight.safe.json,response.private.json,response.safe.json,request.safe.json}，local step3-terminal-resume.safe.jsonl。guard/key已消费，禁止重发/换key/新attempt。queued不是nativeSTART；接下来仅此gen3真实派发/回执/START/分析接续的有界只读。
+
+SFS补取及reader生命周期均已结束，helper exact Jobabsent/Pods0；原alias/archive原bytes与旧mirror备份保护，不重取。无产品源/测试/安装/部署、mkdir/权限/锁/数据清理或新monitor；自动监控持续按人类停止。原5/3f/成功outputs/deadline和所有其他批次/证据保护；Step1–6完整分析尚未完成，无Step7。
+
+
+## 2026-10-03 11:16（Asia/Shanghai）— 原 Master 真终态已补取，原生 final 校验通过
+
+03:12:25Z唯一readonly reader w423-323d3f-terminal-20261003/UIDfa75f53f-a8b4-4ce7-a462-2e19c0f5b043/document13a3f96a真实CREATE；actual e481/10001/groups520、单biosan-clinical双readonly、无fsGroup/OBS/env/token、backoff0/deadline180，原native模板和快照表达式未修改，未monkeypatch/安装。03:13单生命周期同步原生snapshot读取run alias和原eb02 UID archive，两侧都有相同RUN_FAILED(e6245528)、START(8da61764)、recovery-final(65691ba7)，同eb02/cf2/nativegen1/FAILED/exit1/完整inventory，原bytes分别私有0600保存；不得再称云端未写回执。alias另有analysis.log/jobs，archive只有三JSON，没有拼接两组。
+
+保留旧4f0d mirror全部四文件和marker于node private manual-terminal-20261003.old-mirror。选alias整组原生writer发布新mirror2f83a6cc，03:13:36Z原 _recovery_final_evidence 对原UID和全部identity/START/FINAL/digest/phase exit完整通过；native192workerrecords无ACTIVE/PENDING；此前03:06 fresh同boot PID1167000 absent/完整PG0，run完整Jobs0/Pods0、原Master exact absent。泛用_worker_states本身未传timeout，但该次全部已返回；正常恢复仍由native完整live inventory与owner围栏在串行接口内最终核验，不把任意查询失败当不存在。原5/3f/a1/deadline保护。
+
+本reader仅UID/RV foreground DELETE一次，03:16:13 exact readback Jobabsent/Pods0，实际backoff0，无工具遗留活跃执行。native一次create/publish/delete guard已消费，不重读/重CREATE/再发布；原utility与数据未删。协调亲读结果后GO既定same-a1 Step3一次，新key w423-323d3f-a1-step3-terminal-capture-20261003 / step3-terminal-resume.once；当前尚未POST，将fresh平台/mount/gates/current/deadline后一次正常API，立即登记真实新tuple。所有输入/成功结果/新旧证据保持，无代码/测试/部署/newattempt/forceall/重传/锁删除，monitor保持停止，无Step7/清理。
+
+
+## 2026-10-03 — 当前新增直接授权与最小手动执行计划
+
+**授权来源：**已再次直接read_thread核实协调线程人类01a0ffab-054f-7170-a502-864619e930a6：“这次先启动rerun”并检查P0在rule失败时是否写回执。协调当前工作区三卡和转交明确允许现有可信native SFS collector/reader必要有界生命周期及本地mirror写入，完整原Master UID/FINAL/digest/inventory通过后正常同attempt Step3一次。根本用户答复“保持停止自动监控”仅停止自动监控，继续生效，不重建或替代。
+
+**对象/执行顺序：**只323D3F/a1/原5/原3f，fresh BS96 server96、/data/airflow-WGS/current、实际三服务mount/image/env与有效gates；当前ab7/gen2/wseacb/hash4fba失败以及native1167000/对应执行无writer；pin实际paired981/nativebfa，原confirmed journal863b和selected c67 view。依实际现有函数签名读取原MasterUIDeb02fef8-5f0d-46ab-a5dd-41a593b9494b的run别名与master/UID归档，完整真值验证后通过native原writer保存mirror；不手写原终态。再仅一次正常same-a1 Step3 POST使用新once/key，不重复已消费ab7/key；新tuple立即登记。真实终态缺失/foreign/incomplete则停止并回报，不盲POST。
+
+**保护/界限：**tmp已真实可用，不mkdir/chmod；原deadline2026-10-07T12:45:38.887362Z、原5输入/3f/已成功步骤与rule outputs、全部数据/证据/其他批次保持。无核心改动/部署/测试/newattempt/forceall/重传/锁或数据删除、云全盘点授权。P0原因由native owner经协调并行本地审核，AF仍唯一production writer；尚未本輪collector或新POST。使用私有task证据、不输出凭据患者信息；失败不改receipt/status/journal/锁。自动monitor停止，无Step7/清理。
+
+
+## 2026-10-03 — 最终BLOCKED交接：新可信终态补取范围待人类授权
+
+**本轮目标/方向：**按协调最新明确STOP保存阻碍和建议，不执行新的远端检查或修复。native合同结论由协调转交：actual bfa内部 `_collect_step3_evidence(require_terminal=True)` 有既有SFS reader能力；普通Status/Resume在Job absent时可能复用完整但非终态mirror，不保证刷新，公开CLI没有force-refresh。内部collector会创建/删除reader并读取run级别名，需要精确原MasterUID验证，不能补造凭据或使用另generation的证据。这已超出本轮gate/tmp恢复范围，属于新补取/可能代码修复事项；协调负责向人类说明并取得新授权，本AF不自动调用内部producer/collector/补取或恢复。
+
+**当前事实/版本区分：**仍WGS_20261002_095408_323D3F/attempt1/action resume_ab7c8b403a0d60aa7f371012/Step3gen2/execution wse_acb2905b05475cf607ecaffd/requesthash4fbaed1bcad243d400d50a95fb8c763dea798a98c37fa3ee1432c44efd370a03，native/AF/Dag/平台failed，未证明新START或分析恢复完成。最后线上取证2026-10-02T23:32:56.705407Z（北京时间2026-10-03 07:32:56）；本条不是新的线上观测。actual paired SHA981e7e82a0054a38d233a64c4120219094c34879b5820661d08907230806f588/line1161，native sourcefileSHAbfa1e15f75f83ebe816897e1e454225ca2f78128b1761a2212230d033cd3c3d1。native合同使用的paired66f参考基线与实际不一致，协调已要求native校正；不得当成实际部署/照参考路径操作或降级981。原actual native pure mirror读取terminaltrue→None/false→dict、缺终态实证保持有效，不因此重做诊断。
+
+**已完成/下一建议：**55cb平台终态识别实际修复+12GREEN、唯一原a1正常Resume及新failed回执、当前tmp存在和缺终态mirror取证已完成，guards全消费。新补取合同应由native owner基于实际981/bfa明确原run/source view/原MasterUIDeb02fef8/可信SFS路径/原deadline/锁与租约/读取范围及正常API后续入口，再由协调收敛人类新增授权；这只是建议，不授权实现/测试/发布或直接内部调用。不复制/手造RUN_FAILED、RUN_COMPLETE或MIRROR_COMPLETE，不用require_terminal=False推进，不重POST/newgen/attempt/新Master，不修改锁/凭据/receipt/frozen hash/现有目录权限。
+
+**文档/Git/执行：**本轮只修改CURRENT_STATE.md、TASKS.md、HANDOFF.md及docs/reviews/2026-10-03-wgs-terminal-identification.md；产品源码/测试/实际部署无新更改。仅本地文档diff检查，未运行runtime测试/SSH/云/API/安装，原因是协调明确STOP且本轮为文档收口。历史三卡dirty和private .codex-artifacts保持，不批量commit。路由按治理工作区[角色边界](C:/Users/11217/.codex/worktrees/gov-backlog-20261002/airflow-demo/docs/15_MULTI_AGENT_BOUNDARIES.md)与[backlog索引](C:/Users/11217/.codex/worktrees/gov-backlog-20261002/airflow-demo/docs/36_CROSS_REPO_DEVELOPMENT_BACKLOG.md)；其中旧A468运行快照不取代本最新身份。恢复方向/审核仍协调，native负责可信合同，本AF唯一生产writer，docs owner只汇总。
+
+**保护/回滚：**自动监控继续人类要求停止，未重建。原5/3f/a1/成功Step1–2/rules/原deadline2026-10-07T12:45:38.887362Z、FASTQ/OBS/source/sampleinfo/pending/reference/history/results、两utility与所有原新证据和其他批次5035B0保护，无Step7/任何清理。本轮无生产写入，无生产回滚需求；55cb即期回滚90bb及原77c、所有once/证据仍保存，不机械回滚或重放。
+
+## 2026-10-03 07:34（Asia/Shanghai）— 精确镜像终态缺项收口；协调转native，写STOP
+
+**实际条件/身份：**native actual sourceSHAbfa1e15f的1877为 `require(isinstance(values,dict))`，1875调用 `_read_mirror_evidence(bundle,identity.run_id,project=identity.project,batch=identity.batch,require_terminal=True,require_worker_manifest=False)`。之前handoff_v2、record schema2/jobUID/podUID、binding recovery_context等条件已通过，后续final dryrun/recovery-final/snapshot校验尚未进入。当前恢复source由confirmed初始journal submission-wse_c67b199d729c19f374c2eb51.json（SHA863b41ebfad86c579d839603bdc8235fd98089916bac6dae9d476f7c5569d862）绑定selected view同名路径、原MasterUIDeb02fef8-5f0d-46ab-a5dd-41a593b9494b。runid WGS_20261002_095408_323D3F-a1/project WGS_Clinical/batch WGS_20260927D-test1_T7Hg38V4.2.3，非bundle根/另一generation证据。
+
+**对应原证据：**selected view/evidence/<runid>/mirror/MIRROR_COMPLETE.json629B/SHA4f0dcae47260afd8185b9ed15fc5310241e91358b4d2f37553e69e4d8e2258e8，statusCOMPLETE/runid匹配/非symlink/mtime2026-10-02T15:56:21Z。其清单四文件jobs.ndjson0B/e3b0、analysis.log760828B/ad0d、START_CONFIRMED.json1683B/8da6、master-job.json6150B/326f，所有列入size/SHA均一致；没有RUN_FAILED/RUN_COMPLETE/workflow-completion列入清单。首次诊断手写vocabulary少START_CONFIRMED导致unknown_name_not_read，是方法停点，不是native拒绝；已按actual EVIDENCE_FILES静态常量纠正，并最终以原native纯只读函数核实，未用该方法停点归因。
+
+**原合同实证/准确阻碍：**23:32:56.705407Z only原pure `_read_mirror_evidence` 同selected/frozenidentity/markerhash前后4f0d不变，require_terminal=False返回dict/origin bundle-evidence-mirror/age27395s，而真实require_terminal=True返回None；decoded RUN_FAILED/RUN_COMPLETE为None，`_has_terminal_evidence=false`、`_analysis_complete_marker=null`。因此不是marker状态/runid/size/SHA错误或workermanifest（本次False），而是所选旧mirror缺原计算终态交接。不能由镜像缺项推定SFS顶层有/无RUN_FAILED，更不能构造终态或跳require_terminal。原函数调用是定向只读诊断，无collector、云查询、Job创建或mirror写入。
+
+**已有正规路径/边界：**actual bfa1 Step3现有producer3016 `_collect_step3_evidence(selected,...require_terminal=complete or failed)`→3066 `_write_mirror_evidence`（另有_require_no_active_workers3174/3177受其门禁），不能手工复制/改MIRROR_COMPLETE/RUN_FAILED。当前Resume在这些可信补取之前final-evidence拒绝且当前gen2已failed；需native owner确认现有可信补取接口及其锁/身份/可信存储限制，不能直接native/重新Step3绕缓存围栏或新实现扩大范围。协调已亲读并明确停止更多验证/扫描，转native owner；本AF保持写STOP，不再次POST/newgen/newattempt/新Master/第三utility/改锁/receipt/目录，不实施新修复。
+
+证据node同原private operator-evidence目录 current-source-mirror-field.complete.safe.json、native-mirror-terminal-contract.safe.json、step3-gen2-error.worker.private.log；local native-1877-condition/field、native-mirror-reader/paths/producer、native-evidence-vocabulary与native-mirror-terminal-contract.safe.jsonl。未输出任何患者配置/日志正文，保留全部原数据/5/3f/a1/原deadline/成功outputs/两utility/新旧证据与其他批次。自动监控继续人类要求停止，未重建；Step1–6尚未完整完成，无Step7/清理。下一先读本条和协调/native明确合同，不重放任何已消费guard。
+
+## 2026-10-03 07:22（Asia/Shanghai）— 新恢复final-evidence门禁失败，精确私有错误交接
+
+同323D3F/a1/actionab7/Step3gen2/wse_acb2905b05475cf607ecaffd/hash4fba，不重复POST。定向当前step3_monitor.worker.log一次读取并0600私有保存，4755B/SHAbce0416eba8c1af3c0aba5ab5df4a70eed4693bbe9bc4d4e6740e748e196a5f7。Trace两段：初monitor路径wgs_resume.py308→gate_monitor2298；最终prepare_monitor_registered1255→resume_registered1161→native cce_batch_runtime._recovery_final_evidence1877→require1865抛RuntimeError。复用保存raw，仅一次末帧源码静态字串匹配（不执行/复制源码），sourceSHAbfa1e15f75f83ebe816897e1e454225ca2f78128b1761a2212230d033cd3c3d1、精确错误 `native final recovery evidence is incomplete or inconsistent`，messageSHAe166e443cbaf9b3ea748ceff1cc27ef34a89dd1832342eae5cdb03f10fe5bf71。未读取/输出患者配置/自由错误文本。此证实最终拒绝门禁所在，不证明具体证据缺项或tmp故障；原工具退出原因仍UNKNOWN，当前tmp存在的只读实证保持。
+
+失败命令为原正常samea1 Resume对应native worker；API返回200queued后真实nativefailed、AF/Dag/platform一致failed。未形成真实START证明，不报告恢复成功。下一交协调收敛这一新final-evidence问题的精确范围；不擅自改native/receipt/frozen hash/锁，停止任何恢复写入/POST/newgen/attempt/第三云工具/extra测试或安装。证据node私有 operator-evidence/.../step3-gen2-error.worker.private.log 和step3-gen2-error.safe.json，local step3-gen2-error.safe.jsonl /step3-gen2-static-error.safe.jsonl；原始raw保留，不删两utility。产品55cb与12GREEN/edbe检查点保持。自动监控按人类保持停止，不重建；原a1/3f/5/成功输出/deadline/所有输入与其他批次保护，无Step7/清理。
+
+## 2026-10-03 07:17（Asia/Shanghai）— 当前gen2真实失败，停止恢复写入
+
+23:17:35.330111Z正常GET与现有sidecars/Airflow REST只读核同a1/新action resume_ab7c8b403a0d60aa7f371012/Step3gen2/wse_acb2905b05475cf607ecaffd/hash4fbaed1b。businessstatus23:15:34.119625Z failed/rawSHAf41604d4d8c25b2454ae307dfa0fc08a863e32022457e73046dfec5562294967，与当前request tuple全符；terminalSHAe9be230fe07342588be832a9044c5d5a9ddc034cb1e6d47198fb5d78c41f2ffb failed/businesshash同。registration03540c578cec43bbe3d66484fe8aae54790d871b46deee8ad6a492caa2f2efd3含typedregistration966f2ac9、native dispatch1f3c7d14finished/PIDPG1167000/bootef1f/start4486994546。AFstartStep3success23:15:00.611877，waitStep3failed23:15:38.700097/Dagfailed，平台failed/5。无START/Master成功证明，不将startTI成功当业务恢复。
+
+证据 /data/airflow-WGS/wgs323d3f-tmp-recover-20261003/step3-current-20261002T231735Z.stdout/stderr 与local current-step3.safe.jsonl。唯一POST已消费；停止Resume/新gen/attempt/工具/目录权限写入。下一仅准确当前generation2私有业务message/native错误日志定位，不重放原首错/源码/云盘点，不猜是tmp或其他控制门禁。向协调回传新failed identity及原证据；自动monitor保持停止，原5/3f/Step1–2成功前驱/原deadline/所有输入输出和两utility证据保护，无Step7/清理。
+
+## 2026-10-03 07:14（Asia/Shanghai）— 同a1 Step3 Resume唯一正常POST200
+
+协调亲核840b只读实证并明确原Master UID/GID10001可使用当前tmp，批准同原run/a1 Step3一次正常恢复；不补mkdir/改权/重验证/全云盘点。23:14:22.343353Z正常GET200仍failed/原a1/c17/5/wgs-4.2.3-3f98682-perm2775，policy和budget原deadline2026-10-07T12:45:38.887362Z一致/余394276.544009s。独立step3-tmp-resume.once创建后，23:14:24.043870Z POST /api/runs/WGS_20261002_095408_323D3F/actions/resume-stage真实200/queued，key w423-323d3f-a1-step3-tmp-reuse-20261003。responseSHA9a456fe18013a1eb739075b2095331da340eb27538a63c05f3547f18914d88b3；无重POST。
+
+**新实际跟踪身份立即注册：**attempt1不变，action resume_ab7c8b403a0d60aa7f371012，Step3_monitor generation2，execution wse_acb2905b05475cf607ecaffd，requesthash4fbaed1bcad243d400d50a95fb8c763dea798a98c37fa3ee1432c44efd370a03；requestSHAc8d6635470204a5a37fe68a84679cc6085ba7d3841d28f39cff4a5b07714fc96。Dag WGS_20261002_095408_323D3F-a1-resume_ab7c8b403a0d60aa7f371012。真实请求保留原3f/release/5、deadline原值和Step2gen2/wse_c67b199d729c19f374c2eb51/receipt1ffdff2213a4561c429523e8bf56e8ed38c27b8ca2a760b283a56480e97f6a6d前驱。
+
+**证据/下一步：**生产私有 /data/airflow-WGS/wgs323d3f-tmp-recover-20261003/step3-tmp-resume.{once,preflight.safe.json,response.private.json,response.safe.json,request.safe.json}，local一次运维脚本resume-step3-once.sh。guard已消费，只能readback，queued不等于nativeSTART、Master或Step3成功。仅跟此新tuple真实派发/业务回执/terminal及START/运行事实，异常停止回传，不clear/newattempt/强制重算成功rules；不更新/新建monitor（人类保持停止）。两utility及全部原证据/FASTQ/OBS/输入/成功results/其他批次保护，无Step7/清理。
+
+## 2026-10-03 — 已核只读实证后，协调批准原a1 Step3一次正常Resume
+
+协调亲读23:09 actualexec0/stdout840b7009，确认tmp10001:10001/2775与冻结Master UID/GID10001相符；明确无需再mkdir/改权。批准在已有直接人类范围内仅fresh正常API核当前failed/a1/c17、原deadline未过期后一次 /api/runs/WGS_20261002_095408_323D3F/actions/resume-stage，body attempt1/stage step3_monitor/idempotency_key w423-323d3f-a1-step3-tmp-reuse-20261003。独立step3-tmp-resume.once记录，未知POST仅GET不重发；正常接口自身序列化活跃action/前驱/锁门禁，不用直DB/clear/poll或全套云盘点。需先保存真实新action/gen/execution/hash并核START/运行事实。当前尚未POST；原3f/5/成功outputs/deadline和两个utility证据全保护，automatic monitor继续停止，无Step7/清理。
+
+## 2026-10-03 07:09（Asia/Shanghai）— 单次纯只读实证完成，tmp存在，未Resume
+
+**授权/执行：**本条覆盖下面原目录UNKNOWN，仅消除当前配置/目录属性未知，不追认原utility成功。协调现有修复范围精确允许原e481/UIDGID10001/groups10001,520、单biosan-clinical PVC及/workspace mount双readonly、无fsGroup/init/env/OBS，180s/backoff0/noTTL；主容器仅sleep150。23:08:34.949381Z BS96/server96/current及三服务实际mount/env/image/gates/55cb均吻合。23:08:38.559019Z唯一readonly CREATE RC0，Job w423-323d3f-tmp-readonly-20261003/UID369a0b24-3450-4d56-8171-17c58e85b75c/documentSHA408cd3515d48fe3d1cedc9c6c591990f5fa5c29bae9f64d7e66faf1cbdc7b33a；独立createonce消费。定向Pod匹配JobUID/ownerRef/RunningReady/原镜像/readOnly/noFsGroup后单次exec，PodUID71bf8d89-655d-401f-b92b-260ec869c737。23:09:03.848060Z RC0/noTimeout，stdoutSHA840b70095839ed6241c6ea185fcf25eec7a5aa16dad8a161e421a51111dddb7a，stderrSHAe3b0c442（空）。不等回收取logs，无第二exec/CREATE。
+
+**实证：**yaml导入available；原config顶层workDir字符串精确匹配 /workspace/wgs/runs/WGS_Clinical/WGS_20260927D-test1_T7Hg38V4.2.3/work。原run/config/work均UID10001:GID520/mode2775；精确work/tmp当前UID10001:GID10001/mode2775已存在，全部真实目录/非symlink/同device。probe euid=egid10001/groups520,10001。配置只解析workDir单行，不保存/输出其他值。只读没有创建或改目录，因此原utility退出原因/具体创建者仍UNKNOWN；其postassert GID520为工具额外假设，不能据此改已存在tmp或断言冻结Master不兼容。
+
+**交付/停点：**结果在node私有原operator-evidence目录 readonly-probe.result.safe.json、exec.stdout/stderr/document/uid及两个once；local readonly-probe.safe.jsonl、probe-tmp-readonly.py/run-readonly-probe.py仅运维私有脚本，不安装生产代码/运行测试。guard已消费，不第三次云工具或重复exec；尚未Resume/newaction/gen/attempt。向协调及docs回传本次实证，等待精确恢复决定；原3f/a1/5输入/成功输出/deadline、所有旧证据和其他批次保护。自动监控仍停止，未重建，无Step7/清理。只读资源自然结束，未执行删除。
+
+## 2026-10-03 07:04（Asia/Shanghai）— 仅一次只读PVC取证获协调确认
+
+协调在现有直接人类01a0fe87授权范围内明确：native无已知原utility持久日志入口，不新增LTS/AOM；可复用现有reader/exec机制进行一次精确纯只读探针。原e481镜像/UIDGID10001/groups10001,520，单biosan-clinical PVC及mount均readOnly=true，无fsGroup/init/env/OBS，180s/backoff0。固定新readonly工具名与独立once，主容器只短暂sleep；精确JobUID/PodUID/ownerRef/RunningReady核对后仅一次exec，stdout/stderr同步保存node私有0600证据，不待Pod回收后取logs。只解析原有效配置顶层workDir单行及精确run_dir/config/work/tmp属性、euid/groups和yaml导入可用性，异常不输出自由文本。无mkdir/chmod/Resume、无代码安装/测试或新框架，不第三次工具。自动监控保持人类要求停止。当前仍未执行此探针，结果不得预设；所有原输入/输出/证据/旧工具及其他批次保护，无Step7/清理。
+
+## 2026-10-03 06:51（Asia/Shanghai）— exacttmp工具一次失败，退出/目录结果未知，恢复停止
+
+**已完成保护性事实：**55cb终态识别实际修复+同a1正常failed投影已完成/guards消费，源/test/runtime/review commit edbe381，不重验收/部署/投影。22:31 exact原Master GET RC1/NotFound；22:32冻结runid WGS_20261002_095408_323D3F-a1 complete scoped Jobs0/Pods0；精确snakemake-ns/biosan-clinical Bound、PVCUIDa96cb97f-33a7-44ef-9f6f-64c095cfd7e8→pv-efs-clinical UID80dc8875-f4be-45c5-b8a4-2fb9f6a38a7c、claimRef匹配、sfsturbo.csi.everest.io/volumeHandle37cacd44-60ad-41ef-9df2-f93b3dca7095。22:34 actualPV export匹配96既有NFS mount0，未mount/使用相似线下路径。协调确认单PVC helper属于已授权exacttmp正常环境恢复，不需再问用户，但禁止fsGroup整卷改权、第二helper猜测或扩权限。
+
+**单次实际云写：**复用actual native runtime._reader_job，helper snakemake-ns/w423-323d3f-tmp-init-20261003。只biosan-clinical→/workspace、原imagee481 digest/readonly root/no escalation/dropALL/UIDGID10001/supplementalGroups10001,520，无fsGroup/env/secrets/init/OBS/额外卷；request100m128Mi/limit500m256Mi、backoff0/deadline180s，无TTL/删除。HELPER_SOURCE从私有init-tmp-in-pvc.py读取并JSON字符串可信SSHstdin注入，完整document实际SHA05a83e8004d9be96d1d7cf93bff1aa9d236d4da7aca987a4f4c899072338460f。脚本只按SFS有效config顶层workDir核原run_dir/work、逐层dir_fd/O_NOFOLLOW同设备、parentGID520，缺tmp才mkdir2775并后置UID/GID/mode核查；不改父/既有tmp。写前原boot/944075 absent/PG0，必要竞态scopedJobsPods0/PVCUID相同；22:42:03正常GET同a1/failed/c17/原3f，policy/budget原deadline同2026-10-07T12:45:38.887362Z/余396214s，未延期。
+
+22:42:42.876848Z createRC0，JobUIDafdd48e4-2907-4371-93ca-897743e1a872，tmp-utility-create.once消费，保存原create/JobUID/document。22:43:12Z Job Failed/BackoffLimitExceeded/failed1；原Pod名w423-323d3f-tmp-init-20261003-jtqcq，UID857cfb34-a097-4815-92dc-1da2007e32f3。45s wait未成功，job-name Podlist0；复用保存Job/status再定向JobUID Events得Pod名，exactPodGET也absent，因此非selector错误。该PodEvents证22:42:58 Autopilot ContainerInstance6bf57fa6-5a93-4998-9713-7d13134af2e8调度，22:43:09 imagee481拉取/卷挂载/Created+Started，3秒后Jobfailed；事件未给容器退出原因/谁回收，没有现存Pod可取termination/log。**有效配置实际workDir值/tmp是否创建均UNKNOWN**，不猜yaml/setgid/权限；parentGID520不保证setgid的review缺口已记录，不能把它当现场原因，也不能改已有目录。
+
+**方法失败分列：**首cloud聚合read未将MasterNotFound正常化，只返回聚合RuntimeError；定向exactRC1/NotFound后只做剩余必要读、不重复Master。selectedview无CCE_OPERATOR_CONFIG_PATH，改原bundle pointer显式config_override（无补marker/冻结view写）；独立Python初未load原support modules导致cce_delivery import缺失，发生任何helper查询/once/create之前，按已实证原bundle _load再selected_load纠正。上述均不是WGS规则/网络首错，无盲写重试。
+
+**停点/证据/下一步：**没有再次create/Resume/newaction/gen/a2，不改native/锁/输入/成功结果；已向协调请求现有持久日志/准确PodUID云日志途径，未扩大新云权限或默认第二helper。node私有证据 /sg2/50.ctapa/project/HWcloud/airflow-wgs/operator-evidence/wgs323d3f-tmp-recover-20261003（createonce/doc/private原stdoutstderr/Job/Events/PodGET）；本地 .codex-artifacts/wgs323d3f-tmp-recover-20261003/helper-create.actual.safe.jsonl、helper-exact-pod.safe.jsonl及cloud-quiescence.safe.jsonl。原helper/证据保留不删，不能宣称项目可恢复或分析恢复完成。自动监控按人类停止，不重建/周期检查；无Step7/清理。后续先latestHANDOFF及协调明确方向，不重放任何once、成功前驱、旧删除/profile/安装/581发布。
+
+## 2026-10-03 06:22（Asia/Shanghai）— 最终GO后单module上线及正常失败投影成功
+
+协调亲读实际源码/BS10610 RED与最终12GREEN，明确最终GO、不重复测试。实际BS96 server96/current及backend a705/worker c92a/scheduler2430完整mount/image/envSHA保持，effectiveauthtrue/scantrue/autofalse和5相关DAG running0。22:19:57.761677Z只目标overlay cce_recovery_budget.py原子90bb→55cb60deeed2d029561f64e559b541aedb7d1e1b0feb6488a767bc2b96bd594a，6708:520/0644；22:20:00.536410Z只backend重启。guard terminal-fix-deploy.once消费，即期回滚 cce_recovery_budget.diagnostic.before-fix.py/90bb、原77c均保留；candidate/safe deployment存私有control，2700权限bits700。
+
+健康脚本第一次/health404，发生在projection guard/POST创建前；源码核正确/api/health，修脚本后先确认projectiononce不存在、fresh实际module SHA/metadata、服务env/mount、健康200及原run samea1/running。22:21:55.647937Z新exclusive terminal-fix-projection.once唯一正常dag-terminal200，ignoredfalse/statusfailed，同323D3F/a1。原snapshot同SHAcbd3/failed/healthy，旧21:08和diagnostic21:58 guards均保留未重放；无手改status/DB/receipt/hash。当前causefix已激活，不再重部署/测试/投影POST。
+
+源码/tests/runtime/review精确commit edbe381ad91a838be66e5d1f8c7ede8db1def9c6共5files，不混三卡历史dirty/privateartifacts/4fc进度源。部署及响应脚本在 .codex-artifacts/wgs323d3f-terminal-fence-20261003/deploy-fix.sh、project-terminal.sh；实际response/safe留 /data/airflow-WGS/wgs323d3f-terminal-fence-20261003-control。下一只已批准frozen原effective.workDir/tmp、相关Master/Worker/node writer静止及原deadline核查，缺失才mkdir，然后正常samea1 Step3 Resume一次。尚未mkdir/Resume/newaction/gen/a2；不换581/prepare/重传/forceall，monitor继续停止，无Step7/清理，成功输出和原5输入全部保护。
+
+## 2026-10-03 06:16（Asia/Shanghai）— 终态真实根因与12GREEN；生产修复尚未激活
+
+**范围与完成：**W423-TMP-CONSUME-323D3F-20261003只当前323D3F/a1/原5，直接人类01a0fe87同意范围不扩。独立Python handler hook被协调判为直接生产DB访问，取消从未执行。90bb拒绝诊断仅backend单module真实安装21:56:47Z、backend同容器重启21:56:50Z、health21:58:09Z；worker/scheduler/native/环境/mount/image保持。新的diagnostic-terminal.once正常HTTP POST21:58:10Z真实200ignored，日志明确current_stage/selected_stage=Step2gen2/wsec67b/success，校验Step3failed时execution identity differs。不是原Step3receipt失配。原21:08及新诊断guards均消费，不能重发。
+
+**修改与最小验证：**backend/app/cce_recovery_budget.py候选SHA55cb60deeed2d029561f64e559b541aedb7d1e1b0feb6488a767bc2b96bd594a，只normal callback同pipeline/analysis/attempt最新native ID，caller stage不选row，cleanup门禁原样。协调发现settings=None legacy None可跳过滞后Step2：唯一负例BS10610 RED1/raw9011814c，修为只有原run.current_stage=Step3保留legacy诊断，其余settings缺失拒绝。新test组11和必要既有test_unknown_stage_cannot_fail_or_release一次最终12GREEN/3.13s/rawbd8bc7a4；既有夹具仅隔离其前半synthetic Step4–6，Worker quiet/nonce/gen与新later_stage拒绝保留。第一次合并收集image8ba缺FastAPI/exit4，不计验收；使用actual测试backendimage849/networknone完成。测试hostserver10610/uid6708/current及实际mount/gates先核，无生产测试或新全矩阵。证据root /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/wgs323d3f-terminal-fence-20261003，final-green2.log/xml。无凭据患者资料。
+
+**状态/下一步/回滚：**actual生产仍诊断90bb；causefix55cb待协调最终diff/GREEN/精确overlay目标/rollback90bb审核。目标 /data/airflow-WGS/step7-perf-20261002-fd85593-control/merged/backend/cce_recovery_budget.py，6708:520/0644；不打包HEAD4fc进度补丁。获GO后新exclusive deployguard、保留实际90bb即期rollback及原77c，原子换此module并仅backend重启。随后新exclusive一次正常终态投影；未知结果只读，不重放。当前platform仍running，native/AFfailed；尚未mkdir/Resume/newaction/gen/attempt。effective workDir映射/云MasterWorkers静止尚待fresh，原deadline不可延期，恢复原3f同a1而不换581，复用prepare/上传/成功rules。自动监控按直接人类“保持停止自动监控”保持停止，不重建。全部输入/结果/证据/其他批次5035B0保护，无Step7/清理。
+
+**文档/Git：**新增本条、CURRENT_STATE/TASKS顶栏、runtime文档和reviews/2026-10-03-wgs-terminal-identification.md；单module/新test/必要既有fixture修改未commit，历史三卡dirty与私有artifacts保留。产品开发与运营分列向协调/docs汇报，不将测试GREEN视为线上已修复或完整分析成功。
+
+## 2026-10-03（Asia/Shanghai）— W423-TMP-CONSUME-323D3F-20261003直接人类授权已核
+
+直接读取协调线程最新人类01a0fe87-4404-7453-aff6-4fe9931d893f“同意”，其前置问题为仅排查修复本次终态识别、最小验证后部署BS96、继续原批次。精确范围按协调转交：原323D3F/a1/5、c17/Step3gen1/wseb7f6/hash744d；先定位实际predicate，API不足用既有鉴权服务handler内诊断，不直接生产DB/不新API或表/框架。仅真实缺陷最小修改与BS10610一个回归及必要身份负例，实际diff/GREEN/BS96目标回滚一次审核后部署，生产唯一writer仍本AF。下方readonly STOP仅在该范围解除，旧假设不当事实。
+
+生产代码基线以actual mount字节为准，保留已安装overlay，禁止带入HEAD4fc尚未部署的进度补丁或别的任务。原唯一21:08POST guard不重放，诊断无状态写；若必须扩接口/native/权限/DB范围先报告。修后原3f冻结绑定不迁移581，核原effective.workDir/tmp/同执行writer静止/原deadline有效，再仅mkdir缺失tmp和正常samea1 Step3一次。成功输出/原输入/全部证据/其他批次5035B0保护，不forceall/prepare/重传/newattempt/延期/Step7/清理。自动监控用户保持停止、不重建；WGS581发布及验收已完成，不重做。
+
+当前源码未修改、测试/部署/恢复尚未开始；已告协调最小服务内诊断方法，仅独立进程现成鉴权GET中原只读fence的白名单条件记录，无新长期接口。三卡原dirty/private证据保留，后续实际结果逐项更新。
+
+## 2026-10-03 05:19（Asia/Shanghai）— ignored门禁一次定向只读完成；不扩大排查
+
+**范围/目标：**协调在21:08真实dag-terminal ignored之后两次明确旧“继续POST”失效，只接受一次现成API/部署合同的定向只读，优先旧证据；判断Step2投影误选假设或真实digest失配，API不足即报告限制并结束。全部生产写入/POST/mkdir/Resume停止；用户“保持停止自动监控”仍有效，不重建/周期检查。
+
+**完成/命令：**仅本地源码与保存safe证据检查，一位subagent只读源码合同无远端/修改/测试。一次literal PowerShell stdin经ssh BS96去CR；21:19:20.652057Z server96、/data/airflow-WGS/current→releases/20260912-panel-opt-4d3d24e6、backend a705/worker c92a/scheduler2430实际mount/image/执行门禁和共同96路由吻合。实际部署cce_recovery_budget SHA77c8879fe0c694ef9ff367f36032074b313b7f36c7849ffb0a66553661320ebb、stage_execution_contract20e8fab9、run_service3cfb552e、workspace43ff9053与本地相同；唯一正常GET /api/runs/323D3F返回200，同a1/c17/platformrunning，top keys无原始current_stage。只读RC0；未打印临床或凭据。
+
+**证据/限制：**读取已经保存的native-observation.private.json，无再次native observe或云查询；snapshot SHA cbd34e28285ecfa52996e72df162d8c5913479ee4f111df37ce8c43a85000197保持，schema/精确Step3gen1/wseb7f6/hash744d/statefailed/healthy；evidence_ref dd7b7c09589b0eb8e0600e933718083d38383d05f08e55ba7eba89e18283628f与原business SHA相同。实际合同不要求native-only registration df8a与平台registration文件285a相等。现有workspace Step2success仅投影；GET detail没有顶层原始run.current_stage。补充本地合同：detail.recovery非null时stage_code可直接来自run.current_stage（cce_recovery_projection.py64），多个分支为null；本次只保存detail顶层keys及身份，没有保留该嵌套值，因此该现场值仍未知。纯GET不公开平台门禁选中的execution row/status/receipt/冻结DB digest，不能证实错误stage或真实摘要失配。正常stage-status GET会sync写状态，未调用；不直读DB/恢复poll或再GET补猜测。
+
+**状态/下一步：**本轮定向只读结束，API证据不足以给出已证实backend缺陷或现成修复；协调向人类收敛必要最小新增范围。21:08 ignoredtrue/native_stage_unconfirmed停点不变，未mkdir/Resume/newaction/gen/attempt，不改status/receipt/journal/锁/profile/catalog/源码，不恢复监控。原prepare/Step1/Step2及成功rules/原5输入/FASTQ/OBS/source/sampleinfo/pending/referencehistory/项目结果/所有证据/其他批次5035B0保护，无Step7/清理。完整恢复尚未实现。
+
+**修改/验证/回滚：**仅三卡顶部与私有safe evidence stage-fence-readonly.safe.json，本分支HEAD4fc2999和原dirty历史保留，不commit private。无运行测试（范围明确只读，不实现或测试）；无服务或生产应用写入，无生产回滚。文档误写仅撤本条，不撤原停止决定或重放旧guards。
+
+## 2026-10-03 05:09（Asia/Shanghai）— 本次恢复停在真实dag-terminal门禁，未mkdir/Resume
+
+**范围/授权：**已直接亲读协调线程人类01a0fe62-4dac-7791-8c4d-af6d79505741“进行下一步”。新WGS commit581f4f0c62594170b10d92988ef6c7d1ffd2c26c只runtime_overlay CCE mkdir，独立SFS `/workspace/wgs/pipelines/4.2.3-581f4f0-cce-tmp`/release20261003.1-wgs423-cce-tmp已PASS/state_verified/140files、codeSHA4e8f24bd888353e8e7aa3147a6194229bf76626a367ab483c3a32aa368cbf3ea；复用D:/pipeline/WGS-noncoding-model/.codex-artifacts/wgs423-cce-tmp-20261003/pipeline-receipt.json，不重验收。现成sameattempt API无release换绑；协调/native明确接受原冻结3f下仅精确空tmp环境初始化，再正常samea1 Step3一次。必要失败投影仅现成受鉴权dag-terminal+真实native snapshot，fence拒绝则停止，不扩新attempt/prepare/sharedprofile/目录锁/核心接口。
+
+**fresh现场：**先读四卡/边界/Git，HEAD4fc2999/三卡原dirty。20:57:48.607821Z BS96 hostname/current→releases/20260912-panel-opt-4d3d24e6、backend a705/worker c92a/scheduler2430实际mount/image/gates/共同96route吻合，authtrue/autodispatchfalse保持。同323D3F/a1/actionresume_c17cd7cf8b3ab245ae80304d、Step3gen1/wse_b7f6bc858e2a3284ed0c01a0/hash744d85bdf5b47002a834c16022e628ff8b83ea2ba1448d0454f7e007fff4d8b1，原businessSHA dd7b7c09/terminalade553a8 failed，AF currentDagfailed/活跃TI0，平台仍running。冻结3f-perm2775/profile26b6、selectedmanifest2cc36f9c、Job原UIDeb02/Podcf2a保留，未新云查询。backend dispatch顶部pid字段null，不能用最初的/proc/None结果证明native静止；随后21:02:20.464052Z使用既有local id_rsa_ctapa经ProxyJump BS96和原ED25519 pin VXTDQr...，ctapa6801:520/server96同bootef1fa37a、原944075 PID absent/PG成员0，才是有效原process proof。原deadline2026-10-07T12:45:38.887362Z当时余402198s，不延期。bindingSHA f63e7bbd、native selectedcontractSHA36a2c7d7及request/目录metadata只读；未读取患者输入。
+
+**现成机制静态检查：**两只读local agent核sameattempt stage API仅attempt/stage/idempotency key；release/source/workdir冻结无新制品override，普通resume/rerun_failed会增attempt也保留旧release，不使用。Step2-origin queued c17仅在run正常投影terminal后允许新Step3 action，reserved/uncertain仍阻断；existing recovery poll后续可能reserve，不盲调用。本轮没有实现/测试/接口适配。已向协调发当前绑定及API gate风险，协调明确允许正常dag-terminal一次且拒绝即停。
+
+**实际操作/结果：**复用部署forced-command --native-observe同currenta1/Step3gen1/wseb7f6/hash744d，由真实native reader取得`cce.stage-execution.snapshot.v1`/statefailed/execution_ref一致、native registrationSHA df8a91ed87a025ab3906b9dbde3cf43385929601a9e8105fee94b142b357c8d8，snapshotSHA cbd34e28285ecfa52996e72df162d8c5913479ee4f111df37ce8c43a85000197；无手造终态/身份/evidence。21:08:23.617800Z正常POST `/api/internal/wgs/runs/WGS_20261002_095408_323D3F/dag-terminal`，attempt1/currentDag/c17/failed_task_ids仅AF实际wait_step3_analysis，内部服务鉴权。HTTP200响应body明确ignoredtrue/reason native_stage_unconfirmed/statusrunning；这不是成功投影，正常API未解除门禁。按协调停写，未mkdir、未Resume/action/gen/attempt创建，未改status/receipt/journal/binding/profile/catalog/lock/lease、未云资源写入或新测试。只一次POST，无重发或恢复poll。
+
+**证据/一次guard：**本地`.codex-artifacts/wgs323d3f-tmp-recover-20261003/` fresh-identity-binding.safe.json、node-frozen-paths.safe.json、dag-terminal-response.safe.json；host私有`/data/airflow-WGS/wgs323d3f-tmp-recover-20261003/` mode0700，native-observation.private.json、dag-terminal.once、dag-terminal.response.json均0600且exclusive创建，POST guard已消费。不是旧prepare/delete/helper重放。一个本地查找误猜不存在wgs-3a001e-node96 artifact目录（rg退出1），另schem文件名未命中，均仅本地搜索错误，无远端影响，随后用现有文件核合同。原native/业务证据及输入全部保留，不把新581独立发布当旧run换版本。
+
+**未完成/下一步：**平台依旧running、Step3真实failed。云Master/Worker fresh静止/SFS有效workDir精确读取和mkdir仍未做，在平台前置fence被忽略时停止，不能从AF TI0/native进程退出推断云writer0。当前reason精确，但选择哪条DB stage row、receipt/evidence为何不确认尚无现场证明；源码run.current_stage优先选前驱与workspace Step2投影只为推断，不直连生产DB或扩排障。已报告协调/docs，等待最小明确后续范围；不得为恢复盲POST、clear、手写status或改接口。只正常失败投影调用和私有证据，无生产应用发布，无法宣称已恢复。自动监控人类要求保持停止，不新建；无Step7/任何清理。保护原5/FASTQ/OBS/source/sampleinfo/pending/referencehistory/全部成功rules和项目结果/新旧证据/其他批次5035B0。仅三卡本地修改，diff静态检查、private不commit；无数据回滚或目录回滚必要。
+
+## 2026-10-03（Asia/Shanghai）— 直接用户选择保持停止自动监控
+
+用户对本线程异步问题“是否重新建立唯一的每小时监控”直接回复“保持停止自动监控”。此为最新明确选择，覆盖下方原ACTIVE/hourly/重建pending；原wgs-3a001e-attempt2已不存在，因此未create替代、未再次update/pause不存在的ID、未修改其他automations，不再自动周期检查运行。若未来用户重新要求监控，再按新范围处理；本轮无需其他确认。
+
+本轮仅三卡顶部/已授权协调与docs汇总，读取和修改均本地；无SSH/源码重复诊断/云读取/运行测试/生产API写入。最新实际运行仍上一轮17:28:01Z（2026-10-02 UTC）的323D3F/a1/c17/Step3gen1/wseb7f6/hash744d business/native/AFfailed、平台running、4–6未启动；停止监控不代表Step1–6完成，不改任何业务状态或结果。WGS native/materializer归属收口仅候选，未实施/测试/发布/Resume，生产STOP保持。
+
+文档静态diff检查，不运行测试，因为仅记录用户监控选择；原HEAD4fc2999/actual981e/ec6f/共同96及dirty历史保持，不提交private证据。无生产回滚；撤销停止监控需用户新要求。原FASTQ/OBS/source/sampleinfo/pending/reference/history/所有成功规则和项目结果/新旧证据/其他批次全部保护，无Step7或清理。下方监控恢复问题已被本条明确回复收口。
+
+## 2026-10-02 17:35Z — WGS/native归属核对已收口；纠正preflight并记录materializer候选
+
+本轮只接受协调线程019fa8d1转交已核结论并做本地文档/已有唯一monitor维护，不SSH、不重复源码/日志/云/运行诊断。local/SGE Step1_run创建同PROJECT_DIR/tmp后Snakemake --directory；CCE新work未继承。native正式1f5/c8d07 Master脚本无条件WGS pipeline_materializer→unlock/preflight/analysis，normal与resume新Master都覆盖。纠正17:28旧文案：preflight有先行调用，问题是未force规则，已有marker可跳过cloud_preflight规则体，故不能只往该rule加mkdir。
+
+首选候选仅WGS script/runtime_overlay.py materialize_effective_config CCE分支按effective['workDir']幂等创建tmp，补共同初始化，不改SNV业务脚本/算法、cce-pipeline通用模块、镜像、AF；下方main mkdir候选及归属pending被本条覆盖。WGS owner只读核对完成，尚未实现/测试/发布。当前生产STOP/noResume及所有成功结果保护不变；最新真实运行证据仍17:28:01Z同323D3F/a1/c17/Step3gen1/wseb7f6/hash744d业务/AFfailed、平台running、4–6无request，本轮没有新运行观测或恢复写入。
+
+本地先读四卡/边界/Git，仅三卡顶部与现有monitor最新准确措辞；原三卡dirty及private证据不commit，产品HEAD4fc2999/actual981e/ec6f未改。未运行测试，因为本轮仅归属记录；无生产回滚需求，误写只撤本条。旧onceguards不重放，唯一hourly failed/方向未变静默，后续实现/版本绑定/验收/部署/正常恢复须明确范围，UI/回调和monitor346激活仍暂停。原输入/已成功规则/项目结果/证据/其他批次保护，无Step7/清理。
+
+本地monitor TOML读取方法退出1：原C:\Users\11217\.codex\automations\wgs-3a001e-attempt2\automation.toml现absent；工具view只展示卡片，不能据此声称存在/ACTIVE。同ID正常automation_update随后明确isError：“Automation does not exist in the app and could not be updated. It may have been deleted manually by the user.” 此为实际更新失败，不是生产API恢复拒绝或自动审批拒绝；未盲重试/create，不触碰其他automations。原因未知，不能把“may”当人类明确取消。下方唯一ACTIVE/hourly为历史状态，当前自动续查不保证；已向用户提出是否重建唯一小时只读/未变静默监控的问题，回复前保持缺失事实，协调/docs亦获报告。本轮仅文档维护不因monitor缺失扩大生产授权。
+
+## 2026-10-02 17:28Z — 小时终态未变；直接人类新增WGS启动tmp归属判断
+
+本轮先读最新四卡/边界及Git。只读唯一一次sshBS96复用既有preflight、精确正常run GET/当前request-business-terminal/Airflow currentDag，RC0；17:28:01.170325Z server96 `/data/airflow-WGS/current`及actual backend/worker/scheduler/mount/执行门禁匹配，同323D3F/a1/actionc17/Step3gen1/wseb7f6/hash744d保持。business/native及terminal、AF waitStep3/Dag仍failed，business SHA dd7b7c09589b0eb8e0600e933718083d38383d05f08e55ba7eba89e18283628f、terminal SHA ade553a810dfd622ad323936ffeaf59378e2c1d383d79d9f34f89165856ec7be不变，公平台仍running，Step4–6请求仍absent。没有追加日志/源码/云查询、旧故障复现或恢复写入。证据`.codex-artifacts/wgs-monitor-progress-preserve-20261002/heartbeat-20261002T172537Z.safe.jsonl`；不把既有238/333当新增采样。
+
+独立只读核协调线程最新人类后，本AF再亲读该turn核实：直接消息`01a0fda1-85da-7a61-83f7-40019e9b9958`/17:20:16Z要求WGS判断local/SGE的./tmp是否由Step1_run.sh在启动前创建，并比较修CCE模块或WGS流程。此为只读方案归属方向，不包含实现/测试/部署/Resume许可。协调/WGS源码判断（本AF未再远读）：local/SGE Step1_run.sh先建分析tmp再Snakemake；CCE不走该入口，prepare宿主batch/tmp不等于云端work/tmp；cloud_preflight不保证所有rule必经，需核WGS CCE真正启动初始化的首次/续跑覆盖。WGS owner/协调收敛候选，下方逐脚本main mkdir不作为当前实施决定。
+
+本轮本地仅顶部三卡/唯一monitor新方向记录及安全最小检查结果；原dirty历史/private证据未commit，源码HEAD4fc2999/actual981e/ec6f和共同96保持。运行终态未变本不通知，仅因新直接人类方向向协调/docs分列运营未变与产品归属判断。消息编排首轮JS括号错误SyntaxError，解析阶段即失败、没有调用任何工具；改正括号后两次消息发送各成功一次，无生产影响。未测试/实施/部署/改目录，因仅只读比较授权；无生产回滚需求。唯一wgs-3a001e-attempt2保持ACTIVE/hourly/currenta1/quiet STOP，不重复创建或恢复，UI/回调及monitor补丁生产激活暂停；下一步由WGS owner完成归属判断并等明确后续范围，原输入/成功rule/项目结果/证据/其他批次全保护，无Step7/清理。
+
+## 2026-10-02 17:00Z — 当前Step3 WGS业务首错明确；只读收口，生产STOP
+
+**目标/最新方向：**本轮hourly只追踪323D3F/a1。监控发现真实失败后，协调转达最新人类要求先查真实WGS业务问题；已亲读协调最新消息，明确停止重复远程读取，WGS owner核最小源码修复，AF暂停UI/回调修复且不Resume/部署。此条覆盖下面15:25健康运行观测，不从历史heartbeat重放任何修复/删除/恢复授权。
+
+**当前身份及回执：**`WGS_20261002_095408_323D3F`/attempt1/原5；action `resume_c17cd7cf8b3ab245ae80304d`来源Step2；current DagRun `WGS_20261002_095408_323D3F-a1-resume_c17cd7cf8b3ab245ae80304d`；Step3gen1/execution `wse_b7f6bc858e2a3284ed0c01a0`/request hash `744d85bdf5b47002a834c16022e628ff8b83ea2ba1448d0454f7e007fff4d8b1`。native failed16:07:08.418241Z，Master FAILED/238of333/71.5%/retry0/queryhealthy；business SHA`dd7b7c09589b0eb8e0600e933718083d38383d05f08e55ba7eba89e18283628f`，registration SHA285a44d8、request terminal SHAade553a8 failed、dispatch SHAeca69566 finished均同execution_ref且terminal业务hash匹配，原native944075已不存在。AF startStep3保留success、waitStep3 16:07:15.458667Z failed/Dagfailed；Step4–6无实际request、upstream_failed。原Master name cce-master-656840c907ccbff7d8b7/Job UIDeb02fef8-5f0d-46ab-a5dd-41a593b9494b/PodUIDcf2ab97c-b078-41e8-8252-a2f906650dc0为既有身份，不是本轮新云查询。
+
+**业务原因：**唯一失败rule `SNV_vcfTagCandidateOther`、Snakemake job61、worker snakejob-4d2ccce4-6c6d-539c-ab21-b568f6607f2d。持久Master `/data/wgs-evidence/WGS_20261002_095408_323D3F/attempt-1/mirror/analysis.log`普通非symlink、762472B/SHA`cb2c32e5b9e709949ad88fd3c2f179eaaf53c04178da55c3730e0c88994c0a4d`，首rule errorline5498；同错传播重复13次，不是13个失败job。trace script205→main196→extract_vep_tsv18→tempfile.NamedTemporaryFile580/opener577/_mkstemp_inner257，line18 `NamedTemporaryFile(suffix='.tsv', mode='w', delete=False, dir='./tmp')`；FileNotFoundError errno2目标`/workspace/wgs/runs/WGS_Clinical/<batch>/work/tmp/tmpxcl5d4mo.tsv`，command exit1。这定位到失败时工作目录tmp父路径不可用，不是SSH/monitor/UI。项目复制和冻结3f98682脚本同7843B/SHA`2a7f1effabaa23e2f031dc071bd9af0c3d3344aef86a415d7fdbb44f3ff420a4`；persisted manifest SHA2cc36f9c声明Master image e48125333a8a4343921eed4a63dd3346d80a981b33ba7e5090136ef3da94f941，未读取云Pod实际spec。WGS owner继续核冻结前30行是否mkdir并收敛最小方案；AF不再重复源/云/环境诊断。
+
+**WGS源码归因补齐（协调转交owner已核结论）：**正式dev_CJC_4.2.3_cloud commit`3f986821172e5fbd5f5abd1213baea64c6b976f9`，o.Tag_Candidate_Other.py18/120都dir='./tmp'，全脚本无mkdir；189–193只建最终输出父目录，rule359–379亦无mkdir前置。祖先`ad406dea0dfd0594246ff76f87f86dcb071bb171`将默认临时目录改为./tmp漏准备；同Master trace证明发生split-vep/分类之前。最小方案main输出目录建立后/extract前`os.makedirs('./tmp',exist_ok=True)`覆盖两处；目前未实现/测试/发布，无直接修改旧冻结3f/绑定/receipt授权。后续新commit、版本绑定和正常续跑范围须协调/人类收敛；本AF复用CONFIRMED结论停止原始日志/云/源码重复读取。
+
+**平台与独立待办：**公run仍running/5，workspace Step2success/percent0，rail Step3failed且238/333；rule API total1但stderr/log_keys空，不能据此判断物理日志缺失。正常AF GET日志200保存后正确解nested内容：wait_step3_analysis `_backend_json` HTTP409，release_leases HTTP400，body/具体guard未日志化。此前第一decoder只得到1行，不能据此说无错误；现正确证据在callback-decoded/frames.safe.json。具体状态投影/回调原因仍独立待办，按最新优先级暂停，不作为真实WGS首错。
+
+**命令/环境/失败方法：**本轮先读四卡/边界/Git；既有有界只读经`ssh BS96` stdin去CR，核server96 `/data/airflow-WGS/current`→releases/20260912-panel-opt-4d3d24e6，actualbackend a705/worker c92a/scheduler2430和原mount/gates吻合，backend evidence mount只读；auth=true、autodispatch=false、执行门禁保持。正常只读API/精确已持久log/source/manifest读取成功，最后日志证据16:54:55.626319Z；无云查询、临床输入读取或生产写操作。两辅助只读方法误把实际`platform_environment='Production'`与小写严格比较，均在请求/文件正文前assert退出1；修casefold后成功，原失败证据保留，不是业务故障。当前本地仅从保存的private context提取临时路径生成安全摘要；无复现/测试，因本轮已明确只读诊断收口。所有raw上下文私有、不打印患者或凭据。
+
+**修改/证据/产品状态：**仅CURRENT_STATE/TASKS/HANDOFF顶部与现有唯一monitor更新，本地private evidence保留在`.codex-artifacts/wgs-monitor-progress-preserve-20261002/`：heartbeat-20261002T162506Z.safe.jsonl、step3-failure-20261002T1625Z.safe.jsonl、master-persisted-error.safe.jsonl、tempfile-root-cause.safe.json、callback-frames.safe.json。无产品源码改动，本分支原三卡dirty历史保留、不提交private证据。产品4fc2999/paired346/30验收已完成但未部署；实际paired981e7e82/policyec6f3592保持，共同96/a622867已完成、服务未更改。扫描/dispatch未开，全部历史onceguards消费禁止重放。
+
+**阻碍/下一步/回滚：**完整分析未完成，Step4–6/最终结果尚无；WGS owner/协调负责最小修复范围和人类明确方向。失败/PID退出不自动解除Step2-origin activeaction恢复门禁，本AF不Resume/newgen/a2、POST、clear/kill、补目录、改receipt/journal/status/锁/lease/hash或扩接口。UI/回调和监控源码部署分别待办；唯一hourly `wgs-3a001e-attempt2`继续当前failedidentity最小只读、未变静默，实质变化发协调/docs，不能新建monitor或宣布全完成。只读无生产回滚；文档误写可只撤本条，不回退已安装源或旧业务状态。原5输入/FASTQ/OBS10/sampleinfo/generatedsource/pending/referencehistory/audit/当前项目结果/全部新旧证据/其他批次5035B0保护，无Step7/清理。
+
+## 2026-10-02 15:25:20.540439Z — 小时监控发现真实Step3业务进展
+
+本轮目标仅现有唯一wgs-3a001e-attempt2跟踪323D3F/a1。先读四卡/边界及Git状态，最新产品源码4fc2999/30GREEN和productionSTOP保持；无新范围。既有只读helper经sshBS96 stdin去CR执行一次，RC0，server96 /data/airflow-WGS current/实际容器identity/mount/gates全部吻合。当前同a1/actionresume_c17cd7cf8b3ab245ae80304d来源step2_master、Step3gen1/executionwse_b7f6bc858e2a3284ed0c01a0/requesthash744d85bdf5b47002a834c16022e628ff8b83ea2ba1448d0454f7e007fff4d8b1，公平台/AF/native running、5samples、native944075/PGID/SID/bootef1fa37a/start4483218750同。
+
+新真实原生观测updated15:25:13.826781Z：Master RUNNING/completed195/total333/percent58.6/retry_count0，statusSHA6ffa7f34e0cc312dde169faceeb90dd2e5d24b93ed11f1949bd7caff5d823d4b/queryhealthy；waitStep3当次15:25:19.554582轮询running，原startStep3仍12:45success。这是本次业务观测，不能推断前端稳定显示或已修复master被覆盖问题；生产仍981e/ec6f，源346/4fc2999未部署。实质进展证据.codex-artifacts/wgs-monitor-progress-preserve-20261002/heartbeat-20261002T152435Z.safe.jsonl；无额外日志/OBS/云inventory、POST/恢复/新attempt、source/pin/状态/锁或进程写入。
+
+本轮修改仅三卡及已有monitor最新运营基线，向授权协调/docs分列运营进展与产品状态保持；不提交原dirty历史或private证据。现有重接机制不能安全激活当前健康Step2起始action，STOP不变，无新测试/部署包/实现。Step3仍运行，4–6/最终结果/AF平台前端终态成功未完成；monitor继续，未变静默，下一次只当前身份/阶段最小readonly。所有成功前驱/onceguards/原输入OBS/FASTQ/样本/结果/证据/其他批次保护，无Step7/清理；只读检查无需回滚。
+
+## 2026-10-02 15:12–15:15Z — 进度保存源码检查点通过；生产激活条件不成立
+
+目标W423-MONITOR-PROGRESS-PRESERVE-20261002：直接人类01a0fd02批准最小公共monitor进度保存及BS10610验收/审核后发布，01a0fd0f进一步只允许现有机制安全复用原Master/Workers/attempt/冻结输入/成功rule时重接监控，否则停止。本AF仍唯一source/test/生产writer；协调亲读实际日志/XML并独立审核，通过源码检查点。此条覆盖下面尚未实现/验收的启动描述，不重新请示已有范围。
+
+完成：paired.py SHA34606ce7428557f8ac05bd811a8acf6b0078e9e83dd29a7e89e30639240ce2c4仅35行diff，healthy一次原子发布完整本次已验证Master/业务计数，非healthy保留业务快照并推进control时间，既有query_unconfirmed保留原业务采集时间；rule-evidence错误保持degraded直至正常collector恢复。旧updated_at/receipt/cce_master_binding不作为可信数据复制。WGS原gate._binding_run_label、typed6tuple/deadline/save-before-query/retry/terminal及原Step2修复保持；临时未验证label fallback经review拒绝已移除，最终产品源仍34606ce7。
+
+验收命令仅BS10610任务隔离network-none容器：scripts/tests/test_cce_monitor_reconnect.py + backend/tests/test_cce_monitor_reconnect_ingestion.py，有效原981e的8RED(2.05s/raw3c2dc371)→同346候选24GREEN(4.14s/raw55ab65a5)；最后scripts/tests/test_p02_selected_monitor.py -k reconnect实际6GREEN/52deselected(13.63s/raw368cb061)，所需initial两例加4既有fresh/downstream例，合计30通过。TEST15:14:53实际server10610/UID6708/controlroot/current/mount/gates吻合，nativebfa1、两既有镜像849/8ba，无安装或服务更改。最终只WGS/reconnect新bundle在freeze前修合法cce-run-0123456789abcdef及同binding；存在的template/selector同键才覆盖，原bundle/native/annotation不动；后续native manifest hash/CREATE intent自然冻结。重连clock wrapper仅转发observation kwargs。没有全P0/临床canary/额外测试，协调明确无需再验收。
+
+失败方法如实保留在private logs/review：初image缺httpx、backendimage缺Kubernetes plugin均collection4；新fixture假clock/real sleep导致任务隔离容器停止137（服务0）；中间WGS runtime-root fixture不符后修synthetic；selected一WGS非法label/一GATK通过；compound-k CSV拆词collection4/no tests，均不计最终验收。tar约17s时间warning保留、source/archive SHA一致、未校时。两个运营helper先误用Compose输入作inspect，再直接比较完整mount字典，均止于API前；改原actualinspect四字段排序比较后有效只读一次成功，不是生产故障。
+
+当前运营实证15:12:45.265325Z BS96只读：server96 /data/airflow-WGS实际backend a705/newworker c92a/scheduler2430与mount/gates吻合；323D3F/a1/actionresume_c17cd7cf8b3ab245ae80304d来源step2_master，同Step3 generation1/executionwse_b7f6bc858e2a3284ed0c01a0/hash744d85bdf5b47002a834c16022e628ff8b83ea2ba1448d0454f7e007fff4d8b1，平台AF/native running、5samples，waitStep3自然15:12:40–42后up_for_reschedule，原startStep3success。native944075/PGID/SID/bootef1fa37a/start4483218750同；queryhealthy，statusSHA9a8b63190bedc950d41922dacbd9d42c2b2eb841b7a372b38cce52c355769c9c/master=null仍旧显示缺陷。13:16的6/333不是当前计数。本轮有效read已结束，不再生产probe/云inventory。
+
+风险/停止点：当前c17源自Step2且active queued，normal request_resume_stage先拒绝another recovery stage is active；interrupted_monitor_action例外需failed+scoped blocked/exhausted+Step3起始action，当前不符。generic分支并非一概failed-only，但当前达不到它；legacy reattach是等旧worker.lock的follower，并非健康PID替换，general Resume也可能恢复compute，不能仅凭名称说监控专用。長驻import在loop外，新文件不热替换944075；每轮load_runtime仍校disk source/pin，双文件中间态可能令活跃reader失败。因此按人类条件生产激活STOP，未部署/新包/POST/kill/改status/marker/锁或接口，不能宣称现显示已修复。共同96任务保持已完成，旧成功prepare/Step1/Step2与全部guards不重放。
+
+修改文件仅产品scripts/cce_paired_runtime.py、3synthetic tests、docs/08和新docs/reviews/2026-10-02-monitor-progress-preserve.md；三卡自身记录当前事实但保护原dirty不混入源码commit，private evidence不提交。精确raw日志/XML/有效运营证据在.codex-artifacts/wgs-monitor-progress-preserve-20261002及TEST私有root .../cce-evidence/wgs-monitor-progress-preserve-20261002T1444Z，7字段和原SHA见review。仅静态diff/链接检查；无新的source行为以外测试或生产部署。
+
+后续：唯一hourly更新同323D3F/a1/Step3新鲜事实和source-ready/prod-hold，继续只读自然4–6，未变静默；双owner获运营和产品分列简报。未来激活需真实所有相关WGS/GATK source/pin消费者静止窗口、精确当前pair/候选/回滚以及既有正常机制能安全复用原compute的证据和协调审核，不能从hourly自动推导GO。回滚候选是实际仍安装的981e7e82/ec6f3592原精确bytes，不能退旧66f/撤Step2或重放部署onceguard；当前无修改故无需回滚。完整Step1–6/最终落地/AF平台前端一致success未完成，monitor保留。所有输入FASTQ/OBS/sampleinfo/pending/reference/history/project/results/证据/其他批次5035B0保护，无Step7/清理。
+
+最终交付commit4fc29991de8868c8f99e78d211d593ca6bce3160，协调已核HEAD与6文件接受。明确文件：scripts/cce_paired_runtime.py、scripts/tests/test_cce_monitor_reconnect.py、scripts/tests/test_p02_selected_monitor.py、backend/tests/test_cce_monitor_reconnect_ingestion.py、docs/08_WORKFLOW_RUNTIME_INTEGRATION.md、docs/reviews/2026-10-02-monitor-progress-preserve.md。三卡/private artifacts保留dirty不提交；git diff --check0，两个changed docs17相对links缺失0，无新runtime测试。唯一wgs-3a001e-attempt2已经工具update，实际TOML读回ACTIVE/hourly/current323D3F/同execution/source4fc2999+346/15:12事实/productionSTOP/原thread全部true，旧wgs-test1 absent，不创建第二monitor。原source/PID保持；本轮只最终双owner交接后停止额外工作。
+
+## 2026-10-02 — 新精确授权：公共监控进度保存，先源码GREEN及消费边界
+
+直接read_thread核协调最新人类消息01a0fd02-c837-7e63-9367-04202221fc6f“同意”，对应协调前一轮明确最小方案：公共monitor健康写入保留同execution已确认业务进度/原采集时间、不跨attempt或generation；最小验证后BS96部署。本AF唯一源码/测试/生产owner，协调审code+GREEN及实际配对部署/活跃消费者两点；无需重复人类请示已有范围。新任务W423-MONITOR-PROGRESS-PRESERVE-20261002覆盖旧停止progress修补，仅最小源头修复，不改frontend/new缓存框架/已验收Step2/native核心/当前共同96；无当前活跃monitor kill/Resume/newgen/attempt授权。
+
+此前共同96节点配置/自然衔接已完成，发布文档commit a622867（仅release/runbook/SERVER_INFO/诊断record4文件）；三卡和private artifacts保持未提交，不覆盖旧dirty。静态diff检查0；初版根文件链接checker空parent错误已纠正，绝对父目录检查30链接缺失0。最新授权核实read_thread初调用maxOutputChars22000被schema拒绝，改20000后读到直接人类同意及前一轮实际设计，不据他线程转述替代人类授权。
+
+当前323D3F/a1/actionresume_c17cd7cf8b3ab245ae80304d/Step3gen1/wse_b7f6bc858e2a3284ed0c01a0/hash744d85bd不恢复/重跑/重启；worker c92ad8fe、scheduler24301f4b共同96保持。长驻_monitor_step3在while外导入monitor_registered，文件更新并不证明当前PID944075生效。先本地source/既有synthetic合同与消费边界分工只读，root唯一修改；后续测试仅BS10610隔离任务目录/host-root-current实际挂载gate核准，源码配对候选不安装或改生产。已有13:16 raw进度覆盖证据复用，无广扫。尚未本任务实现/测试/部署，下一步最小RED与准确生效方案，完整Step1–6未完成；所有旧guards及原输入OBS/FASTQ/样本/结果/证据/其他批次保护，无Step7/清理。
+
+## 2026-10-02 14:17:56Z — 共同96实际部署完成，原Step3自然衔接
+
+W423-COMMON-NODE-CONFIG-20261002完成。直接人类01a0fcd4授权只修节点切换一致性；协调接受实际包48956e5b/064316a9、config0、GATK96 actualAFkey受限pre-request联通、原sharedpin、唯一currentrun/TI0、独立native进程和worker三空后GO。只改两个实际Compose的GATK_RUNNER_200_ALIAS，WGSalias始终96；不改wgs-node200映射/新变量架构/代码/镜像/前端/进度/native/b861 Step2。默认200，200慢时WGS/GATK共同临时96，97不备选；现在已共同96，不自动切回200。
+
+实际新worker c92ad8fe4b2b1bc9e197fca8f47da90b59638d6b9266bd97c705758584021342（14:10:17），scheduler24301f4b730fa65a42018d3477444ee8bbe356bb613f5b1b0ac68ba082d7e0a4（14:15:10）。两者alias均wgs-cce-node96、SSH-G .96/ctapa/stricttrue，各原restrictedcommand保持；恢复GATKalias字段后全部env同，image58195672/mount/User/Cmd/Entrypoint一致，所有其他project service IDs及SSHconfigdf94468a不变。actualCompose路径/data/airflow-WGS/w423-common-node-20261002-control/airflow-worker.node96.private.json与airflow-scheduler.node96.private.json；原副本/manifest/容器事实/失败成功receipt0600，root0700，未复制key或患者资料。
+
+当前run WGS_20261002_095408_323D3F/attempt1/actionresume_c17cd7cf8b3ab245ae80304d/Step3_monitor generation1/executionwse_b7f6bc858e2a3284ed0c01a0/hash744d85bdf5b47002a834c16022e628ff8b83ea2ba1448d0454f7e007fff4d8b1保持；nativePID/PGID/SID944075、bootef1fa37a-19b6-4f56-82e0-84495779f6ec/start4483218750贯穿原/new服务，outsideworker。14:17:56workspace/AF/native running、原5selected；waitStep3自然14:17:51.305–14:17:53.077 poke后up_for_reschedule，原startStep3仍12:45success。没有POST/clear/重派/迁移/重启native。当前statusSHAf809dd7d是健康确认无master计数，已知progress显示缺陷保持，latest用户停止对此回滚/补丁，不扩大诊断。
+
+诚实保留维护失败：prepare输出重复utc TypeError在validscope保存之后；系统Python缺Airflow在RPC前，改用真实/home/airflow/.local/bin/python；inline hostname被PowerShell本机展开，后续全脚本stdin去CR。首窗口14:04额外passive broker方法检查中止、recreate0，原scheduler14:04:25恢复；原子stderr未保存，后续准确分类三空但extraChannelError，协调明确取消额外方法，保留原TI/三空/native门禁。14:09window2新worker启动即读缺reply，stderr存证，无业务active证据；14:12worker ready/logErrors0/native同，14:15newworker真实三空后只续尚未执行scheduler，未重放worker。首调度暂停约17s，第二14:09:56–14:15:10约5m14s，后台独立进程持续；不能称服务无暂停。
+
+详细原/新hash、7字段/rollback与futurepaired操作见docs/releases/2026-10-02-common-control-node-bs96.md；docs/11_DEPLOYMENT_RUNBOOK.md和SERVER_INFO同步。私有原证据.codex-artifacts/wgs-gatk-common-node-20261002/packet-preflight.safe.jsonl、native-worker-separation.safe.jsonl、activation-once.safe.jsonl、activation-window2-once.safe.jsonl、window2-partial-readback.safe.jsonl、finish-scheduler-once.safe.jsonl、natural-monitor-handoff.safe.jsonl。远端finish-scheduler.completed.private.json是真实最终receipt。所有first/window2/finish onceguards消费，禁止重放helpers；失配/结果未知只读报协调，回滚不得迁移当前执行或整份downgrade。
+
+本轮产品源代码/测试未变；只有真实配置validation/changed连接/安全窗口及实际readback，不重跑全验收/已成功task。仅静态文档检查；修改文件release、runbook、SERVER_INFO、diag最新结论和三卡/私有维护证据，协调/docs报告分列运营与配置完成。唯一ACTIVEhourly必须记录两newIDs和currentStep3自然4–6，不因旧heartbeat再stop/recreate/切200/profile/恢复。完整Step1–6/最终结果/AF平台前端一致success尚未完成，不删monitor。原输入/FASTQ/OBS/source/generatedsampleinfo/pending/referencehistory/项目结果/新旧journal证据/其他批次5035B0保护，无Step7/清理。200当前同981e版本未本轮重验，后续成对切换不能推导核心安装授权。
+
+收尾：已通过automation_update更新现有唯一wgs-3a001e-attempt2（ACTIVE/hourly/本线程不变），实际TOML读回当前323D3F、两新服务完整ID、配置完成/停止progress回退和同Step3execution全部匹配；不创建或删除monitor。协调已亲读14:17:56自然handoff并接受节点配置/调度衔接完成，停止追加远端检查/测试。git diff --check退出0；后续只当前Step3自然4–6监控。
+
+本地文档检查初版对根SERVER_INFO使用空parent的Join-Path，出现参数错误（PowerShell仍返回0），不能计为有效链接检查；改用每个文件绝对路径的真实父目录后重新检查。独立文档review发现diagnosis历史段仍以现在时描述progress回退，已将相关段和7字段next-owner明确改为历史完成/停止回退，当前共同96发布记录优先。
+
+## 2026-10-02 — 新直接人类授权：只修WGS/GATK共同节点配置
+
+已直接核协调线程人类01a0fcd4-a575-7e53-bde4-6bef27dd82b0，覆盖13:34progress回滚调查：保持没有改动的展示，只修节点切换一致性。协调进一步明确可用已有两个pipeline alias都wgs-cce-node96、保留不同forced-command；仅改Compose不能让运行进程生效，优先无running TIs、native后台继续的受控短窗口仅必要worker/scheduler recreate，需实际服务列表/差异0/changed GATK96受限联通/sharedpin/活跃窗口/备份回滚。若无法避免中断则先报，禁止热resolver/公共架构/暗改200Host含义。本AF唯一实施/生产writer；协调审核不扩大到核心/数据/冻结身份。
+
+生产目标server96 /data/airflow-WGS；最新已知workeracb/schedulerd206/backend a705/currentroot与sshconfigdf94468a，实际WGS96/GATK200。拟仅两个当前实际Compose服务的GATK_RUNNER_200_ALIAS→既有wgs-cce-node96，WGS保持，所有其他env/mount/image/command/user和前端/backend/observer/native/sharedstack/b861 Step2保持。私有新bundle只放/data/airflow-WGS下本任务精确新目录，原Compose和容器snapshot0600、候选/manifest/一次guard；不复制SSH私钥，不输出凭据患者。当前尚无bundle/运行联通验证/部署变更。正常配置候选和原200配对操作文档表达默认200/卡时共同96，不新增节点变量，97不备选。
+
+当前323D3F/a1/actionc17/Step3gen1/wseb7f6/hash744d仍96活跃保护，无迁移/重派/POST/任务clear/prepare/上传/profile安装重放。后续正常只读当前阶段及运行连续证据；实际窗口以fresh全相关DagRuns/TIs及workeractive/reserved和remote当前后台dispatch身份为准，未知不猜停空；禁止复用旧activationhelper或重跑验收。成功步骤/输入/OBS/项目结果/新旧证据/其他批次保护，无Step7/清理。唯一hourly后续应更新停止progress回退、只共同节点授权及实际部署结果；完整分析尚未完成。
+
+## 2026-10-02 13:34Z — 最新进度回滚要求与旧制品/节点对照收尾
+
+直接read_thread核人类01a0fccf-9928-7840-b9c2-97cedcde5e76针对6/333→waiting回复“这个应该需要回滚，之前没有这个问题”。协调明确范围为进度回归的精确变更/安全局部回退可行性，正在亲查728f098；不是回切节点/整库回滚/重开公共96变量架构。本AF只整理已验收旧制品和200/96差异，没有新源码agent/远端live/测试/恢复/生产写。旧progress新补丁候选仍取消；若只能新增修复不能称回滚，须先准确报告差异风险。
+
+最小对照已完成于docs/reviews/2026-10-02-runtime-progress-and-unified96-readonly.md最新两节。08:44:40Z原私有route候选/activation记录证实只加96Host、worker/scheduler WGS alias→96，原200stanza逐byte保留/configdf94468a；GATK仍200、其他env/mount/image58195672/entrypoint/command/user与backend/observer/frontend保持。96后续WGS TZ=Asia/Shanghai和原policy journal_root初始化是节点配置差异；200当前对应值未新验证。12:42实际96 paired66f7999a/原policy033a5819→981e7e82/ec6f3592，仅platformpin字节替换；200未随此变更。原/new实际SHA和备份/manifest见docs/releases/2026-10-02-step2-initial-routing-bs96.md，不能以恢复旧alias为由撤掉981e已验收Step2修复。
+
+04:07–04:10 maintainednative089/c8d/e502+双bootstrapb928安装、17common/28未改native/4原env与实际四消费者gate/pair readonlyimport接受，rawproof211287bf；这证明安装配对而非Step3展示正常。已知正常progress旧安装制品和等价200回执→API基线缺证据，明确UNKNOWN，不扫描卡顿200。localgit show仅确认728f0983acd2a1f4de91a832faa7d308fd6ef62d题为finite monitor reconnect/fence false failures、父400bf77ff9880d0f10d0a267547c642a8ad03760，涉及paired/reconnect/WGSgate；父commit仅source比较候选，不能当已验收正常生产制品。整份paired恢复66f会撤Step2，完整728回退涉及有限重连/身份终态围栏，安全独立hunk待协调核；本AF未做代码回退或宣称切回200可解决。
+
+既有两个runneralias/原200SSHstanza是恢复原控制模式的配置候选，无新公共变量；仅候选，未切换，200同981e修复版本证据未确认。默认200、200卡顿时WGS/GATK共同临时96、同实现/展示/版本及97不备选方向保持。当前323D3F/a1/actionc17/Step3gen1/wseb7f6/hash744d在96不搬/重派，原prepare/Step1/Step2success、native/bootstrap/policy/producer身份围栏/所有onceguards保护。13:16真实Master RUNNING6/333/1.8/retry0，AF/platform running；当前完整流程未完成，不新增attempt/恢复或删monitor。
+
+7字段：1) existing-mode contrast/read-only diagnosis完成；2) gatk-prod-compat/jiucheng-ops旧分支，HEADadc336d，actual96b861/981e；3) 无产品实现/回退；4) 原两readonlyhelperRC0+既有记录对照，未测试；5) 无本轮部署/重启/切换；6) service-api-route.safe.jsonl与gatk96-entry-config.corrected.safe.jsonl及原08:44/04:09/12:42记录；7) 协调亲查progress局部rollback target，正常旧制品未确认，本AF当前运营唯一writer且无写。报告协调/docs，产品与运营分列。修改仅diagnosis record/三卡/唯一monitor最新prompt；静态gitdiff检查与链接检查，不代替远端验收且未跑测试。所有原输入/OBS/项目结果/证据/其他批次保护，无Step7/清理。
+
+## 2026-10-02 13:30Z — 直接人类覆盖旧建议：原统一模式，默认200/共同临时96
+
+通过read_thread直接核实协调线程最新人类01a0fccc-0a41-7151-8ec4-ab78893921ba：“不做修复，之前版本都是正常的，只需要回到之前版本模式…默认还是200，只是200卡的时候需要切换到96…WGS和GATK应该是一致的…展示也不应该有差异”。协调两次消息要求停止新progress补丁/公共节点变量重构/新测试/部署/新架构；只据已有切换前200/96证据做最小对照，未知列明，无更多远端/广扫卡顿200。下方13:19及13:10候选只是历史诊断，现已撤销，不是待执行授权。必要身份围栏及已验收981e Step2修复保留，不能机械降级0.8.9或整套rollback。
+
+方向明确为原已验收同实现/展示/版本、节点控制默认200、200卡顿时WGS/GATK共同临时96；97不备选。现有run323D3F/attempt1/actionc17/Step3gen1/wseb7f6/hash744d仍96，不搬/重派，不擅自切回200或通过shared服务restart影响当前分析。实际当前GATK仍200，未做一致切换；不能把新决策描述为已部署。08:44:40Z原记录仅加96Host和worker/scheduler WGS alias，GATK及其他env/mount/image/backend/observer/frontend未变，不称节点切换造成前端版本回退。公共save短暂丢字段事实仍成立，但未证明切回200能修好，也不转为新补丁。
+
+唯一ACTIVE小时monitor wgs-3a001e-attempt2已工具更新顶部最新人类决策和13:16真实Step3进度6/333/1.8%/retry0；移除本轮刚加的旧候选prefix，保留原身份/边界参考。只当前Step3自然Step4–6最小readonly，正常未变静默；所有已消费guards禁止重放，完整Step1–6/最终结果/一致终态尚未完成。更新文件仅三卡/本地诊断record，当前gitHEAD仍adc336d，无产品源码/测试/部署/切换/回滚；后续最小对照和7字段报协调/docs收口，所有输入/OBS/项目结果/证据/其他批次保护，无Step7/清理。
+
+## 2026-10-02 13:19:47Z — 只读诊断收尾：progress覆盖实证；GATK96配置已读
+
+目标W423-323D3F-EVIDENCE-ROUTE-READONLY-20261002由已核新人类01a0fcb5和协调限定为诊断。协调已亲读13:16证据并接受结论，要求精确96 GATK剩余读取后收尾，不追加采样/全历史扫描。最终读取13:19:47Z RC0；本轮远端读取到此停止，后续实现/验证/部署须按新明确范围执行，不能由旧heartbeat恢复/发布授权推导。详细完整7字段状态卡、actual route矩阵和未来最小候选见docs/reviews/2026-10-02-runtime-progress-and-unified96-readonly.md。
+
+当前run WGS_20261002_095408_323D3F/attempt1/actionresume_c17cd7cf8b3ab245ae80304d/Step3_monitor generation1/executionwse_b7f6bc858e2a3284ed0c01a0/request_hash744d85bdf5b47002a834c16022e628ff8b83ea2ba1448d0454f7e007fff4d8b1不变。13:16:46statusSHAa967353d master RUNNING6/333=1.8%/retry0；13:16:53 healthy confirmation SHA799da7c2缺master/全部计数，到13:16:58仍同SHA；13:16:59SHA11bc2baf恢复master6/333。每次read均断言execution/gen/hash。APIworkspace13:16:47/dashboard13:16:48同runrunning/Step3running、availabilityfalse/计数NULL/source stage-status，储存stage时间13:16:39；AFDag running/startStep3success/waitStep3up_for_reschedule。确认查询健康写入覆盖业务观测→observer清计数→API unavailable→UI waiting；真实pipeline继续，不是新的分析失败。
+
+最低产品候选：公共query健康状态保存保护同executiontuple完整业务观测和真实observed时间；非healthy不得伪造新鲜，禁止跨gen沿用。UI当前对应APIavailability，暂无独立UI补丁必要。实际workeracb/schedulerd206 WGS wgs-cce-node96→172.17.61.96、GATK wgs-node200→172.17.61.200，stricttrue/configdf94468a；backend无SSH只共享requests/evidence。observere5c018a5 interval5虽declaredwgs,gatk，仅WGS runtime/evidence挂载，GATK env/mount缺项。维护DAG静态使用同pipelinealias，未执行cleanup。公共96节点来源候选保留各受限adapter，不改wgs-node200全局含义；共享worker/scheduler env更新可能需recreate，不能声称活跃WGS无影响，不restart当前分析。
+
+96ctapa6801:520原GATKwrapper40cf7002/0700、env475c5f78/0600、gatecfee7594/0644、operatora5952014/0600都存在/非symlink；pair policyec6f/platformpin981e/bootstrapb928，与已部署共享栈一致。原requests/evidence/transfer/resultroot存在、ctapa可读写，repository可读不可写。Python是现存symlink，target未验证。authorized_keys仅窄匹配/airflow-命令返回[]，不能推断无授权或已就绪；实际AF key→GATK restricteddispatcher握手未调用。无envsource/import/entry/workflow/nativeobserve/内部stage-status/云inventory/DB直连/生产写入。
+
+执行与错误：read-service-api-routes-96.sh第一版host SSH user读取config PermissionError，发生API/status之前；改为实际worker/scheduler默认user内部readonly hash/ssh-G，最终RC0，没有改ACL。read-gatk96-entry-config.sh第一版policy trust dict当path TypeError，窄改本地parser取path，最终RC0，不是新生产故障。保留安全原结果service-api-route.safe.jsonl、gatk96-entry-config.corrected.safe.jsonl于.codex-artifacts/wgs-runtime-evidence-route-20261002；无凭据/患者正文输出。修改文件仅本诊断record/三卡/私有helpers证据，无产品源代码或测试（本轮诊断范围），生产无回滚需求。
+
+当前prepare/Step1/Step2成功保护，Step4–6尚未完成；上传/reused计数不为非阻断项再扫描。唯一ACTIVEhourly wgs-3a001e-attempt2继续此samea1/Step3→自然4–6，新display/route产品问题不得触发自动恢复/重新部署/切节点。所有已消费旧prepare/POST/deploy/delete/profile/安装/activation guards禁止重放；原输入/FASTQ/OBS10/source/generatedsampleinfo/pending/referencehistory/audit/当前项目结果/全部新旧证据/其他批次5035B0保留，无Step7/清理。运营和产品分列汇报协调019fa8d1及docsowner01a0b254，生产唯一writer仍本AF；全流程尚未完成，不删除monitor。
+
+## 2026-10-02 13:10Z — 新人类范围：进度展示/控制路由只读差异诊断
+
+直接read_thread核实协调线程新人类01a0fcb5-7d30-7b62-ba01-ab2ff5a5d9b2：刷新后Run Tracker显示Waiting for runtime evidence；GATK/WGS控制入口应统一96，200分路不作为长期方案；本轮看差异并判断是否需要修复。协调只委托本AF一次最小生产只读：当前Step3真实status/计数/时间与observer/API/UI对照、实际worker/scheduler/backend/observer/cleanup route矩阵、96既有GATK受限入口/config缺项与统一96最小候选。未授权部署/重启/切换/恢复/测试/新接口或扩大原生核心。当前323D3F/a1/actionc17/Step3wseb7f6gen1继续原分析；禁止重复prepare/Step1/Step2/POST/所有已消费guards。
+
+本AF唯一生产只读writer；两个子agent仅本地只读projection/consumer代码，无SSH/测试/文件修改。证据新私有.codex-artifacts/wgs-runtime-evidence-route-20261002，凭据/患者不输出。先实际server96/root/current/容器挂载有效gate，然后只安全字段；不直接连接DB、不调用native observe/ingest/manualsync造成副作用、不云inventory。结果回报7字段状态卡给协调/docs，产品候选与当前监控运营分开，未改变原唯一hourly。原5/OBS/项目结果全部保护，无Step7/清理。
+
+## 2026-10-02 12:51:15Z — Step2修复发布恢复完成，当前Step3真实运行
+
+当前唯一run323D3F/a1/actionresume_c17cd7cf8b3ab245ae80304d保持。Step2gen2 wse_c67b199d729c19f374c2eb51/hashc6c6f1e8真实success12:45:17.848355Z，businessSHA1ffdff2213a4561c429523e8bf56e8ed38c27b8ca2a760b283a56480e97f6a6d；dispatcha4d907ef finished/registration7aaff603/terminal38eb53e1c84135ad367bc7588caa08e5e8b8c808682bcd07fb437b0ae5f73dc0 succeeded且businessSHA匹配；AFsubmitStep2 success12:45:36。正常首次Master提交已经发生，不再任何恢复写。
+
+12:49:47Z一次精确current producer/handoff私有readonly完成RC0，cloudqueries0/writes0。literal submission-wse_c67b199d729c19f374c2eb51.json stateconfirmed/SHA863b41ebfad86c579d839603bdc8235fd98089916bac6dae9d476f7c5569d862，view/evidence/WGS_20261002_095408_323D3F-a1/MASTER_HANDOFF.json START_CONFIRMED/SHAd948dd9b5dfefa91f6653e5c50dabacf5caaa681edf652c1723e43a595663d35，frozenview平台producer同Step2gen2/hash/exec完全一致。native首次generation1、原initialaction initial-3ce75005dc5b252041b3992840117aa3；exactMaster cce-master-656840c907ccbff7d8b7 UIDeb02fef8-5f0d-46ab-a5dd-41a593b9494b/PodUIDcf2ab97c-b078-41e8-8252-a2f906650dc0。未做云Job/Pod/namespace inventory或重提交。
+
+自然Step3当前generation1/execution wse_b7f6bc858e2a3284ed0c01a0/request_hash744d85bdf5b47002a834c16022e628ff8b83ea2ba1448d0454f7e007fff4d8b1/requestSHA621b084302bbf8ec94830003595743bcfeb24391adc5c1a9f087d185e50103a8。12:47:39.690556Z statusrunning/SHA5ee9401f、dispatch749ebe35running/registration285a44d8/no terminal，master1/333=0.3%/retry0。AFstartStep3success/waitStep3running/currentDag running、公平台run running。12:51:15Z现有workspace API一次200：stage_code step3_monitor/label WGS workflow running/stage_status running，railStep1/2success、Step3running、Step4–6pending；原5ready，failed_rule_count0。workspacepercent0与native1/333为不同投影，submission_phase旧failed仍显示，不能手改或为此扩大UI修复；当前状态和阶段已一致运行。
+
+证据.codex-artifacts/wgs-step2-initial-routing-20261002/current-stages-after-step2-resume.safe.jsonl、current-master-start.safe.jsonl、current-workspace-stage.safe.jsonl。最初readhelper误用execution_ref.generation而非stage_generation导致identity_matches:false，仅投影错误；原execution/hash/gen一致，helper本地修正并基于原raw生成normalized.safe.jsonl全true，保留两份原证据，不重复远端读取/改生产。产品最小修复、GREEN、独立审核、96两文件真实配对部署和samea1 Step2恢复均完成；新release record记录实际b861/source981e/policyec6f/native原hash。deploy/resume guards消费，禁止重放helper/POST/测试/安装/prepare/Step1/clear/a2/旧删除或降级。
+
+唯一小时monitor已工具更新为此Step3自然Step4–6，正常只读/未变静默。发布记录和review实际outcome单独提交adc336d（生产源码仍b861052/981e，非再次部署）；三卡与私有证据仍dirty保留。协调已接受交接，运营/产品分列最终简报已发docsowner。完整Step1–6真实回执/最终结果落地/AF平台前端一致success尚未完成，不删monitor、不宣布全完成。所有原输入/OBS10/FASTQ/source/generatedsampleinfo/pending/reference历史/当前项目结果/新旧journal和证据/所有其他批次5035B0保护，无Step7/清理。后续新异常先当前身份/真实private错误，报协调和docs收敛，不盲恢复或扩大范围；本AF仍唯一productionwriter。
+
+## 2026-10-02 12:43:29Z — 同a1正常Step2gen2已注册，APIqueued不代表Master成功
+
+BS96现有root/current/backend-worker-scheduler实际IDs及gate核对吻合，唯一resume-step2-a1-once-96.sh RC0。正常POST /api/runs/WGS_20261002_095408_323D3F/actions/resume-stage HTTP200，key w423-323d3f-a1-step2-initial-routing-20261002，action resume_c17cd7cf8b3ab245ae80304d/attempt1/stage step2_master/generation2/execution wse_c67b199d729c19f374c2eb51/request_hash c6c6f1e8dd471d7ceba4cd6d3616cd4f459601fbd3f4f6333557b085c2cf0ce8/requestSHA25dbd3f6e55648ca0f287b56e7d61caddb054241bcffc64c0c6367b302fc8929。currentDag WGS_20261002_095408_323D3F-a1-resume_c17cd7cf8b3ab245ae80304d；GET同a1/queued/5ready、phase旧failed，未把queued当native/Master/START成功。
+
+真实新身份先记录本条；正常POST guard已消费，不重复key/POST/helper/创建a2/clear，未知后续结果只读。证据.codex-artifacts/wgs-step2-initial-routing-20261002/resume-step2-a1-once.safe.jsonl，远端freshcontrol/a1-step2-initial-routing-resume.once.json/result.safe.jsonl。96真实paired981e7e82/policyec6f3592部署保持，原privatebytes/manifest/successreceipt可追溯；新generation后不机械downgrade。下一步仅此当前gen2真实dispatch/registration/terminal/business/Airflow及MasterUID/START/Step3自然推进，保护preparegen2/Step1gen2成功、原5/OBS10/所有输入项目结果journal证据和其他批次，无Step7/清理。完整Step1–6未完成，唯一monitor改跟踪本真实身份。
+
+## 2026-10-02 12:42:43Z — 96配对两文件真实部署成功，正常Step2恢复待发
+
+第二checkpoint GO已执行一次，deploy-pair-once.template.sh最终SHA8acbbedc、远端stdin/strict96pin/ctapa6801:520 RC0。写前保存/home/ctapa/.config/airflow-common/candidates/w423-323d3f-step2-initial-routing-20261002内manifest1c81d459、source66f7999a/policy033a5819原bytes各0600和deploy-once intent，目录0700。12:42:42/43进程读证相关0/unreadablectapa0。只对原canonical source/policy同parentCAS+fsync+replace，owner/mode/xattrs保持；实际读回source981e7e82/policyec6f3592，commitb861052。readonly实际WGS env gate+selected_runtime选中原nipttest nativebfa1/operatorpython3.9，未调用workflow/云。全部5wrapper、wgs_resume、双bootstrap/nativeguard等protected原hash一致；wrapper/native写0、服务/路由/200/GATK未动。
+
+成功receipt在上述privatecandidate/deployment-success.json；本地.codex-artifacts/wgs-step2-initial-routing-20261002/deployment-once.safe.jsonl。只读审查去掉宿主解释器中额外native包import，保护hash与选定解释器合同足够，无额外测试。deploy once已消费，禁止再执行/安装；无需回滚。正常API前遇已知必要问题可CAS原pair回滚，新gen产生后禁止机械downgrade。当前仍323D3F/a1/Step2旧gen1/wsef8d5/hash4ea8 failed，正常resume尚未发；下一步只固定key w423-323d3f-a1-step2-initial-routing-20261002 normal samea1 Step2一次，未知POST只GET。保留成功preparegen2/Step1gen2、原5/OBS/input/project/results/journals/所有其他批次，完整Step1–6未完成。
+
+## 2026-10-02 12:39Z — 第二发布检查点GO，仅96本地配对两文件
+
+源码最终commit b86105225da0484d663aa830554ff581764b3d15/paired981e7e82，独立代码与GREEN3/4审核已完成，不追加测试。协调直接审核12:29:22Z production-impact.safe.jsonl（完整public28/WGS67/GATK6均无active、currentTI0、实际服务ROmount/gates吻合）和12:34:25Z production-native-facts.safe.jsonl（server96/6801:520、目标canonical普通文件、本地ext4/dev/sdb2、related0/unreadablectapa0），明确第二checkpoint部署与同a1 Step2正常恢复GO；无新用户许可需求。
+
+精确允许写入：/home/ctapa/.config/airflow-common/releases/initial-recover-a2a0bbc-c8d07c21/scripts/cce_paired_runtime.py 原SHA66f7999a/0644→981e7e82；/home/ctapa/.config/airflow-common/policies/initial-recover-a2a0bbc-c8d07c21-v2.json 原033a5819/0600→ec6f3592，仅writers.platform.sha256原byte替换。owner6801:520/modes/xattrs保持，历史目录名不代表当前源码commit。最终私有manifest SHA1c81d4593f337175b324b9c35054fd963af4621aeb6f0eb3b54bff489486b6be，本地.codex-artifacts/wgs-step2-initial-routing-20261002/deployment-manifest.json。备份尚未写，helper将先在96私有candidate/w423-323d3f-step2-initial-routing-20261002保存0600原source/policy、manifest及once标记，再write前CAS/同parent temp+fsync+replace；先源后pin期间既有trust拒绝失配。5wrapper仅protected读回，撤销草案的维护窗口；不新admission机制/共享lock/权限或wrapper写。
+
+保护wgs_resume eb4e、双bootstrap b928、native runtimebfa1/guarde993、200/GATK及全部服务/路由/镜像/env/SSHkey，原preparegen2/Step1gen2成功/原5/OBS10/所有输入项目结果回执journal及其他批次。helper仅实际WGS env readonly selected_runtime配对，非workflow测试/云请求。部署已知失败则CAS回滚原pair且不POST；未知SSH结果仅receipt/hash读回，禁止重helper。新gen后不机械降级。正常API固定key w423-323d3f-a1-step2-initial-routing-20261002，仅323D3F/a1/step2_master一次；真实新action/gen/execution/hash先交接再跟踪MasterUID/START/Step3。当前仍旧Step2gen1 failed，生产目标尚未写/API未发；完整流程未完成，无Step7/清理。
+
+## 2026-10-02 12:24Z — 初始续接和reader专项验收完成，生产未写
+
+产品仅scripts/cce_paired_runtime.py：既有writer锁内提取复用initial提交body；resume锁内用成功Step1精确exec/gen/hash、初始注册owner/CM/冻结输入和真实journal分类；同producer intent重入沿原reconcile，不第二CREATE；reader按唯一exact平台producer journal判型。独立审核指出legacy recoveryJSON无platform时被公共reader跳过，已只在新initial门禁完整限定submission/recovery/resume raw artifacts，非认证当前producer的JSON/目录/intent阻止首次CREATE；不改公共_journal_views旧行为，不删证据。
+
+BS10610 preflight实际server10610/root/current/服务ROmount/scan-auto false/cachedimage吻合。仅当前UID6708:520、networknone、RO平台/native/plugin/pytestdeps隔离tests；native SHA bfa1e15f与生产相同。最初RED1精确no unique native submission；delta5pass/3fail揭出replay/reader及无效fixture status注入；一次收集错误RC4无tests，之后green2 15pass/1旧fixture缺runtime-root。修test配置与合法failedreceipt，不放宽产品。green3真实16pass18.77s；审核负例review-red1fail DID NOT RAISE，最终受影响差量green4真实10pass7.59s/RC0，native无修改。
+
+最终paired SHA981e7e82a0054a38d233a64c4120219094c34879b5820661d08907230806f588；tested archive b536227d6a3e7240578970decd4f3c9806cdea20e36193ccc5fb9565172de2c3；green4 raw logSHA1d25adfa7767b65ef644a7fe82666e8765abb460ae9e6f690552ca2d00146c14。10新cases覆盖实际下一次平台Step2gen2/native首次gen1、sameproducer replay/unknown0第二CREATE/lateJob、exactpredecessor/owner、unknownlegacyintent与reader。既有七定向替换/初始回归GREEN复用green3，不重P0/smoke。所有rawlogs/JUnit位于/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/wgs-step2-initial-routing-20261002T1206Z；本地.codex-artifacts/wgs-step2-initial-routing-20261002/保留结果及archive/helper。
+
+相关文件：paired.py、两个synthetic tests、docs08合同与docs/reviews/2026-10-02-step2-initial-after-step1-resume.md。第一版commit35c6a31保留16GREEN来源；最终门禁修正commit随后记录。只提交指定源/test/合同，三卡和所有历史私有证据保留，不做git reset/清理。生产仍当前323D3F/a1/旧Step2gen1/wsef8d5/hash4ea8 failed，preparegen2/Step1gen2/原5成功不变，无API/新gen/a2。
+
+下一步代码+GREEN协调终审，准备第二checkpoint：96同canonical平台paired源原SHA66f7999a→981e7e82，仅local policy writers.platform.sha256同步；实际路径/owner/mode/localext4/consumer活跃影响需新鲜核对、原bytes私有backup和manifest明确新版本，双bootstrap/native/wgs_resume/200/GATK/服务/镜像全部保持。审核后原子受限窗口安装/配对读证，再正常API同a1 Step2resume一次。未部署，当前无rollback；进入写窗口后失败保持关闭恢复私有原副本，新gen产生后不机械downgrade。最新人类授权已有，不再请同许可；新范围/活跃冲突停报。唯一monitor与原5/OBS/项目/所有回执journal/其他批次保护，无Step7/清理，完整Step1–6未完成。
+
+## 2026-10-02 12:01Z — 新直接人类批准，最小Step2提交/reader修复开始
+
+已用read_thread直接核实协调线程userMessage01a0fc79-2523-7f22-9a6d-8d190e1abdc2“批准修复”，批准前述有界设计与必要专项synthetic测试、BS10610验收、BS96最小部署及原323D3F/a1 Step2正常恢复。该新增授权覆盖下文待批准停点；不重复请示同许可。仍本AF为唯一产品实现/部署/恢复writer，子agent只负责本地专项tests编辑或只读部署pin方案；未让其SSH/生产写。按TDD先RED后最小GREEN，不P0全套/临床canary/重复旧smoke。
+
+边界：复用submit_registered已有atomic CREATE intent/reconcile/锁/VerifiedMasterResult，修首次续接与后续reader真实producer/journal判型；保留冻结request/hash/action，不以generation/Job缺失单独推定首次，不清resumeid/伪造journal/当前ID特判。真正replacement仍原路径，unknown已有intent禁止重复CREATE。无native/WGS核心/API/DB/schema/新框架/包重装/镜像；不得影响nipttest共享bootstrap上仍200路由的GATK。必要配对config写先经协调与native owner收敛，不能绕pin。
+
+执行checkpoint仅两处：提供commit/diff及原始最小GREEN一次独立审核；再提供精确实际pin/源码目标/回滚与活跃影响审核后部署恢复。当前尚无产品diff/测试/部署/POST，运行仍旧Step2gen1/wsef8d5/hash4ea8 failed；preparegen2和Step1gen2真实成功、原5/OBS保留。恢复正常API只当前Step2同a1一次，实际新action/gen/execution/MasterUID/START/Step3先写交接；新范围/活跃冲突停报。唯一小时monitor随真实身份继续至Step1–6/最终结果/一致success，不重放所有旧guards或Step7/删除。
+
+## 2026-10-02 11:56Z — 当前Step2首次提交判型错误，现场只读已结束
+
+目标仅区分当前Master提交候选为0还是多个、核准确CM owner和exact Master存在性。生产BS96 preflight RC0：server96、/data/airflow-WGS、实际backend/worker/scheduler IDs与RO mounts、production/auth/execution/adapter及effective auto-dispatch=false均吻合。经既有ctapa key/strict96pin只执行一次stdin只读helper，RC0；未创建远端helper、锁、probe或执行writer.validate/serialize/claim/reconcile。
+
+实际11:54:53Z仍323D3F/a1/Step2_master gen1/execution wse_f8d5379ec0f42ccb961215ae/request_hash4ea810b8ec4a1dbd9538602bf31b2f6b81f4f5483669eeba8eb619bb0136c99a/requestSHA402de971152e27de987c9f8a22f1c644ab59f31909c7f0e5b7b02d3bd15a3687；原native/AF/平台failed与trace d0422296639bc18245bbcf048e3d85c5dfd804539ce5cfdf6625de43144c80db保留，错误current owner has no unique native submission。
+
+_registered_request.path.parent精确为/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime/runner-requests/WGS_20261002_095408_323D3F/attempt-1；native views0、当前action replay0、owner匹配submission候选0。frozen bundle MASTER_HANDOFF与MASTER_CREATE_INTENT均不存在。单registration SHAe71dfb3069f41e4a2f6384f0bd3a803e17fd59d8f16a225317bf9f5a7cfa84ed属于本run/a1，native generation1/action initial-3ce75005dc5b252041b3992840117aa3/master_uid空。由当前contract/context推得CM cce-batch-lock-v2-1cd228d7a6f6ba224175a003cd45bef2；一次GET确认UIDef9bd7af-741d-429c-a49b-9db641fefae0/RV49917145、OWNED、identity/owner均与registration一致，无deletionTimestamp。一次exact Job GET cce-master-656840c907ccbff7d8b7返回absent。此证据证明当前exact Master未创建、候选确为0；不声称已检查所有云writer/Pods/namespace。
+
+协调已直接审核并ACK：首次Step2继承Step1恢复action，wgs_resume310统一resume_registered，paired1076/_recovery_source735要求已有native submission；reader _selected_registered也按resumeid误判producer。最小方案仅设计：保留request/hash/action，通过现有锁和精确成功Step1 predecessor、initial owner/空UID、exact Job absent及无未知intent证据复用正常initial submit；reader按已验证实际producer/journal判型，真正replacement仍原resume。不能仅清resume字段、伪造journal或当前ID硬编码。协调已向人类请求最小glue修复与BS96部署范围，尚未新授权；本线程停写，禁止产品实施/测试/install/部署、POST/新gen/a2、clear/重Step1/prepare或删改冻结记录。ACK不是修复授权。
+
+Step1gen2/status99c7/terminal715e/AF真实success、preparegen2/原5成功保持。现有4402B stdout安全计数解析为空，uploaded/reused未确认；旧088计数写key=value marker的静态参考不等于当前c8d真实计数，非阻断项不再扩大日志/OBS扫描。无OBS请求/重传/fullMD5。
+
+本次文件：仅三卡、本地只读helper read-step2-exact-owner-96.sh与安全结果 current-step2-exact-native-owner.safe.jsonl；未改产品源代码，未运行测试（本轮只读诊断且用户未要求产品测试）。原始workerlog/registration/CM均未改，证据在.codex-artifacts/wgs-3a001e-direct-resubmit-20261002/；current-step2-error-step1-receipt.safe.jsonl保留原错误。无生产写入，无回滚需求。下一步等协调收敛直接人类范围再读最新本条，不复用旧heartbeat授权。唯一小时monitor跟踪当前failed Step2，未变静默；完整Step1–6/最终结果/AF平台前端一致success仍未达成，所有原输入/OBS10/项目/staging/results/pending/reference/新旧证据/其他批次5035B0保护，无Step7/清理。
+
+## 2026-10-02 11:39:32Z — Step1gen2真实成功；当前Step2gen1失败
+
+当前同a1/actionresume_e41f326ef299c287817b94ff/recoveryDag保持。Step1gen2/wse0fa43/hasha52b真实business success11:37:33/statusSHA99c7c7b38087346ac5fcb472af1e02307e1bda8c4b16a4c21f5cad5d68a7d4db；dispatch60c6b636 finished/registration0d59ac2d/terminal715eb7fb succeeded且businessSHA99c7一致，AFstart/waitStep1成功、transfer107success。状态内transfer旧progress仍running/0done、total10/522508028738；这些进度数字不能据此声称uploaded0/reused10，实际native完整明细尚待读，不重Step1。
+
+自然当前Step2_master已注册：execution wse_f8d5379ec0f42ccb961215ae/generation1/request_hash4ea810b8ec4a1dbd9538602bf31b2f6b81f4f5483669eeba8eb619bb0136c99a/requestSHA402de971152e27de987c9f8a22f1c644ab59f31909c7f0e5b7b02d3bd15a3687。真实native failed11:37:56/statusSHAe096a9a3ad4f262a21f0ed54cb2b20ae1bc9fb8aea4d90b27ada95ba677bd816、dispatchf1a11884 finished/registration8fabd645/terminal4e6e0287 failed且businessSHAe096相符。AFsubmitStep2 failed11:38:23、当前recoveryDag/platformfailed/phasefailed；Step3request无。新实际阶段身份已先记HANDOFF。
+
+证据current-natural-stages-after-journal-resume.safe.jsonl。现在仅当前Step2私有trace及Step1真实上传/reuse明细最小只读，报协调后收敛，不猜CM/SSH/权限、不盲POST/新gen/a2/clear、禁止重成功Step1/prepare/config/start/旧rootcreate。所有历史/当前输入、OBS10、原5/preparegen2、journal、项目/staging/results与证据/其他批次保护，完整Step1–6未完成，唯一monitor继续当前Step2。
+
+## 2026-10-02 11:36:19Z — 原journal补齐后，同a1 Step1gen2正常resume已注册
+
+协调确认common metadata journal应预置、新run第一次register失败前未写登记，允许原权威目录单项补齐。11:32:55Z仅/home/ctapa/.config/airflow-common/journal新建普通dir ctapa6801:520/0700，policy033a及父链未改，无parentsmkdir/复制旧节点journal锁/删除/mount/权限改写/测试。create guard消费/readbackRC0，证据create-authoritative-journal-96-once.result.safe.jsonl。
+
+协调审核既有resume-stage保留a1、范围未成功Step1–6且不含prepare/Step7后条件GO。11:36:19.646Z唯一正常POST200，固定key w423-323d3f-a1-journal-step1-resume-20261002，action resume_e41f326ef299c287817b94ff、Step1generation2/execution wse_0fa43f004f9d43fbb5811d4c/request_hash a52b58fd818e8686f07b785baa7045cf528e2e5cff709de0d7714f8f57d1c7d0，requestSHA0a887990dbacac367a4a78825ba1de92303f04568a6018222bda58f724ebc145。当前DagRun WGS_20261002_095408_323D3F-a1-resume_e41f326ef299c287817b94ff；publicsamea1/5ready/statusqueued、paramsphase仍旧failed。APIqueued不代表native已dispatch/上传reuse成功，需正常只读真实回执。新身份已先置顶再跟踪。
+
+恢复guard已消费，禁止重发POST/换key/newgen/a2/再次journal创建/clear/prepare/config/start/HPO/旧删除。unknown结果仅GET。原preparegen2 wse73cf/statusb83e success、receipt69e12fa4原5/sourcefinalafa804/OBS10及所有历史证据不变；本AF唯一writer。证据resume-step1-a1-journal-once-96.result.safe.jsonl，远端freshcontrol once/result。现在仅按当前gen2/action自然Step1–6，保护所有输入/项目/staging/results/pending/reference/其他批次5035B0，不Step7/清理/核心/安装/测试。完整流程尚未完成，唯一monitor更新本实际身份。
+
+## 2026-10-02 11:27:34Z — 当前权威journal root在96本地确实缺失
+
+当前trace指向的平台module._load_deployment_trust只读确认policy仍initial-recover-a2a0bbc-c8d07c21-v2.json/SHA033a58198b5cb8c9140fda1bfd89c150d1fe173cf2bb7bf4548793dcafec5ace，journal_root=/home/ctapa/.config/airflow-common/journal。96 ext4本地/dev/sdb2根挂载，root lstat ENOENT；全部必要父链普通非symlink目录且ctapa可达，.config/airflow-common为6801:520/0700可写。故本次准确为目录缺失，未到权限门禁，不是SFS/NFS不可达。无journal内容读取/cloud请求/写。actualguard SHAe99378dcb1a0f71d3561c6705f4b5fe2f9886bc9e0307b5dc7c1b822de6e6d0f下_registration_directory706确先检查absolute/nonsymlink/isdir。
+
+证据current-authoritative-journal-root-96.result2.safe.jsonl、current-journal-contract-96.result.safe.jsonl。首次只读helper误将trust函数放到runtime而AttributeError，发生policy/journal读取前；仅本地改为平台module._load_deployment_trust后本次成功，原失败证据保留，不能当新生产故障或写入重试。
+
+已报协调：候选仅同ctapa在原policy权威root新建私有0700目录，不改policy/路径/mount/现有权限、不造替代root、不复制其他节点journal/锁。但必须先由协调安装/初始化合同确认其应预置为空；此项尚未审核/创建，不做猜测性补建或恢复POST。当前Step1gen1 failed，preparegen2/原5ready成功保持，monitor未变失败静默。保护全部原数据/OBS/项目/证据/其他批次，无a2/清理/核心/安装/测试。
+
+## 2026-10-02 11:16:50Z — Step1确切新根因：shared writer journal root unavailable
+
+当前wseceb8/gen1/hash410c/status0858/terminal99d4失败身份保持。私有step1_upload.worker.log一次读取2854B/SHA c998cfaa44f286e3bf1439a3e931099e6cd797cf47a473aa4ac4928c793e186b；status.message与真实trace均 RuntimeError: shared writer journal root unavailable。链transfer2732→stepcommand1940→paired stage_command201/register_initial242→native register_bundle783/_registration_directory706。发生在真正Step1 transfer命令生成前，尚无upload/reuse数字；不是已修复prepare/HPO或旧attempt2vs1、旧SSH2min失败。安全trace/类别见current-step1-error-96.result.safe.jsonl，完整log仍原runtime私有。
+
+协调已接受此精确诊断并允许仅继续当前96实际journalroot配置来源/路径/存在性/有效身份权限只读；其独立本地静态agent无远端writer。不得猜并mkdir/mount/放宽权限/改policy/恢复POST；若仅96迁移遗漏既有共享journal或同源配置，先报告精确路径与最小方案供审核。仍本AF唯一生产writer。监控prompt应替换为当前阶段短合同，去陈旧整段历史；preparegen2成功/原5/OBS/项目/证据/其他批次均保护，禁止重prepare/start/a2/重提/清理/HPO/安装/全验收，完整Step1–6未完成。
+
+## 2026-10-02 11:13:46Z — 当前Step1gen1真实failed，先诊断不恢复写
+
+真实当前Step1：同323D3F/a1，execution wse_ceb88eb8ebb8a4674f56956a、generation1、request_hash410c56b1532b3b86a487394605302e20d6a35305f1c3ee57d59e17ad06d2709f；requestSHA77800065382c1470bdee8156b6da5653e00c6cf7fcb9721156dc0ded1c4d92b7。native status failed11:10:36.271Z/SHA0858e8cb90f2e4d63674010facae5e72baf65749135a65b2259f64150e6a8178，同identity。registrationSHAa753ee03、dispatchSHA4236d8ae statefinished、request-side terminalSHA99d4d51b statefailed且business_sha256同0858e8cb。真实fail，不把startTI success当业务成功。
+
+原Dag-a1 failed，start_step1 TI success11:10:35、waitstep1 failed11:10:38，平台failed/phasefailed，原5ready/executionapproved保持；transfer107/inputfailed，无真实files/bytes/uploaded/reused计数，Step2/3 request尚无。preparegen2 wse73cf真实success及原5sourcefinalafa804仍保护，不重prepare/config/clear/start。安全证据current-natural-stages-20261002T1115Z.safe.jsonl（实际读取11:13:46Z，文件label为预估，UTC字段为准）。
+
+已按最新当前身份转入只核私有Step1 stdout/stderr/确切失败原因并报告协调，不猜SSH/包/锁/OBS或盲resume、新gen/a2/重删重提。原所有guards消费/TZ修复保留；没有恢复写或全队列/云扫描。完整Step1–6未完成，原5/OBS10/FASTQ/项目/staging/结果/所有新旧证据/其他批次/5035B0保护，唯一小时monitor必须更新实际当前Step1失败，正常未变静默。
+
+## 2026-10-02 11:10:19Z — 正常sync/start各一次完成，当前a1 running/approved
+
+同323D3F/a1原5ready/gen2 prepare真实success条件成立。必要正常POST actions/sync-airflow11:10:19.228Z200，修正旧publicfailed为running；正常POST start-wgs-execution11:10:19.288Z200一次，返回config/execution_approved true、phaseapproved。readback同a1/Dag-a1、5ready、statusrunning、execution_approved_at11:10:19.272934Z。原config批准09:54保持，无重approve/config/prepare/clear/a2/重提/删除。a1-sync-and-start.once.json消费，禁止重放helper/POST；unknown结果只GET。证据sync-and-start-a1-once-96.result.safe.jsonl，远端freshcontrol同result/guard。
+
+准备阶段当前仍wse_73cf693c3f5c57666e8a3e1f/gen2/hasha86c1d447，真实success/receipt69e12fa4/sourcefinal原afa804、selected5/pending0/excluded0保持。接下来仅自然Step1，实际新execution/gen/hash/dispatch/receipt一旦读取先置顶记录；批准/start200不等于FASTQ上传/reused10。Step1目前回执和计数尚未读取，不能宣布上传或全流程完成。96WGS TZ修复及两HPO查询/clear/sync/start/所有旧deletes/profile/activation guards均已消费，禁止重放。生产唯一writer仍本AF，所有原5/OBS10/FASTQ/source/generatedsampleinfo/pending/reference/currentproject/staging/results/历史证据/其他批次5035B0保护。无Step7/清理/产品代码测试安装；协调/docs已报告，唯一小时monitor跟踪当前a1。
+
+## 2026-10-02 11:07:25Z — 同a1 preparegen2真实success/原5ready，待正常start
+
+当前真实prepare_analysis：同323D3F/a1，execution wse_73cf693c3f5c57666e8a3e1f、generation2、request_hash a86c1d447c893e936120ceff4de62eeab5ba93eabef35165fc8f9336dcb5069a（语义输入未改，所以hash与gen1相同），requestSHA47820646da860a40bcec2e2a3e5f7a0aab3a5cc0eb693bb9f72dd9b06da6cca8。真实status success11:05:19.553Z/SHA b83e023dba06a76c7b832122a3cff8ed8cbe2e095b01131938e678c155a8f776，同identity匹配。原Dag-a1 running，prepare TI success try2/waitprepare success。旧gen1请求/status/日志等由正常runtime保存，不手改/删除。
+
+真实gen2 prepare_analysis.receipt SHA69e12fa48c3e541c79d400b405674b0e107e5d192e45a34b3febaf4dd8372001、同a1/gen2/wse/hash/release perm2775；selected5/pending0/excluded0，source与final sampleinfo SHA均原afa8049a3d0722e89b021a7556e3df42991d48249b95653a7e5a6c22fb8a4cb9。原5输入/生成表保持。平台publicphase execution_review/sample5ready/configapproved原09:54，execution_approved_at NULL。publicstatus仍failed而AF running，属于待正常sync-airflow投影的旧失败显示，不能虚报平台running/Step1启动。
+
+证据current-a1-prepare-after-clear-96.result.safe.jsonl。按协调既定授权，必要一次正常sync-airflow后，在同a1/原5一致/execution_review条件下正常start-wgs-execution一次；当前尚未同步/start，禁止重config/prepare/clear/a2/重提/删除/HPO。随后真实Step1新execution/gen/hash须再即时记HANDOFF。全Step1–6未完成；原5/OBS/项目/staging/全部历史证据/其他批次及唯一monitor保持。
+
+## 2026-10-02 11:04:39Z — 同a1唯一exact30正常Airflow clear已完成
+
+协调逐项审核exact30清单及11:01同步锁可用/worker record/batch/binding absent后给GO，正常Airflow API仅将预览body dry_run=false执行一次；11:04:39.510Z HTTP200、6001B/responseSHA80bdfe8b6d42fd3ace07ddfac138fe30f104aaecfdab8f4d7299adda3a36b995、精确原Dag-a1 30TIs。5成功上游及2Step7 skipped保留。11:04:40 readback Dagqueued，prepare TI NULL/try1待调度，不能声称gen2/native success已经发生。prepare-a1-clear.once.json已消费，禁止重放helper/clear/dryrun；结果不明只GET，不重复写。
+
+证据 .codex-artifacts/wgs-3a001e-direct-resubmit-20261002/clear-prepare-a1-once-96.result.safe.jsonl，远端freshcontrol同safe result/onceguard。原attempt1/source5/config/OBS不变；没有a2/新submit/删除/核心/冻结身份/receipt/status/锁改写。接下来只读自然try2→实际gen2；新execution/gen/hash一旦注册立即写本顶再跟踪。真实prepare成功/同a1原5一致/execution_review后，协调确认已有恢复授权覆盖正常start-wgs-execution一次，无再次config approve。异常/身份输入变化停止报协调。完整Step1–6未完成，唯一monitor及全部保护项保留。
+
+## 2026-10-02 11:01:43Z — 原a1恢复前事实完整；exact30 dry_run待协调GO
+
+最小事实一次RC0：同323D3F/a1/preparegen1/wse83c5/hasha86c，status1d6c7ad7仍failed；runner-requests现存prepare_analysis.worker.lock可非阻塞独占取后立即释放，worker.json不存在（同步prepare正常路径）；控制workdir/batch-binding.json及expected Clinical batch均不存在，正常恢复无需覆盖/删除旧batch。有效TZAsia/Shanghai/+0800，现场只读/HPO0，无全队列/云inventory。证据prepare-a1-writer-batch-96.result.safe.jsonl。
+
+AF实际OpenAPI确认clearTaskInstances支持本次字段；live任务图/原Dag-a1全部37TI终态，prepare_wgs_analysis failed try1。dry_run200精确30TIs且无其他run：prepare failed、release_leases failed、26upstream_failed try0及2success input/result release_obs_transfer_slot。成功5上游validate_request/choose_run_path/prepare_wgs_sampleinfo/wait_prepare_wgs_sampleinfo/wait_wgs_config_approval保留；两Step7 skipped保留。exact body/task_ids/state/try在prepare-a1-recovery-facts-96.result.safe.jsonl。only_failed/only_running、include_upstream/downstream/past/future均false，reset_dag_runs=true、dry_run=true。没有真实clear。
+
+已把原事实/精确30清单报协调快审；真实操作需审核后仅dry_run=false一次API。两成功release槽任务需随后续再取租约重新释放，未选分支旧upstream_failed需重置让branch自然skip，非重算成功生信。正常try2预期生成同a1 preparegen2，实际新execution/gen/hash须先记HANDOFF再跟踪；不能把预期当已创建。禁止a2/重prepare_sampleinfo/config重批/重提/删除/手改status/核心/门禁；POST不明只readback。当前prepare仍failed/start未发，完整Step1–6未完成，全部保护项/唯一monitor保持。
+
+## 2026-10-02 10:54:07Z — 96 WGS专用TZ配置已完成，禁止重放
+
+条件GO一次应用RC0：/home/ctapa/.config/airflow-wgs/runtime.env实为96 ext4本地、realpath同literal、非symlink/单link、ctapa6801:520/0600；原TZ项0，仅追加export TZ=Asia/Shanghai。原SHA f05d0e80e4b5ddc17f1493dc833a3e3902dd09e1cbd613bd53f8b642c0fc3ee7，新SHA f31fce6cf78d99a7290b5df5fa064ee304ca3eebc3c2a42ebee902c1ad46d315，其余bytes完全相同。一次原forced-env加载有效Asia/Shanghai/+0800，除TZ/进程噪声_及SHLVL外env值SHA前后均412ef7f75775cf99686b37bcbeec40479ae429f27e04e0d3de7d63bf72e24b5c。原owner/mode保持，无HPO再请求，无系统clock/timezone/GATK/200/97/core/restart。
+
+私有原副本 /home/ctapa/.config/airflow-common/candidates/w423-323d3f-wgs-tz-20261002/runtime.env.before.private (0600)，apply-tz.once.json已消费；禁止重跑helper。回滚仅同writer核新SHA后还原此原副本及原mode，本轮未回滚。安全证据 .codex-artifacts/wgs-3a001e-direct-resubmit-20261002/apply-wgs-tz-96.result.safe.jsonl；tz-config-preflight-96.result.safe.jsonl确认server96/control/current/实际worker-scheduler/backend挂载与门禁。无秘密正文复制到本地。
+
+当前323D3F/a1仍preparefailed/start未发。同a1恢复只允许接下来最小原try_number/gen1writer静止/失败batch-binding及Airflow dry_run精确清单只读收敛，需协调审核目标后才clear。无a2/重复prepare/submit/config/start/删除/旧动作。原输入/OBS/项目/staging/全部证据/其他批次保护；完整Step1–6未完成。协调已收到配置实际结果/回滚，唯一monitor持续。
+
+## 2026-10-02 10:47:17Z — 北京时间HPO对照通过；96 WGS单项TZ配置获条件GO
+
+协调授权的独立timezone-comparison查询RC0/HPO请求1，原96/ctapa/Python/runtime.env/3f hpo_requests/签名/timeout15保持，仅本诊断进程TZ=Asia/Shanghai+tzset。真实HTTP200/code10000(int)、data=list且16227个dict、error_category=NONE，无success布尔。local18:47:17+0800/UTC10:47:17。原UTC查询code100005/TIMESTAMP/data_str；对照表明这一时区差异使当前HPO返回可处理数据，不能声称原09:54失败响应已保存/完全一致或排除服务其他策略。两独立onceguard均已消费，禁止重放helper或第三次诊断请求。安全结果 .codex-artifacts/wgs-3a001e-direct-resubmit-20261002/hpo-timezone-comparison-96.result.safe.jsonl；远端同私有candidate目录timezone-comparison.result.safe.json。无响应正文/患者/HPO字典值/签名保存。
+
+协调已给精确条件GO：仅96宿主非symlink/非共享 /home/ctapa/.config/airflow-wgs/runtime.env 唯一TZ项设Asia/Shanghai；原hash/私有backup/owner/mode保留，CAS只该项、其他bytes不变。若共享、权限不足、多重TZ或漂移则停；不改系统time/timezone/GATK/200/97/core、不重启。仅一次原forced-env加载读有效TZ/+0800与受保护其他值hash一致，不再HPO查询，以真实prepare恢复作业务确认。配置尚未实施；原a1 Airflow清理/恢复仍需先报原TI/必要terminal下游精确目标、gen1静止及失败batch-binding状态供协调审核，不自动a2/重提/删除。
+
+运营：323D3F/a1仍preparefailed/start未发，Step1–6未完成。原5/OBS/源/生成sampleinfo/项目/staging/所有证据/reference/其他批次保护，唯一小时monitor继续。产品：只最小运行环境配置方案，无核心/接口/测试/install/部署；静态子agent复核无阻断，未触远端。
+
+## 2026-10-02 — 已授权一次进程时区差异确认，尚未执行
+
+协调者基于直接人类01a0fc27“继续完成”和已知TIMESTAMP拒绝，明确允许同96/ctapa/原环境/原runtime.env/Python/签名/timeout15的一次对照：仅本诊断Python进程设置TZ=Asia/Shanghai并time.tzset，原HTTP endpoint只读查询、禁redirect/不重试。原normal-signed-query guard已消费，不能重放；本次使用新timezone-comparison.once.json及独立安全结果文件。禁止重核网络/source/凭据、患者请求体、改全局clock/TZ/runtime.env、改核心或新attempt。
+
+本地新增helper .codex-artifacts/wgs-3a001e-direct-resubmit-20261002/hpo-timezone-comparison-96.sh；沿用既有BS96 jump、ctapa key及strict96pin，不复制key/改trust。这里只记录待执行范围，尚无第二次HTTP结果。若返回真实成功且非空list[dict]，先将最小96 WGS进程TZ配置及回滚交协调审核，再由本AF唯一writer实施及审阅同a1原prepare TI恢复目标；仍失败则停报明确类别，不换更多时区/重试。当前323D3F/a1 preparefailed、start未发；原5/OBS/项目/staging/证据/其他批次均保护。
+
+## 2026-10-02 10:37:43Z — 一次HPO查询：时间戳业务拒绝
+
+用户01a0fc27“继续完成”授权的一次签名HPO只读诊断完成。ctapa6801:520经BS96/strict既有96pin，使用96宿主原用户环境+runtime.env、/bi/software/mamba/envs/WGS/bin/python、准确3f make_requests SHA51bf512a。首次仅私有目录父目录缺失，在guard/import/request前退出，HPO0；补parents后真正endpoint请求仅1。onceguard现已消费，禁止重复helper/请求。
+
+真实结果：HTTP200、Content-Type application/json、top=dict、业务code100005(int)、data=str、固定授权错误类别TIMESTAMP；没有success布尔。local_time 2026-10-02T10:37:43+0000与UTC同值，route src172.17.61.96；八个大小写proxy变量均不存在。本次不是IP_DENIED证据，表明服务以业务错误返回str，能触发旧prepare entry.get。但原09:54响应未留存，不能声称完全同一拒绝或排除其他IP限制。
+
+源码time.strftime不含时区，96local为UTC；服务是否按Asia/Shanghai解释仍需明确，不能把推测当协议事实。未改系统clock/TZ/runtime.env/core/白名单，不第二次请求/prepare/clear/submit/a2或删除。已向协调报告真实结果，请其收敛时间戳最小修复及纠正后的单次查询/同a1恢复入口范围。当前323D3F/a1仍preparefailed，start未发，旧删除授权消费，原5/OBS/全部证据/其他批次保持。
+
+安全结果 .codex-artifacts/wgs-3a001e-direct-resubmit-20261002/hpo-one-query-96.result.safe.jsonl；ctapa私有证据 /home/ctapa/.config/airflow-common/candidates/w423-323d3f-hpo-one-query-20261002/normal-signed-query.result.safe.json 与 once.json。没有保存response正文、HPO/患者内容、签名/secret/token或原env值。只输出状态/类型计数、类别和路由/time元数据。无产品测试/代码/部署。唯一小时monitor继续当前a1，禁止复用旧只读停点机械拒绝已获新方向，也禁止从泛化继续扩成第二请求/修改。
+
+## 2026-10-02 — 用户“继续完成”：一次签名HPO诊断获授权
+
+已直接核实协调线程人类消息01a0fc27-791d-7390-bd21-5b967ff8b1f1“继续完成”。协调明确解除HPO诊断只读停点，允许仅用当前96/ctapa、原runtime.env、/bi/software/mamba/envs/WGS/bin/python及精确3f hpo_requests做一次正常签名hpoList只读查询。保持原timeout15/headers/无患者请求体，诊断层仅禁redirect，禁止自动重试。当前尚未发查询。
+
+采用现有local id_rsa_ctapa，经ProxyJump BS96进入同96宿主；现有96knownpin SHA VXTDQr+/rcK5x/FE90TOMa8v2/FrF4bxPQIQ2smNgXA已匹配，未复制key/改变trust/配置。原用户shell环境和runtime.env继承，PYTHONNOUSERSITE1与原prepare相同；不使用Docker/env-i替代环境。单会话核hostname/UID6801:520/sourceSHA51bf512a并保留一次guard，私有最小证据 /home/ctapa/.config/airflow-common/candidates/w423-323d3f-hpo-one-query-20261002。只输出HTTP/MIME、JSON/data类型计数、数值业务code/bool success及固定错误类别；不保存响应正文/凭据/临床字段。可读route src/本地UTC和proxy变量存在性，禁止接口90 SSH或97/200对照。
+
+本授权不允许重新prepare/submit/delete、新attempt、核心代码/输入或白名单扩大。若查询正常，先与协调确认同a1正常有界恢复入口；若IP/auth明确拒绝，报告服务owner需要精确处理项。323D3F/a1仍failed，start未发；原5/OBS/evidence/其他批次均保护，旧删除guards已消费，唯一monitor保留。此为必要最小诊断，不产品测试。
+
+## 2026-10-02 10:18Z — frozen 3f HPO source confirmed; diagnosis only
+
+Latest human direction relayed by coordinator: inspect WGS prepare source to
+assess possible HPO source-IP restriction. This authorizes one precise read of
+known deployed code, not requests/tests/repair/reprepare/resubmit. Completed;
+coordinator reviewed the evidence and explicitly stopped further remote reads.
+All current run actions stay closed: 323D3F/a1 failed in prepare_analysis,
+config approved once, helper86805 exited1, executionstart never sent. 96 route
+remains active, no97/200 fallback; old deletion authorization/guards consumed.
+
+Actual source read from release
+/bi/biodevrwbi/33.chenjiucheng/project/wgs-releases/
+20261002.1-wgs423-dnascope/wgs-4.2.3-3f98682:
+- script/b1.hpo2gene.py: 7288B, SHA256
+  1c686b6cf0147986857b04b4ddd330f5650cd68bc29acd5a4ca37e9d9b0fd37b.
+  Current project copy unavailable; exact release fallback was authorized.
+  Same LF bytes as old3770056 reference, now proven by deployed-source SHA.
+- prepare/keywords.py: 3992B, SHA256
+  d3e86c4bd2bcc9d539b6cfdadd7c49912e255f227fc038d188ccccfd1060a166.
+- direct import prepare/make_requests.py: 4606B, SHA256
+  51bf512a43e5c75db0cb4ca3f87726501ebae9c9ecd22a64d6dab08e834655a1.
+No source file executed/imported; only passive AST parsing and SHA. Only
+redacted selected functions/imports/URL locators saved, no credential values.
+Safe/local evidence .codex-artifacts/wgs-3a001e-direct-resubmit-20261002/
+current3f-hpo-source.redacted.jsonl; remote same file in fresh control0600.
+
+Actual b1main129–146 uses
+http://172.17.100.90:7090/ngsfront/ngs-end/bio/hpoList.
+make_requests.hpo_requests116–136 generates local timestamp/UUID nonce,
+encrypted nonce/HMAC signed headers, calls requests.post(url, headers=headers,
+timeout=15). No explicit proxy/source-address/IP bind or whitelist logic.
+Runtime.env/requests inherited proxy/NAT state was not inspected, so no claim
+about the exact source address seen by the HPO service.
+export_mySQL_to_json40–44 checks only HTTP200 then dumpsresponse.json()['data'];
+no business-code/data-shape check. process_json_data47–93 iterates JSON root
+then entry.get57, assuming list[dict]. dict/string/list[str] can produce actual
+str.get failure. keywords.generate_keyword_file13–64 creates output.parent/
+.hpo.mongo.json, invokes b1 via subprocess; mongoexport argument only changes
+PATH, no actual Mongo export in this generation chain. This is an HPO service
+response-data cache, not proof of a database export or -hpo TSV failure.
+
+Coordinator independently checked prepare is synchronous host Python through
+restricted SSH on selected96, not a CCE/Docker HPO caller; source/forced env
+inheritance may still affect outgoing proxy/NAT. IP restriction is consistent
+with an HTTP200 business-error/data-shape response but NOT proven. Timestamp/
+signature rejection or API response contract changes remain possible. Exact
+.json cache already read once and absent; no new HPO/clinical requests or
+cache searches to recreate it. Existing log SHA8b757f6b remains the runtime
+failure authority. Need an explicitly scoped next step using service-side
+existing logs or a separately authorized request to establish actual rejection;
+no such request/network/whitelist/core/input change performed or authorized now.
+
+Operational cleanup/new submit completed; analysis remains failed before Step1.
+Product development: diagnosis/source contract only; no code/tests/install or
+release changes. Full Step1–6 remains incomplete. Coordinator/doc owner informed;
+unique hourly monitor stays on newa1 and quietly holds unchanged known failure.
+Protected input/OBS/runtime/new project/staging/reference/audit/other batches
+and5035B0 retained. No Step7 or cleanup. Older unverified-source entries below
+are historical observations and are superseded by this confirmed source read.
+
+
+### 2026-10-02 10:23:49Z — 小时只读检查，运行未变化
+
+当前仍为323D3F/a1、prepare_analysis wse_83c5fb7df18acb1b61817f1d/gen1/hash a86c1d447；native status SHA1d6c7ad7仍failed，平台phasefailed、Dag-a1/prepare TI failed，execution_approved_at仍NULL。server96/control root、已知容器挂载和96路由相符。HPO请求、source读取及远端写操作均为0，保留既有只读停点和唯一小时monitor。证据 .codex-artifacts/wgs-3a001e-direct-resubmit-20261002/hourly-current-20261002T1021Z.safe.jsonl。
+
+本轮仅纠正文档：旧3A001E清理卡inspection/delete/submit三项已完成，guards已消费；execution start未执行，后续转当前323D3F卡。该纠正防止把旧pending当作待执行授权；不改变运行、输入或生产环境。未新增测试、恢复或再次提交。
+
+## 2026-10-02 10:05Z — one existing HPO cache read allowed; file absent
+
+Coordinator permitsonlyone exactexisting .lfvrvtt9/.hpo.mongo.json cache
+shape/statuskey read. Actuallstat FileNotFound exists=false; remoteclinical
+requests0/prepare replays0; no othercache search. OriginalSHA8b757f6b log still
+preserved. JSONroot/response/data/entry origin cannotbe inferred from absent
+cache. WGSowner01a09149 hasonlylocalold3770056 source, lacksactual3f; source
+contract notconfirmed. Root reportedthis throughcoordinator, no extra source
+SSH/read or directowner messaging, no core/inputwrite. Requestedprecise actual
+source-read scope ifneeded; awaitingcoordinator. AFcontinues323D3F/a1failed/96;
+noa2/redelete/POST/tests/clinical API. Safeevidence
+.codex-artifacts/wgs-3a001e-direct-resubmit-20261002/new323d3f-hpo-cache-shape.safe.jsonl.
+Uniquehourlyprompt updatedactualhelper-ended/failedbase already.
+WGSowner readonlyold3770056 contract reference received: b1 blob65b6dbdb/
+LF SHA1c686b6cf0147986857b04b4ddd330f5650cd68bc29acd5a4ca37e9d9b0fd37b.
+Reference keywords generates output.parent/.hpo.mongo.json; b1main calls
+hpo_requests(HTTPPOST), asserts200, dumpsresponse.data, thenijsonroot+forentry
+expects list[dict]. dict/string/list[str] caneachyield observedstr.get.
+HTTP200 doesn'tprovebusinesssuccess; dumpeddata omitsouterresponsecode.
+This is NOT frozen3f verification, source/actualresponse shape remainunknown.
+Coordinator receivedexplicitversionlimit, no newAF remote/source/clinicalrequest.
+All data and
+newproject/staging protected, fullflow incomplete.
+
+## 2026-10-02 10:01Z — current323D3F/a1 native HPO prepare failure; readonly hold
+
+Newsubmit201/configall-default approve200 each completed once; session86805
+exited1 beforeexecutionstart09:55:24Z. No submit/config/helper/prepare replay,
+rerun_failed/a2 or newdelete. Clinicalpath nowbelongs323D3F; all olddelete
+guardsconsumed. Step1upload/reuse hasno evidence andfullStep1–6 incomplete.
+Actualprepare_sampleinfo success wse_5921a891916d841a2ce87823/gen1/hash
+11b1db5d42d5308b86a6503fa2b503b29d69845b66d96889502e21796660eb9d;
+statusSHA45e87576; configapproved09:54:24.586Z. Currentprepare_analysis
+wse_83c5fb7df18acb1b61817f1d/gen1/hash
+ a86c1d447c893e936120ceff4de62eeab5ba93eabef35165fc8f9336dcb5069a
+failed; request48916939/status1d6c7ad7. AFprepare_wgs_analysis failed09:55:01Z,
+Dag-a1failed09:55:19Z; platformfailed/phasefailed/sample0-preparing/startNULL.
+
+Correct private log /data/wgs-runtime/runs/WGS_20261002_095408_323D3F/
+attempt-1/prepare_analysis.generation-1.log, 2807B SHA
+8b757f6ba8afc18efaaec967e8384c78e4e371c056a15a465b5716daed8ef1a5.
+Actualframes b1.hpo2gene.py149->main139->process_json_data57,
+nameCN = entry.get("nameCN", ".") or ".";
+AttributeError: strhasnoget. Outerprepare_wgs_batch.py912/895/run_analysis673
+->keywords.py60generate_keyword_file->CalledProcessError1. NativeHPO JSON
+entrytype failure; SSH transport succeeded but upstreamHTTP/business response
+issues remain possible. Actualinputschema/producercause unknown.
+Originalrequestrootlogread missing waswronglocator; correctedworkdir actual
+readsuccess, no inference ofabsence/permission fromwrongpath. No frozen/core
+changes/tests/SSH/networkreproduction. Coordinator receivedexacterror/frames;
+readonlyhold pendingpreciseHPO parser/inputscope. Uniquehourlymonitor follows
+thisa1failedidentity/sessionended; noautoa2/seconddelete oroldID monitoring.
+
+Safeoriginalevidence .codex-artifacts/wgs-3a001e-direct-resubmit-20261002/
+new323d3f-prepare-error.safe.jsonl,
+new323d3f-native-prepare-workdir-log.safe.jsonl,
+new323d3f-native-prepare-frames.safe.jsonl. Raw0600 captures in
+/data/airflow-WGS/w423-3a001e-direct-resubmit-20261002T0935Z-control/:
+new323d3f-prepare-error.private.jsonl and
+new323d3f-native-prepare-workdir-log.private.jsonl. Coordinator/docs notified.
+Allinputs/OBS/externalruntime/shared/audit/otherbatches/5035B0 preserved.
+Operationsdelete+submit done, analysisnotrestored; productcode/testing/deploy0.
+HPO contract andattempt>1bug separatefuture directions. NoStep7/cleanup.
+Savedlog-only precise locator: currentproject/pipeline/script/b1.hpo2gene.py57;
+-json /sg2/50.ctapa/Clinical/WGS_Clinical/
+.WGS_20260927D-test1_T7Hg38V4.2.3.lfvrvtt9/.hpo.mongo.json;
+-hpo /bi/BioCodeHub/WGS/WGS_V3.2.1/annotation/keyword2genes/
+phenotype_to_genes.20240813.txt. JSONroot/producer unread, keepcurrenttemporary
+input/newproject; no delete. Completeframe/codepaths artifact
+new323d3f-native-prepare-code-paths.safe.jsonl sentcoordinator forWGSowner.
+No furtherAF remotecheck/diagnosis/writes untilnewdirection.
+
+## 2026-10-02 09:54Z — exact old3A cleanup complete; new323D3F/a1 registered
+
+Human01a0fbf4 directcleanup authorization executed once. Project exact
+/sg2/50.ctapa/Clinical/WGS_Clinical/WGS_20260927D-test1_T7Hg38V4.2.3
+removed09:51:40Z by originalctapa6801:520/nonroot existingimage/capdropALL,
+no network/readonlyroot. Sameboot nativegroup3195480 quiet; targetwriters0;
+10FASTQsymlinks notfollowed; nonsymlink/no nestedmount. Externalgenerated
+sampleinfo SHAafa8049a unchanged; all externalruntime/input preserved.
+No cloud/CM/SFS/OBS operations, permissionchange or fallback.
+
+09:53:45Z DB exact29owned committed: analysis_run75; run_action236–242;
+run_attempt122/123; run_stage_state542–546; sample5855–5859; transfer_job106;
+dispatch65; snapshot67; stage_execution229–234. Actualbio_wgs -a1, -a2,
+-a2-resume_2bde7af0c92132dbc4f720ec each DELETE/readback404. Reference47
+onlyanalysis_id->NULL; all otherfields/history365–370 preserved; audit128/129
+retained, audit130 added. All otherrunIDs andsuccess5035B0 unchanged.
+Private136063B row/Airflow snapshot SHA7c81de30 preserved at currentcontrol;
+nofullprojectbackup, no claim offullrecoverability. Bothfreshonceguards
+consumed; NEVER replaydelete-current-project.sh/delete-current-records.sh.
+
+One normal POST20109:54:09Z creates **WGS_20261002_095408_323D3F/attempt1**,
+DagRun WGS_20261002_095408_323D3F-a1, same20260927D-test1/T7/WGS_Clinical,
+sourceSHA48f5c4fc/5inputrows, FASTQroot /bi/fastq/T7_Fastq, sameperm2775release.
+PublicGET200 submitted/preparing_sampleinfo, sample_scope preparing. This is
+new currentmonitor identity; Step1upload/reuse notyet evidenced. Actualroute96
+workeracb2289e/schedulerd206c0bf unchanged; GATK200 preserved, no97 backup.
+Freshnormal-submit-and-approve.sh session86805 stillrunning: it owns one normal
+configreview approveall/default and executionreview5ready start each once.
+Do NOT launchanotherhelper/prepare/approval/start/POST while thissessionactive.
+Capture normal-submit-and-approve.private.jsonl blocks all replay/unknownPOST.
+Only publicrunphase waits; internalpreparestatus never queried. Next follow
+actualphase/receipts/Step1–6 naturally; noa2/rerun/forceall/manualsuccess.
+
+Freshremote evidencecontrol /data/airflow-WGS/w423-3a001e-direct-resubmit-
+20261002T0935Z-control: fingerprint.safe.jsonl, inventory.safe.jsonl,
+current.snapshot.private.json, project-delete.result.jsonl,
+records-delete.result.jsonl, normal-submit-and-approve.private.jsonl.
+Localops .codex-artifacts/wgs-3a001e-direct-resubmit-20261002 only plus3cards;
+no productsource/tests/install/redeployment. Existinguniquehourlymonitor
+wgs-3a001e-attempt2 switchesreal323D3F/a1, nosecondmonitor. FullStep1–6
+incomplete; onlygenuinereceipts/finalresults/AF-platform-frontend一致success
+cancomplete/remove monitor. NoStep7/cleanup. Attempt>1producerbug remains
+futureproductdevelopment; currentops chooses normalnewa1, nofix now.
+
+## 2026-10-02 09:44Z — precise current deletion inventory before write
+
+Current3A001E exact owned29 rows: analysis_run75; run_action236–242;
+run_attempt122/123; run_stage_state542–546; sample5855–5859;
+transfer_job106; wgs_execution_dispatch65; wgs_input_snapshot67;
+wgs_stage_execution229–234. Allactual3bio_wgs DagRuns (-a1,-a2,
+-a2-resume_2bde7af0c92132dbc4f720ec) failed/allTIs terminal.
+No targetonprem/lease/slot/intake/draft/childrun rows. Sharedreference
+operation47/history365–370 and audit128/129 retained; only nullable
+operation47.analysis_id may detach. Smallprivate136063B snapshot actual
+SHA7c81de30f65385258572082392c6f8564316e5e3a41688a937b0e214f664b2d8
+at /data/airflow-WGS/w423-3a001e-direct-resubmit-20261002T0935Z-control/
+current.snapshot.private.json; nofullprojectbackup. Actualserver96 worker/
+scheduler96route/backendmounts unchanged; effectiveauth=true/autodispatch=false.
+Host project2775 ctapa6801:520, nonsymlink/no nestedmount; chenjc cannotwrite
+parent. Use existingimage, originalctapa6801:520, capdropALL/nonetwork/readonly
+root with Clinicalparentbind only for exactauthorizedchild; no permissionchange.
+Immediately require related96nativefinished/samebootgroupquiet/pathnofollow
+before exactproject deletion. No cloud query/deletion or nativepipeline action.
+Freshscopeguards only; originalFASTQlinks notfollowed/source/externalruntime
+protected. Allcurrentdeletions/newsubmission still pending at this entry.
+
+## 2026-10-02 09:35Z — new precise cleanup/newa1 authorization; nothing deleted yet
+
+Directlyread human01a0fbf4-eff4-7fe3-b50b-9986e15c236c: ifrepairdifficult,
+cleanlocal+DB andresubmit, noverification/tests. Coordinator chooses this
+simple route instead ofproducer/bundle identity development. Soleproduction
+writer remainsAF; actual96route/GATK preserved. Necessary safety/operation
+readback is partof deletion/submission, notfaultreproduction/tests.
+
+**Authorized targets, itemized beforedelete:**
+1. Offline preciseproject only /sg2/50.ctapa/Clinical/WGS_Clinical/
+   WGS_20260927D-test1_T7Hg38V4.2.3, currently ownedby3A001E. RawFASTQlinks
+   mustnotbe followed; no nestedmount traversal. No siblingproject deletion.
+2. Businessparent WGS_20261002_064003_3A001E and ownedchildren for allactual
+   attempts, to be enumerated byreal schema/PK beforetransaction. DirectDB
+   deletion explicitlyauthorized ifnoexistingnormaldeleteAPI. Audit preserved;
+   nullable externalreference may be safely detached onlyas necessary, never
+   sharedbody/history/pending deletion. Unknown externaldependencies block.
+3. Only actualbio_wgs DagRuns belonging tothat exactanalysis/allattempts,
+   enumerated fromcurrentDB/Airflow identities; noall-DAG/reset/clear.
+
+**Protected:** OBS10 andsourceFASTQ, original5 sourceSHA48f5c4fc, external
+generatedsampleinfo, externalruntime requests/history/receipts/logs, audit,
+sharedpending/referencebody/history, allotherbatches/5035B0, originalGATK.
+SFS/OBS/CM/lock destruction is notauthorized; ifacloudlockblocksnewprepare,
+reportexactobject andask, don'treuse oldA468E9 destruction authorization.
+OldA468/6C/BE cleanup andonceguards remainconsumed; do notreplay their scripts.
+
+**Recovery limits:** nofullprojectarchive orlargebackup; minimalprivate
+ownedDB/Airflow snapshot andexactoriginalsubmitfields only, actualavailability
+andhash willbe recorded. Project deletion isnotfully recoverable fromsuchrow
+snapshot; retainedinputs permitnormalnewprepare, notwholeprojectrestore.
+Nothing deleted/no newID/submit yet. One merged actualBS96 mount/gate/writer/
+path/ownedrow-Dag-reference check next, then preciseops withoutrepeatedtests.
+Aftercleanup normalPOSTonce newanalysis/a1/samebatchT7/source5/default/
+wgs-4.2.3-3f98682-perm2775; genuinephaseapprove/startonce andnativeOBSreuse,
+nevermanualskipreceipt. UnknownPOST onlyreadback. Existinguniquehourlymonitor
+switchesonlyactualnewID, nevercreatessecondmonitor. Deferredattempt>1bug is
+separatefuturedevelopment, notthisoperation. NoStep7 orotherscopecleanup.
+
+## 2026-10-02 — coordinator accepts2vs1; new producer repair authorization pending
+
+Coordinator independently accepts09:02:41Z exactdiff and96 switch completion.
+CurrentStep1 remains failed. Coordinator will ask human specifically to correct
+prepare's attempt propagation and use normal flow to generate a consistent
+execution bundle; no directpatch to frozenmaster/binding orvalidation bypass.
+Until explicit newdirection, AF onlyreadonlyhold, no furtherremotecheck/test,
+implementation/install/POST/gen/prepare/bundle/registration/deletion. Oldgeneric
+repair statements do not authorize frozenidentity rewriting. Currenta2/gen2/
+resume_2bde/wse8396/hashc730 andactual96route retained, GATK unchanged.
+Unique ACTIVE/hourly monitor andthreecards recordthis boundary; allinputs/OBS/
+prepare/originalandcurrentevidence/other batches protected. Existingexacttrace
+andactualdiff sufficient; do notrepeatprobe or faultreproduction. Fullflow
+incomplete, noStep7/cleanup. Next is human/coordinator scoped decision.
+
+## 2026-10-02 09:02:41Z — actual attempt mismatch2 vs1; bounded repair decision pending
+
+Native source-owner narrowed exactguard749 predicate; AF performed only two
+actualvalue reads, notregister_bundle orbroadsnapshot/config inventory.
+CurrentStep1gen2 requestSHAa43fb947, payload.attempt2/JSONint, analysis_idstr;
+currentprepare batch-bindingSHAd063f8c4d290d3a6dee28997293e55211dfffea3ddf6b768028fa6dc0c5757d3
+attempt2; binding.cce_bundle exactly
+/sg2/50.ctapa/Clinical/WGS_Clinical/WGS_20260927D-test1_T7Hg38V4.2.3/cce.
+master-job.yaml SHA b2d900e3932903340b4c4cc4b61dd1133f3f24f67cfd758dec38ec7ba4ff4cbd,
+metadata.annotations['cce-pipeline/attempt']='1' (str, native convertsint1).
+Actual2!=1, matching preciseerror. Prepare-generated native attempt propagation
+does not match platforma2; node-local config/hostname/OBS is notthispredicate.
+Guard checks policy/producer/canonical bundle/handoff first, but thisfailure
+is before registration writes; cannot claim allhistorical registrations absent.
+
+No payload/annotation/hash/registration/receipt/lock edits, no repeatprepare,
+newgen/a3/resumePOST, producercode/test/install orfallback. Changing either
+side to match would change frozenidentity/manifest/request and is outside this
+route-only recovery scope. Coordinator has actualvalues/trace and will decide
+minimalproducer fix/reprepare authorization. Await that decision read-only;
+currentresume_2bde/a2/gen2/wse8396 remainsnative/Airflow/platformfailed on96.
+No genuine OBS reuse/upload counts; Step2/3 untouched. Retain fullbundle/inputs/
+prepare/oldandnew evidence/other batches, uniquequietmonitor, noStep7/cleanup.
+Evidence safe new3a001e-a2-node96-attempt-binding-diff.jsonl and previously
+savedgen2workerlogae20e4e1/privatecapture. read-node96-gen2-attempt-binding.sh
+completed0; no producttests. Threecards updated, exactHEADa2a0bbc unchanged.
+
+## 2026-10-02 08:55:57Z — actual96 Step1 failed in frozen registration check
+
+Readonlycurrentgen2 evidence08:53:11Z: requestSHAa43fb947a1bc791113efe14a5ef170023eebe07af429173bfcd57e59ae10420d,
+sameactionresume_2bde7af0c92132dbc4f720ec/wse_8396c3665817d9ba27bfe45b/
+gen2/requesthashc730c8c9. Native request-side registrationSHAe49959dc;
+dispatchSHA bd9ee8ce statefinished/bootef1fa37a-19b6-4f56-82e0-84495779f6ec/
+pid3195480. BusinessstatusSHA fb204f73aa830df871315660c20beec464f99867d14211c2e9b503ba692ddce3
+failed08:49:00.999924Z; native terminalSHA5d76a16d49edea9b51e726ceda3d0335faaac93e2a522d2229e79085e2e89898
+statefailed/executionrefmatching/businessSHAfb204f73. Both correct authority
+paths are runner-requests/.../attempt-2, notcontrol_workdir. CurrentrecoveryDag
+failed08:49:15Z; startTI success08:48:51–58Z, waitTI failed08:49:02Z;
+publicplatform failed/phasefailed/5ready. Step2/3 request files absent. Thus96
+route+dispatch succeeded, butStep1business did not; not the old200SSH timeout.
+
+Exactstatus.message 'registration differs from frozen attempt'. Correctprivate
+step1_upload.worker.log2832B/SHAae20e4e16b3fcf349679cdf5a868bb6e0a69e0316e16b447653e02a86b7681dd:
+gate3497/main3426 ->adapter602/executor786/adapter570 ->gate3269/3226/2802
+->pairedrun_resume_stage298 ->gate2732 _run_transfer_stage ->gate1940
+_step_command ->paired201 stage_command ->paired242 register_initial
+->native runtime.register_bundle749 ValueError. Failure is while constructing
+transfer command, before subprocess.Popen starts it. No genuine OBS uploaded/
+reused counts; publicuploadrow106 failed with count/byte fields null.
+Do not infer source/host/attempt mismatch field before exactreadonlydiff.
+
+Next: only narrow existing frozen registration and current generated candidate
+field comparison in the installed native contract, coordinated with nativeowner.
+No runtime replay, newgen/a3/POST, status/receipt/registration/lock edits,
+privilege changes orfallback. Alloldrecords/inputs/OBS/prepare/other batches
+remain protected. Currentroute96 and approved activation are alreadycomplete.
+Coordinator receives exacttrace/evidence and requested native contract analysis.
+Safe evidence new3a001e-a2-node96-current-first.jsonl and
+new3a001e-a2-node96-gen2-error-safe.jsonl; complete privatecapture
+node96-step1-gen2-error.private.jsonl remains remotecontrol0600.
+No productcode/newtests. Uniquehourlymonitor follows this failedcurrentidentity
+and readonlydiagnosis; fullStep1–6 incomplete, noStep7/cleanup.
+
+## 2026-10-02 08:48:27Z — same-a2 normal Step1 resume POST200; current gen2 identity
+
+Exactly once normal POST /api/runs/WGS_20261002_064003_3A001E/actions/resume-stage,
+body attempt2/stage step1_upload/idempotency_key
+w423-3a001e-a2-node96-step1-resume-20261002, returns200/statusqueued.
+Action resume_2bde7af0c92132dbc4f720ec; Step1generation2;
+execution wse_8396c3665817d9ba27bfe45b;
+request hash c730c8c9eabff4febf5ba9e3575c0cfe76fe6a69746a86f7bd2435214a69c77c.
+NormalGET200 confirms same3A001E/a2/running/approved/5ready and currentDagRun
+WGS_20261002_064003_3A001E-a2-resume_2bde7af0c92132dbc4f720ec. The actual current
+Step1request agrees action/gen/execution/hash. No a3 or repeatprepare/approval.
+Gen1 originalrequest preserved via normal API history; don't copyreceipt/status.
+ActualWGSroute remains96/acb2289e+d206c0bf/SSHdf94468a; no97/200fallback.
+Helper resume-new3a001e-a2-node96-step1.sh completed0, private capture exists;
+NEVER replay it even if laternative fails. Unknown POST rule not needed here:
+response+GET+request identity are known. Native dispatch/progress/reused10 or
+uploaded0 genuine receipt not yet checked; queued response is not completion.
+Identity written here before subsequent read-only tracking. Unique monitor
+must track this exact action/currentgen2 and subsequent realstages, not oldgen1.
+Evidence local new3a001e-a2-node96-step1-resume-result.jsonl and remoteprivate
+new3a001e-a2-node96-step1-resume.private.jsonl in existingcontrolroot0600.
+Only docs/privateops changed; no producttests/code ordata cleanup.
+
+## 2026-10-02 08:44:40Z — actual96 routing complete; resume not yet sent
+
+activate-node96-route.sh completed0, session94996 closed. Fresh08:44:27Z
+public28/28 onlycurrent3A001E active; bio_wgs67/67+bio_gatk6/6 include recovery,
+queued/running0, currenta2 activeTI0. Currenta2/approved/5ready/release retained;
+originalStep1requestSHAf0720484/executiongen1/hashb574c22e and8request-side
+authorityabsence unchanged. Existing config/source/candidate/container CAS and
+both exact Compose config--quiet passed before mutation. One private activation
+intent guards this completed operation; never replay activation script.
+
+Nonroot50000:0/networknone/capdrop/no-new-privileges/singlefile manager appended
+only96Host, restored0444. ActualconfigSHA df94468ad8cb7bbc03e16327d9accdbbe259d6d29c3a2c96a1072f47303e5370,
+original200 block unchanged, no97block. workeractualSSH-G .96/ctapa300/
+strictHostKeytrue/attempts1. Two-service no-deps/no-build/pullnever recreate0:
+worker acb2289ecb7589597e4eb6b9aea29c4a19309c95f7df1917d4ad935a8cdea33f,
+scheduler d206c0bf14881a4501f5d8c152b63ce3e574dc65d378458d95f7ec192df2b70b.
+BothactualWGS_RUNNER_200_ALIAS=wgs-cce-node96, GATK=wgs-node200; everyotherenv,
+allmounts/image58195672/entrypoint/command/user identical. ActualCompose labels
+now private node96-{airflow-worker,airflow-scheduler}.compose.candidate.private.json
+under existingcontrol root. Backend/observer/other services not recreated.
+
+No native-submit or resume POST yet. Next bounded normal same-a2 Step1resume
+once, record realaction/gen/execution/hash beforetracking; no a3/prepare/
+approval/retransmission/cleanup/fallback97or200. Original config/composes and
+fullactualbefore/afterreadbacks private0600, explicit rollback only; don't
+automaticreturn200 afterwriterstarts. Do not repeat entry oractivation checks.
+One08:35:24Z actualAFkey/strict96pin VXTDQr+/rcK5x/FE90TOMa8v2/FrF4bxPQIQ2smNgXA
+→CCEentry current-ref readonlyobserve RC0/stateunknown completed previously.
+The savedcandidate helper still has two legacy97 event labels; exactcommand
+HostName172.17.61.96 and knownhostsquery96 are verified by coordinator. Labels
+are misnames only; rawlog retained unmodified, no97 activation or repeatprobe.
+
+Safe evidence new3a001e-a2-node96-route-candidate.jsonl and
+new3a001e-a2-node96-route-activation.jsonl under private localops artifacts.
+Remote node96-route-activation.completed.private.json, onceintent and original/
+candidate/readback copies remain in w423-a468e9-resubmit-20261002T0612Z-control.
+No product code/newtests/install/sourceprofile change. Threecards and unique
+monitor follow actual96/currenta2; finalStep1–6 success still pending.
+
+## 2026-10-02 08:33Z — human selects96,97 is not a backup
+
+Directly read coordinator human01a0fbbc-be31-77c0-9b85-ae32c97aa765:
+'那就切到96,97不作为备选方案'. Native reports existing96 PROD paired089
+readiness/basicOBS+CCE and seconds-level UTC,128CPU/load199.94, available348.6GiB;
+human selected96 after that risk report. No repeat node setup/copy/install/test.
+Coordinator explicitly authorizes AF solewriter to generate independent
+wgs-cce-node96/.96 from actual current originalconfig (not inactive97candidate),
+only worker/scheduler existingWGS alias, preserve GATK/allotherenv/mount/image.
+One actualAFkey strict96hostpin/CCE-entry current-ref readonly observe plus fresh
+active/sourceCAS are necessary; then approved nonroot50000 singleconfig0444
+maintenance and only2service minimal config--quiet/no-deps recreate/readback.
+Routine bounded steps need no second approval. Onlyactualscope/permission/active
+conflict stops. After actualactivation, normal same3A001E/a2 Step1 boundedresume
+once; write realaction/execution/gen/hash immediately. No newattempt/prepare/
+approval/oldcleanup/code/interface/clock/fallback97or200. POSTunknown onlyread.
+Current actualroute remains200 and noPOST until new96 prerequisites/activation;
+retained97 privatecandidates are evidence only, not a backup. Update unique
+hourlymonitor to96 target before further work; this supersedes alloldclockhold.
+
+## 2026-10-02 — no sudo password; node97 activation blocked, node96 not authorized
+
+Directly read human01a0fbb6-b195-7ce2-a0ed-69d6c66d30da in coordinator thread:
+'没有sudo密码'. Existing97 clock correction authorization remains, but actual
+calibration did not happen. Coordinator explicitly keeps97 activation/resume
+blocked and asks native alone for one readonly96 UTC/load snapshot to propose
+an alternative. No96 switching authority; AF must not generate/activate96 route,
+dispatch there, change accounts, use privileged containers or request passwords.
+Current3A001E/a2, originalprepare/approvals/input/OBS and all evidence retained.
+Actualroute still200 but no new200 dispatch; reviewed97 candidates remain
+private and inactive. Await coordinator/human next-target decision or actual
+authorized97 calibration receipt. No additional SSH/API probes by AF this round.
+Three cards and unique ACTIVE/hourly monitor record the same quiet blocker;
+coordinator/docs owner receive operational summary, product development unchanged.
+
+## 2026-10-02 08:21Z — clock correction authorized; waiting for native actual receipt
+
+Directly read coordinator human message01a0fbb1-a5b0-7ec3-9936-645f2c64346c
+reply '允许' to the precise97 clock-calibration request. Coordinator assigns
+native as sole97 clock writer and Airflow as sole route/currentrun writer.
+Exact SSH65afa9c1/worker1e5394e5/schedulere7848f3f route candidates conditionally
+approved; use prior private candidates, no recreate/regenerate/retest now.
+Native actual existing ntpdate check: sudo -n -l /usr/sbin/ntpdate returned1
+and requires password. Current noninteractive session needs sudo authentication;
+this does not prove user has no sudo permission. Existing /etc/ntp.conf names
+ntp.ubuntu.com/ubuntu pools; no service running/synchronized. Coordinator waits
+for user/admin interactive sudo /usr/sbin/ntpdate -u ntp.ubuntu.com or equivalent
+approved correction. No time modification or actual correction receipt yet;
+do not repeat sudo probes/install components/change source. No AF time/TTL/
+config/route/POST mutation. Only actual subsequent UTC readback is needed.
+After native supplies actual trusted-source/UTC/offset evidence, perform one
+fresh active/queued+current source CAS check, then only the approved owner-managed
+config+two-service route activation/readback; normal samea2 Step1 resume once.
+Unknown mutation outcome only readback, no blind retry. This replaces waiting
+for human approval with waiting for actual correction; all data protection,
+no a3/reprepare/cleanup/automatic200 conditions remain. Unique hourly monitor
+is updated by tool to the same currenta2 and current hold, never recreated.
+
+## 2026-10-02 08:15Z — node97 candidates and AF entry ready; clock approval pending
+
+**Goal/authority:** continue only W423-3A001E-NODE97-20261002, current
+WGS_20261002_064003_3A001E/a2, under direct human node97 instruction
+01a0fb91-9403-7361-9cc6-d78b05e1ab79. Airflow remains sole production writer.
+Current route is still200; no new attempt, prepare, approvals, cleanup or product code.
+
+**Completed reads:** 07:55:41Z platform28/28 complete, only current3A001E active;
+bio_wgs67/67 + bio_gatk6/6 complete, queued/running0. Normal and recovery runs
+use those same DAG IDs; no repeated API inventory. 08:03:54Z the correct shared
+request parent /sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime/runner-requests/
+WGS_20261002_064003_3A001E/attempt-2 contains the Step1 request, but these eight
+exact authority files are absent: stage-execution-registration/step1_upload/
+generation-1.json, stage-execution-terminal/step1_upload/generation-1.json,
+step1_upload.stage-execution.dispatch.json, step1_upload.status.json,
+step1_upload.worker.json, step1_upload.worker.log, step1_upload.launch.lock,
+step1_upload.worker.lock. This combines with try1 first-observe failure before
+dispatch and known normal entry ordering; absence alone cannot prove arbitrary
+external sender inactivity or shared cross-node identity. Earlier control_workdir
+file inventory is not the authority-path check. Native owner accepts this exact
+evidence; no second node200 connection or cloud inventory was made.
+
+**08:15:34–36Z production prerequisite/candidates:** ssh BS96 ->server96,
+/data/airflow-WGS, actual worker e483a853/scheduler a66f8604/backend a70599bd,
+existing RO SSH mount, gate execution/runtime true, auto false/scan true.
+Historical current resolves releases/20260912-panel-opt-4d3d24e6; actual mounts
+remain authoritative. Existing worker key fingerprint bJlLkCeK/hN8qZ+XJbLdM+
+b4i+AqpMBi/Yledt61xSw reached97 using strict existing knownhosts fingerprint
+ARZsL38eVkRdMI6Boi1YN3g1jBr0yXY5AmE5+s775N8, once ConnectTimeout30/outer45.
+Only --native-observe for current exact Step1 ref wse_6adbbcb/gen1/hashb574c22e
+was sent to /home/ctapa/.config/airflow-wgs/forced-command.sh; RC0/stateunknown,
+stdout580B/SHA6589b2cb, no native-submit. Key/pin/entry/config unchanged.
+
+Private /data/airflow-WGS/w423-a468e9-resubmit-20261002T0612Z-control candidates:
+node97-airflow-worker.compose.candidate.private.json SHA1e5394e5 (originala80e2372),
+node97-airflow-scheduler.compose.candidate.private.json SHAe7848f3f (originalbcfef115).
+Only services.<service>.environment.WGS_RUNNER_200_ALIAS ->wgs-cce-node97;
+deep comparison proves every other field identical, image58195672 retained.
+Actual source labels are unified089-wgs423-0afd253-20261001-control/
+airflow-{worker,scheduler}.v2.paired.json; original project-directory
+/data/airflow-WGS/ssh-banner-20260927-control. SSH candidate
+node97-ssh-config.candidate.private.txt SHA65afa9c1 (originalfe20c7ce) appends
+Host wgs-cce-node97/HostName172.17.61.97 with all other options from existing
+Host; original200 block remains byte-identical. Original copies are private0600.
+No actual config write, container recreation, route activation or recovery POST.
+
+**Blocker:** frozen Operator/profile do not declare storage.mode (null), and
+were not evidence of effective policy. Native owner's one precise97 policy read
+now verifies /home/ctapa/.config/airflow-common/policies/
+initial-recover-a2a0bbc-c8d07c21-v2.json SHA033a5819, actual cloud-reader.
+Previously measured97 clock is +565–566s; native guard's helper600s budget can
+therefore shrink to34–35s. Coordinator has asked human for time-calibration
+authority and is waiting. Do not change NTP/system time/TTL or launch native.
+
+**Next/rollback:** coordinator reviews exact candidates; after clock resolution,
+apply existing owner-managed exact config path (50000:0, restore0444), then only
+worker and scheduler via their candidate Compose --no-deps --force-recreate,
+preserving image/mounts/other env/GATK; obtain required current impact readback
+before activation. Normal same-a2 Step1 resume only after those prerequisites,
+record real new execution/gen/hash before monitoring. Rollback uses private
+original config bytes and per-service Compose copies, with explicit review;
+never automatically return200 after launch. No actual route rollback is needed now.
+
+**Commands/evidence:** prepare-node97-route-candidate.sh only creates private
+candidates and performs one readonly97 entry check. First helper invocation
+failed AttributeError on nonexistent Settings.wgs_execution_enabled before any
+candidate or97 SSH; corrected to actual environment gate and completed once.
+Not a product/runtime failure; no ambiguous mutation or repeated SSH call.
+Safe evidence .codex-artifacts/wgs-6c78d5-prepare-20261002/
+new3a001e-a2-node97-{switch-scope,route-authority,route-candidate}.jsonl;
+raw reply node97-af-key-readonly-entry.private.jsonl remains remote/private.
+Modified files: three state cards and private maintenance artifacts only;
+branch jiucheng/ops/WGS-6C78D5-prepare-recovery-20261002, HEADa2a0bbc unchanged.
+No product tests/additional acceptance per human direction. Coordinator/docs
+owner receive short status; unique wgs-3a001e-attempt2 monitor updated to quiet
+clock/route hold. Prepare/input/OBS/all evidence/other batches retained;
+Step1–6 incomplete, no Step7/cleanup.
+
+## 2026-10-02 07:36Z — a2 prepare/start done; Step1 observe failure and latest node97 direction
+
+Actualprepare_analysissuccess07:26:25.745938Z/SHA926bd7778959da8a3e7bc1a7d788075bc1dea52b6d85785f96925f11a91043ec,
+executionwse_23e86b6f8feb3b11f02fed96/gen1/request189d4da6. Publicreal
+execution_review5ready07:26:36Z; startPOST20007:26:36.948374Z andGETapproved,
+config/executionbothtrue. Rootsession68948 ended0. Approvals/prepare DONE,
+neverrerunapprovalhelper orprepare. Evidencea2-approvals-result/prepare-identity-complete.
+
+CurrentStep1 requestwse_6adbbcb86dc42d6115bee8f5/gen1/
+b574c22e56afaaaf915f642517a7d548ee32e5f42a8dec915decc76565d2845b,
+requestSHAf0720484e04b252a3edc7e2d72478696081a53ce33158f65575bf3b463a7f210.
+Airflowtask input_transfer.start_step1_upload07:26:45.978487->07:28:46.524623
+failed; Dag-a2 failed. ActualtasklogHTTP200/plaintext5741bytes/
+SHA20e6955e6abdd0eac460049ec3d84b8b64fc7312208715a73ba9558c690f4c0f:
+airflow.exceptions.AirflowTaskTimeout, run_stage_on_200288->native_observe548
+->run_ssh96->communicate->timeout.py69. Thiscall neverreacheddispatch branch.
+Step1 status/dispatch notobserved07:28:50; no genuineupload orreused10 proof.
+Do notclaim nooldwriter fromfileabsencealone. Platform07:36:28stillrunning/
+approved5ready, differsfromAirflowfailed; nativeexecution terminalUNKNOWN.
+Savedlogformatter initiallymisreadplaintextasJSON; correctedformatter only
+readsprivateexistingcapture, no repeatAPI/write. Privatecapture includes log
+andDag only; platformactualseparateread succeeds. Actualworker SSHconsumer
+SHA8da8ca9b CLI30; DAG13d8451e observe/dispatch120, async2min. Host300 genuinely
+fixedprepare, notthissharedpath. Budgetproposal/source-onlyaudit wasrequested
+but latesthuman below supersedes code/deploy; no productcode/test changes.
+
+Latestdirecthuman01a0fb91-9403-7361-9cc6-d78b05e1ab79 verifiedfromcoordinator:
+'node200应该是卡主了，切到97节点重新执行'. Stopfurther200dispatch; noautoback200.
+Currentonlyanalysis3A001E/a2 remainssoleAFwriter. Nativeownerreports97copied
+paired089/config/OBS/CCEready, noAFSSHrouteorcurrentrun touched. Actualroute
+NOTchanged and normalresume NOTsent. Next onepublicactiveWGS/GATK list+real
+Airflowrunning/queuedrecoveryDag inventory, frozenrequest/sharedauthority/
+nodeexactrecords withfailurecallposition; reliablequiescencebeforesecondhost.
+CheckactualAFkey97strictpin/restrictedentry, propose minimalroute/impact/rollback
+tocoordinator first; don'tglobalaliasaffectotheractiveruns, don'tnewinterface/
+failover/prepare/a3/delete/privatekeycopy/identity-lock weakening. Newgenonly
+viaexisting samea2Step1resume afterapprovedroute+actualsafety. Recordnewidentity
+beforetracking, retainallgen1/a1/oldcleanup/evidence/input/OBS/projects/others.
+
+Evidence .codex-artifacts/wgs-6c78d5-prepare-20261002/new3a001e-a2-step1-current.jsonl,
+new3a001e-a2-step1-failure-saved-summary.jsonl,new3a001e-a2-failure-state.jsonl;
+privatecontrol new3a001e-a2-step1-tasklog.private.jsonl. Uniquehourly
+wgs-3a001e-attempt2 ACTIVE; latestdirection97andreadonlyholduntilrouteapproval,
+notautomaticretry200. FullStep1–6 incomplete; noStep7/cleanup. No product
+testsrunperhuman; HEADa2a0bbc/statecards/privateopsartifactsdirtyonly.
+
+## 2026-10-02 07:18:26Z — a2 config approved; new unique monitor verified
+
+Actual3A001E/a2 reachespublicconfig_review; normalall/default configapproval
+POST20007:18:26.184111Z ->preparing_analysis/running/configapprovedtrue,
+samplecount0/scopepreparing/executionapprovedfalse. Rootsession68948 only
+normalpublicGET waitingrealexecution_review+5ready thenstartonce. No old
+prepare_sampleinfo internalstatusAPI used. Noexecutionapproval orStep1 yet.
+Newprivatecapture new3a001e-a2-approvals.private.jsonl andsafe local
+new3a001e-a2-approvals-result.jsonl; existingcapture prohibits replay.
+
+Directhuman01a0fb76-3aeb-7e40-b2cf-1468a1c4fbf2 reply'重新建立每小时监控'
+directly read. automationtoolcreateonce returnswgs-3a001e-attempt2/ACTIVE;
+savedTOML confirmsheartbeat/hourly/target01a0e728/current3A001E/a2, proper
+quietintent/finalStep1–6+results+platformAirflowfrontendsuccess/removal.
+Coordinator independentlyreadsandaccepts sameTOML. Oldwgs-test1 absent;
+do notuseoldIDupdate orcreatesecondmonitor. Newpromptreads latestHANDOFF
+beforeany action and prohibitsnextattemptwithoutconfirmation/oldscriptreplay.
+Coordinator/docsowner receivesoperationalupdate; productdevelopmentnone.
+Fullflowpending. SSH300/a2rerun/configapprove DONE; preserveallinputs/newold
+evidence/projects/OBS/others; noStep7/cleanup orrunhostswitch. No testsrun.
+
+## 2026-10-02 07:14:37Z — actualSSH300 complete; NEW current3A001E/a2
+
+Coordinator explicitly accepted exacttemporary owner-write solely to edit
+existingHost300, preserve0444 afterward. Existingcachedworkerimage temporary
+nonroot50000:0 manager/cap-dropALL/no-new-privileges/networknone/ROrootfs,
+bindONLYexactconfig (no secretparent/key mounts), onceguard/backup handshake.
+Originalbytes/meta fsynced privately beforepermit, configonlyConnectTimeout
+10->300, fsync/finally0444. Realworker ssh-G300, unchangedctapa/.200/key/
+strictHostKey/attempts1. SHAfe20c7cea844e5e8ec13be1a8c2304b4f1ecde0257850207d2d159d4f89f9943.
+No root/workflowidentity/ACL/parent/service/restart/businessdeadline changes.
+Originalconfig50000:0/0444/SHAcb7a596c retained in privatecontrol evidence
+ssh300-original-config.backup.private.json, editreceipt/readback/onceintent;
+do not replay manager. Exact rollback requires existingowner restore only
+backupbytes/meta, samepolicy, neverautomaticwhilecurrentrun active.
+
+Normalrerun_failedPOST200 ONCE07:14:37.232908Z registers actual current
+WGS_20261002_064003_3A001E /attempt2 /WGS_20261002_064003_3A001E-a2,
+submitted/preparing_sampleinfo; normalGET200 confirms07:14:37.280308Z.
+Current execution/generation/request will come from reala2 stage receipts,
+nevercopya1identities. Originalsource5/T7/batch/release retained by normalAPI.
+No further rerun/newID/deletion. Genuinea2 config/execution reviews pending;
+normalall/default configapprove once, then5readyexecution_review/startonce.
+Olda1 records/requests/failedDag/evidence preserved, noclear or status edits.
+
+Actualsettingsauthtrue/autodispatchfalse/scantrue/optionsfalse/executiontrue/
+runtimeadaptertrue, platformenvironment'Production'; mountIDs unchanged.
+Firsthelper assertion incorrectlyexpectedlowercase'production', stopped before
+API GET/POST/intent; privatecapturecontainsONLYactual_backend_gates. Source
+casefoldcorrection/newexclusivecapture preserves failure. This is maintenance
+helperfailure, not environmentdrift/productfailure, no duplicatedPOST.
+
+Oldmonitorwgs-test1 update returnedAutomation doesnotexist and TOMLabsent;
+cannotclaim ACTIVE/readback. Human newly asks're建立每小时监控' via coordinator,
+one replacementhourly will be createdforactuala2, no staleoldprompt replay.
+Currentfullworkflow incomplete. Safe .codex-artifacts/wgs-6c78d5-prepare-20261002/
+new3a001e-worker-ssh300-result.jsonl andnew3a001e-a2-rerun-casefix-result.jsonl;
+private /data/airflow-WGS/w423-a468e9-resubmit-20261002T0612Z-control/
+new3a001e-a2-rerun-casefix.private.jsonl. No producttests/code/restart/commit.
+Keep protecteddata and noStep7/cleanup; native96/97 sync excludesAFSSHsource
+and doesnotchangecurrentnode. Next onlyordinarya2 realphaseapprovals.
+
+## 2026-10-02 07:00:59Z — new3A001E transport failure; a2 approved, config write pending
+
+Only current WGS_20261002_064003_3A001E/a1/DagRun-a1; publicrun/Airflow failed.
+prepare_sampleinfo genuine success: executionwse_6c157eecd858cc9f93eec5f8/gen1,
+requestfc1d8eb03c2b7b5df07c5c0518d4c54aa612ca6bf117179c9a1a9fcb4f63286d,
+receiptfde3a92b454d40fadaef326e1f95e1a16950a20d47f047a5a37cb7a304888dfc.
+Normalconfigall/default approve200 completed. prepare_analysis registered
+wse_b4d49f091bae4d36cc726f24/gen1/request12bf12b0c70979ef33acc8f5de53b8c2fdd2454252d2329497d6f8a2262e790c,
+but native status/dispatch absent. Airflow prepare_wgs_analysis failed
+06:42:08.173348Z; actualbio_wgs.py400 RuntimeError restricted node200 WGS
+stage failed(255): Connection timed out during banner exchange. Rawtasklog
+4930bytes/SHA1f6e488077157e8ee249afc3527720e5a3f05609a2b9c561debaa09cd0801e7c.
+Execution approval/Step1 NOT started. Normal-submit script/session49455 ended1,
+not an active operation; never replay its newPOST/configapproval.
+
+Production sshBS96/server96/control/data/airflow-WGS freshly verified07:00:59Z;
+backend a70599bd/observere5c018a5/workere483a853 sameactual source/policy mounts.
+Current historicalsymlink unchanged. Actualworker /opt/airflow/ssh/config maps
+RO /data/airflow-WGS/secrets/ssh-node200-ctapa. Config50000:0/0444/non-symlink,
+SHAcb7a596ce56a81135ab24824d9ffd3229827dcf8e69997248992bfe9b9b192df.
+Worker50000:0 cannot writefile/parent; hostBS96 UID6708:520 cannot readsource.
+ssh-G wgs-node200: ctapa/.200/22, strictHostKeytrue, attempts1, timeout10,
+unchangedkey/knownhosts. Humanapproved3–5min/onlyHost300; no source update yet.
+Proposed existing-image/no-network/nonroot50000/exactfile-only maintenance
+requires transient ownerwrite0444->0644->0444; this is not inferred approved
+from 'no permission widening'. Coordinator has precise owner maintenance
+choice; no helper/write/permission change executed. No service restart/code/
+deadline/default/user/key/ACL change. Native96/97 writer excludes this source;
+this newrun continues originalnode200, no failover or seconddispatch.
+
+Human direct01a0fb6a-d7b3-7071-817a-2c29e4b69a78 answer '按现有入口创建
+attempt 2 继续' directly read; a2 authorized, not waitinghuman. Existing normal
+API has no samea1 prepare recovery: resume-stage allowsStep1–6 only; submit
+returns originalDag; no retry-prepare. After actualeffectiveSSH300, exactlyonce
+POST /api/runs/WGS_20261002_064003_3A001E/actions/rerun_failed (nobody) creates
+sameIDa2/new-a2DagRun and resets two approvals; originala1 evidence remains.
+No POST yet. If response unknown, onlyreadpublicrun/exact-a2Dag; never repeat.
+Writeactuala2/currentgeneration toHANDOFF/monitor beforecontinuation, waitreal
+config_review thenall/default approvalonce, execution_review+5ready thenstartonce.
+NormalStep1 must generate genuine newidentityreuse receipt; no fakeoldsuccess.
+
+Safe local evidence under .codex-artifacts/wgs-6c78d5-prepare-20261002:
+new3a001e-current-read.jsonl; new3a001e-prepare-tasklog-summary.jsonl;
+new3a001e-prepare-transport.jsonl; new3a001e-worker-ssh-source.jsonl.
+Private tasklog /data/airflow-WGS/w423-a468e9-resubmit-20261002T0612Z-control/
+new3a001e-prepare-tasklog.private.jsonl. Diagnostic AttributeError on old
+wgs_runtime_root setting was helper-only; it does not alter rootcause.
+Root changed statecards/private maintenance-read script only, HEADa2a0bbc,
+no code/tests/commit/restart. Usernoextra-tests supersedes testskill; no suite
+or extraSSH probe run. Coordinator/docsowner received exact issue/source.
+Current workflow incomplete; oldA468E9 cleanup is COMPLETE/NEVER replay.
+Preserve currentproject/CM/OBS10/raw/source/generatedsampleinfo/ledger/pending/
+allold+newreceipts/logs/journals/otherbatches/5035B0; noStep7/cleanup.
+Rollback: no production configchange yet; a2notcreated; raworiginalconfig/meta
+will be retained for exact ownerrestoration if the300edit is authorized.
+
+## 2026-10-02 06:40:03Z — exact cleanup complete; normal new3A001E registered
+
+NEW sole monitored identity: WGS_20261002_064003_3A001E /20260927D-test1/
+attempt1, normalPOST201, submitted/preparing_sampleinfo, bio_wgs DagRun
+WGS_20261002_064003_3A001E-a1. Same original5row sourceSHA48f5c4fc,
+WGS_Clinical/T7/FASTQcatalogroot and perm2775release. Do NOT create again.
+Active rootoperation session49455 is ordinarypublicGET wait/configapprove/
+executionapprove, eachPOST once after real phase; it does not use obsolete
+prepare_sampleinfo internalstatus. Approvals not yet received at this entry.
+
+OldA468E9 cleanup is COMPLETE: precise nodeproject+oldCM receipt17d2023f
+at06:37:54Z, scopedBS96apply06:39Z removed34owned rows and both exactDagRuns
+with404readbacks. Audit125 kept, newdeletionaudit127. Referenceoperation46
+onlynullableanalysis_id detached; allotherfields/history6 preserved, historySHA
+5a939e49a735ef2bcb0a12984274fa56cba353ab8d65c715e2e8f8b3f7830eb8;
+referencebefore90c99787/after9210be81. Protected5035B0fullrow and otherRunIDset
+verifiedunchanged. Snapshotbdb0d5f7/privateDBapplycapture retained.
+Both old nodeonceguard and DBapplyresultguard exist; NEVER replay ANY old
+deletion script. Same projectpath/CMname now belongs to the new run lifecycle;
+do not reuse oldUID/RV/binding/oldreceipt to change newstate.
+
+Only fullworkflowtracking remains; preserveOBS10/raw/source/generatedsampleinfo/
+externalold/newruntimeevidence/sharedledger/pending/otherbatches. Normal new
+Step1 must generate its own receipt and OBSreuse evidence, no fakecopy/skip.
+NoStep7, no tests/interface/nativebehavior/deployment changes this round.
+Update sameuniqueACTIVEhourlymonitor to3A001E now. Notifycoordinator/docsowner
+actualnewID; finalresult/Step1-6successfulreceipts still pending.
+Evidence .codex-artifacts/wgs-6c78d5-prepare-20261002/
+delete-a468e9-db-apply-result.jsonl and normal-new-submit-execution.jsonl;
+private fullresponses /data/airflow-WGS/w423-a468e9-resubmit-20261002T0612Z-control/
+normal-new-submit.response.jsonl. PrivateDBsnapshot cannot restore deleted
+project wholesale; raw/evidence retained, no fullprojectbackup.
+
+## 2026-10-02 06:37:54Z — exact node project and CM deletion completed
+
+Only after fresh target/procproof, completeJobs29.6866s(2unrelated/0related)
+and Pods0.1607s(0/full), execute actual cachedCM UID116498c7/RV49771514
+server-side DeleteOptions. CASreturned0, subsequentexactGETconfirmedabsent.
+UniqueCM cce-batch-lock-v2-1cd228d7a6f6ba224175a003cd45bef2 retired.
+Exact /sg2/50.ctapa/Clinical/WGS_Clinical/WGS_20260927D-test1_T7Hg38V4.2.3
+was deleted using nofollowshutil.rmtree and confirmedabsent. Its10rawsymlink
+targets were not followed; externalgeneratedsampleinfo SHAafa804 unchanged,
+uploadedsource exists and externalrecoveryjournal remainsbyteidentical40eeff46.
+Otherbatches/OBS/raw/source/sharedpending/ledger/oldruntimeevidence untouched.
+No fullprojectbackup exists and directory deletion is not fully reversible.
+
+Real nodeonceguard exists. NEVER re-run node deletion script. ReceiptSHA
+17d2023f445bca0bb5d7ce12039785eb06d66b37d87cd5ee28c903abbcd809ba,
+/home/ctapa/.config/airflow-common/candidates/initial-recover-a2a0bbc-c8d07c21/
+delete-safety-20261002T063629946592Z/exact-node-delete.receipt.private.json.
+Safe localcapture: .codex-artifacts/wgs-6c78d5-prepare-20261002/
+delete-a468e9-exact-node-cachedcm-result.jsonl. Snapshotbdb0d5f7 preserved.
+Business/Airflow deletion and newsubmit not yet done; now bounded sealedapply,
+then normalnewsubmit/config/start. No native/productchanges/tests.
+
+## 2026-10-02 06:27Z — actual cloud owner proven; Jobs read timed out before writes
+
+Nested SSH is working; userSSH175364/pts3 and ownSSH184444/notty are proven
+transport and preserved. Targetwriters0/unreadable0/oldgroupsquiescent.
+ActualCM GET4.4083s succeeds: UID116498c7-2a73-4e66-87fe-e20eb82c1e1e,
+RV49771514, stateOWNED, identityA468E9/a1, pipelinewgs,
+canonical_directory=/workspace/wgs/runs/WGS_Clinical/WGS_20260927D-test1_T7Hg38V4.2.3,
+config_digest9c16944393319495e5d6fdcdd9cac41bb17b9a97c739ba8d8a1049131c257f10,
+run_idWGS_20261001_210659_A468E9-a1; ownergeneration2/actionresume6e37/
+master_uidempty. FullCMidentity matches immutablejournalintent, so former
+takeoverCAS is now truly observed. The cloudcanonical path differs from local
+projectnamespace; exactexpected identity is retained, not relaxed.
+
+Complete namespace Jobs GET then reaches this private maintenance helper's
+15second TimeoutExpired with emptystdout/stderr. Pods were not queried.
+No operationonceguard created, no CM/project/DB/Airflow deletion or newPOST.
+This is cloud-read latency, not SSH failure. Coordinator has exact evidence
+and proposed private read budget matching existingnative30s; no product/native
+timeout change. Unknown Jobs/Pods prevents destruction; no blind reissue.
+Snapshotbdb0d5f7 remains durable and untouched. Evidence:
+.codex-artifacts/wgs-6c78d5-prepare-20261002/delete-a468e9-exact-node-result.jsonl;
+/home/ctapa/.config/airflow-common/candidates/initial-recover-a2a0bbc-c8d07c21/
+delete-safety-20261002T062613761848Z/{cm,jobs}.stdout.private.
+
+## 2026-10-02 06:24Z — SSH resolved, minimum snapshot durable, exact cleanup next
+
+Latest direct human feedback through coordinator: sshNGS ->node005 then
+ssh172.17.61.200 ->t640 works; allow3-5minute operational SSH handshake.
+We used that exact two-hop path, bothConnectTimeout300/ConnectionAttempts1/
+BatchModeyes, unchangedctapa/key/HostKey. Real identityRC0/22.623s proves
+t640/6801:520. Prior15s ProxyCommand timeouts are historical, not current
+node-unavailable evidence. Native/Airflow/business timeouts remain unchanged.
+BS96 actual mounts/gates/current oldfailed a1/gen2 match06:07:57Z.
+
+Task-private diagnostics corrected two own probe errors: nested tr quoting
+removed letterr(source->souce), before any cloud/write; CR strip now firsthop.
+Path.name(sshd process title) shortened pts/3 to3; rawargv0/Name/Uid/PPid now
+proves normal userSSHDtransport175364 and currentSSHDancestor181468. These
+transport processes are not projectwriters; shell/workerchildren remain in
+the targetcmd/cwd scan. Actual targetwriters0/unreadable0, both oldgroupsquiet.
+No userSSHsession stopped or permissions/native guard widened.
+
+Private minimum snapshot is now real andfsync: /data/airflow-WGS/
+w423-a468e9-resubmit-20261002T0612Z-control/a468e9-exact.snapshot.json,
+SHA bdb0d5f703037859996da09cc7bfb8445727d2d9f02199ef40a5abdf80909ace,
+36associatedrows(including34owned+protectedaudit125/reference46), sixhistory
+and twoDagRun/TIs. New private dir inherited2700; only this task-created dir
+had g-s removed to700, files600. No project/runtime permission changes.
+Snapshot/apply helper is split and text-reviewed only; not product-tested.
+
+CM GET actually succeeded. A taskprobe incorrectly equated cloudcanonical
+directory with local /sg2project, so stopped. Expectedidentity now comes from
+the exact original directory_lock_intents document in frozen recoveryjournal
+SHA40eeff46, recomputing its cce-batch-lock-v2 name fromcanonicaldirectory;
+this preserves fullidentity+analysis/a1/oldUID/action constraints. No native
+behavior edit. A later incorrect nativeconstructor call on journal outercontext
+also stopped before cloud/write; replaced by exact frozen intentdocument.
+
+Next single conditional nodeoperation will get actualCMUID/RV/owner and full
+Jobs/Pods, verifytarget/nofollow/rawlinks/groups/writers, then only on success
+create privateonceguard and delete exactCM with UID+RV DeleteOptions/readback,
+delete the explicitly authorized preciseproject without followingrawsymlinks.
+Unknown/conflicting facts stop before destruction. All target/protection lists
+below remain authoritative. Then apply sealed snapshot for34rows/2Dags and
+reference46 nullableFK-onlydetach, ordinarynewsubmit/all-default/config/start.
+No destruction/newID yet. No fullprojectbackup. OriginalOBS/raw/generated
+sampleinfo/externalrequests/receipts/journal/sharedpending/others protected.
+
+## 2026-10-02 05:35Z — SSH blocker, no destruction and no new ID
+
+Current goal is precise oldA468E9/test1 project+record+CM deletion followed by
+normal samebatch resubmission and both approvals, under directly verified human
+01a0fb06 authority. That authority remains valid. No repeat permission needed.
+
+Commands/results:
+- Short node identity0: t640/6801:520; actual BS96 mounts05:29:53Z unchanged.
+- First exact safetyprobe1: resolvedtarget6801:520,10symlinks not followed,
+  generatedsampleinfo unchangedSHAafa804; groups81528/106164 quiescenttrue,
+  targetwriters0, PermissionError forPID149260. No cloud query reached.
+- ExactPID readonly0:149260 existsfalse. Second same-targetprobe1 again finds
+  groupsquiet/writers0 but newPID153265 unreadable. No cloud query reached.
+- Local probe now captures Name/Uid/PPid/cmdline in same process and excludes
+  only proven current SSHtransport ancestor, handling confirmed exit races.
+  It does not weaken native locks or change permissions. NOT executed remotely.
+- Final connection session48418: bannerexchange timeout/UNKNOWN65535/255
+  BEFORE remote execution. No further SSH retry this round.
+
+Current CM UID/RV/owner/full JobsPods and PID153265 identity remain UNKNOWN;
+do not claim no cloud writer or infer SSH-ancestor identity. No private DB
+snapshot has been created, no Airflow/business deletion, no reference unlink,
+no directory/CM/OBS change and no new POST/analysis. Installed compatible
+stack retained; prior34owned/2terminalDagRun inventory is preserved. All data,
+rawsymlink targets, original source, generatedsampleinfo, external evidence,
+audit125, reference46 body/history6 and original5035B0 remain intact.
+
+Coordinator019fa8d1 and docsowner01a0b254 received blocker/evidence. Unique
+wgs-test1 hourly monitor remains ACTIVE and is updated to this authorized
+plan with at most one bounded node check per heartbeat; if SSH fails, stop
+before destructive actions and stay quiet unless new issue/state. On actual
+reachability, use latest HANDOFF and necessary exact safety facts, private
+minimum snapshot then bounded deletes/normal re-execution; no extra product
+tests/OBS prescan/interface changes or oldgen2 recovery. Monitor switches only
+upon actual newID. Full Step1-6 still incomplete; noStep7/other cleanup.
+
+Local evidence root: .codex-artifacts/wgs-6c78d5-prepare-20261002.
+Files: delete-a468e9-node-identity.jsonl;
+delete-a468e9-before-destruction-mounts.jsonl;
+delete-a468e9-node-safety.jsonl; delete-a468e9-exact-pid.jsonl;
+delete-a468e9-node-safety-confirmed.jsonl;
+delete-a468e9-node-safety-final.jsonl(empty; banner255 on command stderr).
+Only taskcards/private prepared operation scripts changed; no tests or product
+code edits. Local snapshot/apply helper preparation was interrupted at this
+SSH stop; it has no execution/acceptance evidence and must be treated as draft,
+never run automatically. The normal-new-submit.sh preparation is text-only;
+it also has not run. No rollback required for production because no mutations occurred.
+Future directory direct deletion is not fully recoverable: no full project
+backup exists; future minimum row snapshot only covers captured DB metadata.
+
+## 2026-10-02 05:30Z — exact deletion inventory and reachable node
+
+Short node probe succeeded t640/6801:520; BS96 actual code/policy mounts and
+container identities match at05:29:53Z. No destruction or new submission yet.
+Readonly live DB inventory05:15Z identifies34 owned rows: analysis_run74;
+sample5850-5854; run_action231-235; run_attempt121; run_stage_state538-541;
+transfer_file_state1607-1616; transfer_job105; wgs_execution_dispatch64;
+wgs_input_snapshot66; wgs_stage_execution224-228. These exact owned child
+FKs CASCADE. No associated OBS lease/target slot/intake/draft/onprem/childrun.
+Only two exact bio_wgs DagRuns are targets: A468E9-a1 and
+A468E9-a1-resume_6e37eb98fbdc15060fd3c32d; both failed/allTIs terminal.
+Full analysis_id prefix is WGS_20261001_210659_. Audit125 remains protected.
+
+Shared sample_reference_operation46 /06ba072c-cbb5-9ad9-3224-0fbab685a0bc
+and its history359-364 are preserved. Coordinator has directed the minimum
+association cleanup: only nullable operation46.analysis_id=A468E9 becomesNULL
+in the same bounded deletion transaction, after actual nullable-schema check.
+All other operation fields/hash and all six history rows remain unchanged;
+no source/pending/ledger body deletion or rebinding. Private minimum DB/Airflow
+snapshot still pending, no full project backup. Exact cloud CM owner/workload
+and node writer proof is currently running; unknown facts stop before deletion.
+Evidence: .codex-artifacts/wgs-6c78d5-prepare-20261002/
+delete-a468e9-live-db-inventory.jsonl, delete-a468e9-reference-association.jsonl,
+delete-a468e9-node-identity.jsonl, delete-a468e9-before-destruction-mounts.jsonl.
+
+## 2026-10-02 — direct exact project/record/lock deletion and re-execution authority
+
+Root directly verified coordinator user message01a0fb06-4417-7f01-9cae-ca31997fc25e:
+delete /sg2/50.ctapa/Clinical/WGS_Clinical/WGS_20260927D-test1_T7Hg38V4.2.3,
+delete Airflow records and batch SFS locks, then re-execute, no extra validation.
+This supersedes the archive/extra-scope hold below. No repeated approval needed.
+No interface changes, product tests, OBS fullscan/MD5 or repeated source tests.
+
+Authorized exact targets before work:
+1. Offline project directory above, direct deletion rather than archive; never
+   follow its FASTQ/raw symlinks outside the target. Entire project contents are
+   not backed up and cannot be claimed fully recoverable.
+2. Online current A468E9 analysis_run and only fresh-inventoried owned rows plus
+   exact associated bio_wgs DagRuns; no general production DB reset. Existing
+   normal record DELETE API is absent, so bounded scoped transaction is allowed
+   by this explicit DB deletion authority after private minimum row snapshot.
+3. Exact native directory CM cce-batch-lock-v2-1cd228d7a6f6ba224175a003cd45bef2,
+   only current real UID/RV/identity/owner matching A468E9 and fresh no active
+   writer/Job/Pod; unknown/conflicting facts stop before any destructive step.
+   Only this run's already-terminal transfer lease may use normal release.
+
+Protected: tenOBSFASTQ/raw inputs, sameSHA generated sampleinfo outside target,
+original source, directory-external runtime requests/journals/receipts/evidence,
+audit, all other batches/original5035B0, global scanner/source/reference/shared
+pending/global slots. Truly outside-scope associations must be reported first.
+No project archive/big backup, no cloud/SFS result deletion or Step7.
+
+Fresh minimum safety preflight will check exact host/mount/gates, node identity,
+target resolution/no raw-link traversal, current cloud UID/RV/owner and inactive
+writer/workload state, exact current DB associations/DagRun terminals. No DB/
+project/cloud deletion yet. Row IDs/counts from that inventory will be recorded
+before the single bounded delete transaction. Private row snapshot not yet made.
+Then normal API same sourceSHA48f5c4fc/five samples/samebatch/release and ordinary
+prepare/config/execute approvals are authorized. New Step1 follows native OBS
+reuse with genuine newrun evidence, no oldreceipt transplant/handmarked success.
+Observe uploaded/reused and trueSTART/Step3; update unique monitor only upon
+actual new-ID registration. Oldgen2 is never resumed.
+
+## 2026-10-02 — new-submit preflight proves protected-project blocker; no deletion
+
+BS96 actual backend/observer/worker identities, ROcode/policy mounts and gates
+match05:04:11Z. OldA468E9/a1/gen2/Step2failed, originalStep1success and all
+receipt hashes remain unchanged. Exact node stat/CM GET attempt failed at SSH
+bannerexchange255/ConnectTimeout15 before remote command execution. Coordinator
+directed no retry/new SSH diagnosis; no node operation occurred this round.
+
+At05:07:15Z a fresh BS96 mounted readonly request/binding+stat proves:
+- Original project /sg2/50.ctapa/Clinical/WGS_Clinical/WGS_20260927D-test1_T7Hg38V4.2.3:
+  exists, true directory/non-symlink/6801:520/2775; inner cce exists/sameowner.
+- Generated sampleinfo /sg2/50.ctapa/Clinical/WGS_Clinical/sampleinfo/WGS_20260927D-test1_T7Hg38V4.2.3.sampleinfo.txt:
+  exists/non-symlink/6801:520/0640/4798bytes/SHA
+  afa8049a3d0722e89b021a7556e3df42991d48249b95653a7e5a6c22fb8a4cb9.
+- Project sampleinfo.tsv has same4798bytes/SHA,0664. Original uploaded source
+  /data/wgs-runtime/runner-requests/WGS_20261001_210659_A468E9/sampleinfo-upload.tsv
+  exists and matches those bytes; it is the container runtime locator.
+- Frozen prepare retains five rows/original sourceSHA
+  48f5c4fc714cd6e1803c76a36c80f9d5b5fd86c2160891964e25dfb4c9c21fb8.
+- Exact known CM cce-batch-lock-v2-1cd228d7a6f6ba224175a003cd45bef2,
+  prior intentUID116498c7-2a73-4e66-87fe-e20eb82c1e1e; current cloud owner/RV/
+  state/writers/Pods/lease remain UNKNOWN. Intent is not current-state proof.
+
+Existing normal submission feasibility (two readonly source audits/native
+maintainer explanation): same analysisbatch/T7/release fixes same physical
+directory and OBS FASTQ project/batch prefix. API extra=forbid, no output
+override/OBS prefix/direct Step1skip; newID only changes controlworkdir. Deleted
+snapshot+existingtarget is rejected by uploaded-run create; prepare also refuses
+different-run directory identity. Alternative batch changes OBS prefix, TEST
+existing-source route is not production. No normal current path resolves this
+protected directory/lock conflict by database cleanup alone.
+
+Normal new Step1 is usable for OBS reuse after prerequisites: stat every target,
+existing classifier requires querysuccess/matching expectedsize/MD5metadata;
+if all10 pass, uploaded_count0/reused_count10 and a newrun genuine marker/receipt
+is produced. This is source capability, not fresh currentobject verification;
+classifier does not compare recomputed localMD5. No copied oldreceipt/fakePASS.
+
+Coordinator has exact missing scope: preserved archive/rename of only the named
+old project, with final exact destination recorded before execution, and only
+conditional retirement of that exact old CM after fresh complete quiescence/
+identity/UID/RV/owner proof. Human confirmation is required because AGENTS
+deletion boundary protects offline directories/cloud locks outside explicit DB
+authorization. Root does not execute that proposed archive/lock change now.
+Samehash generated sampleinfo can remain; no whole sampleinfo directory removal.
+Future actual lease/reference/global association inventory may reveal additional
+blocked targets, which must be itemized without widening this scope.
+
+No database connection or inventory query executed this round. A readonly DB
+inventory script was locally prepared but NOT run; prior count27/8-table script
+and oldbackup are never reused as current authorization. No new private recovery
+snapshot, database/Airflow deletion, file move/deletion, cloud action, newsubmit,
+runtime/lease change, tests/implementation/deployment or newanalysisID.
+Private raw artifacts: resubmit-a468e9-production-preflight.jsonl,
+resubmit-a468e9-protected-path-and-cm.jsonl (empty, SSHbanner255), and
+resubmit-a468e9-bs96-mounted-paths.jsonl in existing taskprivate artifactroot.
+Changed statecards/private readonly probes/existing unique monitor prompt only.
+Monitor API update/readback confirms wgs-test1 ACTIVE/hourly/same root target,
+new directhuman authority/nointerface/pre-delete gate/no oldgen2auto/no newID.
+
+Next: coordinator obtains precise additional protected-object scope. Until then
+retain all DB and data intact, oldgen2 is readonly; no repeat SSH or broad audit.
+After executable scope approval, fresh bounded current associations/quiescence/
+cloud identities, precise private recovery snapshot and actual targets precede
+any deletion/resubmission. Keep tenOBSFASTQ/inputs/sampleinfo/pending/results/
+evidence/all other runs/5035B0/audits. NoStep7. Full flow remains incomplete.
+
+## 2026-10-02 — direct human DB-cleanup/resubmission authority; preflight gate
+
+Root directly read coordinator thread019fa8d1-0d81-7e92-abee-8154dd1cf0a7 user
+message01a0faf6-7add-7512-9cac-648b2a3b9ab2: delete current residual database
+records, resubmit, preserve OBS FASTQ, directly skip Step1 when supported, no
+interface changes. Scope is current20260927D-test1/A468E9 only; it supersedes
+the proposed same-action interface decision hold, cancelling that development.
+Production solewriter stays root. No new implementation/test/deployment or
+mechanical native downgrade is part of this plan.
+
+Candidate online targets: exact analysis_run A468E9 plus only live-inventoried
+owned business rows/attempt/actions and exact associated bio_wgs DagRuns.
+No blanket database cleanup. Non-cascade/global reference/lease/intake rows
+must be itemized before a deletion transaction; unknown dependency blocks.
+Any DB query uses authorized bounded read-only inventory; deletion has not
+started and requires an executable normal resubmission path first. No private
+new recovery snapshot exists yet; do not claim backup or reuse old no-backup
+authority/history hardcoded6C78D5/BE4F5F deletion scripts.
+
+Protected: all other analyses/original5035B0/audits, original five-sample source,
+ten FASTQ/OBS objects, SFS/projects/sampleinfo/pending/results/evidence and
+their copies, exact native journals/CM/cloud locks. Database authorization does
+not authorize deleting/moving/rebinding those objects. Same-batch existing
+project or conflicting native owner must be reported before any DB deletion;
+coordinator explicitly requests no partial irreversible cleanup.
+
+Next authorized work: fresh BS96/server96 control/mount/gates and node200/t640
+ctapa6801:520 preflight, only current run metadata counts/IDs/dependencies;
+check existing platform project/sampleinfo, writers and scoped cloud objects;
+confirm normal new analysis and genuine OBS verification/reuse with zero upload
+when available. Do not fake Step1success or transplant old execution receipts.
+Update existing unique monitor to this plan; oldgen2 never auto-replayed.
+Only actual new-ID registration changes monitored identity. No deletion/POST yet.
+
+## 2026-10-02 — generation2 transport timeout, durable intent; same-action hold
+
+Goal: follow only A468E9/a1 Step2 current gen2 and determine precise failure
+and safe existing recovery path. Current identity is execution
+wse_f84956f4d8c99f9a5881061e/action resume_6e37eb98fbdc15060fd3c32d/request hash
+44ffd18feb430304747ff5a60c389578c357fffe81a6ee2b34a9f0a26feb5703.
+Native business receipt54becc420195f44483d917c6992f31afd6a1eb340f014db4ed8e49eeb09e86e0
+failed04:22:26.529666Z. Actual BS96 mounts/gates match04:36:41Z; platform and
+recovery DagRun/submit_step2_master are failed; downstream upstream_failed.
+release_leases alsofailed; lease release is not proven. Step1 originaled0959d7
+is unchanged10/10,522508028738bytes and Airflow waitStep1 succeeds by reuse.
+
+Exact current traceback was separated from frozen2374-byte gen1 prefix:
+worker6170bytes/SHA4e6bd59a, currentdelta3796bytes. Native caller2149 is the
+second check after claim; probe_initial_workloads369/_live_inventory208 first
+run-label JobList -> _recovery_query182. This exact branch is TimeoutExpired
+(30second bound), not a nonzero stderr classification or old deadline mismatch.
+Native did not retain that exception's raw output. Fresh exact first query
+04:38:20Z was RC0/0.1405s/119bytes SHA7a779468, complete List0items, stderr0.
+Do not claim the original timeout was reproduced or all CCE routes are healthy.
+
+Correct recovery journal is control_workdir/recovery-resume_6e37eb98fbdc15060fd3c32d.json,
+SHA40eeff46f4ff133af2ebfbd16c087fbbce4e810b610fce25269bfe900a6911c3,
+3235bytes/state view_intent/no replacement_uid/no recovery_handoff_deadline.
+Its registered_source is
+/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime/runner-requests/
+WGS_20261001_210659_A468E9/attempt-1/submission-wse_1fd307e0dd889fecc284a93a/view.
+There INITIAL_SUBMISSION_ABORT.json exists4804bytes/SHA
+6f1978038b31d794b417eedef8af4729754ff56b057cb164ac7c46afce0e49e7.
+Original handoffJOB_CREATED SHA98a17314 retains UID88dcdfa3-bbcb-4e91-aa64-f51299f3275a;
+originalCREATEintent SHA c3ed0b40 preserves its exact old deadline. Selected
+gen2 view exists but its CREATE intent/handoff do not. Earlier missing-journal
+or missing-abort conclusions used wrong locators and are superseded here.
+
+Durable takeover intent token6966eb278cfffefb26182ffcdd44f1c60c45438fae0804272b1b12243e7914da
+records CM cce-batch-lock-v2-1cd228d7a6f6ba224175a003cd45bef2,
+UID116498c7-2a73-4e66-87fe-e20eb82c1e1e/RV49630508, target owner
+{generation:2,action:resume_6e37eb98fbdc15060fd3c32d,master_uid:''}.
+Actual current CM owner/RV was not GET-verified; intent is not CAS result proof.
+DispatchSHA41afb9f1 statefinished/execution_ref matches currentgen2. Runtime
+identity boot55c5cb46/pid&group106164/startticks3082713550; same current boot,
+PID absent and killpg(group,0) raises ProcessLookupError, groupquiescenttrue.
+Exact Master GET04:41:55Z RC0/6.5653seconds/empty. Run-label Pod GET executed
+and raw files exist privately, but summary failed before displaying its count;
+Pod state/full namespace inventory and actual lease holder remain UNKNOWN.
+
+Two independent static audits of unchanged mounted backend/gate/native agree:
+same-key resume-stage returns queued action history; business failed guard and
+StageExecutor same-ref terminal cache prevent re-entry. resume/rerun_failed add
+an attempt. Existing API provides no terminal-failed same-a1/gen2/action native
+reconciliation. Coordinator/native received accurate facts and will converge
+the minimum new contract scope with human; root does not develop/deploy it now.
+Coordinator latest instruction stops further SSH/query expansion. Modified
+supplemental probe is NOT executed. No POST/newaction/gen3/clear, receipt/journal
+or lock change, native/core/permission/timeout/budget change, tests or deployment.
+Compatible reviewed pair remains installed. Preserve all data/evidence/Step1.
+
+Private evidence root .codex-artifacts/wgs-6c78d5-prepare-20261002 contains
+initial-recover-generation2-terminal-backend.jsonl,
+initial-recover-generation2-cce-first-query.jsonl (failed diagnostic beforequery),
+initial-recover-generation2-cce-exact-query.jsonl (actual successful singlequery),
+initial-recover-generation2-durability.jsonl (accurate phase/abort/process/trace
+and exactMaster; diagnostic TypeError after private Pod output capture).
+Node private raw query files are in candidates/initial-recover-a2a0bbc-c8d07c21/
+gen2-query-diagnostic-20261002T043820579359Z and
+gen2-durability-20261002T044148572832Z, modes0700/0600. Diagnostic TypeErrors
+and missing view config locator are root probe defects, separate from native
+30second timeout. Retain failed probe outputs; no result/evidence deletion.
+
+Changed only state cards, private readonly scripts and the unique monitor prompt.
+Unique wgs-test1 automation update succeeded and saved TOML readback confirms
+ACTIVE/FREQ=HOURLY;INTERVAL=1/same root target, current gen2 failed+view_intent
+and coordinator hold. State doc diff --check passed; no implementation tests.
+Next: ACTIVE hourly read-only checks of current identity/terminal state, notify
+only substantive change. Hold original journal/action pending coordinator/human
+direction. FullStep1–6/result/platform-Airflow success remains pending; noStep7.
+
+## 2026-10-02 — current gen2 execution registered/running, native START pending
+
+First backend/Airflow read after unique POST: analysis running, attempt1,
+DagRun WGS_20261001_210659_A468E9-a1-resume_6e37eb98fbdc15060fd3c32d running.
+Step1 wait task succeeds by reusing its unchanged uploaded results; Step2 task
+running, Step3 not yetstarted. Legacy submission_phase remainsfailed; no prepare
+interface queried or phase repaired by hand.
+Node true observation04:17:49Z confirms current Step2generation2,
+execution_id wse_f84956f4d8c99f9a5881061e,
+request_hash44ffd18feb430304747ff5a60c389578c357fffe81a6ee2b34a9f0a26feb5703,
+request rawSHA3a493e472fba206e1ee3fdcbbeb3eda70d274160ef03922eb7b603a1a9c76af1,
+running business receipt updated04:16:55Z/rawSHA
+7b18b91b36ddbcc1794048f05f97c02d8e10cc6fb58882475d64568c62bcb17b.
+Submission journal for current execution is not yet present at sampled location;
+no Master UID/START/Step3 claim. Follow normal progression read-only, keeping
+exact current identity/action above. No duplicate dispatch or recovery POST.
+
+## 2026-10-02 — unique normal API Step2 resume returned200/current generation2
+
+Coordinator read and accepted full deployed pair/closed imports/final OPEN
+receipts, then explicitly approved the reviewed resume-initial-recover-step2.sh.
+Executed one normal operator-authenticated API POST via BS96/backend, retaining
+existing run/attempt/release/five samples/workdir/Step1. PrePOST actual mounts,
+auth/execution/runtime/auto gates, faileda1/no action, originalStep1success SHA
+ed0959d7 and Step2failedgen1 SHA228a420e matched. Body only
+{attempt:1,stage:step2_master,idempotency_key:w423-a468e9-initial-recover-20261002-step2-a1}.
+Response200 at2026-10-02T04:14:23.387455Z: A468E9/attempt1/step2_master/generation2,
+action_id resume_6e37eb98fbdc15060fd3c32d,statusqueued. Private original
+`initial-recover-step2-api-response.jsonl` preserves exact intent/response.
+
+API queued is not native START or workflow success. Follow the current gen2
+action through exact execution/request/hash/newUID/abort pending-owner CAS/real
+START_CONFIRMED and Step3 rule activity. Do not repeatPOST, prepare, upload,
+forceall, changeattempt/input or touch manual pending/locks. Existing initial
+oldgen1 evidence and all results/FASTQ/other batches remain protected. Deployed
+compatible stack now must stay; rollback only with explicit new-evidence
+compatibility proof, no mechanical native downgrade. Keep hourly monitoring.
+
+## 2026-10-02 — true paired install/import/select receipts; Step2 POST pending
+
+Native maintainer handed back the production writer window after real RC0
+installation node0056708:520,04:07:31Z→04:07:52.080730Z. ReceiptSHA
+0a5ee40c95ad672d186f536bd27ee2170dbd2b3db63ce2ba0ed6121c557aca23 is readable at
+/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/w423-a468e9-initial-recover-20261002/provenance/native-initial089-install-receipt.json.
+Installed cce-pipeline089/c8d07c21 from exacte502 wheel, native bootb928. Native
+readback covers full package/RECORD/dist-info/console/28 unchanged files and197
+dependency version/name inventory. Exact historical sidefile5a344655/69991bytes/
+6708:520/0644 remained in place and in full private tar, approved single mapping.
+Private backup install-rollback-2 tarSHA
+deee3d59584a777ded3d423010375f8a9bc133ed0c91d0e1946f46f764c49193,
+beforebd177fdb86c5565604759d4dbf9243283e09a33a0bb4e5fa81d9b25b5ed9787e,
+aftercdd2279152946bb909597f05693d8ebac12f4bee8bb5313323b965260987fafa.
+First failed preflight/logs were retained; no file deletion or broad allowlist.
+
+Airflow then verified all staged17 common+3 original source-data+28 unchanged
+native+4 unchanged env+new source/build/console/dual boot/policy bytes at04:09:36Z,
+five wrappers still maintenance-closed. Four actual WGS/GATK PROD/TEST gate and
+paired selected_runtime imports succeeded04:09:43Z–04:10:07Z in the unchanged
+real Python3.9 environment; no stage/API call. Raw proofSHA
+211287bf23b8efa2276c73a08c07b659f2e7af2e190772c5557b2d8a8b0103b8.
+Only afterward04:10:46.568924Z each of the five exact wrapper paths CAS from
+maintenanceSHA to reviewed newSHA withfsync/readback/0700/6801:520. AdmissionOPEN.
+Pair result onnode: candidate initial-recover-a2a0bbc-c8d07c21/pair-selected-receipt.json.
+Local raw initial-recover-pair-closed-verification.jsonl and
+initial-recover-pair-selected.jsonl are private under existing task artifact root.
+
+Coordinator has the complete deployed receipt and exact planned normal POST:
+/api/runs/WGS_20261001_210659_A468E9/actions/resume-stage,
+{attempt:1,stage:step2_master,idempotency_key:w423-a468e9-initial-recover-20261002-step2-a1}.
+Wait for receipt review/unique POST GO, then recheck actual BS96 mounts/gates/
+current faileda1gen1/no action/oldStep1+Step2 receipts before dispatch. No recovery
+POST has occurred. Preserve all data/old evidence/successful Step1; no service,
+profile, image, backend/DAG/UI/API/DB or biological workflow change. After durable
+newgen, keep compatible candidate; do not mechanically downgrade. Continue full
+Step1–6 receipts/results monitoring and retain hourly automation; no Step7.
+
+## 2026-10-02 — native pre-install inventory rejection; hold closed window
+
+Native owner received coordinator installer GO, then STOPPED at before-fingerprint
+on pre-existing extra `cce_pipeline/assets/cce_delivery.py.before-handoff-step6-20260912`.
+Owner reports no pip/tar/native-bootstrap mutation, still original native1f5/
+bootstrap9e36; e502/f843/b928/helper pins match. First before.json is empty and
+retained as failed evidence. No deletion or unexpected-file guard relaxation.
+Native owner only reads this single extra's exact SHA/owner and known formal
+source provenance for coordinator review. Airflow keeps five entrances closed
+and performs no production writes/API call until install handoff returns.
+Actual current run remains failed/a1/gen1, Step1 success retained. This is an
+installation gate issue, not a workflow rerun or evidence repair. Next use a
+precise preserved-file mapping if coordinator accepts the original evidence;
+otherwise restore original entrances only after original full-pair validation.
+
+## 2026-10-02 — actual maintenance closed; native install-only handoff requested
+
+Coordinator explicit close-window GO was executed. Real observation
+2026-10-02T03:58:27.085618Z: five exact wrapper files atomically CAS from old
+SHA to task maintenance bytes, mode0700/6801:520; fsync/readback completed.
+Admission CLOSED. Full before/after process inventories show related writers0,
+unreadable0; all unchanged collectors and accepted remote SSH client remain.
+Receipt is `/home/ctapa/.config/airflow-common/candidates/initial-recover-a2a0bbc-c8d07c21/maintenance-closed-receipt.json`;
+raw local `initial-recover-maintenance-closed-final.jsonl` is private. Original
+native089 source/bootstrap/envs still unchanged, no recovery POST/new generation.
+Fresh BS96 mounted services/gates/current run receipt check03:51:41Z passed.
+
+Coordinator has received exact receipt and is to grant installer explicit GO.
+Native owner prepared its narrow script cbbd9f30 and holds direct CLI admissions.
+Airflow now pauses production writes until install-only handoff returns. Native
+maintainer6708 may only snapshot old exact089 package/dist-info/console/boot,
+install maintained e502 wheel and publish exact b928 native bootstrap. Airflow
+then verifies full pair and four direct readonly imports while five entrances
+remain closed; normal wrapper CAS is final reopen step, then deployment receipt
+review before one normal same-attempt Step2 recovery API. No permission widening,
+other batch/data/lease/profile/Step7 change. Rollback ordering is final packet.
+
+Retained failures: first close connection banner255 caused no remote execution;
+retry inventory exit1 before any write because own parent timeout was classified
+as shared consumer. Verified exact direct PPID/6801/exe/usr/bin/timeout and exact
+timeout60s/python-I-B- argv, records it as control_parent while retaining every
+other process. Next attempt closed successfully. No unrelated process exclusion,
+termination, repeated task or lock bypass. Exact scripts/stdout/errors retained.
+
+## 2026-10-02 — inactive paired release staged; authorized maintenance close next
+
+Final manifest f4985301116d1f93748821e2d867e97839e95f36c09d39a2830a8a7df629f3c6
+was accepted by coordinator, including correct forward/rollback ordering:
+complete direct readonly pair validation occurs while all five wrappers remain
+closed; restoring normal wrappers is the final reopen step. Coordinator gave
+explicit maintenance-close GO after reading real03:49:14Z inactive staging.
+This uses existing human repair/rerun authorization; no new batch/input/core
+workflow or privilege scope. Airflow closes/selects wrapper gates and calls API;
+UID6708 native maintainer receives only wheel/native-bootstrap install window.
+
+Inactive staging now real/readback successful on t6406801:520. Three collector
+leaf hashes match554f3edc (PROD/TEST heavy) and199e9896 (TEST BSS); their exact
+sources do not import changed native/platform runtime. PID264659 is an SSH
+client, accepted by coordinator; no further investigation. Collector processes
+remain running. New source-data/closure/policy/wrapper/rollback bytes are private
+and immutable; active old wrappers/env/native source/bootstrap remain unchanged.
+Native bootstrap controlled source is available to6708 at manifest exact path
+/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/w423-a468e9-initial-recover-20261002/airflow-pairing/native-bootstrap-b928a9df.json,
+SHA b928a9df,0600,observed03:48:43Z. Native owner's provenance alias has identical
+bytes and may be used without rebuilding. BS10610 actual mount/gate preflight
+passed before this evidence-only write; no package install or test rerun.
+
+Fresh BS96 production preflight03:51:41Z matches actual mounted services/gates;
+A468E9 still failed/a1/gen1/five samples, Step1 and Step2 raw receipt SHA unchanged.
+No recovery POST. Next planned authorized write is precise five-wrapper CAS to
+task maintenance script exit78, with fsync/readback, followed by complete fresh
+related process inventory. Only that real closed/idle receipt grants installer
+GO from coordinator. Other runs/data/results/leases/package permissions retained.
+
+Preparation failures: source evidence subdir inherited setgid2700, which exact
+700 assertion rejected; accepted unchanged permission bits700 without chmod.
+New inactive candidate py was masked0600 by umask077; verified exact task-only
+bytes/owner, completed intended0644 and made new-file fchmod explicit. These are
+new staged code/evidence paths, not widening package/private-env/data access.
+All original failure outputs retained; repeated operation then succeeded.
+
+## 2026-10-02 — exact initial recovery rollout packet; consumer window pending
+
+Goal remains W423-A468E9-INITIAL-RECOVER for A468E9/a1, retaining successful
+Step1/original five samples/old gen1 evidence. Source phase ended at a2a0bbc4.
+No further source tests or design were performed. Independent readonly rollout
+audit confirmed strict bootstrap/policy schema and exact console requirement.
+
+Captured actual common/wrappers/policy/dual bootstrap/old source bytes on t640,
+ctapa6801:520 at03:29:58Z:26 public-code/config files, no env contents. Private
+`initial-recover-closure-snapshot.json` derives from the prior full fingerprint.
+Built `initial-recover-a2a0bbc-c8d07c21/deployment-manifest-v2.json`, SHA
+d2231e9dc46ba5705fd3ac2fec8dc46d6a939777676968327c8fd3ae5054e8ab.
+All16 common py inherit actual bytes except reviewed six; new immutable root
+/home/ctapa/.config/airflow-common/releases/initial-recover-a2a0bbc-c8d07c21/scripts.
+Three original paired/native/executor source-data files retain exact raw SHA.
+Dual bootstrap b928a9dfd40f24787e6f896d36c2fa1e5f3216f07d3220ff51d34ed29ab6a0a6;
+policy033a58198b5cb8c9140fda1bfd89c150d1fe173cf2bb7bf4548793dcafec5ace.
+Five wrapper path-only replacements and original byte rollback copies are in
+the packet. Four env/private configs remain untouched. Native maintained e502
+wheel and original f843 wheel pins plus38 original package/dist-info hashes
+are included. Original089 rollback must restore exact dist-info/console/boot
+backup bytes; after durable newgen, compatible roll forward unless downgrade
+compatibility is proved. No file deletion.
+
+Supplemental consumer read03:36:45Z (`initial-recover-consumer-classification-retry.jsonl`)
+records console d9c091b8ed2c083a523171154f12b26a1b88edeb99587a354696ae65e7eefd6a,
+6708:520/0755, exact nipttest shebang. UID6777 PID264659/start2693093527 is argv
+program `ssh`, with no shared runtime reference; destination still needs proof.
+Three nipttest collector scripts show no changed runtime references but dynamic
+import targets need final classification. Do not declare full idle from this
+partial evidence. Shared package not writable by6801; coordinator is arranging
+UID6708 bounded install-only handoff. Airflow remains sole selector/API writer.
+
+Commands: readonly fetch initially exit1 at regular-file assertion because
+common contained a cache directory; filter regular files as original fingerprint
+then succeeded. Two supplemental SSH connections failed banner exchange/255
+before remote execution; both sessions terminated. One bounded retry succeeded.
+No application failure, package install, selector change, stage or recovery POST.
+No remaining SSH process/session is awaiting output. Exact script/output files
+are private in .codex-artifacts/wgs-6c78d5-prepare-20261002; no patient data or
+credentials were printed. Coordinator received packet and remaining gate facts.
+
+Next: final bounded consumer classification; inactive staging and complete
+fresh idle/admission gate; coordinator exact deployment review; close all five
+wrapper admissions while6708 installs paired wheel/native bootstrap, then sole
+Airflow selects wrappers and accepts readonly pair receipt before one normal
+same-attempt Step2 recovery. Current A468E9 remains failed/a1/gen1; full flow
+incomplete. No Step7, cleanup, prepare/profile repeat or other-batch action.
+
 ## 2026-10-02 — initial consumer accepted; rollout pending, current run unchanged
 
 W423-A468E9-INITIAL-RECOVER uses verified human authorization below. Native fixed

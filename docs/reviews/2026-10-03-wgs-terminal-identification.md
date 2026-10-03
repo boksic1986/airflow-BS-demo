@@ -235,6 +235,36 @@ under the same operator-evidence task root. No Step7 or cleanup.
 
 ## Final blocked scope and version correction
 
+This dated stop was superseded only by direct human message
+01a0ffab-054f-7170-a502-864619e930a6 authorizing the existing trusted SFS
+reader and normal original-attempt rerun. No source, tests or deployment followed.
+At03:13Z one narrowed readonly native reader retrieved alias and original UID
+archive separately. Both contain identical RUN_FAILED e6245528, START8da61764
+and FINAL65691ba7 for eb02/cf2/nativegen1. Actual native final validation passed,
+and native writer published mirror2f83a6cc; the full old4f0d mirror is preserved
+privately. The reader was retired with exact UID/RV and03:16 readback confirmed
+Job absent/Pods0. Thus SFS did emit the failure receipt; the previous local mirror
+had missed its terminal refresh. At03:17:19Z one normal same-a1 Step3 request
+returned200/queued: action4d7613, generation3, executionwse_a8c703f0c3c1e6491e74cad8,
+hashfd1b03b8, original deadline unchanged. START is still pending verification.
+Automatic monitoring remains stopped; no repeated POST or new attempt is allowed.
+
+The single request later failed at03:19:52Z with exact actual bfa1447
+`Master confirmation identity mismatch` (messageSHA39f39516), not the previous
+final-evidence check. The append-only worker log keeps both old and current
+traces; current final trace reaches paired1217/native2219/1420/1447. AF and
+platform are failed. The03:22/24 START_SENT journal readings were after this
+failure and are stale control observations. A scoped read at03:29 proves new
+Mastercb75/Pod6714 still active/Running while host1303859 is absent. At03:30:56
+the exact owned Pod's real START24a224a6 matches every expected identity key,
+nativegen2/platformgen3/wsea8c/hashfd1b/action4d. Its confirmed epoch is
+03:20:10.599824Z, within its handoff deadline and18.326s after the host failure.
+Cloud START is real; platform recovery and full workflow completion are not.
+An old-alias handshake race is a supported inference; the bytes observed at the
+failure instant were not recorded. No automatic attachment, new request, code,
+deployment, marker/status/lock change or workload deletion followed. Further
+writes are stopped pending a precise direction; automatic monitoring stays off.
+
 Coordinator's native contract conclusion: bfa has an internal SFS reader through
 _collect_step3_evidence(require_terminal=True). Public CLI has no force-refresh;
 ordinary Status/Resume may reuse a complete, nonterminal mirror when the Job is

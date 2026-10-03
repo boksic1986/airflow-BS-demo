@@ -1,5 +1,22 @@
 # Workflow runtime integration
 
+## 2026-10-03 trusted split-root WGS producer lookup
+
+The pinned paired adapter may supply the native guard's existing internal
+writer/resolver entry points with an optional zero-argument
+`recovery_control_root` callback. It revalidates the original registered request
+bytes, digest and control directory before returning its fixed canonical Path.
+The immutable registration remains unchanged. Initial submission journals are
+restricted to its registered spool; WGS recovery journals use only the trusted
+control root. Default None preserves the prior single-root behavior.
+
+Failed observer references are followed through authenticated request history,
+with decreasing generation, same analysis/attempt/stage/control/deadline and
+original-byte rechecks. The terminal compute producer remains the source of
+Step4's native binding. No direct skip, journal migration or public schema is
+introduced. See [the scoped release](releases/2026-10-03-dtest1-downstream-twofix.md)
+for actual verification limits and deployment status.
+
 ## W423 ACK monitor reconnect (2026-10-03, source candidate)
 
 For WGS only, an authenticated new same-attempt Step3 observer may reconcile
@@ -2199,4 +2216,3 @@ surround the native `_finish_master_handoff` / persistent ACK read. This does
 not resend START or create a Master, rewrite the created journal, reopen the
 old observer terminal, or rerun successful rules. The normal new observer within
 the same attempt confirms Step3 and proceeds to Step4–6.
-
